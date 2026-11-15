@@ -57,6 +57,7 @@ Needs Python Playwright and Chrome, plus Node for the mock backend.
 ```
 python3 tests/play.py            # every level of every island, two phone sizes, class mode, audio levels (about 10 minutes)
 python3 tests/play.py --quick    # island 1 only in each mode (about 3 minutes)
+python3 tests/play.py --laptop   # island 1 with a mouse at three laptop window sizes
 python3 tests/play.py --shots out/   # also save a screenshot of every screen
 ```
 
