@@ -15,10 +15,11 @@ export const preload=list=>Promise.all(list.map(img));
 export const CORE=['pill','pill_green','pill_coral','pill_blue','pill_cream','sign','label','ribbon','scroll','star','star_off','lock','crab_wave','crab_happy','crab_oops','crab_walk','crab_listen','crab_star','bubble_0','bubble_1','bubble_2','bubble_3','plank_0','plank_1','plank_2','plank_3','plank_4','lamp','trophy','chest','fork','conch','bottle','ic_gear','ic_note','ic_speaker','ic_book','ic_bridge','ic_check','ic_x','ic_arrow','ic_door','ic_signpost','compass'].map(SP);
 
 /* ---------- background layers (cross-fade) ---------- */
-const layers=[...document.querySelectorAll('#bg .bgl')];let cur=0,curBg='';
+const layers=[...document.querySelectorAll('#bg .bgl')],backdrop=document.getElementById('backdrop');let cur=0,curBg='';
 export function setBg(name,pos){
  const key=name+'|'+(pos||'');if(key===curBg)return;curBg=key;
- const nxt=layers[1-cur];nxt.style.backgroundImage=`url(${BG(name)})`;nxt.dataset.pos=pos||'bottom';nxt.classList.add('on');layers[cur].classList.remove('on');cur=1-cur}
+ const nxt=layers[1-cur];nxt.style.backgroundImage=`url(${BG(name)})`;nxt.dataset.pos=pos||'bottom';nxt.classList.add('on');layers[cur].classList.remove('on');cur=1-cur;
+ if(backdrop)backdrop.style.backgroundImage=`url(${BG(name)})`}   // wide screens: the same scene, soft, fills the window around the board
 /* maps a point of the 752x1344 background art to stage pixels for the two fits we use */
 export function bgMap(fit){const W=stage.clientWidth,H=stage.clientHeight;
  if(fit==='bridge'){const s=W/BGW;return{s,ox:0,oy:H-BRIDGE_H*s,W,H}}

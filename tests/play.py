@@ -18,6 +18,7 @@ MOCK = os.environ.get('MOCK', os.path.join(ROOT, 'tests', 'mock.js'))
 CHROME = os.environ.get('CHROME', '/usr/bin/google-chrome')
 QUICK = '--quick' in sys.argv
 VOICE_ONLY = '--voice' in sys.argv
+LAPTOP = '--laptop' in sys.argv   # island 1 with a mouse (no touch) at two laptop window sizes
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else None
 PORT, API_PORT = 8791, 8765
 BASE = f'http://127.0.0.1:{PORT}/index.html'
@@ -277,7 +278,7 @@ async def play_level(pg, isl, typ, **kw):
 
 
 async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
-    c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2, has_touch=True, locale='he-IL')
+    c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=1 if LAPTOP else 2, has_touch=not LAPTOP, locale='he-IL')
     pg = await c.new_page()
     await pg.add_init_script(speech)
     await pg.add_init_script(clip_stub(clips))
@@ -621,6 +622,14 @@ async def main():
     try:
         async with async_playwright() as p:
             b = await p.chromium.launch(executable_path=CHROME, args=['--no-sandbox', '--autoplay-policy=no-user-gesture-required'])
+            if LAPTOP:
+                await local_run(b, 1366, 640, False, errs)
+                await local_run(b, 1536, 730, False, errs)
+                await local_run(b, 1920, 950, False, errs)
+                await b.close()
+                check('no page errors, console errors or failed requests', not errs, errs[:6])
+                print(f"\n{'ALL PASSED' if not fails else str(len(fails)) + ' FAILED: ' + '; '.join(fails)}")
+                sys.exit(1 if fails else 0)
             if not VOICE_ONLY:
                 await local_run(b, 390, 844, not QUICK, errs)
                 await local_run(b, 360, 740, False, errs)
