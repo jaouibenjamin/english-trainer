@@ -44,7 +44,9 @@ With `config.js` empty the game still works, without login, and progress stays o
 - Pupils open the site, type the class code, their first name and a 4-digit code they choose (the first time they pick
   "פעם ראשונה" at the top of the form, afterwards "יש לי קוד"). No email.
 - The teacher screen is at the bottom of the login screen ("כניסת מורה") or at `#teacher`, and needs the teacher code from the `config` tab.
-  A pupil gets the red tag when fewer than 10 words are learned or after 3 days without practice.
+  Each pupil's card leads with stars (out of 66) and levels played; words learned and stories without a mistake are secondary.
+  A pupil gets the red tag when 30% or more of their answers were wrong, or after 3 days without practice.
+  After changing `backend/Code.gs`, paste it into the script again and deploy a new version (Deploy > Manage deployments > edit > Version: New version).
 - The leaderboard shows the podium, the top five and the pupil's own place; nobody is listed as last.
 - To reset a pupil's forgotten code, delete their row in the `kids` tab; they register again.
 - Points: 10 for a correct answer on the first try (4 after a mistake), 15 per star when a level is finished,

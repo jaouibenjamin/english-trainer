@@ -176,15 +176,22 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
  const D=V.data,he=Object.fromEntries(WORDS.map(w=>[w.en,w.he]));
  /* days since the pupil last practised (null = never) */
  const idle=d=>{const p=String(d.day||'').split('-').map(Number);return p.length===3&&!p.some(isNaN)?Math.floor((Date.now()-new Date(p[0],p[1]-1,p[2]))/864e5):null};
- /* the coloured tag is kept for pupils who really need a nudge: fewer than 10 words learned, or no practice for 3 days */
- const tag=d=>{const n=idle(d);return n===null?['r','עוד לא התחיל/ה']:d.words<10?['r','צריך חיזוק']:n>=3?['r',`לא תרגל/ה ${n} ימים`]:d.words>=40?['g','מוכן/ה']:['n','בדרך']};
+ /* the coloured tag is kept for pupils who really need a nudge: many wrong answers, or no practice for 3 days.
+    A backend that does not send stars yet (older deployment) falls back to the words-learned rule. */
+ const NL=ISLANDS.reduce((a,i)=>a+i.levels.length,0),hasStars=d=>typeof d.stars==='number';
+ const tag=d=>{const n=idle(d);if(n===null)return['r','עוד לא התחיל/ה'];
+  if(!hasStars(d))return d.words<10?['r','צריך חיזוק']:n>=3?['r',`לא תרגל/ה ${n} ימים`]:d.words>=40?['g','מוכן/ה']:['n','בדרך'];
+  return d.tries>=15&&d.miss/d.tries>=.3?['r','צריך חיזוק']:n>=3?['r',`לא תרגל/ה ${n} ימים`]:d.stars>=MAX_STARS*.8?['g','מוכן/ה']:['n','בדרך']};
  view.innerHTML=`<section class="scr teacher wide">${top('מסך המורה',back)}
   <div class="panel label"><h3>המילים הקשות לכיתה</h3>${D.hard.length?`<div class="hard">${D.hard.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]]||'')}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
   ${D.kids.length?`<div class="kids">${D.kids.map(d=>{const s=tag(d),dd=String(d.day||'').split('-');
    return `<div class="kid label"><p class="kn"><b>${esc(d.n)}</b><span class="pill ${s[0]}">${s[1]}</span></p>
-    <p class="kw"><span>מילים שנלמדו</span>${num(d.words+' / 59')}</p><div class="pbar"><i style="width:${Math.min(100,d.words/59*100)}%"></i></div>
-    <p class="ks"><span>קטעי קריאה ${num(d.reads+' / 5')}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span></p></div>`}).join('')}</div>`:'<p class="panel label msg">עדיין אף תלמיד לא נרשם.</p>'}
-  <p class="credit">מילה נחשבת "נלמדה" אחרי שתי תשובות נכונות ברצף · "צריך חיזוק": פחות מ־${num(10)} מילים · תגית אדומה גם אחרי ${num(3)} ימים בלי תרגול</p></section>`}
+    ${hasStars(d)?`<p class="kw"><span>כוכבים</span>${num(d.stars+' / '+MAX_STARS)}</p><div class="pbar"><i style="width:${Math.min(100,d.stars/MAX_STARS*100)}%"></i></div>
+    <p class="ks"><span>שלבים ${num(d.levels+' / '+NL)}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span></p>
+    <p class="ks"><span>מילים שנלמדו ${num(d.words+' / 59')}</span><span>קטעי קריאה בלי טעות ${num(d.reads+' / 5')}</span>${d.tries?`<span>${num(Math.round(d.miss/d.tries*100)+'%')} טעויות</span>`:''}`
+    :`<p class="kw"><span>מילים שנלמדו</span>${num(d.words+' / 59')}</p><div class="pbar"><i style="width:${Math.min(100,d.words/59*100)}%"></i></div>
+    <p class="ks"><span>קטעי קריאה ${num(d.reads+' / 5')}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span>`}</p></div>`}).join('')}</div>`:'<p class="panel label msg">עדיין אף תלמיד לא נרשם.</p>'}
+  <p class="credit">כוכבים: עד ${num(3)} בכל שלב, ${num(MAX_STARS)} בסך הכול · מילה נחשבת "נלמדה" אחרי שתי תשובות נכונות ברצף, לכן המספר נמוך גם אצל מי שסיים · "צריך חיזוק": ${num('30%')} טעויות ומעלה · תגית אדומה גם אחרי ${num(3)} ימים בלי תרגול</p></section>`}
 
 /* ---------- actions ---------- */
 const A={

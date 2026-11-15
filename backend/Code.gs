@@ -95,13 +95,16 @@ function handle(d) {
 function teacherView(rows) {
   const agg = {};
   const kids = rows.map(function (x) {
-    const st = parse(x[10]).st || {};
+    const state = parse(x[10]), st = state.st || {}, lv = (state.g && state.g.st) || {};
+    let tries = 0, miss = 0, stars = 0, levels = 0;
     Object.keys(st).forEach(function (w) {
-      const a = agg[w] || (agg[w] = [0, 0]);
-      a[0] += Number(st[w][0]) || 0; a[1] += Number(st[w][1]) || 0;
+      const a = agg[w] || (agg[w] = [0, 0]), t = Number(st[w][0]) || 0, m = Number(st[w][1]) || 0;
+      a[0] += t; a[1] += m; tries += t; miss += m;
     });
-    return { n: String(x[0]), pts: Number(x[3]) || 0, words: Number(x[4]) || 0, reads: Number(x[5]) || 0, streak: Number(x[6]) || 0, day: dayStr(x[7]) };
-  }).sort(function (a, b) { return b.words - a.words; });
+    Object.keys(lv).forEach(function (k) { const v = Math.min(3, Math.floor(Number(lv[k]) || 0)); if (v > 0) { stars += v; levels++; } });
+    return { n: String(x[0]), pts: Number(x[3]) || 0, words: Number(x[4]) || 0, reads: Number(x[5]) || 0, streak: Number(x[6]) || 0, day: dayStr(x[7]),
+      stars: stars, levels: levels, tries: tries, miss: miss };
+  }).sort(function (a, b) { return b.stars - a.stars || b.words - a.words; });
   const hard = Object.keys(agg).filter(function (w) { return agg[w][0] >= 3 && agg[w][1] > 0; })
     .map(function (w) { return [w, Math.round(agg[w][1] / agg[w][0] * 100), agg[w][0]]; })
     .sort(function (a, b) { return b[1] - a[1]; }).slice(0, 9);
