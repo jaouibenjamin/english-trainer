@@ -24,7 +24,7 @@ export async function start(host,cfg,api){
  function round(){const w=ws[g.i];g.mode=g.i<Math.ceil(ws.length/2)?'en':'he';g.wrongNow=0;g.lock=0;
   const others=shuffle(pool.filter(o=>o.en!==w.en&&o.he!==w.he)).slice(0,3),opts=shuffle([w,...others]);
   lt.textContent=g.mode==='en'?'הקשיבו ותפסו את המילה':'הקשיבו ותפסו את הפירוש';lw.innerHTML='&nbsp;';lw.className='';
-  bubs.innerHTML=opts.map((o,k)=>`<button class="bub b${k} ${g.mode==='en'?'en':''}" data-w="${esc(o.en)}" style="--d:${(k*0.7).toFixed(1)}s;background-image:url(${SP('bubble_'+((k+g.i)%4))})" ${g.mode==='en'?'dir="ltr"':''}><span>${esc(g.mode==='en'?o.en:o.he)}</span><em hidden></em></button>`).join('');
+  bubs.innerHTML=opts.map((o,k)=>`<button class="bub b${k} ${g.mode==='en'?'en':''}" data-w="${esc(o.en)}" style="--d:${(k*0.09).toFixed(2)}s;background-image:url(${SP('bubble_'+((k+g.i)%4))})" ${g.mode==='en'?'dir="ltr"':''}><span>${esc(g.mode==='en'?o.en:o.he)}</span><em hidden></em></button>`).join('');
   hudUp();speak()}
  function pick(el){if(g.lock||el.classList.contains('bad'))return;const w=ws[g.i],o=pool.find(p=>p.en===el.dataset.w);
   if(o.en===w.en){g.lock=1;el.classList.add('ok');SND.pop();const first=!g.wrongNow;if(first)g.first++;mark(w,first);g.results.push({w,ok:first});

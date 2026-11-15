@@ -69,7 +69,7 @@ function result(i,type,r){if(level){level.destroy();level=null}clearFx();hush();
    <p class="line"><b>${r.first}</b> מתוך <b>${r.total}</b> בניסיון הראשון</p>
    ${r.hint?'<p class="sub">נעזרתם ברמז, ולכן הפעם עד 2 כוכבים</p>':''}
    ${r.review&&r.review.length?`<div class="review"><small>כדאי לחזור על:</small>${r.review.slice(0,4).map(w=>`<span class="rv">${en(w.en)} · ${esc(w.he.split(',')[0])}</span>`).join('')}</div>`:''}
-   ${opened.length?`<p class="unlock label">${spr('isl_'+opened[0].id,'ui')} נפתח אי חדש: <b>${esc(opened[0].he)}</b></p>`:gained?`<p class="sub">+${gained} כוכבים למפה</p>`:''}
+   ${opened.length?`<p class="unlock label">${spr('isl_'+opened[0].id,'ui')}<span>נפתח אי חדש!<b>${esc(opened[0].he)}</b></span></p>`:gained?`<p class="sub">+${gained} כוכבים למפה</p>`:''}
    ${API&&S.u?`<p class="sub pts">${S.pts.toLocaleString()} נקודות בטבלת הכיתה</p>`:''}
    <div class="rbtns">${btn('nav',`${nextLabel} ${ico('next')}`,'green xl',`data-to="${to}"`)}
     <div class="row">${btn('nav',ico('retry')+' שוב','cream sm',`data-to="play/${i.id}/${type}" data-force="1"`)}${btn('nav','לשלבים','cream sm',`data-to="island/${i.id}"`)}</div></div>
@@ -83,7 +83,8 @@ function collection(){setBg('paper','center');const tot=totalStars();
  view.innerHTML=`<section class="scr coll">${top('האוסף של פיצי')}
   <div class="chero">${spr('crab_star','bob')}<p class="label">אוספים כוכבים ופותחים כדורים חדשים לקלע. יש לכם ${spr('star','st')} <b dir="ltr">${tot}</b></p></div>
   <div class="balls">${BALLS.map((b,k)=>{const ok=tot>=b.need,sel=(S.g.ball||0)===k;
-   return `<button class="ball${ok?'':' locked'}${sel?' sel':''}" data-a="${ok?'ball':'locked'}" data-i="${k}" data-need="${b.need}" aria-pressed="${sel}">${spr('ball_'+k,'bi')}${ok?'':spr('lock','lk')}<b>${b.name}</b><small>${ok?(sel?'בקלע עכשיו':'לחצו כדי לבחור'):`${b.need} ${spr('star','st')}`}</small></button>`}).join('')}</div></section>`}
+   return `<button class="ball${ok?'':' locked'}${sel?' sel':''}" data-a="${ok?'ball':'locked'}" data-i="${k}" data-need="${b.need}" aria-pressed="${sel}">${spr('ball_'+k,'bi')}${ok?'':spr('lock','lk')}<b>${b.name}</b><small>${ok?(sel?'בקלע עכשיו':'לחצו כדי לבחור'):`${b.need} ${spr('star','st')}`}</small></button>`}).join('')}</div>
+  ${(n=>n?`<p class="foot label">הכדור הבא נפתח בעוד <b dir="ltr">${n.need-tot}</b> ${spr('star','st')}</p>`:`<p class="foot label">כל הכדורים שלכם. אלופים!</p>`)(BALLS.find(b=>b.need>tot))}</section>`}
 
 /* ---------- settings + help ---------- */
 function settings(){setBg('paper','center');
@@ -152,14 +153,14 @@ const A={
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el)}});
 document.addEventListener('submit',e=>{e.preventDefault();const b=e.target.querySelector('[data-a=auth],[data-a=tlogin]');if(b)b.click()});
-document.addEventListener('pointerdown',()=>{unlock();unlockTTS()},{passive:true});
+for(const ev of['pointerdown','touchend','click'])document.addEventListener(ev,()=>{unlock();unlockTTS()},{passive:true});
 document.addEventListener('keydown',()=>unlock(),{passive:true});
 /* no long-press callouts, selection or pull-to-refresh while playing */
 document.addEventListener('contextmenu',e=>{if(!e.target.closest('input'))e.preventDefault()});
 document.addEventListener('touchmove',e=>{if(e.target.closest('.lv canvas'))e.preventDefault()},{passive:false});
 
 /* ---------- router ---------- */
-function route(){navId++;if(level){level.destroy();level=null}clearFx();hush();
+function route(){navId++;document.getElementById('toast').classList.remove('on');if(level){level.destroy();level=null}clearFx();hush();
  let h=location.hash.slice(1),[n,a,b]=h.split('/');
  if(API&&!S.u&&n!=='teacher')n='login';
  if(!API&&(n==='login'||n==='board'))n='map';

@@ -80,8 +80,8 @@ export async function start(host,cfg,api){
   const now=performance.now(),ci=now<g.poseT?(g.pose==='h'?crabH:crabO):crabI,cw=Math.min(96,W*.24),chh=ci?cw*ci.height/ci.width:0,hop=now<g.poseT&&g.pose==='h'&&!reduced()?Math.abs(Math.sin(g.t/7))*9:0;
   if(ci)x.drawImage(ci,AX-cw-58,H-chh-34-hop,cw,chh);
   // slingshot: back band, ball, front band, fork
-  const fw=64,fh=fw*362/251,fx0=AX-fw/2,fy0=AY-12,tl=[AX-fw*.34,AY-2],tr=[AX+fw*.34,AY-2],held=!g.fly;
-  const band=(a)=>{x.strokeStyle='#b8674f';x.lineWidth=5;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(g.bx,g.by+2);x.stroke();x.strokeStyle='rgba(90,69,52,.55)';x.lineWidth=1.4;x.beginPath();x.moveTo(a[0],a[1]-2.6);x.lineTo(g.bx,g.by-.6);x.stroke()};
+  const fw=80,fh=fw*362/251,fx0=AX-fw/2,fy0=AY-14,tl=[AX-fw*.35,AY-3],tr=[AX+fw*.35,AY-3],held=!g.fly;
+  const band=(a)=>{x.strokeStyle='#5a4534';x.lineWidth=8;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(g.bx,g.by+2);x.stroke();x.strokeStyle='#e58f78';x.lineWidth=5;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(g.bx,g.by+2);x.stroke();};
   if(held)band(tr);
   if(fork)x.drawImage(fork,fx0,fy0,fw,fh);
   // aim guide
