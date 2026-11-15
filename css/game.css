@@ -1,6 +1,6 @@
 /* Word Islands. Look: a tidy sketchbook. Painted pieces (signs, labels, planks, pebble buttons, bubbles) are
    illustrations with live text set on top; ink is warm charcoal, never black. */
-@font-face{font-family:'Playpen Sans Hebrew';font-style:normal;font-weight:100 800;font-display:swap;src:url(../assets/font/playpen-hebrew.woff2) format('woff2');unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:'Playpen Sans Hebrew';font-style:normal;font-weight:300 700;font-display:swap;src:url(../assets/font/fredoka-hebrew.woff2) format('woff2');unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
 @font-face{font-family:'Playpen Sans Hebrew';font-style:normal;font-weight:100 800;font-display:swap;src:url(../assets/font/playpen-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 :root{
  --ink:#5a4534;--soft:#8a7462;--paper:#fff4de;--coral:#ef8f7a;--sage:#a9c58f;--blue:#bcd9e6;--butter:#f7d774;--lilac:#d7c2e6;--good:#4c8a4a;--bad:#c9614d;
