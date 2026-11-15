@@ -2,7 +2,7 @@
 import {wordsOf,T,starsFor} from './data.js';
 import {S,mark,say,warm,shuffle,weakest,esc,reduced,save} from './state.js';
 import {SND} from './audio.js';
-import {img,SP,hud,stage,bgMap,en} from './ui.js';
+import {img,SP,hud,stage,bgMap,en,toastAt} from './ui.js';
 
 const INK='#5a4534',FONT="'Playpen Sans Hebrew','Varela Round','Rubik','Arial Hebrew',sans-serif";
 const SKYLINE=1020;   // in the 752x1344 island art nothing is drawn above this row, so targets stay over clear sky
@@ -34,7 +34,9 @@ export async function start(host,cfg,api){
   const stepX=2*R+GAPX,x0=W/2-1.5*stepX,lift=R*.62,yi=zt+R+6+Math.max(0,Math.min(40,(zb-zt-R*3.1-lift-120)*.3));
   const xs=[0,1,2,3].map(k=>x0+k*stepX),ys=[yi+lift,yi,yi,yi+lift];
   g.bub.forEach(b=>{b.x=xs[b.slot];b.y=ys[b.slot]});
-  cap.style.top=(zb-34)+'px';ctip.style.top=Math.min(zb+6,AY-54)+'px';coach.style.left=AX+'px';coach.style.top=(AY+REST+20)+'px';   // the 'pull' arrow starts right under the ball
+  /* the open sky between the balloon strings and the slingshot holds the two passing notes: the word note, and under it the toast band */
+  const skyT=ys[0]+R*1.95,skyB=AY-26,capT0=Math.min(zb-34,skyT+8+Math.max(0,skyB-skyT-118)*.3);
+  cap.style.top=capT0.toFixed(1)+'px';toastAt(capT0+56);fitAll();ctip.style.top=Math.min(zb+6,AY-54)+'px';coach.style.left=AX+'px';coach.style.top=(AY+REST+20)+'px';   // the 'pull' arrow starts right under the ball
   if(!g.fly&&!g.drag){g.bx=AX;g.by=AY+REST}}
  function hudUp(){host.querySelector('#hd').innerHTML=hud({i:g.i,n:ws.length,st:starsFor(ws.length-g.bad,ws.length,g.hint),hint:g.hint})}
  function round(){const w=ws[g.i],others=shuffle(pool.filter(o=>o.en!==w.en&&o.he!==w.he)).slice(0,3),slots=shuffle([0,1,2,3]);
@@ -75,11 +77,15 @@ export async function start(host,cfg,api){
   if(g.by>H+40||g.ft>520)reset()}
 
  function fit(text,maxW,size,min,weight){x.font=`${weight} ${size}px ${FONT}`;while(size>min&&x.measureText(text).width>maxW){size-=1;x.font=`${weight} ${size}px ${FONT}`}return size}
- function label(b,cy){const t=b.w.en,max=R*1.7;x.textAlign='center';x.textBaseline='middle';x.direction='ltr';x.fillStyle=INK;
-  const parts=t.includes(' ')&&t.length>7?[t.slice(0,t.lastIndexOf(' ')),t.slice(t.lastIndexOf(' ')+1)]:[t];
+ /* one lettering size for the four balloons of a round: the size the longest word needs. Long phrases and hyphenated numbers take two lines. */
+ const split=t=>{if(t.length>7){const i=Math.max(t.lastIndexOf(' '),t.lastIndexOf('-'));if(i>0)return[t.slice(0,t[i]==='-'?i+1:i),t.slice(i+1)]}return[t]};
+ function fitAll(){g.fs=Math.min(20,...g.bub.flatMap(b=>split(b.w.en).map(p=>fit(p,R*1.74,20,12,800))))}
+ function label(b,cy){const t=b.w.en,max=R*1.74;x.textAlign='center';x.textBaseline='middle';x.direction='ltr';x.fillStyle=INK;
+  const parts=split(t);
   if(b.bad){fit(t,max,16,10,800);x.fillText(t,b.x,cy-11);x.direction='rtl';const he=b.w.he.split(',')[0].split(' / ')[0];fit(he,max,16,10,700);x.fillText(he,b.x,cy+10);x.direction='ltr';return}
-  if(parts.length===2){const s=Math.min(fit(parts[0],max,19,11,800),fit(parts[1],max,19,11,800));x.font=`800 ${s}px ${FONT}`;x.fillText(parts[0],b.x,cy-s*.56);x.fillText(parts[1],b.x,cy+s*.56)}
-  else{fit(t,max,20,11,800);x.fillText(t,b.x,cy)}}
+  const s=g.fs||18;x.font=`800 ${s}px ${FONT}`;
+  if(parts.length===2){x.fillText(parts[0],b.x,cy-s*.56);x.fillText(parts[1],b.x,cy+s*.56)}
+  else x.fillText(t,b.x,cy)}
  function strand(a){x.strokeStyle=INK;x.lineWidth=7.5;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(g.bx,g.by);x.stroke();x.strokeStyle='#e9917b';x.lineWidth=4;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(g.bx,g.by);x.stroke()}
  function draw(){x.setTransform(D,0,0,D,0,0);x.clearRect(0,0,W,H);x.lineCap=x.lineJoin='round';
   // trail of the previous shot, then of this one

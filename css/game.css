@@ -75,7 +75,7 @@ bdi{white-space:nowrap}
 .nope{animation:shake .4s}
 #toast{position:absolute;left:0;right:0;bottom:calc(84px + var(--sb));display:flex;justify-content:center;pointer-events:none;opacity:0;transform:translateY(12px);transition:opacity .2s,transform .2s;z-index:9;padding:0 20px}
 #toast.on{opacity:1;transform:none}
-#stage[data-scr=play] #toast{bottom:auto;top:calc(70px + var(--st))}
+#stage[data-scr=play] #toast{bottom:auto;top:calc(214px + var(--st))}   /* the band under the hanging sign; ui.js places it exactly */
 #stage[data-scr=map] #toast{bottom:auto;top:calc(104px + var(--st))}   /* under the star sign, never over the island you can play */
 .toastin{background:#fffaf0;border:2.500px solid var(--ink);border-radius:18px 22px 17px 21px/21px 17px 22px 18px;padding:10px 20px 11px;font-weight:600;font-size:16.500px;text-align:center;max-width:100%;text-wrap:balance;box-shadow:0 3px 0 rgba(90,69,52,.25)}
 .guide{margin-top:auto;display:flex;align-items:center;gap:4px;width:100%;max-width:380px;flex:none}
@@ -104,7 +104,7 @@ bdi{white-space:nowrap}
 .sign.total{width:170px;font-size:20px;font-weight:700;white-space:nowrap;position:absolute;left:50%;top:-4px;transform:translateX(-50%)}
 .sign.total b{display:flex;align-items:center;gap:4px;background:#fff6e2;border:2px solid rgba(90,69,52,.55);border-radius:12px 15px 11px 14px/14px 11px 15px 12px;padding:0 10px 1px;font-weight:700}
 .sign.total .st{width:22px;vertical-align:0}
-.maphead.cls .sign.total{width:140px;font-size:17px;left:calc(50% + 28px)}
+.maphead.cls .sign.total{width:min(140px,100% - 236px);font-size:17px}   /* centred like in local mode; the two buttons stand beside it */
 .maphead.cls .sign.total b{padding:0 8px 1px}
 .deco{position:absolute;transform:translate(-50%,-50%);pointer-events:none;width:auto}
 .route{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -122,10 +122,14 @@ bdi{white-space:nowrap}
 .isl .tag .ck{width:15px;margin-inline-start:4px}
 .isl.locked .tag{background:#f3ecdd;border-style:dashed}
 .isl.cur .pic{animation:pulse 1.8s ease-in-out infinite}
-.isl.cur .tag{background:#fffaf0;border-color:var(--ink);box-shadow:0 0 0 3.500px var(--butter),0 3px 0 3.500px rgba(90,69,52,.22)}
-.isl .here{position:absolute;inset-inline-start:-13%;top:-20%;width:42%;pointer-events:none;display:block}
+.isl.cur .tag,.isl.todo .tag{background:#fffaf0;border-color:var(--ink);box-shadow:0 0 0 3.500px var(--butter),0 3px 0 3.500px rgba(90,69,52,.22)}
+.isl.cur .tag{padding-top:9px}
+.isl .tag .bn{font-size:11px;font-weight:600;color:var(--ink2);line-height:1.15}
+/* the crab stands on the outer shore of its island (never on the palm, the flag or the dotted route); "continue here" is a tab on the island's name */
+.isl .here{position:absolute;inset-inline-start:-15%;top:40%;width:36%;pointer-events:none;display:block}
+.isl.lc .here{inset-inline-start:auto;inset-inline-end:-15%;transform:scaleX(-1)}
 .isl .here .bc{width:100%;display:block;animation:bob 2.4s ease-in-out infinite}
-.isl .here em{position:absolute;inset-inline-start:88%;top:6%;font-style:normal;white-space:nowrap;font-size:12px;font-weight:700;background:#fffaf0;border:2px solid var(--ink);border-radius:11px 13px 10px 12px;padding:0 8px 1px}
+.isl .tag .hb{position:absolute;left:50%;top:-12px;transform:translateX(-50%);font-style:normal;white-space:nowrap;font-size:11.500px;line-height:1.35;font-weight:700;background:var(--butter);border:2px solid var(--ink);border-radius:11px 13px 10px 12px;padding:0 9px 1px}
 
 /* island */
 .island{gap:8px}
@@ -159,6 +163,7 @@ bdi{white-space:nowrap}
 .line{margin:0;font-size:18px;font-weight:600;flex:none}.line bdi{font-size:22px;font-weight:700}
 .note,.gain{margin:0;font-size:14.500px;font-weight:600;color:var(--ink2);flex:none}
 .gain{color:var(--ink)}
+.gain.cp{display:flex;align-items:center;justify-content:center;gap:5px}.gain .gt{width:19px}
 .xtra{height:54px;display:flex;align-items:center;justify-content:center;width:100%;flex:none}
 .review{display:flex;flex-wrap:wrap;gap:3px 6px;justify-content:center;font-size:13.500px}
 .review small{width:100%;font-weight:600}
@@ -207,10 +212,12 @@ bdi{white-space:nowrap}
 .setrow .sl{flex:1;font-size:19px;font-weight:700;display:flex;flex-direction:column;line-height:1.2}
 .setrow .sl small{font-size:13px;font-weight:500;color:var(--ink2)}
 .setrow .go{width:22px;height:22px;opacity:.7}
-.sw{width:88px;height:36px;border:2.500px solid var(--ink);border-radius:19px 17px 18px 16px/17px 19px 16px 18px;background:#e2d8c6;position:relative;flex:none;display:flex;align-items:center;justify-content:flex-end;padding:0 10px;transition:background .15s}
+/* on: green, the knob (with a tick) at the far end and the word beside it. off: grey, empty knob back at the start */
+.sw{width:92px;height:36px;border:2.500px solid var(--ink);border-radius:19px 17px 18px 16px/17px 19px 16px 18px;background:#d3cabb;position:relative;flex:none;display:flex;align-items:center;justify-content:flex-end;padding:0 10px;transition:background .15s}
 .sw b{font-size:14px;font-weight:700;color:var(--ink2)}
-.sw em{position:absolute;top:2.500px;inset-inline-start:3px;width:26px;height:26px;border-radius:52% 48% 50% 50%/48% 52% 50% 50%;background:#fffaf0;border:2.200px solid var(--ink)}
-.sw.on{background:#9cc47e;justify-content:flex-start}
+.sw em{position:absolute;top:2.500px;inset-inline-start:3px;width:26px;height:26px;border-radius:52% 48% 50% 50%/48% 52% 50% 50%;background:#f1eadc;border:2.200px solid var(--ink);display:grid;place-items:center}
+.sw em .ico{width:17px;height:17px;stroke:#2f6b2a;stroke-width:3.800}
+.sw.on{background:#8fc46c;justify-content:flex-start}.sw.on em{background:#fffdf6}
 .sw.on b{color:#2f4a23}
 .sw.on em{inset-inline-start:auto;inset-inline-end:3px}
 .prog{display:flex;justify-content:space-around;text-align:center}
@@ -248,8 +255,9 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .seg button{flex:1;min-height:44px;font-size:15.500px;white-space:nowrap;font-weight:700;color:var(--ink2)}
 .seg button+button{border-inline-start:2.500px solid var(--ink)}
 .seg button[aria-selected=true]{background:var(--butter);color:var(--ink)}
-.lnote,.lcard .err{margin:8px 0 2px;min-height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13.500px;font-weight:600;text-align:center;line-height:1.3}
-.swl{display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:2px 14px 3px;font-size:15px;font-weight:700;color:var(--ink);background:var(--butter);border:2.500px solid var(--ink);border-radius:15px 18px 14px 17px/17px 14px 18px 15px}
+.lnote,.lcard .err{margin:6px 0 2px;min-height:86px;   /* room for a two-line message and the switch button, so an error never moves the form */
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13.500px;font-weight:600;text-align:center;line-height:1.3}
+.swl{display:flex;width:100%;justify-content:center;align-items:center;gap:4px;min-height:40px;padding:2px 14px 3px;font-size:15px;font-weight:700;color:var(--ink);background:var(--butter);border:2.500px solid var(--ink);border-radius:15px 18px 14px 17px/17px 14px 18px 15px}
 .swl .ico{width:18px;height:18px}
 .lcard .btn{margin-top:2px}
 .tlink{margin-top:14px;height:44px;font-size:14.500px;opacity:.9}
@@ -273,6 +281,8 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .lb .rk{font-weight:700;font-size:18px;text-align:center}
 .lb .pt{font-weight:700;font-variant-numeric:tabular-nums}
 .lb small{font-weight:500;font-size:12.500px}
+.lb .pl2{display:block;font-weight:600;line-height:1.2}
+.lb li.nxt{display:block;background:none;border:0;padding:0 6px 2px;text-align:center;font-size:13.500px;font-weight:600;line-height:1.3;color:var(--ink2);text-wrap:balance}.lb .nb{white-space:nowrap}
 
 /* teacher: a plain opaque paper page, so nothing of the beach art shows between the cards */
 .teacher.wide{background:linear-gradient(rgba(253,242,220,0) 90px,#fdf2dc 190px) local,url(../assets/bg/paper.jpg) top center/100% auto no-repeat local,#fdf2dc}
@@ -399,7 +409,7 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .bottle.ok .mk{display:block;background-image:url(../assets/sp/ic_check.webp)}
 .bottle.ok .bt{animation:bob .6s 2}
 /* feedback is plain text; only the button below it looks like a button */
-.fb{margin:0;min-height:26px;font-size:15px;font-weight:600;line-height:1.3;text-align:center;flex:none}
+.fb{margin:0;min-height:26px;background:rgba(255,250,240,.88);border-radius:13px 16px 12px 15px;padding:3px 16px 4px;max-width:94%;font-size:15px;font-weight:600;line-height:1.3;text-align:center;flex:none}
 .fb.on{font-size:18px;font-weight:700}
 .fb.good{color:var(--good)}
 
@@ -418,9 +428,16 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .slot.f{border-color:transparent;background:url(../assets/sp/plank_0.webp) center/100% 100% no-repeat}
 .slot.f.p1,.pl.p1{background-image:url(../assets/sp/plank_1.webp)}.slot.f.p2,.pl.p2{background-image:url(../assets/sp/plank_2.webp)}.slot.f.p3,.pl.p3{background-image:url(../assets/sp/plank_3.webp)}.slot.f.p4,.pl.p4{background-image:url(../assets/sp/plank_4.webp)}
 .slot i{font-style:normal;font-weight:800;font-size:var(--fs,16px);color:#3d2d20;white-space:nowrap;letter-spacing:-.2px;padding-bottom:2px;display:flex;align-items:center}
-.dot{display:block;width:.42em;height:.42em;min-width:7px;min-height:7px;border-radius:52% 48% 50% 50%/48% 52% 47% 53%;background:#3d2d20}
-/* the full stop stands where a full stop stands: low, on the line the letters sit on */
-.fstop{display:inline-flex;align-items:flex-end;justify-content:center;height:1.05em;width:1.1em;padding-bottom:.1em}
+/* a punctuation plank: the mark, large, low on the left where it is written, with its Hebrew name beside it */
+.punct{display:flex;align-items:flex-end;gap:.3em;line-height:1}
+.punct b{font-size:2.6em;line-height:.5;font-weight:800}
+.punct small{font-size:.66em;padding-bottom:.05em;font-weight:700;line-height:1;white-space:nowrap;letter-spacing:0;color:#5a4534}
+.pl.pn{place-items:end start;padding:0 0 13px 17px}
+.slot .punct,.pl.ghost .punct{flex-direction:column-reverse;align-items:flex-start;gap:1px;width:100%}
+.slot .punct b,.pl.ghost .punct b{font-size:2.3em;padding-inline-start:.12em}
+.slot .punct small,.pl.ghost .punct small{font-size:max(8.500px,.5em);align-self:center}
+.slot:has(.punct){place-items:end stretch}.slot:has(.punct) i{padding:0 3px 7px;display:block}
+.pl.ghost.pn{padding:0 3px 7px;place-items:end stretch}
 .capi{height:.82em;width:auto;vertical-align:-.04em;fill:none;stroke:#3d2d20;stroke-width:3.100;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
 .slot.gap i{color:var(--bad);font-size:20px}
 .slot.laid{animation:drop .3s cubic-bezier(.3,1.5,.5,1)}
@@ -428,14 +445,15 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .walker{position:absolute;width:68px;margin:-52px 0 0 -34px;z-index:3;transition:left .5s ease-in-out;pointer-events:none}
 .walker.hop{animation:hop .5s 3}
 @keyframes hop{50%{margin-top:-76px}}
-.bank{width:min(100%,354px);display:flex;flex-wrap:wrap;gap:10px;justify-content:center;transition:opacity .25s;flex:none}
+.bank{width:min(100%,354px);display:flex;flex-direction:column;gap:10px;transition:opacity .25s;flex:none}
+.brow{display:flex;gap:10px;justify-content:center;height:clamp(54px,7.400dvh,64px)}.bank.tobe .brow{height:clamp(60px,8.400dvh,72px)}
 .bank.gone{opacity:0;pointer-events:none}
-.pl{position:relative;flex:0 0 calc(33.333% - 7px);min-width:0;height:clamp(54px,7.400dvh,64px);padding:0 4px 3px;display:grid;place-items:center;font-weight:800;font-size:22px;color:#3d2d20;background:url(../assets/sp/plank_0.webp) center/100% 100% no-repeat;transition:transform .09s}
+.pl{position:relative;flex:0 0 calc(33.333% - 7px);min-width:0;height:100%;padding:0 4px 3px;display:grid;place-items:center;font-weight:800;font-size:22px;color:#3d2d20;background:url(../assets/sp/plank_0.webp) center/100% 100% no-repeat;transition:transform .09s}
 .bank.n4 .pl{flex-basis:calc(40% - 7px)}
 .pl.lg{font-size:clamp(17px,5vw,20px);letter-spacing:-.3px}.pl.xl{font-size:clamp(15px,4.500vw,18px);letter-spacing:-.4px}
-.bank.tobe .pl{flex-basis:calc(33.333% - 7px);height:clamp(60px,8.400dvh,72px);font-size:29px}
-/* a plank that went to the bridge leaves the tray; its place stays reserved (but empty), so the other planks never jump */
-.pl.used{visibility:hidden;pointer-events:none}
+.bank.tobe .pl{flex-basis:calc(33.333% - 7px);font-size:29px}
+/* a plank that went to the bridge leaves the tray; the rest of its row closes up around the middle and no plank changes rows */
+.pl.used{display:none}
 /* a wrong plank: the tray copy hides while its double drops onto the bridge, cracks and falls; then it is back, outlined in red for a moment */
 .pl.snap{visibility:hidden}
 .pl.back{animation:plback .35s cubic-bezier(.3,1.5,.5,1)}
@@ -454,12 +472,14 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .compass{position:absolute;left:12px;width:58px;pointer-events:none;opacity:.92;transform:rotate(-8deg)}
 .fin{position:absolute;left:8px;right:8px;bottom:calc(8px + var(--sb));z-index:2;display:flex;align-items:center;gap:6px;min-height:76px;border-width:9px 16px 10px}
 .fin .fc{width:58px;flex:none}.fin .ft{width:40px;flex:none;animation:pulse 1.6s ease-in-out infinite}
+.fin .fs{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;line-height:1.1}.fin .fs .st{width:26px;margin:0}.fin .fs i{font-style:normal;font-size:12.500px;font-weight:700}
+.fin .nb{white-space:nowrap}
 .fin p{margin:0;flex:1;min-width:0;text-align:center;line-height:1.25}
 .fin b{display:block;font-size:15.500px;font-weight:700}
 .fin small{display:block;font-size:12.500px;font-weight:600;color:var(--ink2);text-wrap:balance}
 .fin .st{width:14px;vertical-align:-2px;margin:0 1px}
 
-@media (max-height:700px){.prompt b{font-size:25px}.ihero .pic{width:40%}.lvrow{min-height:60px}.logo h1{font-size:50px}.guide img{width:70px}.lwrap{margin-top:40px}.lcrab{width:76px;top:-50px}.in{padding:6px 12px;font-size:18px}.setrow{min-height:54px}}
+@media (max-height:700px){.lnote,.lcard .err{min-height:36px}.prompt b{font-size:25px}.ihero .pic{width:40%}.lvrow{min-height:60px}.logo h1{font-size:50px}.guide img{width:70px}.lwrap{margin-top:40px}.lcrab{width:76px;top:-50px}.in{padding:6px 12px;font-size:18px}.setrow{min-height:54px}}
 @media (max-height:780px){.ihero .pic{width:42%}.hrow small{font-size:13px}}
 @media (max-width:375px){.pips{gap:4px}.pips i{width:11px;height:11px}.stars.live .st{width:22px}.hud{gap:6px}.lvrow{padding-left:26px;padding-right:26px}.lvrow b{font-size:18px}}
 @media (min-width:500px){.scr{padding-left:22px;padding-right:22px}}

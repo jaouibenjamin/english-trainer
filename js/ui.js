@@ -51,8 +51,14 @@ export const en=t=>`<bdi class="en" dir="ltr">${esc(t)}</bdi>`;
 export const num=t=>`<bdi dir="ltr">${esc(t)}</bdi>`;
 
 /* ---------- toast ---------- */
-let toastT=0;
-export function toast(html,ms=2200){const t=document.getElementById('toast');t.innerHTML=`<div class="toastin">${html}</div>`;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms)}
+/* inside a level the toast has its own band: right under the hanging sign (or over the reading tip, which says the same kind of thing),
+   never over the header. A level whose band is elsewhere (the slingshot: balloons hang under the sign) sets it with toastAt. */
+let toastT=0,toastY=null;
+export const toastAt=y=>{toastY=y};
+export function toast(html,ms=2200){const t=document.getElementById('toast');
+ if(stage.dataset.scr==='play'){const a=view.querySelector('.lv .prompt'),b=view.querySelector('.lv>.tip:not([hidden])'),s=stage.getBoundingClientRect();
+  const y=toastY!=null?toastY:a?a.getBoundingClientRect().bottom-s.top+5:b?b.getBoundingClientRect().top-s.top-3:null;t.style.top=y!=null?y.toFixed(1)+'px':''}
+ else t.style.top='';t.innerHTML=`<div class="toastin">${html}</div>`;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms)}
 
 /* ---------- confetti (paper scraps), skipped when the user prefers reduced motion ---------- */
 const COLS=['#F7D774','#EF8F7A','#A9C58F','#D7C2E6','#9CCBE0','#F6B78A'];
@@ -71,7 +77,7 @@ export function clearFx(){fxRun++;const c=document.getElementById('fx');c.getCon
    The stars are the ones this level is worth right now. One rule in every game (see starsFor): when one is lost it
    visibly drops, and the first time in a level a line says why. */
 let hudSt=3,hudHint=0;
-export function hudReset(){hudSt=3;hudHint=0}
+export function hudReset(){hudSt=3;hudHint=0;toastY=null}
 export function hud({i,n,st,book,hint}){
  const lost=st<hudSt?st:-1,byHint=lost>=0&&hint&&!hudHint;hudSt=st;hudHint=hint?1:0;
  if(lost>=0&&!byHint)toast(st===2?LOSS_NOTE:LOSS_NOTE2,3000);

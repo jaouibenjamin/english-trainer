@@ -6,6 +6,8 @@ import {SND} from './audio.js';
 import {hud,confetti,ico,spr,btn,en,toast} from './ui.js';
 
 const tok=s=>s.replace(TOKRE,t=>{if(!/[A-Za-z]/.test(t))return esc(t);const k=glossKey(t);return k?`<span class="t${VOC.has(k)?' v':''}${t.length<4?' s':''}" data-k="${esc(k)}" data-t="${esc(t)}">${esc(t)}</span>`:esc(t)});
+/* a lone "I" never ends a line: it stays with the word after it */
+const bindI=h=>h.replace(/(>I<\/span>) (?=\S)/g,'$1&nbsp;');
 const sentences=t=>t.match(/[^.!?]+[.!?]+["”]?\s*/g)||[t];
 
 export async function start(host,cfg,api){
@@ -14,7 +16,7 @@ export async function start(host,cfg,api){
  window.__lv={kind:'read',g,answer:()=>t.qs[g.i]?t.qs[g.i][2]:null};
  const head=()=>hud({i:g.phase==='story'?-1:g.i,n,st:starsFor(n-g.bad,n,g.hint),hint:g.hint,book:g.phase==='story'?'c':'d'});
  const story=()=>`<div class="scrollp story${t.text.length>360?' long':''}"><h3 class="en" dir="ltr">${esc(t.title)}</h3>
-   <div class="text en" dir="ltr">${sents.map((s,i)=>`<span class="sn${g.mark.includes(i)?' hl':''}">${tok(s)}</span>`).join('')}</div></div>`;
+   <div class="text en" dir="ltr">${sents.map((s,i)=>`<span class="sn${g.mark.includes(i)?' hl':''}">${bindI(tok(s))}</span>`).join('')}</div></div>`;
  function render(){hush();
   if(g.phase==='story'||g.peek){
    host.innerHTML=`<div class="lv read">${head()}

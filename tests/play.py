@@ -374,12 +374,19 @@ async def local_run(b, w, h, full, errs):
 
 async def finished_map(pg, tag):
     fin = await pg.evaluate("(()=>{const f=document.querySelector('.fin');if(!f)return null;const r=f.getBoundingClientRect(),low=Math.max(...[...document.querySelectorAll('.isl')].map(e=>e.getBoundingClientRect().bottom));return {t:f.innerText,clear:r.top-low,cur:document.querySelectorAll('.isl.cur').length}})()")
-    check(f'[{tag}] map at 66/66: finished banner under the islands, nothing left to point at', fin and 'סיימתם את כל האיים' in fin['t'] and '66' in fin['t'] and fin['clear'] >= 0 and fin['cur'] == 0, fin)
+    check(f'[{tag}] map at 66/66: finished banner under the islands, nothing left to point at', fin and 'סיימתם את כל האיים' in fin['t'] and '66' in fin['t'] and fin['clear'] >= 0 and fin['cur'] == 0 and await pg.locator('.isl.todo').count() == 0, fin)
     await pg.evaluate("(()=>{const S=__game.S();S.g.st['3-read']=2;S.g.st['5-bridge']=1;localStorage.setItem('aam-unit1-v1',JSON.stringify(S));__game.go('map')})()")
     await pg.wait_for_timeout(500)
-    fin = await pg.evaluate("({t:document.querySelector('.fin').innerText,cur:document.querySelectorAll('.isl.cur').length})")
-    check(f'[{tag}] all levels played but stars missing: the banner says how many and the crab marks an island', '3' in fin['t'] and 'חסרים' in fin['t'] and fin['cur'] == 1, fin)
+    FIN = "(()=>{const f=document.querySelector('.fin'),lh=parseFloat(getComputedStyle(f.querySelector('small')).lineHeight)||16,s=document.querySelector('#stage').getBoundingClientRect(),r=f.getBoundingClientRect();return {t:f.innerText.replace(/\\s+/g,' '),cur:document.querySelectorAll('.isl.cur').length,todo:[...document.querySelectorAll('.isl.todo')].map(e=>+e.className.match(/i(\\d)/)[1]).sort(),notFull:[...document.querySelectorAll('.isl:not(.full)')].map(e=>+e.className.match(/i(\\d)/)[1]).sort(),ticks:document.querySelectorAll('.isl .ck').length,lines:Math.round(f.querySelector('small').getBoundingClientRect().height/lh),split:[...f.querySelectorAll('.nb')].some(e=>new Set([...e.getClientRects()].map(r=>Math.round(r.top/6))).size>1),trophy:f.querySelectorAll('.ft').length,inside:r.left>=s.left&&r.right<=s.right&&r.bottom<=s.bottom,low:Math.max(...[...document.querySelectorAll('.isl')].map(e=>e.getBoundingClientRect().bottom))<=r.top}})()"
+    fin = await pg.evaluate(FIN)
+    check(f'[{tag}] 63/66, all levels played: the banner does not say "finished", it says 3 stars are missing', 'סיימתם' not in fin['t'] and 'כל הכבוד' not in fin['t'] and fin['trophy'] == 0 and 'עברתם בכל האיים' in fin['t'] and 'חסרים לכם עוד 3 כוכבים' in fin['t'], fin)
+    check(f'[{tag}] every island that is not at full stars is ringed (both of them), the full ones are ticked', fin['todo'] == [3, 5] and fin['notFull'] == [3, 5] and fin['ticks'] == 4 and fin['cur'] == 1, fin)
+    check(f'[{tag}] the banner text sits in whole lines (no orphan word, no split phrase), inside the screen and under the islands', fin['lines'] <= 2 and not fin['split'] and fin['inside'] and fin['low'], fin)
     await shot(pg, f'{tag}_51_map_played_stars_missing')
+    await pg.evaluate("(()=>{const S=__game.S();S.g.st['3-read']=3;S.g.st['5-bridge']=2;localStorage.setItem('aam-unit1-v1',JSON.stringify(S));__game.go('map')})()")
+    await pg.wait_for_selector('.map .fin'); await pg.wait_for_timeout(300)
+    fin = await pg.evaluate(FIN)
+    check(f'[{tag}] 65/66: one star missing is said in the singular and only that island is ringed', 'סיימתם' not in fin['t'] and 'חסר לכם עוד כוכב אחד' in fin['t'] and fin['todo'] == [5] and fin['lines'] <= 2 and not fin['split'], fin)
     await pg.evaluate("(()=>{const S=__game.S();S.g.st['3-read']=3;S.g.st['5-bridge']=3;localStorage.setItem('aam-unit1-v1',JSON.stringify(S))})()")
 
 
@@ -509,20 +516,22 @@ async def class_run(b, w, h, errs):
     await shot(pg, 'class_07_map')
     s = await play_level(pg, 1, 'sling')
     check(f'[{tag}] perfect sling gives 3 stars', s == 3, s)
-    check(f'[{tag}] the result card labels the number: points for the table', 'נקודות לטבלה' in await pg.locator('.result .gain').inner_text())
+    check(f'[{tag}] the result card labels the number: points for the table', 'נקודות לטבלת הכיתה' in await pg.locator('.result .gain.cp').inner_text())
     await shot(pg, f'class_03_result')
     for typ in ('listen', 'read'):
         s = await play_level(pg, 1, typ)
         check(f'[{tag}] perfect {typ} gives 3 stars', s == 3, s)
     await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('[data-a=logout]'); await shot(pg, 'class_05_settings')
+    check(f'[{tag}] the log-out button is not called by the word that leaves a level', 'התנתקות' in await pg.locator('[data-a=logout]').inner_text() and 'יציאה' not in await pg.locator('[data-a=logout]').inner_text())
     check(f'[{tag}] pupils get no teacher entry in settings', await pg.locator('[data-to=teacher]').count() == 0)
     pts = await pg.evaluate("__game.S().pts")
     await pg.evaluate("location.hash='board'"); await pg.wait_for_selector('.lb li')
     txt = await pg.locator('.lb li.me').inner_text()
     check(f'[{tag}] own row on the leaderboard with points', name in txt and f'{pts:,}' in txt, txt.replace('\n', ' '))
-    lb = await pg.evaluate("async api=>{const S=__game.S();const r=await (await fetch(api,{method:'POST',body:JSON.stringify({a:'board',c:S.u.c,n:S.u.n,p:S.u.p})})).json();return {cls:r.rows.length,rank:r.rows.findIndex(d=>d.n===S.u.n)+1,li:document.querySelectorAll('.lb li:not(.sep)').length,sep:document.querySelectorAll('.lb li.sep').length,me:document.querySelectorAll('.lb li.me').length,ranks:[...document.querySelectorAll('.lb .rk')].map(e=>+e.textContent)}}", api)
+    lb = await pg.evaluate("async api=>{const S=__game.S();const r=await (await fetch(api,{method:'POST',body:JSON.stringify({a:'board',c:S.u.c,n:S.u.n,p:S.u.p})})).json();return {cls:r.rows.length,rank:r.rows.findIndex(d=>d.n===S.u.n)+1,li:document.querySelectorAll('.lb li:not(.sep):not(.nxt)').length,nxt:(document.querySelector('.lb li.nxt')||{}).innerText||'',gap:r.rows[r.rows.findIndex(d=>d.n===S.u.n)-1].pts-S.pts+1,sep:document.querySelectorAll('.lb li.sep').length,me:document.querySelectorAll('.lb li.me').length,ranks:[...document.querySelectorAll('.lb .rk')].map(e=>+e.textContent)}}", api)
     check(f'[{tag}] class of 12 or more, pupil outside the top five: only the top 5 and the own row are drawn', lb['cls'] >= 12 and lb['rank'] > 5 and lb['li'] == 6 and lb['sep'] == 1 and lb['me'] == 1 and lb['ranks'] == [1, 2, 3, 4, 5, lb['rank']], lb)
 
+    check(f'[{tag}] own row says "place N of M" and the line under it gives the points to the next place, not to the leader', f"מקום {lb['rank']} מתוך {lb['cls']}" in txt and 'כל שלב מוסיף נקודות' in lb['nxt'] and f"עוד {lb['gap']:,} נקודות למקום הבא" in lb['nxt'], [txt.replace('\n', ' '), lb['nxt']])
     await shot(pg, f'class_04_board')
     # a second device logs in and gets the same progress
     c2, p2 = await new_page(b, w, h, api=api, errs=errs)

@@ -11,7 +11,9 @@ const RULE='אות גדולה בהתחלה, נקודה בסוף';
 const TOBE_RULE='I am · he / she / it is · we / you / they are';
 /* a full stop sits on the baseline like a real one; a lone capital I gets drawn serifs so it cannot be read as l or | */
 const CAP_I='<svg class="capi" viewBox="0 0 14 20" role="img" aria-label="I"><path d="M2.500 2.500h9M7 2.500v15M2.500 17.500h9"/></svg>';
-const face=t=>t==='.'?'<span class="fstop" role="img" aria-label="נקודה"><i class="dot"></i></span>':t==='I'?CAP_I:esc(t);
+/* punctuation planks cannot be mistaken for a blank or a bullet: the mark itself, large, low on the left where it is written, and its Hebrew name */
+const PUNCT={'.':'נקודה','?':'סימן שאלה','!':'סימן קריאה'};
+const face=t=>PUNCT[t]?`<span class="punct" dir="ltr" role="img" aria-label="${PUNCT[t]}"><b>${t}</b><small dir="rtl">${PUNCT[t]}</small></span>`:t==='I'?CAP_I:esc(t);
 /* why a wrong am / is / are plank broke */
 const TOBE_WHY={am:`עם ${en('I')} אומרים ${en('am')}`,is:`על אחד או אחת (${en('he / she / it')}) אומרים ${en('is')}`,are:`על רבים, וגם עם ${en('you')}, אומרים ${en('are')}`};
 const size=t=>t.length>8?' xl':t.length>6?' lg':'';
@@ -29,7 +31,7 @@ export async function start(host,cfg,api){
    <p class="rule" id="rule"></p></div>
   <div class="span" id="span" dir="ltr"></div>
   <img class="walker" id="walker" src="${SP('crab_walk')}" alt="" draggable="false"></div>`;
- const q=s=>host.querySelector(s),span=q('#span'),bank=q('#bank'),work=q('#work'),walker=q('#walker'),bt=q('#bt'),bh=q('#bh'),rule=q('#rule'),sign=q('.prompt');
+ const q=s=>host.querySelector(s),span=q('#span'),bank=q('#bank'),work=q('#work'),walker=q('#walker'),bt=q('#bt'),bh=q('#bh'),rule=q('#rule'),sign=q('.prompt'),pls=()=>[...bank.querySelectorAll('.pl')];
  let M=bgMap('bridge');
  function place(){M=bgMap('bridge');const st=stage.getBoundingClientRect(),top=M.oy+TOPY*M.s,gw=(GAP[1]-GAP[0])*M.s,sb=sign.getBoundingClientRect().bottom-st.top;
   span.style.left=(M.ox+GAP[0]*M.s)+'px';span.style.width=gw+'px';span.style.top=(top-10)+'px';
@@ -44,14 +46,16 @@ export async function start(host,cfg,api){
  const calm=()=>g.r.kind==='tobe'?(g.wrongNow?TOBE_RULE:''):RULE;
  function status(text,cls,ms,html){clearTimeout(ruleT);if(html)rule.innerHTML=text;else rule.textContent=text;rule.className='rule '+(cls||(text===TOBE_RULE?'en':''));g.err=cls==='bad';if(ms)ruleT=setTimeout(()=>{if(alive&&!g.lock)status(calm())},ms)}
  function round(){const r=g.r=rounds[g.i];r.t=toks(r.en);g.wrongNow=0;g.lock=0;g.lead=0;walker.src=SP('crab_walk');walker.classList.remove('hop');bank.classList.remove('gone');rule.style.transform='';
-  const fx=t=>(t.length+2.1).toFixed(1);
+  const fx=t=>(PUNCT[t]?4.6:t.length+2.1).toFixed(1);
   if(r.kind==='build'){g.placed=0;bt.textContent='בנו את המשפט באנגלית';bh.textContent=r.he;bh.className='';bh.removeAttribute('dir');
    span.innerHTML=r.t.map(t=>`<span class="slot" style="flex-grow:${fx(t)}"></span>`).join('');
-   const order=shuffle(r.t.map((t,k)=>k));bank.className='bank n'+r.t.length;bank.innerHTML=order.map(k=>`<button class="pl p${k%5}${size(r.t[k])}" data-t="${esc(r.t[k])}">${face(r.t[k])}</button>`).join('')}
+   /* the tray is laid out in fixed rows: a plank that goes to the bridge leaves its row, the rest of that row closes up around the middle, no plank changes rows */
+   const order=shuffle(r.t.map((t,k)=>k)),per=r.t.length===4?2:3,rows=[];for(let k=0;k<order.length;k+=per)rows.push(order.slice(k,k+per));
+   bank.className='bank n'+r.t.length;bank.innerHTML=rows.map(o=>`<div class="brow">${o.map(k=>`<button class="pl p${k%5}${size(r.t[k])}${PUNCT[r.t[k]]?' pn':''}" data-t="${esc(r.t[k])}">${face(r.t[k])}</button>`).join('')}</div>`).join('')}
   else{g.placed=r.t.indexOf(r.gap);bt.textContent='משלימים את המשפט';bh.textContent='איזו מילה חסרה?';bh.className='';bh.removeAttribute('dir');
    /* the sentence is shown once: it is the bridge itself, with one missing plank */
    span.innerHTML=r.t.map((t,k)=>k===g.placed?`<span class="slot gap" style="flex-grow:${fx('are')}"><i>?</i></span>`:`<span class="slot f p${k%5}" style="flex-grow:${fx(t)}"><i>${face(t)}</i></span>`).join('');
-   bank.className='bank tobe';bank.innerHTML=['am','is','are'].map((t,k)=>`<button class="pl big p${k+1}" data-t="${t}">${t}</button>`).join('')}
+   bank.className='bank tobe';bank.innerHTML=`<div class="brow">${['am','is','are'].map((t,k)=>`<button class="pl big p${k+1}" data-t="${t}">${t}</button>`).join('')}</div>`}
   status(calm());hudUp();place();walkTo(-1,true)}
  function fill(k,t){const sl=span.children[k];sl.className=`slot f p${k%5} laid`;sl.innerHTML=`<i>${face(t)}</i>`}
  function done(){const r=g.r;g.lock=1;const ok1=!g.wrongNow;if(ok1)g.first++;award(ok1?T.ptsFirst:T.ptsLater);
@@ -73,7 +77,7 @@ export async function start(host,cfg,api){
   if(r.kind==='tobe')status('הקרש נשבר: '+TOBE_WHY[r.gap],'bad',4200,1);
   else{status(g.placed===0?'הקרש נשבר: משפט מתחיל באות גדולה':g.placed===r.t.length-1?'הקרש נשבר: בסוף המשפט שמים נקודה':'הקרש נשבר: זאת עוד לא המילה הבאה','bad',3200);
    /* stuck on the very first word twice: show which plank starts the sentence (no star cost, the mistakes already counted) */
-   if(g.placed===0&&++g.lead>=2){const f=[...bank.children].find(b=>b.dataset.t===r.t[0]);if(f)f.classList.add('lead')}}}
+   if(g.placed===0&&++g.lead>=2){const f=pls().find(b=>b.dataset.t===r.t[0]);if(f)f.classList.add('lead')}}}
  function pick(el){if(g.lock||el.classList.contains('used')||el.classList.contains('snap'))return;const r=g.r,t=el.dataset.t;
   if(g.err)status(calm());                                    // an old "plank broke" note never outlives the next tap
   if(r.kind==='tobe'){if(t!==r.gap)return wrong(el);el.classList.add('used');SND.plank();fill(g.placed,t);walkTo(0);return done()}
@@ -84,4 +88,4 @@ export async function start(host,cfg,api){
  host.addEventListener('click',onClick);window.addEventListener('resize',place);
  round();
  return{destroy(){alive=false;clearTimeout(ruleT);host.removeEventListener('click',onClick);window.removeEventListener('resize',place);delete window.__lv},
-  hint(){if(g.lock)return;const isNew=!g.hint;if(isNew){g.hint=1;hudUp()}const want=g.r.kind==='tobe'?g.r.gap:g.r.t[g.placed];const el=[...bank.children].find(b=>!b.classList.contains('used')&&b.dataset.t===want);if(el){el.classList.add('hinted');setTimeout(()=>el.classList.remove('hinted'),1800)}return isNew}}}
+  hint(){if(g.lock)return;const isNew=!g.hint;if(isNew){g.hint=1;hudUp()}const want=g.r.kind==='tobe'?g.r.gap:g.r.t[g.placed];const el=pls().find(b=>!b.classList.contains('used')&&b.dataset.t===want);if(el){el.classList.add('hinted');setTimeout(()=>el.classList.remove('hinted'),1800)}return isNew}}}
