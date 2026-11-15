@@ -528,7 +528,8 @@ async def class_run(b, w, h, errs):
     taken = await pg.evaluate('''async ([api, mates]) => { const out = []; for (const [n, pts, words, reads, streak] of mates) {
         const post = d => fetch(api, {method: 'POST', body: JSON.stringify(d)}).then(r => r.json());
         const r = await post({a: 'register', c: 'EN-1234', n, p: '1111'}); out.push(r.ok ? '' : r.e);
-        await post({a: 'save', c: 'EN-1234', n, p: '1111', s: {pts, streak, day: '2026-11-14', k: {words, reads}, st: {their: [6, 4], special: [5, 2], subject: [6, 3], 'a lot of': [4, 2]}}}); } return out }''', [api, mates])
+        await post({a: 'save', c: 'EN-1234', n, p: '1111', s: {pts, streak, day: '2026-11-14', k: {words, reads}, g: {st: Object.fromEntries(Array.from({length: Math.round(words / 59 * 22)}, (_, i) => ['L' + i, 3]))},
+            st: words < 13 ? {their: [6, 4], special: [5, 2], subject: [6, 3], 'a lot of': [4, 2]} : {their: [6, 1], special: [5, 0], subject: [6, 1], 'a lot of': [4, 2]}}}); } return out }''', [api, mates])
     name = None
     for cand in ('יובל', 'תמר', 'אורי', 'שירה', 'דניאל', 'רוני', 'גיא', 'ליה', 'אדם', 'מיכל', 'עידו', 'הילה', 'בן', 'גל', 'זיו', 'חן', 'טל', 'לי', 'מור', 'ניר', 'סהר', 'עדי', 'פז', 'צוף', 'קרן', 'רז', 'שי', 'תום'):
         r = await pg.evaluate("async ([api,n])=>(await fetch(api,{method:'POST',body:JSON.stringify({a:'login',c:'EN-1234',n,p:'0000'})})).json()", [api, cand])
@@ -601,6 +602,7 @@ async def class_run(b, w, h, errs):
     row = (await p2.locator('.kid', has_text=name).inner_text()).replace('\n', ' ')
     known = await p2.evaluate("__game.S().w ? Object.values(__game.S().w).filter(v=>v>=2).length : 0")
     check(f'[{tag}] teacher card lists the pupil with words learned and a finished story', name in row and f'{known} / 59' in row and known >= 3 and '1 / 5' in row, row)
+    check(f'[{tag}] teacher card leads with stars and levels', '9 / 66' in row and '3 / 22' in row, row)
     check(f'[{tag}] teacher sees the hardest words', await p2.locator('.hard > div').count() >= 1)
     red = await p2.locator('.kid .pill.r').count(); kids = await p2.locator('.kid').count()
     check(f'[{tag}] the "needs reinforcement" tag is kept for the few who need it', 0 < red < kids - 1, [red, kids])
