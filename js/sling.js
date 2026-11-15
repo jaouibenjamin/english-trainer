@@ -13,11 +13,12 @@ export async function start(host,cfg,api){
  try{await document.fonts.load("700 16px 'Playpen Sans Hebrew'","goal שער")}catch(e){}
  const first=!S.g.ob.sling;
  host.innerHTML=`<div class="lv sling"><div id="hd"></div>
-  <div class="sign prompt"><small>${first?'גררו אחורה ושחררו על המילה':'פגעו במילה שהפירוש שלה'}</small><b id="tg"></b></div>
+  <div class="sign prompt"><small>קלעו לבלון עם המילה שפירושה</small><b id="tg"></b></div>
   <canvas id="cv" aria-label="קלע המילים: גוררים אחורה, מכוונים ומשחררים"></canvas>
   <div class="cap label" id="cap" hidden></div>
+  <p class="tip ctip" id="ctip" hidden>גררו את הכדור אחורה ושחררו</p>
   <div class="coach" id="coach" hidden><img src="${SP('ic_arrow')}" alt=""></div></div>`;
- const cv=host.querySelector('#cv'),x=cv.getContext('2d'),tg=host.querySelector('#tg'),cap=host.querySelector('#cap'),coach=host.querySelector('#coach'),sign=host.querySelector('.prompt');
+ const cv=host.querySelector('#cv'),x=cv.getContext('2d'),tg=host.querySelector('#tg'),cap=host.querySelector('#cap'),coach=host.querySelector('#coach'),ctip=host.querySelector('#ctip'),sign=host.querySelector('.prompt');
  let W=0,H=0,D=1,AX=0,AY=0,R=42,zt=0,zb=0,alive=true,capT=0;
  const g={i:0,miss:0,hint:0,first:0,bad:0,bx:0,by:0,vx:0,vy:0,fly:0,gone:0,drag:0,trail:[],last:[],bub:[],fx:[],t:0,ft:0,lock:0,pose:'i',poseT:0,glow:0,down:null,wrongNow:0,results:[]};
  window.__lv={kind:'sling',g,geom:()=>({W,H,AX,AY,R}),K:T.launchK,G:T.gravity};
@@ -25,11 +26,15 @@ export async function start(host,cfg,api){
 
  function layout(){W=stage.clientWidth;H=stage.clientHeight;D=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*D);cv.height=Math.round(H*D);
   const m=bgMap('bottom'),sr=sign.getBoundingClientRect(),st=stage.getBoundingClientRect();
-  zt=sr.bottom-st.top+10;zb=m.oy+SKYLINE*m.s-8;            // clear sky between the sign and the island
-  AX=W/2;AY=Math.min(H-150,zb+62);R=Math.min(48,W*.118,(zb-zt)/4.4);
-  const xs=[.15,.385,.615,.85],ys=[.5,0,.17,.6],span=Math.max(0,zb-zt-R*3.1);
-  g.bub.forEach(b=>{b.x=W*xs[b.slot];b.y=zt+R+ys[b.slot]*Math.min(span,150)});
-  cap.style.top=(zb-34)+'px';coach.style.left=AX+'px';coach.style.top=(AY+REST+26)+'px';
+  zt=sr.bottom-st.top+8;zb=m.oy+SKYLINE*m.s-8;             // clear sky between the sign and the island
+  AX=W/2;AY=Math.min(H-150,zb+62);
+  /* four big balloons fanned over the whole sky: the inner pair high, the outer pair lower and 20px clear of the screen edges.
+     Every balloon is in open view of the slingshot and no two can touch (need = smallest safe height difference). */
+  const EDGE=20,room=r=>zb-zt-44-r*3.06,need=r=>Math.sqrt(Math.max(0,(2*r+14)**2-(W/2-2*r-EDGE-4)**2))+14;
+  R=Math.min(52,W*.135);while(R>30&&room(R)<need(R))R-=2;
+  const dy=Math.max(need(R),room(R)*.9),yi=zt+R+4,xs=[EDGE+R,W/2-R-4,W/2+R+4,W-EDGE-R],ys=[yi+dy,yi,yi+12,yi+dy-10];
+  g.bub.forEach(b=>{b.x=xs[b.slot];b.y=ys[b.slot]});
+  cap.style.top=(zb-34)+'px';ctip.style.top=Math.min(zb+6,AY-54)+'px';coach.style.left=(AX-66)+'px';coach.style.top=(AY+REST-8)+'px';
   if(!g.fly&&!g.drag){g.bx=AX;g.by=AY+REST}}
  function hudUp(){host.querySelector('#hd').innerHTML=hud({i:g.i,n:ws.length,st:starsFor(ws.length-g.bad,ws.length,g.hint)})}
  function round(){const w=ws[g.i],others=shuffle(pool.filter(o=>o.en!==w.en&&o.he!==w.he)).slice(0,3),slots=shuffle([0,1,2,3]);
@@ -44,7 +49,7 @@ export async function start(host,cfg,api){
  function setPull(dx,dy){if(dy<REST)dy=REST;const d=Math.hypot(dx,dy);if(d>T.maxPull){dx*=T.maxPull/d;dy*=T.maxPull/d}g.bx=AX+dx;g.by=AY+dy}
  cv.addEventListener('pointerdown',e=>{if(g.fly||g.lock)return;const[px,py]=pos(e);if(py<zb-20)return;
   const near=Math.hypot(px-AX,py-AY-REST)<70;g.drag=1;g.down=near?null:[px,py-REST];try{cv.setPointerCapture(e.pointerId)}catch(_){}
-  if(near)setPull(px-AX,py-AY);if(!coach.hidden){coach.hidden=true;S.g.ob.sling=1;save()}SND.pull();e.preventDefault()});
+  if(near)setPull(px-AX,py-AY);if(!coach.hidden){coach.hidden=ctip.hidden=true;S.g.ob.sling=1;save()}SND.pull();e.preventDefault()});
  cv.addEventListener('pointermove',e=>{if(!g.drag)return;const[px,py]=pos(e);if(g.down)setPull(px-g.down[0],py-g.down[1]);else setPull(px-AX,py-AY)});
  const up=()=>{if(!g.drag)return;g.drag=0;const dx=AX-g.bx,dy=AY-g.by;if(Math.hypot(dx,dy)<T.minPull){g.bx=AX;g.by=AY+REST;return}
   g.vx=dx*T.launchK;g.vy=dy*T.launchK;g.fly=1;g.ft=0;g.trail=[];SND.shoot()};
@@ -70,7 +75,7 @@ export async function start(host,cfg,api){
   if(g.by>H+40||g.ft>520)reset()}
 
  function fit(text,maxW,size,min,weight){x.font=`${weight} ${size}px ${FONT}`;while(size>min&&x.measureText(text).width>maxW){size-=1;x.font=`${weight} ${size}px ${FONT}`}return size}
- function label(b,cy){const t=b.w.en,max=R*1.6;x.textAlign='center';x.textBaseline='middle';x.direction='ltr';x.fillStyle=INK;
+ function label(b,cy){const t=b.w.en,max=R*1.7;x.textAlign='center';x.textBaseline='middle';x.direction='ltr';x.fillStyle=INK;
   const parts=t.includes(' ')&&t.length>7?[t.slice(0,t.lastIndexOf(' ')),t.slice(t.lastIndexOf(' ')+1)]:[t];
   if(b.bad){fit(t,max,16,10,800);x.fillText(t,b.x,cy-11);x.direction='rtl';const he=b.w.he.split(',')[0].split(' / ')[0];fit(he,max,16,10,700);x.fillText(he,b.x,cy+10);x.direction='ltr';return}
   if(parts.length===2){const s=Math.min(fit(parts[0],max,19,11,800),fit(parts[1],max,19,11,800));x.font=`800 ${s}px ${FONT}`;x.fillText(parts[0],b.x,cy-s*.56);x.fillText(parts[1],b.x,cy+s*.56)}
@@ -78,8 +83,9 @@ export async function start(host,cfg,api){
  function strand(a){x.strokeStyle=INK;x.lineWidth=7.5;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(g.bx,g.by);x.stroke();x.strokeStyle='#e9917b';x.lineWidth=4;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(g.bx,g.by);x.stroke()}
  function draw(){x.setTransform(D,0,0,D,0,0);x.clearRect(0,0,W,H);x.lineCap=x.lineJoin='round';
   // trail of the previous shot, then of this one
-  x.fillStyle='rgba(90,69,52,.25)';g.last.forEach(p=>{x.beginPath();x.arc(p[0],p[1],2.6,0,6.3);x.fill()});
-  x.fillStyle='rgba(239,143,122,.7)';g.trail.forEach(p=>{x.beginPath();x.arc(p[0],p[1],2.6,0,6.3);x.fill()});
+  if(cap.hidden){   // the feedback note sits where the trails pass, so they wait until it is gone
+   x.fillStyle='rgba(90,69,52,.25)';g.last.forEach(p=>{x.beginPath();x.arc(p[0],p[1],2.6,0,6.3);x.fill()});
+   x.fillStyle='rgba(239,143,122,.7)';g.trail.forEach(p=>{x.beginPath();x.arc(p[0],p[1],2.6,0,6.3);x.fill()})}
   // balloons
   for(const b of g.bub){if(b.pop)continue;const by=b.y+Math.sin(g.t/30+b.ph)*4,sx=b.shake>g.t?Math.sin(g.t*1.3)*4:0,w=R*2.06,h=w*1.5;
    if(g.glow&&b.ok){const gr=x.createRadialGradient(b.x,by,R*.7,b.x,by,R+22);gr.addColorStop(0,'rgba(247,215,116,.95)');gr.addColorStop(1,'rgba(247,215,116,0)');x.fillStyle=gr;x.globalAlpha=.65+.35*Math.sin(g.t/9);x.beginPath();x.arc(b.x,by,R+22,0,6.3);x.fill();x.globalAlpha=1}
@@ -103,9 +109,9 @@ export async function start(host,cfg,api){
   for(const p of g.fx){x.globalAlpha=Math.min(1,p.l/18);x.fillStyle=p.c;x.beginPath();x.arc(p.x,p.y,p.r,0,6.3);x.fill()}x.globalAlpha=1}
 
  round();
- if(first)coach.hidden=false;
+ if(first)coach.hidden=ctip.hidden=false;
  const onResize=()=>{layout()};window.addEventListener('resize',onResize);
  let last=performance.now();
  (function loop(now){if(!host.contains(cv))return;const k=Math.min(2.4,(now-last)/16.67);last=now;step(k);draw();requestAnimationFrame(loop)})(last);
  return{destroy(){alive=false;clearTimeout(capT);window.removeEventListener('resize',onResize);delete window.__lv},
-  hint(){if(g.lock)return;if(!g.hint){g.hint=1;hudUp()}g.glow=1}}}
+  hint(){if(g.lock)return;const isNew=!g.hint;if(isNew){g.hint=1;hudUp()}g.glow=1;return isNew}}}

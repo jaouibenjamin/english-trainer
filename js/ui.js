@@ -38,6 +38,7 @@ const P={
  book:'<path d="M4 6.500c3-1.300 5.500-1.300 8 0v12c-2.500-1.300-5-1.300-8 0zM12 6.500c2.500-1.300 5-1.300 8 0v12c-3-1.300-5.500-1.300-8 0"/>',
  check:'<path d="M5 12.500l4.500 4.500L19 7.500"/>',
  user:'<circle cx="12" cy="8.500" r="3.500"/><path d="M5 19.500c1.200-3.600 4-5 7-5s5.800 1.400 7 5"/>',
+ eye:'<path d="M2.500 12c2.600-4.300 5.800-6.400 9.500-6.400s6.900 2.100 9.500 6.400c-2.600 4.300-5.800 6.400-9.500 6.400S5.100 16.300 2.500 12z"/><circle cx="12" cy="12" r="2.900"/>',
  next:'<path d="M19 12H5M11 6l-6 6 6 6"/>'};
 export const ico=(n,cls='')=>`<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n]}</svg>`;
 export const spr=(n,cls='',alt='')=>`<img class="${cls}" src="${SP(n)}" alt="${esc(alt)}" draggable="false">`;
@@ -66,10 +67,12 @@ export function confetti(x,y,n=70){
 export function clearFx(){fxRun++;const c=document.getElementById('fx');c.getContext('2d').clearRect(0,0,c.width,c.height)}
 
 /* level HUD used by all four level types */
-export function hud({i,n,st}){return `<div class="hud">
- ${rb('quit',ico('close'),'יציאה מהשלב',1)}
- <div class="pips" dir="ltr" aria-label="שאלה ${Math.max(1,Math.min(i+1,n))} מתוך ${n}">${Array.from({length:n},(_,k)=>`<i class="${k<i?'d':k===i?'c':''}"></i>`).join('')}</div>
+/* book: 'c' while the story is being read, 'd' once the questions started (reading level only) */
+export function hud({i,n,st,book}){return `<div class="hud">
+ <button class="mb" data-a="quit" aria-label="יציאה מהשלב"><span class="rb t1">${ico('close')}</span><small>יציאה</small></button>
+ <div class="pips" dir="ltr" aria-label="שאלה ${Math.max(1,Math.min(i+1,n))} מתוך ${n}">${book?`<img class="pb ${book}" src="${SP('ic_book')}" alt="">`:''}${Array.from({length:n},(_,k)=>`<i class="${k<i?'d':k===i?'c':''}"></i>`).join('')}</div>
  ${stars(st,'live')}
- ${rb('hint',spr('lamp','rbi'),'רמז',3)}
+ <button class="mb" data-a="hint" aria-label="רמז"><span class="rb t3">${spr('lamp','rbi')}</span><small>רמז</small></button>
 </div>`}
+export const HINT_NOTE='עם רמז מקבלים עד 2 כוכבים';
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));

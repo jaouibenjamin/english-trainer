@@ -6,11 +6,13 @@ the unit, each with four levels that match the four exam sections:
 | Level | Exam section | What you do |
 | --- | --- | --- |
 | קלע המילים | vocabulary | pull the slingshot and pop the balloon with the English word that matches the Hebrew meaning |
-| תופסים צלילים | listening | a word is spoken from the conch; tap the bubble with that word (later rounds: its meaning) |
+| תופסים צלילים | listening | a word is spoken (never printed); tap the bubble with that word (later rounds: its meaning). Without a voice on the device the word is flashed on the sign instead, and the level says so |
 | בקבוק הסיפור | reading | read a short story (tap any word for its meaning), then pick the bottle with the right answer |
 | גשר המשפטים | sentence writing | lay the word planks in order; am / is / are rounds; capital letter first, full stop last |
 
 A sixth bonus island practises months and numbers. Stars open the next islands and new slingshot balls.
+One star rule everywhere: no mistake or a single slip gives 3 stars, at least 60% right on the first try gives 2,
+otherwise 1; using the hint (the lantern) caps the level at 2 and the result screen says so.
 The interface is Hebrew (RTL); all English content comes from the teacher's word list.
 
 ## Files
@@ -39,8 +41,11 @@ With `config.js` empty the game still works, without login, and progress stays o
 
 ## For the teacher
 
-- Pupils open the site, type the class code, their first name and a 4-digit code they choose. No email.
-- The teacher screen is under settings ("כניסת מורה"), or at the bottom of the login screen, and needs the teacher code from the `config` tab.
+- Pupils open the site, type the class code, their first name and a 4-digit code they choose (the first time they pick
+  "פעם ראשונה" at the top of the form, afterwards "יש לי קוד"). No email.
+- The teacher screen is at the bottom of the login screen ("כניסת מורה") or at `#teacher`, and needs the teacher code from the `config` tab.
+  A pupil gets the red tag when fewer than 10 words are learned or after 3 days without practice.
+- The leaderboard shows the podium, the top five and the pupil's own place; nobody is listed as last.
 - To reset a pupil's forgotten code, delete their row in the `kids` tab; they register again.
 - Points: 10 for a correct answer on the first try (4 after a mistake), 15 per star when a level is finished,
   50 for a story answered without mistakes, 20 for each day of practice.
@@ -55,6 +60,8 @@ python3 tests/play.py --quick    # island 1 only in each mode (about 3 minutes)
 python3 tests/play.py --shots out/   # also save a screenshot of every screen
 ```
 
-The script starts its own static server. Class mode runs against `tests/mock.js`, a small Node stand-in for the Apps Script
+The script starts its own static server. Headless Chrome has no speech engine, so the pages get a small stand-in that
+"speaks" (the listening level runs in its real, spoken mode); one separate run uses an engine that always fails, to
+check the no-voice fallback. Class mode runs against `tests/mock.js`, a small Node stand-in for the Apps Script
 runtime that executes `backend/Code.gs` unchanged (`node tests/mock.js unit` runs the backend checks on their own).
 `CHROME` overrides the browser path.

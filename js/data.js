@@ -62,7 +62,7 @@ export const TOBE_BY={
 /* ---------- game structure ---------- */
 export const LEVEL_INFO={
  sling:{name:'קלע המילים',sub:'פוגעים במילה הנכונה',exam:'אוצר מילים',icon:'fork',bg:null},
- listen:{name:'תופסים צלילים',sub:'שומעים מילה ותופסים אותה',exam:'הבנת הנשמע',icon:'conch',bg:'listen'},
+ listen:{name:'תופסים צלילים',sub:'שומעים מילה ולוחצים עליה',exam:'הבנת הנשמע',icon:'conch',bg:'listen'},
  read:{name:'בקבוק הסיפור',sub:'קוראים סיפור ועונים',exam:'הבנת הנקרא',icon:'bottle',bg:'read'},
  bridge:{name:'גשר המשפטים',sub:'בונים משפט וחוצים',exam:'כתיבת משפטים',icon:'ic_bridge',bg:'bridge'}};
 
@@ -85,6 +85,7 @@ export const T={
  gravity:.19, launchK:.165, maxPull:112, minPull:16, hitPad:12, ballR:16,
  ptsFirst:10, ptsLater:4, ptsStar:15, ptsReadPerfect:50, ptsDay:20,
  ttsRate:.85};
-/* one star rule for every level type: share of items answered right on the first try; a hint caps the level at 2 */
-export const STAR3=.85,STAR2=.6;
-export function starsFor(first,total,hint){const acc=total?first/total:0;return Math.min(hint?2:3,acc>=STAR3?3:acc>=STAR2?2:1)}
+/* one star rule for every level type, simple enough for a child to check: no mistake or a single slip keeps 3 stars,
+   at least 60% right on the first try gives 2, otherwise 1. A hint caps the level at 2. */
+export const STAR2=.6;
+export function starsFor(first,total,hint){const s=total-first<=1?3:first/total>=STAR2?2:1;return Math.min(hint?2:3,s)}

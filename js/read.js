@@ -5,14 +5,14 @@ import {S,award,save,say,hush,shuffle,esc} from './state.js';
 import {SND} from './audio.js';
 import {hud,confetti,ico,spr,btn,en,toast} from './ui.js';
 
-const tok=s=>s.replace(TOKRE,t=>{if(!/[A-Za-z]/.test(t))return esc(t);const k=glossKey(t);return k?`<span class="t${VOC.has(k)?' v':''}" data-k="${esc(k)}" data-t="${esc(t)}">${esc(t)}</span>`:esc(t)});
+const tok=s=>s.replace(TOKRE,t=>{if(!/[A-Za-z]/.test(t))return esc(t);const k=glossKey(t);return k?`<span class="t${VOC.has(k)?' v':''}${t.length<4?' s':''}" data-k="${esc(k)}" data-t="${esc(t)}">${esc(t)}</span>`:esc(t)});
 const sentences=t=>t.match(/[^.!?]+[.!?]+["”]?\s*/g)||[t];
 
 export async function start(host,cfg,api){
  const t=TEXTS.find(x=>x.p===cfg.part),sents=sentences(t.text),n=t.qs.length;
  const g={phase:'story',i:0,miss:0,hint:0,first:0,bad:0,wrongNow:0,lock:0,order:t.qs.map(q=>shuffle(q[1].map((_,i)=>i))),mark:[],peek:0,wrong:[]};let alive=true;
  window.__lv={kind:'read',g,answer:()=>t.qs[g.i]?t.qs[g.i][2]:null};
- const head=()=>hud({i:g.phase==='story'?-1:g.i,n,st:starsFor(n-g.bad,n,g.hint)});
+ const head=()=>hud({i:g.phase==='story'?-1:g.i,n,st:starsFor(n-g.bad,n,g.hint),book:g.phase==='story'?'c':'d'});
  const story=()=>`<div class="scrollp story${t.text.length>360?' long':''}"><h3 class="en" dir="ltr">${esc(t.title)}</h3>
    <div class="text en" dir="ltr">${sents.map((s,i)=>`<span class="sn${g.mark.includes(i)?' hl':''}">${tok(s)}</span>`).join('')}</div></div>`;
  function render(){hush();
@@ -26,7 +26,7 @@ export async function start(host,cfg,api){
    host.innerHTML=`<div class="lv read qs">${head()}
     <div class="sign prompt q"><small>בחרו את הבקבוק עם התשובה הנכונה</small><b class="en" dir="ltr">${tok(q[0])}</b></div>
     <div class="bottles">${g.order[g.i].map(oi=>`<button class="bottle${g.wrong.includes(oi)?' bad':''}" data-o="${oi}" dir="ltr">${spr('bottle','bt')}<span class="ans label en">${esc(q[1][oi])}</span><i class="mk"></i></button>`).join('')}</div>
-    <p class="tip" id="gl">${g.wrong.length?'לא נורא, נסו בקבוק אחר':'אפשר ללחוץ על מילה בשאלה כדי לראות פירוש'}</p>
+    <p class="fb" id="gl">${g.wrong.length?'לא נורא, נסו בקבוק אחר':'לחיצה על מילה בשאלה מראה את הפירוש שלה'}</p>
     <div class="row">${btn('peek',spr('ic_book','bi')+' הצצה בסיפור','cream')}</div></div>`}}
  function gloss(el){host.querySelectorAll('.t.sel').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');
   const gl=host.querySelector('#gl');gl.innerHTML=`${en(el.dataset.t)} <span class="eq">=</span> ${esc(GL[el.dataset.k])}`;gl.classList.add('on');say(el.dataset.t)}
@@ -51,4 +51,4 @@ export async function start(host,cfg,api){
  return{destroy(){alive=false;hush();host.removeEventListener('click',onClick);delete window.__lv},
   hint(){if(g.lock)return;
    if(g.phase==='story'||g.peek)return toast('לחצו על מילה בסיפור ותראו מה היא אומרת');   // nothing to reveal yet, so no star cap
-   if(!g.hint)g.hint=1;g.mark=(EVIDENCE[t.id]||[])[g.i]||[];g.peek=1;render();const h=host.querySelector('.sn.hl');if(h&&h.scrollIntoView)h.scrollIntoView({block:'center'})}}}
+   const isNew=!g.hint;g.hint=1;g.mark=(EVIDENCE[t.id]||[])[g.i]||[];g.peek=1;render();const h=host.querySelector('.sn.hl');if(h&&h.scrollIntoView)h.scrollIntoView({block:'center'});return isNew}}}
