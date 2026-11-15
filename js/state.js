@@ -1,6 +1,7 @@
 /* State, class backend client (same contract as the classic trainer) and speech. */
 import {WORDS,TEXTS,ISLANDS,T,levelKey} from './data.js';
 import {clipOf,HAS_CLIPS} from './voice.js';
+import {voiceCtx,voiceOut,duck} from './audio.js';
 
 export const KEY='aam-unit1-v1';          // shared with trainer.html so both keep one progress record
 const SET_KEY='word-islands-settings-v1'; // device-only preferences
@@ -69,51 +70,108 @@ function synth(text,rate,wait){return new Promise(res=>{
   speechSynthesis.speak(u)}catch(e){res(false)}})}
 const synthStop=()=>{if(SYNTH)try{speechSynthesis.cancel()}catch(e){}};
 
-/* One <audio> element plays every clip: iOS only lets an element play freely once it has played inside a gesture. */
+/* ---------- recorded clips ----------
+   A clip is {url,s,e}: the file and the stretch of it that holds the words (seconds, from js/voice.js).
+   Main path: Web Audio. The file is fetched and decoded once, the stretch is cut out with a little air around it,
+   levelled, cached, and scheduled a moment ahead on the game's own (already running) audio context with short fades,
+   so a phone does not swallow the first sounds of a word. Fallback: one shared <audio> element, then the browser voice. */
+const LEAD=.03,TAIL=.08,FADE_IN=.012,FADE_OUT=.04,AHEAD=.08,LOAD_MS=3000,CAP=60;
+const BUF=new Map();   // url -> Promise<AudioBuffer|null>, least recently used first
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+/* cut [s-LEAD, e+TAIL] out of the decoded file and bring its peak to a common level */
+function cut(ctx,full,c){const sr=full.sampleRate,D=full.duration,a=Math.max(0,(c.s||0)-LEAD),b=Math.min(D,(c.e>c.s?c.e:D)+TAIL),
+  i0=Math.floor(a*sr),n=Math.max(1,Math.min(full.length-i0,Math.ceil((b-a)*sr))),out=ctx.createBuffer(1,n,sr),o=out.getChannelData(0),ch=full.numberOfChannels;
+ for(let k=0;k<ch;k++){const d=full.getChannelData(k);for(let i=0;i<n;i++)o[i]+=d[i0+i]/ch}
+ let pk=0;for(let i=0;i<n;i++){const v=o[i]<0?-o[i]:o[i];if(v>pk)pk=v}
+ if(pk>.01){const g=Math.min(3,.7/pk);for(let i=0;i<n;i++)o[i]*=g}
+ return out}
+let active=0;const queue=[];
+function pump(){while(active<3&&queue.length){const job=queue.shift();active++;job().then(()=>{active--;pump()})}}
+/* fetch + decode + cut, at most three downloads at a time; a clip asked for again moves to the front of the cache */
+function loadClip(c,urgent){let p=BUF.get(c.url);if(p){BUF.delete(c.url);BUF.set(c.url,p);if(urgent&&p.jump)p.jump();return p}
+ const ctx=voiceCtx();if(!ctx||!window.fetch)return Promise.resolve(null);
+ let go;p=new Promise(res=>{let begun=0;
+  const run=()=>{if(begun)return Promise.resolve();begun=1;
+   return fetch(c.url,{mode:'cors'}).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()})
+    .then(ab=>new Promise((ok,no)=>{const q=ctx.decodeAudioData(ab,ok,no);if(q&&q.catch)q.catch(no)}))
+    .then(full=>{const b=cut(ctx,full,c);b.clip=c;res(b)},()=>{if(BUF.get(c.url)===p)BUF.delete(c.url);res(null)})};
+  go=run;queue.push(run)});
+ p.jump=()=>{const i=queue.indexOf(go);if(i>=0){queue.splice(i,1);active++;go().then(()=>{active--;pump()})}};   // the word needed now does not wait in line
+ BUF.set(c.url,p);for(const k of BUF.keys()){if(BUF.size<=CAP)break;BUF.delete(k)}
+ if(urgent)p.jump();else pump();return p}
+let stopClip=null,seq=0,misses=0,retryAt=0;
+/* 'end' = played to the end, 'stop' = hushed or replaced by newer speech, 'fail' = could not play */
+function playBuf(buf){return new Promise(res=>{
+ const ctx=voiceCtx(),out=voiceOut();if(!ctx||!out||ctx.state!=='running')return res('fail');
+ if(stopClip)stopClip();
+ let src,g;const d=buf.duration,fi=Math.min(FADE_IN,d/4),fo=Math.min(FADE_OUT,d/4),t0=ctx.currentTime+AHEAD;
+ try{src=ctx.createBufferSource();g=ctx.createGain();src.buffer=buf;
+  g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(1,t0+fi);g.gain.setValueAtTime(1,t0+d-fo);g.gain.linearRampToValueAtTime(0,t0+d);
+  src.connect(g);g.connect(out)}catch(e){return res('fail')}
+ let done=0,t=0;
+ const fin=v=>{if(done)return;done=1;clearTimeout(t);src.onended=null;if(stopClip===stop)stopClip=null;duck(false);
+   if(v!=='end')try{const n=ctx.currentTime;g.gain.cancelScheduledValues(n);g.gain.setTargetAtTime(0,n,.008);src.stop(n+.06)}catch(e){}
+   res(v)},stop=()=>fin('stop');
+ stopClip=stop;src.onended=()=>fin('end');t=setTimeout(()=>fin('end'),(AHEAD+d)*1000+300);   // a frozen context must not hold a level
+ try{duck(true);src.start(t0)}catch(e){fin('fail')}})}
+/* the old way, kept as the fallback: one <audio> element (iOS only lets an element play freely once it has played inside a gesture) */
 const SILENCE='data:audio/wav;base64,UklGRkQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
 const START_MS=2500;   // a clip that has not started by then is given up and the browser voice speaks instead
-let player=null,stopClip=null,seq=0,misses=0,retryAt=0,audioOpen=0;
+let player=null,audioOpen=0;
 function getPlayer(){if(!player){player=new Audio();player.preload='auto';player.playsInline=true;player.setAttribute('playsinline','')}return player}
-/* 'end' = played to the end, 'stop' = hushed or replaced by newer speech, 'fail' = error or no start in time */
-function playClip(url){return new Promise(res=>{
+function playEl(c){return new Promise(res=>{
  if(stopClip)stopClip();
  let a;try{a=getPlayer()}catch(e){return res('fail')}
+ const from=Math.max(0,(c.s||0)-LEAD),to=c.e>c.s?c.e+TAIL:0;
  let done=0,t=0;
- const fin=v=>{if(done)return;done=1;clearTimeout(t);a.removeEventListener('ended',onEnd);a.removeEventListener('error',onErr);a.removeEventListener('playing',onPlay);
-   if(stopClip===stop)stopClip=null;if(v!=='end')try{a.pause()}catch(e){}res(v)},
-  onEnd=()=>fin('end'),onErr=()=>fin('fail'),stop=()=>fin('stop'),
-  /* once it plays, only a stalled stream can keep 'ended' away: do not let a level wait for ever */
-  onPlay=()=>{audioOpen=1;clearTimeout(t);t=setTimeout(()=>fin('end'),((isFinite(a.duration)&&a.duration>0?a.duration:20)+4)*1000)};
- stopClip=stop;a.addEventListener('ended',onEnd);a.addEventListener('error',onErr);a.addEventListener('playing',onPlay);
+ const fin=v=>{if(done)return;done=1;clearTimeout(t);a.removeEventListener('ended',onEnd);a.removeEventListener('error',onErr);a.removeEventListener('playing',onPlay);a.removeEventListener('timeupdate',onTime);
+   if(stopClip===stop)stopClip=null;if(v!=='end'||to)try{a.pause()}catch(e){}res(v)},
+  onEnd=()=>fin('end'),onErr=()=>fin('fail'),stop=()=>fin('stop'),onTime=()=>{if(to&&a.currentTime>=to)fin('end')},
+  /* once it plays, only a stalled stream can keep the end away: do not let a level wait for ever */
+  onPlay=()=>{audioOpen=1;clearTimeout(t);t=setTimeout(()=>fin('end'),((to?to-from:isFinite(a.duration)&&a.duration>0?a.duration:20)+4)*1000)};
+ stopClip=stop;a.addEventListener('ended',onEnd);a.addEventListener('error',onErr);a.addEventListener('playing',onPlay);a.addEventListener('timeupdate',onTime);
  t=setTimeout(()=>fin('fail'),START_MS);
- try{a.src=url;const p=a.play();if(p&&p.catch)p.catch(()=>fin('fail'))}catch(e){fin('fail')}})}
+ try{a.src=c.url+(to?'#t='+from.toFixed(2)+','+to.toFixed(2):'');const p=a.play();if(p&&p.catch)p.catch(()=>fin('fail'))}catch(e){fin('fail')}})}
+/* Web Audio first; if the clip cannot be fetched or decoded within 3 s, or the context is not running, the <audio> element */
+async function playClip(c,my){
+ if(stopClip)stopClip();
+ const ctx=voiceCtx();
+ if(ctx){
+  if(ctx.state!=='running')await Promise.race([ctx.resume().catch(()=>{}),wait(400)]);
+  if(my===seq&&ctx.state==='running'){
+   const buf=await Promise.race([loadClip(c,true),wait(LOAD_MS).then(()=>null)]);
+   if(my!==seq)return 'stop';
+   if(buf){const r=await playBuf(buf);if(r!=='fail')return r}}}
+ if(my!==seq)return 'stop';
+ return playEl(c)}
 /* after two clips in a row could not play (offline, storage gone) go straight to the browser voice for a while */
 const clipFor=text=>misses>=2&&Date.now()<retryAt?null:clipOf(text);
 const missed=()=>{misses++;retryAt=Date.now()+30000};
 /* speak one text. Resolves true when it was spoken (a clip: when it ended or was interrupted; browser voice: when it started),
    false if this device could not say it (used by the listening level). */
-export async function say(text,rate){seq++;
- const url=clipFor(text);
- if(url){synthStop();const r=await playClip(url);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed()}
+export async function say(text,rate){const my=++seq;
+ const c=clipFor(text);
+ if(c){synthStop();const r=await playClip(c,my);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed()}
  else if(stopClip)stopClip();
  return synth(text,rate)}
 /* speak several texts in order with a short breath between them ("read to me"); hush() or any newer speech stops it.
    A part without a clip (or whose clip fails) is read by the browser voice, then the clips carry on. */
 export async function sayAll(parts,rate,gap=380){const my=++seq;if(stopClip)stopClip();synthStop();
  for(const part of parts){
-  const url=clipFor(part);let r=url?await playClip(url):'none';
+  const c=clipFor(part);let r=c?await playClip(c,my):'none';
   if(my!==seq||r==='stop')return true;
   if(r==='fail')missed();else if(r==='end')misses=0;
   if(r!=='end'){await synth(part,rate,true);if(my!==seq)return true}
-  await new Promise(d=>setTimeout(d,gap));if(my!==seq)return true}
+  await wait(gap);if(my!==seq)return true}
  return true}
 export function hush(){seq++;if(stopClip)stopClip();synthStop()}
-/* fetch a level's clips ahead of time (separate elements, the shared player then finds them in the HTTP cache) */
-const warmed=new Map();
-export function warm(texts){for(const x of texts){const u=clipOf(x);if(!u||warmed.has(u))continue;
-  try{const a=new Audio();a.preload='auto';a.src=u;warmed.set(u,a)}catch(e){}}
- for(const [u,a] of warmed){if(warmed.size<=48)break;try{a.removeAttribute('src');a.load()}catch(e){}warmed.delete(u)}}
-/* first gesture: wake the speech engine and let the shared <audio> element play (iOS needs both inside a gesture) */
+/* fetch and decode a level's clips ahead of time, in the order given */
+export function warm(texts){for(const x of texts){const c=clipOf(x);if(c)loadClip(c)}}
+/* resolves when the clip of this text is decoded and ready to play at once, or after ms (also when it has no clip) */
+export function ready(text,ms=LOAD_MS){const c=clipFor(text);if(!c||!voiceCtx())return Promise.resolve(false);
+ return Promise.race([loadClip(c,true).then(b=>!!b),wait(ms).then(()=>false)])}
+/* first gesture: wake the speech engine and let the shared <audio> element play (iOS needs both inside a gesture);
+   the audio context itself is resumed by unlock() in js/audio.js in the same gesture */
 let synthOpen=0;
 export function unlockTTS(){
  if(SYNTH&&!synthOpen){synthOpen=1;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;u.lang='en-US';speechSynthesis.speak(u)}catch(e){}}

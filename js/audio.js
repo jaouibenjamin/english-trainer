@@ -19,6 +19,13 @@ export function graph(ctx){
 function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();const g=graph(AC);MASTER=g.master;MUS=g.mus;SFX=g.sfx}catch(e){AC=null}}
  if(AC&&AC.state==='suspended')AC.resume().catch(()=>{});return AC}
 
+/* the recorded voice (js/state.js) plays on this same context, so the output is already awake when a word is spoken.
+   It gets its own bus straight to the output (no music filter); the music steps back a little while a word is spoken. */
+let VOX=null;
+export const voiceCtx=()=>ac();
+export function voiceOut(){if(!ac())return null;if(!VOX){VOX=AC.createGain();VOX.gain.value=1;VOX.connect(AC.destination)}return VOX}
+export function duck(on){if(!AC||!MUS)return;try{MUS.gain.setTargetAtTime(on?.3:.8,AC.currentTime,on?.03:.25)}catch(e){}}
+
 /* kalimba / music-box pluck: sine body, a quiet octave partial that dies fast, tiny click of a third partial */
 export function pluck(ctx,out,m,t,v){
  const f=hz(m),g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.006);g.gain.exponentialRampToValueAtTime(v*.35,t+.18);g.gain.exponentialRampToValueAtTime(.0008,t+1.5);
