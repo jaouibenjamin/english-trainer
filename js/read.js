@@ -1,7 +1,7 @@
 /* Level 3: the story bottle. Read the passage (tap any word for its meaning), then answer by choosing a bottle.
    Reading is meant to feel safe: the story is always one tap away, wrong picks just say "try again". */
 import {TEXTS,GL,TOKRE,glossKey,VOC,EVIDENCE,T,starsFor} from './data.js';
-import {S,award,save,say,hush,shuffle,esc} from './state.js';
+import {S,award,save,say,sayAll,warm,hush,shuffle,esc} from './state.js';
 import {SND} from './audio.js';
 import {hud,confetti,ico,spr,btn,en,toast} from './ui.js';
 
@@ -45,8 +45,9 @@ export async function start(host,cfg,api){
   if(k==='toq'){SND.tap();g.phase='q';render()}
   else if(k==='peek'){SND.tap();g.peek=1;render()}
   else if(k==='unpeek'){SND.tap();g.peek=0;render()}
-  else if(k==='readall'){SND.tap();say(t.text,.78)}};
+  else if(k==='readall'){SND.tap();sayAll([t.title,...sents],.78)}};   // title, then sentence by sentence
  host.addEventListener('click',onClick);
+ warm([t.title,...sents,...t.qs.map(q=>q[1][q[2]])]);   // the story and the right answers; tapped words load when tapped
  render();
  return{destroy(){alive=false;hush();host.removeEventListener('click',onClick);delete window.__lv},
   hint(){if(g.lock)return;

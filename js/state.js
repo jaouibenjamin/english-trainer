@@ -1,5 +1,6 @@
 /* State, class backend client (same contract as the classic trainer) and speech. */
 import {WORDS,TEXTS,ISLANDS,T,levelKey} from './data.js';
+import {clipOf,HAS_CLIPS} from './voice.js';
 
 export const KEY='aam-unit1-v1';          // shared with trainer.html so both keep one progress record
 const SET_KEY='word-islands-settings-v1'; // device-only preferences
@@ -49,23 +50,74 @@ export function setStars(isl,type,n){const k=levelKey(isl,type),before=totalStar
  if(n>(S.g.st[k]||0))S.g.st[k]=n;S.g.plays++;award(n*T.ptsStar);
  return{gained:totalStars()-before,opened:ISLANDS.filter(i=>isOpen(i)&&!was.includes(i.id))}}
 
-/* ---------- speech ---------- */
-export const TTS='speechSynthesis' in window&&'SpeechSynthesisUtterance' in window;
+/* ---------- speech: the recorded voice first (js/voice.js), the browser's own voice as the fallback ---------- */
+const SYNTH='speechSynthesis' in window&&'SpeechSynthesisUtterance' in window;
+export const TTS=SYNTH||HAS_CLIPS;   // "this device can speak": true wherever clips exist, even with no speech engine
 let voice=null;
 function pickVoice(){try{const vs=speechSynthesis.getVoices();voice=vs.find(v=>/en[-_]US/i.test(v.lang)&&/samantha|google us|aria|jenny/i.test(v.name))||vs.find(v=>/en[-_]US/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null}catch(e){}}
-if(TTS){pickVoice();try{speechSynthesis.addEventListener('voiceschanged',pickVoice)}catch(e){}}
-/* speak; resolves true if the browser really started speaking, false if it could not (used by the listening level) */
-export function say(text,rate){return new Promise(res=>{
- if(!TTS)return res(false);
+if(SYNTH){pickVoice();try{speechSynthesis.addEventListener('voiceschanged',pickVoice)}catch(e){}}
+/* browser voice; resolves true if it really started speaking (with wait: when it finished), false if it could not */
+function synth(text,rate,wait){return new Promise(res=>{
+ if(!SYNTH)return res(false);
  try{speechSynthesis.cancel();if(!voice)pickVoice();
   const u=new SpeechSynthesisUtterance(text);u.lang='en-US';if(voice)u.voice=voice;u.rate=rate||T.ttsRate;
   let done=0;const fin=v=>{if(!done){done=1;res(v)}};
-  u.onstart=()=>fin(true);u.onend=()=>fin(true);u.onerror=()=>fin(false);
+  let begun=0;u.onstart=()=>{begun=1;if(!wait)fin(true)};u.onend=()=>fin(true);u.onerror=()=>fin(false);
   /* slow engines (Android cold start) may need a moment: only give up if nothing is speaking or queued */
-  setTimeout(()=>{let busy=false;try{busy=speechSynthesis.speaking||speechSynthesis.pending}catch(e){}if(busy)setTimeout(()=>fin(true),1500);else fin(false)},1600);speechSynthesis.speak(u)}catch(e){res(false)}})}
-export function hush(){if(TTS)try{speechSynthesis.cancel()}catch(e){}}
-let ttsUnlocked=0;
-export function unlockTTS(){if(ttsUnlocked||!TTS)return;ttsUnlocked=1;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;u.lang='en-US';speechSynthesis.speak(u)}catch(e){}}
+  setTimeout(()=>{let busy=false;try{busy=speechSynthesis.speaking||speechSynthesis.pending}catch(e){}if(wait&&(busy||begun))return;if(busy)setTimeout(()=>fin(true),1500);else fin(false)},1600);
+  if(wait)setTimeout(()=>fin(true),8000+text.length*150);   // some engines never report the end
+  speechSynthesis.speak(u)}catch(e){res(false)}})}
+const synthStop=()=>{if(SYNTH)try{speechSynthesis.cancel()}catch(e){}};
+
+/* One <audio> element plays every clip: iOS only lets an element play freely once it has played inside a gesture. */
+const SILENCE='data:audio/wav;base64,UklGRkQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
+const START_MS=2500;   // a clip that has not started by then is given up and the browser voice speaks instead
+let player=null,stopClip=null,seq=0,misses=0,retryAt=0,audioOpen=0;
+function getPlayer(){if(!player){player=new Audio();player.preload='auto';player.playsInline=true;player.setAttribute('playsinline','')}return player}
+/* 'end' = played to the end, 'stop' = hushed or replaced by newer speech, 'fail' = error or no start in time */
+function playClip(url){return new Promise(res=>{
+ if(stopClip)stopClip();
+ let a;try{a=getPlayer()}catch(e){return res('fail')}
+ let done=0,t=0;
+ const fin=v=>{if(done)return;done=1;clearTimeout(t);a.removeEventListener('ended',onEnd);a.removeEventListener('error',onErr);a.removeEventListener('playing',onPlay);
+   if(stopClip===stop)stopClip=null;if(v!=='end')try{a.pause()}catch(e){}res(v)},
+  onEnd=()=>fin('end'),onErr=()=>fin('fail'),stop=()=>fin('stop'),
+  /* once it plays, only a stalled stream can keep 'ended' away: do not let a level wait for ever */
+  onPlay=()=>{audioOpen=1;clearTimeout(t);t=setTimeout(()=>fin('end'),((isFinite(a.duration)&&a.duration>0?a.duration:20)+4)*1000)};
+ stopClip=stop;a.addEventListener('ended',onEnd);a.addEventListener('error',onErr);a.addEventListener('playing',onPlay);
+ t=setTimeout(()=>fin('fail'),START_MS);
+ try{a.src=url;const p=a.play();if(p&&p.catch)p.catch(()=>fin('fail'))}catch(e){fin('fail')}})}
+/* after two clips in a row could not play (offline, storage gone) go straight to the browser voice for a while */
+const clipFor=text=>misses>=2&&Date.now()<retryAt?null:clipOf(text);
+const missed=()=>{misses++;retryAt=Date.now()+30000};
+/* speak one text. Resolves true when it was spoken (a clip: when it ended or was interrupted; browser voice: when it started),
+   false if this device could not say it (used by the listening level). */
+export async function say(text,rate){seq++;
+ const url=clipFor(text);
+ if(url){synthStop();const r=await playClip(url);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed()}
+ else if(stopClip)stopClip();
+ return synth(text,rate)}
+/* speak several texts in order with a short breath between them ("read to me"); hush() or any newer speech stops it.
+   A part without a clip (or whose clip fails) is read by the browser voice, then the clips carry on. */
+export async function sayAll(parts,rate,gap=380){const my=++seq;if(stopClip)stopClip();synthStop();
+ for(const part of parts){
+  const url=clipFor(part);let r=url?await playClip(url):'none';
+  if(my!==seq||r==='stop')return true;
+  if(r==='fail')missed();else if(r==='end')misses=0;
+  if(r!=='end'){await synth(part,rate,true);if(my!==seq)return true}
+  await new Promise(d=>setTimeout(d,gap));if(my!==seq)return true}
+ return true}
+export function hush(){seq++;if(stopClip)stopClip();synthStop()}
+/* fetch a level's clips ahead of time (separate elements, the shared player then finds them in the HTTP cache) */
+const warmed=new Map();
+export function warm(texts){for(const x of texts){const u=clipOf(x);if(!u||warmed.has(u))continue;
+  try{const a=new Audio();a.preload='auto';a.src=u;warmed.set(u,a)}catch(e){}}
+ for(const [u,a] of warmed){if(warmed.size<=48)break;try{a.removeAttribute('src');a.load()}catch(e){}warmed.delete(u)}}
+/* first gesture: wake the speech engine and let the shared <audio> element play (iOS needs both inside a gesture) */
+let synthOpen=0;
+export function unlockTTS(){
+ if(SYNTH&&!synthOpen){synthOpen=1;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;u.lang='en-US';speechSynthesis.speak(u)}catch(e){}}
+ if(HAS_CLIPS&&!audioOpen&&!stopClip)try{const a=getPlayer();a.src=SILENCE;const p=a.play();if(p&&p.then)p.then(()=>{audioOpen=1},()=>{});else audioOpen=1}catch(e){}}
 
 export const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};

@@ -1,8 +1,8 @@
 /* Level 2: catching sounds. The word is only heard, never printed: tap the drifting bubble that carries it.
    First rounds show the written English words, later rounds show Hebrew meanings.
-   If the browser cannot speak, the level says so and flashes the word on the sign instead ("show again"). */
+   If the device cannot speak (no recorded clip reachable and no browser voice), the level says so and flashes the word on the sign instead ("show again"). */
 import {wordsOf,T,starsFor} from './data.js';
-import {mark,say,TTS,shuffle,weakest,esc} from './state.js';
+import {mark,say,warm,TTS,shuffle,weakest,esc} from './state.js';
 import {SND} from './audio.js';
 import {SP,hud,bgMap,confetti,en,spr,ico,sleep,stage,toast} from './ui.js';
 
@@ -48,6 +48,7 @@ export async function start(host,cfg,api){
   else{g.miss++;if(!g.wrongNow)g.bad++;g.wrongNow++;el.classList.add('bad');SND.bad();const em=el.querySelector('em');em.textContent=g.mode==='en'?o.he.split(',')[0]:o.en;em.hidden=false;if(g.mode==='he')em.setAttribute('dir','ltr');hudUp()}}
  const onClick=e=>{const b=e.target.closest('.bub');if(b)return pick(b);if(e.target.closest('[data-a=again]')){SND.tap();speak()}};
  host.addEventListener('click',onClick);
+ warm(ws.map(w=>w.en));
  round();
  return{destroy(){alive=false;clearTimeout(onT);host.removeEventListener('click',onClick);window.removeEventListener('resize',place);delete window.__lv},
   hint(){if(g.lock)return;const isNew=!g.hint;if(isNew){g.hint=1;hudUp()}const el=[...bubs.children].find(b=>b.dataset.w===ws[g.i].en);if(el)el.classList.add('hinted');return isNew}}}

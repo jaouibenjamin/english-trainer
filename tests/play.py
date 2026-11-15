@@ -4,6 +4,7 @@
     python3 tests/play.py            # full: every level of every island (local mode), island 1 at a second
                                      # viewport, class mode against the mock backend, audio levels
     python3 tests/play.py --quick    # island 1 only in each mode
+    python3 tests/play.py --voice    # only the speech checks (recorded clips, fallbacks, no-voice device)
     python3 tests/play.py --shots DIR  # also save a PNG of every screen into DIR
 
 It starts its own static server for the repo and, for class mode, the mock Apps Script backend
@@ -16,6 +17,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOCK = os.environ.get('MOCK', os.path.join(ROOT, 'tests', 'mock.js'))
 CHROME = os.environ.get('CHROME', '/usr/bin/google-chrome')
 QUICK = '--quick' in sys.argv
+VOICE_ONLY = '--voice' in sys.argv
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else None
 PORT, API_PORT = 8791, 8765
 BASE = f'http://127.0.0.1:{PORT}/index.html'
@@ -35,6 +37,24 @@ SPEECH_NONE = """(()=>{window.__spoken=[];
   speak(u){setTimeout(()=>{u.onerror&&u.onerror({error:'synthesis-unavailable'})},20)}};
  Object.defineProperty(window,'speechSynthesis',{configurable:true,get:()=>stub});
  window.SpeechSynthesisUtterance=function(t){this.text=t}})()"""
+
+# The recorded voice (js/voice.js) plays through an <audio> element from Higgsfield's storage, which the test machine
+# cannot reach. play() is replaced by a stand-in that records the requested URL and then behaves like a clip:
+# 'ok' fires playing + ended, 'error' fires error, 'mute' never starts (the game must give up after 2.5 s).
+# Real (trusted) load errors of the unreachable host are kept away from the game so only the stand-in decides what the clip does.
+CLIPS_HOST = 'cloudfront.net'
+def clip_stub(mode='ok'):
+    return """(()=>{const clips=[];window.__clips=clips;window.__clipMode='%s';const P=HTMLMediaElement.prototype,pause=P.pause;
+ const add=P.addEventListener,rem=P.removeEventListener;   // the elements are not in the document, so their listeners are wrapped directly
+ P.addEventListener=function(t,f,o){if(t!=='error')return add.call(this,t,f,o);f.__w=f.__w||(e=>{if(!e.isTrusted)f.call(this,e)});return add.call(this,t,f.__w,o)};
+ P.removeEventListener=function(t,f,o){return rem.call(this,t,(t==='error'&&f.__w)||f,o)};
+ P.play=function(){const src=this.getAttribute('src')||'',n=this.__n=(this.__n||0)+1,real=/^https?:/.test(src),mode=real?window.__clipMode:'ok',
+   fire=(t,ms)=>setTimeout(()=>{if(this.__n===n)this.dispatchEvent(new Event(t))},ms);
+  if(real)clips.push(src);
+  if(mode==='error')fire('error',20);else if(mode==='ok'){fire('playing',20);fire('ended',160)}
+  return Promise.resolve()};
+ P.pause=function(){this.__n=(this.__n||0)+1;return pause.call(this)}})()""" % mode
+CLIP_OF = "(async t=>(await import('/js/voice.js')).clipOf(t))"
 
 
 def check(label, ok, extra=''):
@@ -218,14 +238,15 @@ async def play_level(pg, isl, typ, **kw):
     return stars
 
 
-async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK):
+async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2, has_touch=True, locale='he-IL')
     pg = await c.new_page()
     await pg.add_init_script(speech)
+    await pg.add_init_script(clip_stub(clips))
     pg.on('pageerror', lambda e: errs.append('pageerror: ' + str(e)))
     pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
-    pg.on('requestfailed', lambda r: errs.append('requestfailed: ' + r.url) if 'fonts.g' not in r.url else None)   # the classic trainer uses Google Fonts; offline CI cannot reach them
-    pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 else None)
+    pg.on('requestfailed', lambda r: errs.append('requestfailed: ' + r.url) if 'fonts.g' not in r.url and CLIPS_HOST not in r.url else None)   # the classic trainer uses Google Fonts and the voice clips live on a CDN; offline CI cannot reach either
+    pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 and CLIPS_HOST not in r.url else None)
     if api:
         await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body=f"window.API_URL='{api}';"))
     return c, pg
@@ -256,8 +277,10 @@ async def local_run(b, w, h, full, errs):
     check(f'[{tag}] one-tap next level button present', await pg.locator('.result .btn.green').count() == 1)
     await pg.click('.result .btn.green')                     # next level = listening
     await lv(pg, 'listen'); await pg.wait_for_timeout(700); await shot(pg, f'{tag}_07_listen')
-    L = await pg.evaluate("({ans:__lv.answer(),spoken:__spoken.slice(-1)[0],sign:document.querySelector('.listen .prompt').innerText,wordHidden:document.querySelector('#lw').hidden,btn:document.querySelector('#rl').textContent,tts:__lv.g.tts})")
-    check(f'[{tag}] listening: the word is spoken, not printed', L['tts'] and L['spoken'] == L['ans'] and L['wordHidden'] and L['ans'] not in L['sign'], L)
+    L = await pg.evaluate("({ans:__lv.answer(),spoken:__spoken.slice(-1)[0],clip:__clips.slice(-1)[0],sign:document.querySelector('.listen .prompt').innerText,wordHidden:document.querySelector('#lw').hidden,btn:document.querySelector('#rl').textContent,tts:__lv.g.tts})")
+    L['want'] = await pg.evaluate(CLIP_OF, L['ans'])
+    heard = L['clip'] == L['want'] and L['ans'] not in await pg.evaluate('__spoken') if L['want'] else L['spoken'] == L['ans']
+    check(f'[{tag}] listening: the word is spoken (recorded clip when there is one), not printed', L['tts'] and heard and L['wordHidden'] and L['ans'] not in L['sign'], L)
     check(f'[{tag}] listening: sign and button say the same thing', 'הקשיבו' in L['sign'] and L['btn'] == 'השמיעו שוב', L)
     s2 = await play_level(pg, 1, 'listen', wrong_first=True, use_hint=True, tag=f'{tag}_08_listen')
     await shot(pg, f'{tag}_09_result_listen')
@@ -323,7 +346,7 @@ async def local_run(b, w, h, full, errs):
 async def fallback_run(b, w, h, errs):
     """No voice on the device: the level must say so, flash the word on the sign and offer "show again"."""
     tag = f'no-speech {w}x{h}'
-    c, pg = await new_page(b, w, h, errs=errs, speech=SPEECH_NONE)
+    c, pg = await new_page(b, w, h, errs=errs, speech=SPEECH_NONE, clips='error')    # no speech engine and the clips cannot be reached
     await pg.goto(BASE + '#play/1/listen'); await lv(pg, 'listen')
     await pg.wait_for_function("window.__lv&&window.__lv.g.tts===false&&!document.querySelector('#lw').hidden", timeout=8000)
     L = await pg.evaluate("({ans:__lv.answer(),word:document.querySelector('#lw').textContent,sign:document.querySelector('#lt').textContent,btn:document.querySelector('#rl').textContent})")
@@ -336,6 +359,56 @@ async def fallback_run(b, w, h, errs):
     if SHOTS: await pg.screenshot(path=os.path.join(SHOTS, f'{w}x{h}_07_listen_fallback_word.png'))
     ok = await play_listen(pg)
     check(f'[{tag}] the level can be finished without a voice', ok)
+    await c.close()
+
+
+async def voice_run(b, w, h, errs):
+    """The recorded voice: clips are used when they exist, the browser voice covers every gap, read-to-me goes sentence by sentence."""
+    tag = f'voice {w}x{h}'
+    SAY = "(async t=>{const m=await import('/js/state.js'),t0=performance.now();const ok=await m.say(t);return{ok,ms:performance.now()-t0}})"
+    c, pg = await new_page(b, w, h, errs=errs)
+    await pg.goto(BASE + '#play/1/listen'); await lv(pg, 'listen')
+    await pg.wait_for_function("__clips.length>0", timeout=5000)
+    ans = await pg.evaluate("__lv.answer()"); want = await pg.evaluate(CLIP_OF, ans)
+    R = await pg.evaluate("({clips:[...__clips],spoken:[...__spoken],tts:__lv.g.tts})")
+    check(f'[{tag}] a word with a clip requests exactly its clip URL and the browser voice stays silent', bool(want) and want.startswith('https://') and R['clips'][-1] == want and ans not in R['spoken'] and R['tts'], {'want': want, **R})
+    await pg.wait_for_function("__lv.g.said>0", timeout=3000)
+    await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .isl')
+    n = await pg.evaluate("__clips.length")
+    r = await pg.evaluate(SAY, 'purple xylophone')
+    R = await pg.evaluate("({clips:__clips.length,spoken:[...__spoken]})")
+    check(f'[{tag}] a text without a clip falls back to the browser voice', r['ok'] and R['clips'] == n and R['spoken'][-1] == 'purple xylophone', R)
+    r = await pg.evaluate(SAY, 'Goal'); R = await pg.evaluate("({clip:__clips.slice(-1)[0],spoken:[...__spoken]})")
+    check(f'[{tag}] lookup ignores case and extra spaces when there is no exact match', r['ok'] and R['clip'] == await pg.evaluate(CLIP_OF, 'goal') and await pg.evaluate(CLIP_OF, '  a  lot of ') == await pg.evaluate(CLIP_OF, 'a lot of') and 'Goal' not in R['spoken'], R)
+    # read to me: title, then every sentence, in order; leaving the story stops it
+    await pg.evaluate("location.hash='play/1/read'"); await lv(pg, 'read')
+    parts = await pg.evaluate("(async()=>{const d=await import('/js/data.js'),v=await import('/js/voice.js'),t=d.TEXTS.find(x=>x.p===1);return [t.title,...(t.text.match(/[^.!?]+[.!?]+[\"”]?\\s*/g)||[t.text])].map(v.clipOf)})()")
+    n = await pg.evaluate("__clips.length"); await pg.click('[data-a=readall]')
+    await pg.wait_for_function(f"__clips.length>={n + len(parts)}", timeout=20000)
+    await pg.wait_for_timeout(900)
+    got = (await pg.evaluate("[...__clips]"))[n:]
+    check(f'[{tag}] read to me plays the title and each sentence clip once, in order', all(parts) and got == parts, {'want': len(parts), 'got': len(got)})
+    await pg.evaluate("(async()=>{const m=await import('/js/state.js');window.__n0=__clips.length;await m.sayAll(['goal','purple xylophone','song'],1,50);window.__mix=[__clips.slice(__n0),__spoken.slice(-1)[0]]})()")
+    mix = await pg.evaluate("__mix")
+    check(f'[{tag}] a sentence without a clip is read by the browser voice and the clips carry on', mix == [[await pg.evaluate(CLIP_OF, 'goal'), await pg.evaluate(CLIP_OF, 'song')], 'purple xylophone'], mix)
+    n = await pg.evaluate("__clips.length"); await pg.click('[data-a=readall]'); await pg.wait_for_timeout(700)
+    await pg.click('[data-a=toq]'); m = await pg.evaluate("__clips.length"); await pg.wait_for_timeout(1500)
+    check(f'[{tag}] read to me stops when the pupil moves on', 1 <= m - n <= 3 and await pg.evaluate("__clips.length") == m, {'started': m - n})
+    await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .isl')
+    # a clip that fails, and one that never starts, hand over to the browser voice
+    await pg.evaluate("window.__clipMode='error'"); r = await pg.evaluate(SAY, 'kick')
+    check(f'[{tag}] a clip that errors falls back to the browser voice', r['ok'] and await pg.evaluate("__spoken.slice(-1)[0]") == 'kick' and r['ms'] < 1500, r)
+    await pg.evaluate("window.__clipMode='mute'"); r = await pg.evaluate(SAY, 'song')
+    check(f'[{tag}] a clip that has not started within 2.5 s falls back to the browser voice', r['ok'] and await pg.evaluate("__spoken.slice(-1)[0]") == 'song' and 2300 < r['ms'] < 4000, r)
+    await c.close()
+    # no speech engine at all, clips reachable: the listening level keeps its voice
+    c, pg = await new_page(b, w, h, errs=errs, speech=SPEECH_NONE)
+    await pg.goto(BASE + '#play/1/listen'); await lv(pg, 'listen')
+    await pg.wait_for_function("__lv.g.said>0", timeout=5000); await pg.wait_for_timeout(300)
+    L = await pg.evaluate("({tts:__lv.g.tts,hidden:document.querySelector('#lw').hidden,btn:document.querySelector('#rl').textContent,clips:__clips.length})")
+    check(f'[{tag}] without a speech engine the listening level still speaks through the clips', L['tts'] and L['hidden'] and L['btn'] == 'השמיעו שוב' and L['clips'] >= 1, L)
+    ok = await play_listen(pg)
+    check(f'[{tag}] and can be finished by ear', ok and await pg.evaluate("!window.__lv||window.__lv.g.tts!==false"))
     await c.close()
 
 
@@ -432,10 +505,14 @@ async def main():
     try:
         async with async_playwright() as p:
             b = await p.chromium.launch(executable_path=CHROME, args=['--no-sandbox', '--autoplay-policy=no-user-gesture-required'])
-            await local_run(b, 390, 844, not QUICK, errs)
-            await local_run(b, 360, 740, False, errs)
+            if not VOICE_ONLY:
+                await local_run(b, 390, 844, not QUICK, errs)
+                await local_run(b, 360, 740, False, errs)
             await fallback_run(b, 390, 844, errs)
-            if have_mock:
+            await voice_run(b, 390, 844, errs)
+            if VOICE_ONLY:
+                pass
+            elif have_mock:
                 await class_run(b, 390, 844, errs)
             else:
                 check('mock backend available for class mode', False, MOCK)
