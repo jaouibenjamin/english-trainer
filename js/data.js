@@ -44,10 +44,10 @@ export const TOKRE=/(a lot of|dining room|living room|I'm sorry|years old|how ma
 export function glossKey(t){let k=t.toLowerCase();if(GL[k])return k;k=k.replace(/'s$/,'');return GL[k]?k:null}
 export const VOC=new Set(WORDS.filter(w=>w.p<6).map(w=>w.en.toLowerCase()));
 
-/* Bridge sentences per island: A1 level, at most 6 planks including the full stop, built from each part's words.
+/* Bridge sentences per island: A1 level, at most 6 planks including the full stop and short enough for large plank lettering, built from each part's words.
    Some come from BUILD above, the rest were written for the game. */
 export const SENT={
-1:[['I play the piano.','אני מנגן/ת בפסנתר.'],['My hobby is music.','התחביב שלי הוא מוזיקה.'],['I am from Israel.','אני מישראל.'],['The goal is far.','השער רחוק.'],['I kick the ball.','אני בועט/ת בכדור.'],['I also play football.','אני גם משחק/ת כדורגל.'],['My favorite subject is English.','המקצוע האהוב עליי הוא אנגלית.']],
+1:[['I play the piano.','אני מנגן/ת בפסנתר.'],['My hobby is music.','התחביב שלי הוא מוזיקה.'],['I am from Israel.','אני מישראל.'],['The goal is far.','השער רחוק.'],['I kick the ball.','אני בועט/ת בכדור.'],['I also play football.','אני גם משחק/ת כדורגל.']],
 2:[['She is a student.','היא תלמידה.'],['We are in the classroom.','אנחנו בכיתה.'],['The trip is special.','הטיול מיוחד.'],['I study every day.','אני לומד/ת כל יום.'],['Their classroom is big.','הכיתה שלהם גדולה.'],['We wait for the bus.','אנחנו מחכים לאוטובוס.']],
 3:[['The flat is new.','הדירה חדשה.'],['Her sofa is blue.','הספה שלה כחולה.'],['I play the guitar.','אני מנגן/ת בגיטרה.'],['We are the same age.','אנחנו באותו הגיל.'],['The building is big.','הבניין גדול.'],['She is coming soon.','היא באה בקרוב.']],
 4:[['My birthday is in July.','יום ההולדת שלי ביולי.'],['The candy is sweet.','הממתק מתוק.'],['Everyone is ready.','כולם מוכנים.'],['We are outside.','אנחנו בחוץ.'],['I throw the ball.','אני זורק/ת את הכדור.'],['They give me candy.','הם נותנים לי ממתק.']],
@@ -64,7 +64,7 @@ export const LEVEL_INFO={
  sling:{name:'קלע המילים',sub:'פוגעים במילה הנכונה',exam:'אוצר מילים',icon:'fork',bg:null},
  listen:{name:'תופסים צלילים',sub:'שומעים מילה ותופסים אותה',exam:'הבנת הנשמע',icon:'conch',bg:'listen'},
  read:{name:'בקבוק הסיפור',sub:'קוראים סיפור ועונים',exam:'הבנת הנקרא',icon:'bottle',bg:'read'},
- bridge:{name:'גשר המשפטים',sub:'בונים משפט וחוצים',exam:'כתיבת משפטים',icon:'plank_1',bg:'bridge'}};
+ bridge:{name:'גשר המשפטים',sub:'בונים משפט וחוצים',exam:'כתיבת משפטים',icon:'ic_bridge',bg:'bridge'}};
 
 export const ISLANDS=[
  {id:1,he:'אי התחביבים',en:'Meet Emma',need:0,bg:'sling1',pos:[67,83],levels:[['sling',1],['listen',1],['read',1],['bridge',1]]},
@@ -72,7 +72,7 @@ export const ISLANDS=[
  {id:3,he:'אי הבית החדש',en:'The New Flat',need:14,bg:'sling3',pos:[68,58],levels:[['sling',3],['listen',3],['read',3],['bridge',3]]},
  {id:4,he:'אי יום ההולדת',en:'A Birthday in Brazil',need:22,bg:'sling4',pos:[32,45.5],levels:[['sling',4],['listen',4],['read',4],['bridge',4]]},
  {id:5,he:'אי המתנות',en:'A Special Present',need:30,bg:'sling5',pos:[68,33],levels:[['sling',5],['listen',5],['read',5],['bridge',5]]},
- {id:6,he:'אי האוצר',en:'Months and Numbers',need:18,bonus:true,bg:'sling1',pos:[32,21],levels:[['sling',6],['listen',7]]}];
+ {id:6,he:'אי האוצר',en:'Months and Numbers',need:36,bonus:true,bg:'sling1',pos:[32,21],levels:[['sling',6],['listen',7]]}];
 export const MAX_STARS=ISLANDS.reduce((a,i)=>a+i.levels.length*3,0);
 export const levelKey=(isl,type)=>isl+'-'+type;
 
@@ -83,7 +83,8 @@ export const BALLS=[{name:'קוקוס',need:0},{name:'כדור ים',need:5},{na
 export const T={
  slingWords:7, listenWords:7, bridgeBuild:3, bridgeTobe:2,
  gravity:.19, launchK:.165, maxPull:112, minPull:16, hitPad:12, ballR:16,
- starSling:[1,3], starListen:[1,3], starRead:[0,2], starBridge:[1,3],   // max misses for 3 stars, for 2 stars
  ptsFirst:10, ptsLater:4, ptsStar:15, ptsReadPerfect:50, ptsDay:20,
  ttsRate:.85};
-export const starsFor=(miss,hint,[a,b])=>Math.min(hint?2:3,miss<=a?3:miss<=b?2:1);
+/* one star rule for every level type: share of items answered right on the first try; a hint caps the level at 2 */
+export const STAR3=.85,STAR2=.6;
+export function starsFor(first,total,hint){const acc=total?first/total:0;return Math.min(hint?2:3,acc>=STAR3?3:acc>=STAR2?2:1)}

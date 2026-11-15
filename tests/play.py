@@ -41,6 +41,7 @@ def port_open(p):
 async def shot(pg, name):
     if SHOTS:
         os.makedirs(SHOTS, exist_ok=True)
+        await pg.wait_for_timeout(450)          # let the background cross-fade finish
         await pg.screenshot(path=os.path.join(SHOTS, name + '.png'))
 
 
@@ -51,7 +52,7 @@ async def lv(pg, kind, timeout=15000):
 async def play_sling(pg, wrong_first=False, use_hint=False, tag=None):
     await lv(pg, 'sling')
     box = await pg.locator('#cv').bounding_box()
-    n, miss_done = 0, False
+    n, miss_done, missed_shot = 0, False, False
     if use_hint:
         await pg.click('[data-a=hint]')
     while n < 40:
@@ -69,17 +70,22 @@ async def play_sling(pg, wrong_first=False, use_hint=False, tag=None):
         vy = -15.0
         a, b, c = .5 * G, vy, geo['AY'] - ty
         t = (-b - math.sqrt(b * b - 4 * a * c)) / (2 * a)       # first time the ball is at the balloon's height
-        vx = (tx - geo['AX']) / t
-        dx, dy = -vx / K, -vy / K
+        dy = -vy / K                                            # the ball is released from the pulled-back position
+        a, b, c = .5 * G, vy, geo['AY'] + dy - ty
+        t = (-b - math.sqrt(b * b - 4 * a * c)) / (2 * a)
+        vx = (tx - geo['AX']) / (t - 1 / K)
+        dx = -vx / K
         x0, y0 = box['x'] + geo['AX'], box['y'] + geo['AY']
         await pg.mouse.move(x0, y0); await pg.mouse.down()
         await pg.mouse.move(x0 + dx / 2, y0 + dy / 2, steps=3); await pg.mouse.move(x0 + dx, y0 + dy, steps=3)
         if tag and st['i'] == 1:
             await pg.wait_for_timeout(120); await shot(pg, tag + '_aim')
         await pg.mouse.up()
-        await pg.wait_for_timeout(1500)
-        if tag and st['i'] == 0 and miss_done and wrong_first:
-            await shot(pg, tag + '_miss')
+        if tag and SHOTS and st['i'] == 0 and miss_done and wrong_first and not missed_shot:
+            missed_shot = True
+            await pg.wait_for_timeout(750); await pg.screenshot(path=os.path.join(SHOTS, tag + '_miss.png')); await pg.wait_for_timeout(750)
+        else:
+            await pg.wait_for_timeout(1500)
     return False
 
 
@@ -99,7 +105,7 @@ async def play_listen(pg, wrong_first=False, use_hint=False, tag=None):
             await pg.locator(f'.bub:not(.bad):not([data-w="{ans}"])').first.click(force=True)
             await pg.wait_for_timeout(250)
             if tag: await shot(pg, tag + '_wrong')
-            await pg.click('[data-a=again]', force=True)
+            await pg.click('.replay', force=True)
         await pg.locator(f'.bub[data-w="{ans}"]').click(force=True)
         await pg.wait_for_timeout(400)
         if tag and not done_wrong: pass
@@ -200,7 +206,7 @@ async def local_run(b, w, h, full, errs):
     await pg.goto(BASE); await pg.wait_for_selector('.title .btn'); await pg.wait_for_timeout(600)
     await shot(pg, f'{tag}_01_title')
     check(f'[{tag}] local mode: no login, title shown', await pg.locator('#lc').count() == 0)
-    await pg.click('.title .btn'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(500)
+    await pg.click('.title .btn', force=True); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(500)
     await shot(pg, f'{tag}_02_map')
     check(f'[{tag}] map: 6 islands, only the first open', await pg.locator('.isl').count() == 6 and await pg.locator('.isl.locked').count() == 5)
     check(f'[{tag}] map: no leaderboard button in local mode', await pg.locator('[data-to=board]').count() == 0)
@@ -259,11 +265,14 @@ async def local_run(b, w, h, full, errs):
             # islands open by stars; give the stars a strong player would have by then, then play for real
             await pg.evaluate("(n=>{const S=__game.S();for(let i=1;i<n;i++)for(const t of['sling','listen','read','bridge'])S.g.st[i+'-'+t]=Math.max(S.g.st[i+'-'+t]||0,2);localStorage.setItem('aam-unit1-v1',JSON.stringify(S))})(%d)" % isl)
             for typ in ('sling', 'listen', 'read', 'bridge'):
+                await pg.evaluate(f"location.hash='island/{isl}'"); await pg.wait_for_timeout(150)
                 s = await play_level(pg, isl, typ, wrong_first=(typ == 'bridge'))
                 check(f'[{tag}] island {isl} {typ} stars', s >= 2, s)
                 if typ == 'sling': await shot(pg, f'{tag}_3{isl}_island{isl}_result')
             await pg.evaluate(f"location.hash='play/{isl}/sling'"); await lv(pg, 'sling'); await pg.wait_for_timeout(600); await shot(pg, f'{tag}_4{isl}_island{isl}_sling')
+        await pg.evaluate("(()=>{const S=__game.S();for(let i=1;i<6;i++)for(const t of['sling','listen','read','bridge'])S.g.st[i+'-'+t]=3;localStorage.setItem('aam-unit1-v1',JSON.stringify(S))})()")
         for typ in ('sling', 'listen'):
+            await pg.evaluate("location.hash='island/6'"); await pg.wait_for_timeout(150)
             s = await play_level(pg, 6, typ)
             check(f'[{tag}] bonus island {typ} stars', s == 3, s)
         await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(500); await shot(pg, f'{tag}_50_map_all_open')
@@ -279,9 +288,20 @@ async def local_run(b, w, h, full, errs):
 async def class_run(b, w, h, errs):
     tag = f'class {w}x{h}'
     api = f'http://127.0.0.1:{API_PORT}/'
-    name = 'יובל ' + ''.join('אבגדהוזחטי'[int(d)] for d in str(int(time.time()) % 100000))
     c, pg = await new_page(b, w, h, api=api, errs=errs)
     await pg.goto(BASE); await pg.wait_for_selector('#lc'); await pg.wait_for_timeout(500)
+    # a few invented classmates so the leaderboard and the teacher screen look like a real class
+    mates = [('נועה', 640, 31, 3, 4), ('איתי', 505, 24, 2, 2), ('מאיה', 410, 19, 1, 6), ('עומר', 220, 9, 0, 1)]
+    taken = await pg.evaluate('''async ([api, mates]) => { const out = []; for (const [n, pts, words, reads, streak] of mates) {
+        const post = d => fetch(api, {method: 'POST', body: JSON.stringify(d)}).then(r => r.json());
+        const r = await post({a: 'register', c: 'EN-1234', n, p: '1111'}); out.push(r.ok ? '' : r.e);
+        await post({a: 'save', c: 'EN-1234', n, p: '1111', s: {pts, streak, day: '2026-11-14', k: {words, reads}, st: {their: [6, 4], special: [5, 2], subject: [6, 3], 'a lot of': [4, 2]}}}); } return out }''', [api, mates])
+    name = None
+    for cand in ('יובל', 'תמר', 'אורי', 'שירה', 'דניאל', 'רוני', 'גיא', 'ליה', 'אדם', 'מיכל', 'עידו', 'הילה'):
+        r = await pg.evaluate("async ([api,n])=>(await fetch(api,{method:'POST',body:JSON.stringify({a:'login',c:'EN-1234',n,p:'0000'})})).json()", [api, cand])
+        if r.get('e') == 'nouser':
+            name = cand; break
+    check(f'[{tag}] a free pupil name is available on the mock backend', name is not None)
     await shot(pg, f'class_01_login')
     check(f'[{tag}] login is required', await pg.locator('#lc').count() == 1)
     await pg.fill('#lc', 'EN-1234'); await pg.fill('#ln', name); await pg.fill('#lp', '4321')
@@ -293,10 +313,16 @@ async def class_run(b, w, h, errs):
     s = await play_level(pg, 1, 'sling')
     check(f'[{tag}] perfect sling gives 3 stars', s == 3, s)
     await shot(pg, f'class_03_result')
+    for typ in ('listen', 'read'):
+        s = await play_level(pg, 1, typ)
+        check(f'[{tag}] perfect {typ} gives 3 stars', s == 3, s)
+    await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('[data-a=logout]'); await shot(pg, 'class_05_settings')
+    check(f'[{tag}] pupils get no teacher entry in settings', await pg.locator('[data-to=teacher]').count() == 0)
     pts = await pg.evaluate("__game.S().pts")
     await pg.evaluate("location.hash='board'"); await pg.wait_for_selector('.lb li')
     txt = await pg.locator('.lb li.me').inner_text()
     check(f'[{tag}] own row on the leaderboard with points', name in txt and f'{pts:,}' in txt, txt.replace('\n', ' '))
+    check(f'[{tag}] leaderboard lists the whole class', await pg.locator('.lb li').count() >= 5)
     await shot(pg, f'class_04_board')
     # a second device logs in and gets the same progress
     c2, p2 = await new_page(b, w, h, api=api, errs=errs)
@@ -306,25 +332,27 @@ async def class_run(b, w, h, errs):
     check(f'[{tag}] wrong secret code is refused', 'הקוד הסודי' in await p2.locator('.err').inner_text())
     await p2.fill('#lp', '4321'); await p2.click('[data-m=login]'); await p2.wait_for_selector('.map .isl')
     st = await p2.evaluate("(()=>{const S=__game.S();return [__game.totalStars(),S.pts,Object.keys(S.w).length]})()")
-    check(f'[{tag}] second device receives stars, points and word knowledge', st[0] == 3 and st[1] == pts and st[2] >= 7, st)
+    check(f'[{tag}] second device receives stars, points and word knowledge', st[0] == 9 and st[1] == pts and st[2] >= 7, st)
     # the classic trainer shares the login and must not drop the game stars when it saves
     await p2.goto(BASE.replace('index.html', 'trainer.html') + '#quiz'); await p2.wait_for_timeout(500)
     await p2.click('[data-a=start]'); await p2.wait_for_timeout(300)
     ans = await p2.evaluate("V.qs[V.i].opts.indexOf(V.qs[V.i].ans)"); await p2.click(f'.opt >> nth={ans}'); await p2.wait_for_timeout(3600)
     await p2.goto(BASE + '#map'); await p2.wait_for_selector('.map .isl')
-    await p2.evaluate("location.hash='settings'"); await p2.wait_for_selector('[data-a=logout]'); await shot(p2, 'class_05_settings')
+    await p2.evaluate("location.hash='settings'"); await p2.wait_for_selector('[data-a=logout]')
     await p2.click('[data-a=logout]'); await p2.wait_for_selector('#lc')
     check(f'[{tag}] logout returns to login and clears local progress', await p2.evaluate("__game.totalStars()") == 0)
     await p2.fill('#ln', name); await p2.fill('#lp', '4321'); await p2.click('[data-m=login]'); await p2.wait_for_selector('.map .isl')
     st2 = await p2.evaluate("[__game.totalStars(),__game.S().pts]")
-    check(f'[{tag}] stars survive a save made by the classic trainer', st2[0] == 3 and st2[1] > pts, st2)
+    check(f'[{tag}] stars survive a save made by the classic trainer', st2[0] == 9 and st2[1] > pts, st2)
     # teacher screen
     await p2.evaluate("location.hash='teacher'"); await p2.wait_for_selector('#tt')
     await p2.fill('#tt', '111'); await p2.click('[data-a=tlogin]'); await p2.wait_for_function("document.querySelector('.err').textContent.length>3")
     check(f'[{tag}] wrong teacher code is refused', 'קוד המורה' in await p2.locator('.err').inner_text())
-    await p2.fill('#tt', '654321'); await p2.click('[data-a=tlogin]'); await p2.wait_for_selector('tbody tr')
-    row = (await p2.locator('tbody tr', has_text=name).inner_text()).replace('\n', ' ').replace('\t', ' | ')
-    check(f'[{tag}] teacher table lists the pupil', name in row, row)
+    await p2.fill('#tt', '654321'); await p2.click('[data-a=tlogin]'); await p2.wait_for_selector('.kid')
+    row = (await p2.locator('.kid', has_text=name).inner_text()).replace('\n', ' ')
+    known = await p2.evaluate("__game.S().w ? Object.values(__game.S().w).filter(v=>v>=2).length : 0")
+    check(f'[{tag}] teacher card lists the pupil with words learned and a finished story', name in row and f'{known} / 59' in row and known >= 3 and '1 / 5' in row, row)
+    check(f'[{tag}] teacher sees the hardest words', await p2.locator('.hard > div').count() >= 1)
     await shot(p2, 'class_06_teacher')
     await c.close(); await c2.close()
 

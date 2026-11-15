@@ -12,7 +12,7 @@ export const BGW=752,BGH=1344;
 const cache=new Map();
 export function img(src){let p=cache.get(src);if(!p){p=new Promise(res=>{const i=new Image();i.decoding='async';i.onload=()=>res(i);i.onerror=()=>res(null);i.src=src});cache.set(src,p)}return p}
 export const preload=list=>Promise.all(list.map(img));
-export const CORE=['pill','pill_green','pill_coral','pill_blue','pill_cream','sign','label','ribbon','scroll','star','star_off','lock','crab_wave','crab_happy','crab_oops','crab_walk','crab_listen','crab_star','bubble_0','bubble_1','bubble_2','bubble_3','plank_0','plank_1','plank_2','plank_3','plank_4','lamp','trophy','chest','boat','fork','conch','bottle','compass'].map(SP);
+export const CORE=['pill','pill_green','pill_coral','pill_blue','pill_cream','sign','label','ribbon','scroll','star','star_off','lock','crab_wave','crab_happy','crab_oops','crab_walk','crab_listen','crab_star','bubble_0','bubble_1','bubble_2','bubble_3','plank_0','plank_1','plank_2','plank_3','plank_4','lamp','trophy','chest','fork','conch','bottle','ic_gear','ic_note','ic_speaker','ic_book','ic_bridge','ic_check','ic_x','ic_arrow','ic_door','ic_signpost'].map(SP);
 
 /* ---------- background layers (cross-fade) ---------- */
 const layers=[...document.querySelectorAll('#bg .bgl')];let cur=0,curBg='';
@@ -21,7 +21,7 @@ export function setBg(name,pos){
  const nxt=layers[1-cur];nxt.style.backgroundImage=`url(${BG(name)})`;nxt.dataset.pos=pos||'bottom';nxt.classList.add('on');layers[cur].classList.remove('on');cur=1-cur}
 /* maps a point of the 752x1344 background art to stage pixels for the two fits we use */
 export function bgMap(fit){const W=stage.clientWidth,H=stage.clientHeight;
- if(fit==='width'){const s=W/BGW;return{s,ox:0,oy:H-BGH*s,W,H}}
+ if(fit==='bridge'){const s=W/BGW;return{s,ox:0,oy:H-BGH*s,W,H}}
  const s=Math.max(W/BGW,H/BGH);return{s,ox:(W-BGW*s)/2,oy:fit==='center'?(H-BGH*s)/2:H-BGH*s,W,H}}
 
 /* ---------- small hand-drawn icons (ink strokes) ---------- */
@@ -45,7 +45,9 @@ export const spr=(n,cls='',alt='')=>`<img class="${cls}" src="${SP(n)}" alt="${e
 export const rb=(act,inner,label,tone=0,extra='')=>`<button class="rb t${tone}" data-a="${act}" aria-label="${esc(label)}" ${extra}>${inner}</button>`;
 export const btn=(act,html,kind='',extra='')=>`<button class="btn ${kind}" data-a="${act}" ${extra}><span>${html}</span></button>`;
 export const stars=(n,cls='')=>`<span class="stars ${cls}" dir="ltr" aria-label="${n} כוכבים מתוך 3">${[0,1,2].map(i=>spr(i<n?'star':'star_off','st')).join('')}</span>`;
-export const en=t=>`<span class="en" dir="ltr">${esc(t)}</span>`;
+export const en=t=>`<bdi class="en" dir="ltr">${esc(t)}</bdi>`;
+/* numbers, signs and fractions inside Hebrew text keep their own left-to-right order */
+export const num=t=>`<bdi dir="ltr">${esc(t)}</bdi>`;
 
 /* ---------- toast ---------- */
 let toastT=0;
@@ -64,10 +66,10 @@ export function confetti(x,y,n=70){
 export function clearFx(){fxRun++;const c=document.getElementById('fx');c.getContext('2d').clearRect(0,0,c.width,c.height)}
 
 /* level HUD used by all four level types */
-export function hud({i,n,st,hint=true}){return `<div class="hud">
+export function hud({i,n,st}){return `<div class="hud">
  ${rb('quit',ico('close'),'יציאה מהשלב',1)}
- <div class="pips" dir="ltr" aria-label="שאלה ${Math.min(i+1,n)} מתוך ${n}">${Array.from({length:n},(_,k)=>`<i class="${k<i?'d':k===i?'c':''}"></i>`).join('')}</div>
+ <div class="pips" dir="ltr" aria-label="שאלה ${Math.max(1,Math.min(i+1,n))} מתוך ${n}">${Array.from({length:n},(_,k)=>`<i class="${k<i?'d':k===i?'c':''}"></i>`).join('')}</div>
  ${stars(st,'live')}
- ${hint?rb('hint',spr('lamp','rbi'),'רמז',3):'<span class="rbsp"></span>'}
+ ${rb('hint',spr('lamp','rbi'),'רמז',3)}
 </div>`}
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));

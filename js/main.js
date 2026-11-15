@@ -1,54 +1,59 @@
 /* Word Islands: router and all non-level screens. */
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,T} from './data.js';
-import {S,SET,saveSet,save,API,ERR,api,cred,auth,logout,push,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,reduced} from './state.js';
+import {S,SET,saveSet,save,API,ERR,api,cred,auth,logout,push,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc} from './state.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
-import {$,view,stage,SP,BG,preload,img,CORE,setBg,ico,spr,rb,btn,stars,en,toast,confetti,clearFx,sleep} from './ui.js';
+import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep} from './ui.js';
 import * as sling from './sling.js';
 import * as listen from './listen.js';
 import * as read from './read.js';
 import * as bridge from './bridge.js';
 
 const LEVELS={sling,listen,read,bridge};
-const BGFIT={sling:'bottom',listen:'bottom',read:'center',bridge:'width'};
+const BGFIT={sling:'bottom',listen:'bottom',read:'zoom',bridge:'bridge'};
 let level=null,V={name:''},navId=0;
 const go=h=>{if(location.hash==='#'+h)route();else location.hash=h};
 const isl=id=>ISLANDS.find(i=>i.id===+id);
 const loader=()=>{view.innerHTML=`<div class="loader">${spr('crab_wave','bob')}<p>רגע, מפליגים…</p></div>`};
 const top=(title,back='map')=>`<header class="top">${rb('nav',ico('back'),'חזרה',1,`data-to="${back}"`)}<h2 class="ribbon"><span>${title}</span></h2><span class="rbsp"></span></header>`;
+const star=()=>spr('star','st');
+const pts=n=>num((+n||0).toLocaleString('en-US'));
 
 /* ---------- title ---------- */
 function title(){setBg('title','bottom');
- const d=Math.ceil((new Date(2026,10,24)-new Date())/864e5);
+ const d=Math.ceil((new Date(2026,10,24)-new Date())/864e5),m=bgMap('bottom');
  view.innerHTML=`<section class="scr title">
   <div class="logo"><h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p></div>
-  ${d>0&&d<60?`<p class="label days">עוד <b>${d}</b> ימים למבחן</p>`:''}
-  <div class="tfoot">${spr('crab_wave','tcrab bob')}
-   ${btn('nav','יוצאים לדרך','green xl','data-to="map"')}
-   ${API&&S.u?`<p class="who label">${ico('user')} ${esc(S.u.n)} · ${S.pts.toLocaleString()} נק׳</p>`:''}</div></section>`}
+  ${d>0&&d<60?`<p class="label days">עוד ${num(d)} ימים למבחן</p>`:''}
+  <div class="tgo">${btn('nav','יוצאים לדרך','green xl','data-to="map"')}
+   ${API&&S.u?`<p class="who">${esc(S.u.n)} · ${pts(S.pts)} נקודות</p>`:''}</div>
+  ${spr('crab_wave','tcrab bob')}</section>`;
+ const c=view.querySelector('.tcrab');c.style.left=(m.ox+466*m.s)+'px';c.style.top=(m.oy+1240*m.s)+'px'}
 
 /* ---------- map ---------- */
-function map(){setBg('map','center');const tot=totalStars();
- const open=ISLANDS.filter(isOpen),curI=open.filter(i=>!i.bonus&&islandStars(i)<i.levels.length*3).pop()||open[0];
- const pts=ISLANDS.map(i=>i.pos),path=pts.map((p,k)=>{if(!k)return`M${p[0]} ${p[1]}`;const q=pts[k-1];return`C${q[0]} ${(q[1]+p[1])/2-3} ${p[0]} ${(q[1]+p[1])/2+3} ${p[0]} ${p[1]}`}).join('');
+function map(){setBg('map','center');const tot=totalStars(),H=stage.clientHeight,mt=H<700?90:104,rowH=(H-mt-(H<700?44:34))/6;
+ const open=ISLANDS.filter(isOpen),curI=open.filter(i=>islandStars(i)<i.levels.length*3).sort((a,b)=>a.id-b.id)[0]||null;
+ const place=ISLANDS.map(i=>{const r=6-i.id;return{i,x:r%2?71:29,y:mt+rowH*r}});
+ const yp=p=>((p.y+rowH*.36)/H*100).toFixed(2),seq=[...place].sort((a,b)=>a.i.id-b.i.id);
+ const path=seq.map((p,k)=>{if(!k)return`M${p.x} ${yp(p)}`;const q=seq[k-1];return`C${q.x} ${((+yp(q)+ +yp(p))/2-2).toFixed(2)} ${p.x} ${((+yp(q)+ +yp(p))/2+2).toFixed(2)} ${p.x} ${yp(p)}`}).join('');
  view.innerHTML=`<section class="scr map">
-  <header class="top">${rb('nav',ico('gear'),'הגדרות',1,'data-to="settings"')}
-   <div class="sign total"><b>${spr('star','st')} <span dir="ltr">${tot} / ${MAX_STARS}</span></b></div>
-   <span class="tr">${API&&S.u?rb('nav',spr('trophy','rbi'),'טבלת הכיתה',3,'data-to="board"'):''}${rb('nav',spr('chest','rbi'),'האוסף שלי',2,'data-to="collection"')}</span></header>
+  <header class="maphead"><button class="mb" data-a="nav" data-to="settings"><span class="rb t1">${spr('ic_gear','rbi')}</span><small>הגדרות</small></button>
+   <div class="sign total"><b>${star()}<span>${num(tot+' / '+MAX_STARS)}</span></b></div>
+   <span class="tr">${API&&S.u?`<button class="mb" data-a="nav" data-to="board"><span class="rb t3">${spr('trophy','rbi')}</span><small>טבלה</small></button>`:''}<button class="mb" data-a="nav" data-to="collection"><span class="rb t2">${spr('chest','rbi')}</span><small>האוסף</small></button></span></header>
   <svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="${path}"/></svg>
-  ${ISLANDS.map(i=>{const o=isOpen(i),st=islandStars(i),mx=i.levels.length*3;
-   return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}" style="left:${i.pos[0]}%;top:${i.pos[1]}%" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}">
-    ${spr('isl_'+i.id,'pic')}${o?'':spr('lock','lk')}
-    <span class="tag label"><b>${esc(i.he)}</b><small>${o?`${spr('star','st')} <span dir="ltr">${st}/${mx}</span>`:`נפתח ב־${i.need} ${spr('star','st')}`}</small></span>
-    ${i===curI?`<span class="here">${spr('boat','boat')}${spr('crab_wave','bc')}</span>`:''}</button>`}).join('')}
+  ${place.map(({i,x,y})=>{const o=isOpen(i),st=islandStars(i),mx=i.levels.length*3,cur=i===curI;
+   return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}${cur?' cur':''}" style="left:${x}%;top:${y.toFixed(1)}px" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}">
+    <span class="pw">${spr('isl_'+i.id,'pic')}${o?'':spr('lock','lk')}${st===mx?spr('ic_check','dn'):''}${cur?`<span class="here">${spr('crab_wave','bc')}<em>${tot?'ממשיכים כאן':'מתחילים כאן'}</em></span>`:''}</span>
+    <span class="tag"><b>${esc(i.he)}</b><small>${o?`${star()}${num(st+'/'+mx)}`:`נפתח ב־${num(i.need)}${star()}`}</small></span></button>`}).join('')}
  </section>`}
 
 /* ---------- island ---------- */
 function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');preload([BG(i.bg),BG('listen'),BG('read'),BG('bridge')]);
+ const got=islandStars(i);
  view.innerHTML=`<section class="scr island">${top(esc(i.he))}
-  <div class="ihero">${spr('isl_'+i.id,'pic')}<p class="label"><span class="en" dir="ltr">${esc(i.en)}</span> · ${spr('star','st')} <span dir="ltr">${islandStars(i)}/${i.levels.length*3}</span></p></div>
+  <div class="ihero">${spr('isl_'+i.id,'pic')}<p class="chipline">${en(i.en)} · ${star()}${num(got+'/'+i.levels.length*3)}</p></div>
   <div class="lvlist">${i.levels.map(([t],k)=>{const L=LEVEL_INFO[t],s=starsOf(i.id,t);
-   return `<button class="lvrow p${k%4}" data-a="nav" data-to="play/${i.id}/${t}">${spr(L.icon,'lic')}<span class="lt"><b>${L.name}</b><small>${L.sub}</small></span>${stars(s)}</button>`}).join('')}</div>
-  <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus?'אי בונוס: חודשים ומספרים!':islandStars(i)?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. ארבעה שלבים, כמו ארבעת חלקי המבחן'}</p></div></section>`}
+   return `<button class="lvrow p${k%4}" data-a="nav" data-to="play/${i.id}/${t}"><span class="lic">${spr(L.icon)}</span><span class="lt"><b>${L.name}</b><small>${L.sub}</small></span>${stars(s)}</button>`}).join('')}</div>
+  <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus?'אי בונוס: חודשים ומספרים!':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`}
 
 /* ---------- play + result ---------- */
 async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type);if(!lv||!isOpen(i))return go('map');
@@ -57,20 +62,21 @@ async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type)
  const l=await LEVELS[type].start(view,{island:i,type,part:lv[1]},{done:r=>result(i,type,r)});
  if(my!==navId){l.destroy();return}level=l}
 function result(i,type,r){if(level){level.destroy();level=null}clearFx();hush();
- const {gained,opened}=setStars(i.id,type,r.stars),pts=r.stars*T.ptsStar;
+ const {gained,opened}=setStars(i.id,type,r.stars),clean=r.first===r.total;
  const k=i.levels.findIndex(l=>l[0]===type),nx=i.levels[k+1],nextIsl=!nx&&ISLANDS.find(o=>o.id===i.id+1&&isOpen(o));
  const to=nx?`play/${i.id}/${nx[0]}`:nextIsl?`island/${nextIsl.id}`:'map',nextLabel=nx?'לשלב הבא':nextIsl?'לאי הבא':'למפה';
- const head=r.stars===3?'מושלם!':r.stars===2?'יפה מאוד!':'סיימתם, כל הכבוד!';
+ const head=clean&&r.stars===3?'מושלם!':r.stars===3?'כל הכבוד!':r.stars===2?'יפה מאוד!':'סיימתם!';
+ const extra=opened.length?`<p class="unlock">${spr('isl_'+opened[0].id,'ui')}<span>נפתח אי חדש!<b>${esc(opened[0].he)}</b></span></p>`
+  :r.review&&r.review.length?`<div class="review"><small>כדאי לחזור על</small>${r.review.slice(0,3).map(w=>`<span class="rv">${en(w.en)} · ${esc(w.he.split(',')[0])}</span>`).join('')}</div>`
+  :r.hint?'<p class="sub">נעזרתם ברמז, אז הפעם עד שני כוכבים</p>':clean?'<p class="sub">בלי אף טעות!</p>':'<p class="sub">אפשר לשחק שוב ולאסוף עוד כוכבים</p>';
  V={name:'result'};stage.dataset.scr='result';
  view.innerHTML=`<section class="scr result"><div class="scrollp card">
    <h2 class="ribbon"><span>${head}</span></h2>
    <div class="bigstars" dir="ltr">${[0,1,2].map(n=>`<span class="bs ${n<r.stars?'on':''}" style="--i:${n}">${spr(n<r.stars?'star':'star_off','')}</span>`).join('')}</div>
    ${spr(r.stars===3?'crab_star':r.stars===2?'crab_happy':'crab_wave','rcrab bob')}
-   <p class="line"><b>${r.first}</b> מתוך <b>${r.total}</b> בניסיון הראשון</p>
-   ${r.hint?'<p class="sub">נעזרתם ברמז, ולכן הפעם עד 2 כוכבים</p>':''}
-   ${r.review&&r.review.length?`<div class="review"><small>כדאי לחזור על:</small>${r.review.slice(0,4).map(w=>`<span class="rv">${en(w.en)} · ${esc(w.he.split(',')[0])}</span>`).join('')}</div>`:''}
-   ${opened.length?`<p class="unlock label">${spr('isl_'+opened[0].id,'ui')}<span>נפתח אי חדש!<b>${esc(opened[0].he)}</b></span></p>`:gained?`<p class="sub">+${gained} כוכבים למפה</p>`:''}
-   ${API&&S.u?`<p class="sub pts">${S.pts.toLocaleString()} נקודות בטבלת הכיתה</p>`:''}
+   <p class="line">${num(r.first)} מתוך ${num(r.total)} בניסיון הראשון</p>
+   <div class="xtra">${extra}</div>
+   <p class="gain">${gained?`${num('+'+gained)} כוכבים למפה`:'הכוכבים שלכם נשמרו'}${API&&S.u?` · ${pts(S.pts)} נקודות`:''}</p>
    <div class="rbtns">${btn('nav',`${nextLabel} ${ico('next')}`,'green xl',`data-to="${to}"`)}
     <div class="row">${btn('nav',ico('retry')+' שוב','cream sm',`data-to="play/${i.id}/${type}" data-force="1"`)}${btn('nav','לשלבים','cream sm',`data-to="island/${i.id}"`)}</div></div>
   </div></section>`;
@@ -79,69 +85,78 @@ function result(i,type,r){if(level){level.destroy();level=null}clearFx();hush();
  if(opened.length)setTimeout(()=>SND.unlock(),1500)}
 
 /* ---------- collection ---------- */
-function collection(){setBg('paper','center');const tot=totalStars();
+function collection(){setBg('paper','center');const tot=totalStars(),nxt=BALLS.find(b=>b.need>tot);
  view.innerHTML=`<section class="scr coll">${top('האוסף של פיצי')}
-  <div class="chero">${spr('crab_star','bob')}<p class="label">אוספים כוכבים ופותחים כדורים חדשים לקלע. יש לכם ${spr('star','st')} <b dir="ltr">${tot}</b></p></div>
+  <div class="chero">${spr('crab_star','bob')}<p class="label">${nxt?`עוד ${num(nxt.need-tot)}${star()} והכדור הבא שלכם: <b>${nxt.name}</b>`:'כל הכדורים שלכם. אלופים!'}</p></div>
   <div class="balls">${BALLS.map((b,k)=>{const ok=tot>=b.need,sel=(S.g.ball||0)===k;
-   return `<button class="ball${ok?'':' locked'}${sel?' sel':''}" data-a="${ok?'ball':'locked'}" data-i="${k}" data-need="${b.need}" aria-pressed="${sel}">${spr('ball_'+k,'bi')}${ok?'':spr('lock','lk')}<b>${b.name}</b><small>${ok?(sel?'בקלע עכשיו':'לחצו כדי לבחור'):`${b.need} ${spr('star','st')}`}</small></button>`}).join('')}</div>
-  ${(n=>n?`<p class="foot label">הכדור הבא נפתח בעוד <b dir="ltr">${n.need-tot}</b> ${spr('star','st')}</p>`:`<p class="foot label">כל הכדורים שלכם. אלופים!</p>`)(BALLS.find(b=>b.need>tot))}</section>`}
+   return `<button class="ball${ok?'':' locked'}${sel?' sel':''}" data-a="${ok?'ball':'locked'}" data-i="${k}" data-need="${b.need}" aria-pressed="${sel}">${spr('ball_'+k,'bi')}${ok?'':spr('lock','lk')}<b>${b.name}</b><small>${ok?(sel?'בקלע עכשיו':'לחצו כדי לבחור'):`${num(b.need)}${star()}`}</small>${sel?spr('ic_check','sl'):''}</button>`}).join('')}</div>
+  <p class="foot">הכדור שבחרתם יעוף בקלע המילים · יש לכם ${num(tot)}${star()}</p></section>`}
 
 /* ---------- settings + help ---------- */
 function settings(){setBg('paper','center');
- const tog=(k,label,icon)=>`<button class="setrow" data-a="toggle" data-k="${k}" role="switch" aria-checked="${SET[k]}">${ico(icon)}<span>${label}</span><i class="sw${SET[k]?' on':''}"><em></em></i></button>`;
+ const tog=(k,label,icon)=>`<button class="setrow" data-a="toggle" data-k="${k}" role="switch" aria-checked="${SET[k]}">${spr(icon,'si')}<span class="sl">${label}</span><i class="sw${SET[k]?' on':''}"><em></em><b>${SET[k]?'פועל':'כבוי'}</b></i></button>`;
+ const lnk=(inner,icon,t,d)=>`<${inner} class="setrow link">${spr(icon,'si')}<span class="sl">${t}<small>${d}</small></span>${ico('next','go')}</${inner.split(' ')[0]}>`;
  view.innerHTML=`<section class="scr settings">${top('הגדרות')}
-  <div class="panel label">${tog('music','מוזיקה','note')}${tog('sfx','צלילים','sound')}</div>
-  <div class="col">${btn('nav','איך משחקים?','yellow','data-to="help"')}
-   <a class="btn cream" href="trainer.html"><span>${ico('book')} תרגול קלאסי</span></a>
-   ${API?(S.u?`<p class="who label">${ico('user')} ${esc(S.u.n)} · ${S.pts.toLocaleString()} נק׳ · ${wordsKnown()} מילים</p>${btn('logout','יציאה מהחשבון','coral sm')}`:'')+btn('nav','כניסת מורה','cream sm','data-to="teacher"'):'<p class="who label">ההתקדמות נשמרת במכשיר הזה</p>'}</div>
-  <p class="foot label">המילים והתרגומים לפי רשימת אוצר המילים של המורה ליחידה 1</p></section>`}
+  <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}</div>
+  <div class="panel label">${lnk('button data-a="nav" data-to="help"','ic_buoy','איך משחקים?','הסבר קצר על ארבעת השלבים')}
+   ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}</div>
+  <div class="panel label prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter((v,k)=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
+  ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות · ${num(wordsKnown())} מילים שנלמדו</small></p>${btn('logout',spr('ic_door','bi')+' יציאה','coral sm')}</div>`:''}
+  <div class="guide">${spr('crab_listen','bob')}<p class="label">${API&&S.u?'ההתקדמות נשמרת לפי השם והקוד הסודי שלכם':'ההתקדמות נשמרת במכשיר הזה'}</p></div>
+  <p class="foot">המילים והתרגומים לפי רשימת אוצר המילים של המורה ליחידה 1</p></section>`}
 function help(){setBg('paper','center');
- const c=(icon,t,d)=>`<div class="hrow label">${spr(icon,'hi')}<span><b>${t}</b><small>${d}</small></span></div>`;
+ const c=(icon,t,d)=>`<div class="hrow label"><span class="hi">${spr(icon)}</span><span><b>${t}</b><small>${d}</small></span></div>`;
  view.innerHTML=`<section class="scr help">${top('איך משחקים?','settings')}
   ${c('fork','קלע המילים','גוררים את הכדור אחורה, מכוונים לפי הנקודות ומשחררים על המילה שמתאימה לפירוש.')}
-  ${c('conch','תופסים צלילים','מקשיבים למילה מהקונכייה ולוחצים על הבועה הנכונה. אפשר לשמוע שוב ושוב.')}
-  ${c('bottle','בקבוק הסיפור','קוראים סיפור קצר. לחיצה על מילה מראה מה הפירוש שלה. אחר כך בוחרים בקבוק עם התשובה.')}
-  ${c('plank_1','גשר המשפטים','לוחצים על קרשי המילים לפי הסדר. אות גדולה בהתחלה, נקודה בסוף.')}
-  ${c('star','כוכבים','בכל שלב אפשר לזכות בעד 3 כוכבים. כוכבים פותחים איים חדשים. רמז עוזר, אבל אז מקבלים עד 2.')}</section>`}
+  ${c('conch','תופסים צלילים','מקשיבים למילה ולוחצים על הבועה הנכונה. אפשר לשמוע שוב ושוב.')}
+  ${c('bottle','בקבוק הסיפור','קוראים סיפור קצר. לחיצה על מילה מראה את הפירוש. אחר כך בוחרים בקבוק עם התשובה.')}
+  ${c('ic_bridge','גשר המשפטים','לוחצים על קרשי המילים לפי הסדר. אות גדולה בהתחלה, נקודה בסוף.')}
+  ${c('star','כוכבים','בכל שלב יש עד 3 כוכבים, והם פותחים איים חדשים. רמז עוזר, אבל אז מקבלים עד 2.')}</section>`}
 
 /* ---------- class mode: login, leaderboard, teacher (same backend calls as the classic trainer) ---------- */
-function login(){setBg('title','bottom');
+function login(){setBg('paper','center');
  view.innerHTML=`<section class="scr login"><div class="logo sm"><h1>איי המילים</h1></div>
-  <form class="panel label" id="lf" autocomplete="off"><h3>כניסה לכיתה</h3>
+  <div class="lwrap">${spr('crab_wave','lcrab')}
+  <form class="scrollp lcard" id="lf" autocomplete="off"><h3>כניסה לכיתה</h3>
    <label for="lc">קוד הכיתה</label><input id="lc" class="in en" dir="ltr" autocapitalize="characters" autocomplete="off" value="${esc(V.c??S.lastC)}">
    <label for="ln">השם שלי</label><input id="ln" class="in" maxlength="20" autocomplete="off" value="${esc(V.n||'')}">
    <label for="lp">הקוד הסודי שלי (4 ספרות)</label><input id="lp" class="in en pin" dir="ltr" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
    <p class="err" role="alert">${esc(V.err||'')}</p>
-   ${btn('auth',V.busy?'רגע…':'כניסה','green',`data-m="login" type="button" ${V.busy?'disabled':''}`)}
-   ${btn('auth','פעם ראשונה שלי כאן','cream sm',`data-m="register" type="button" ${V.busy?'disabled':''}`)}
-   <small class="hint">פעם ראשונה? כותבים את קוד הכיתה ואת השם, ובוחרים 4 ספרות שרק אתם יודעים. בלי אימייל.</small></form>
-  <button class="tlink" data-a="nav" data-to="teacher">כניסת מורה</button></section>`}
+   ${btn('auth',V.busy?'רגע…':'כניסה','green wide',`data-m="login" type="button" ${V.busy?'disabled':''}`)}
+   <div class="first"><p><b>פעם ראשונה כאן?</b> ממלאים את השדות למעלה, בוחרים 4 ספרות שרק אתם יודעים, ולוחצים:</p>
+   ${btn('auth','נרשמים','blue sm',`data-m="register" type="button" ${V.busy?'disabled':''}`)}</div></form></div>
+  ${btn('nav','כניסת מורה','cream sm tlink','data-to="teacher"')}</section>`}
 function board(){if(!API||!S.u)return go('map');setBg('paper','center');
  if(!V.rows){view.innerHTML=`<section class="scr board">${top('טבלת הכיתה')}<p class="panel label msg">${esc(V.err||'טוענים את הטבלה…')}</p></section>`;
   if(!V.req){V.req=1;const v=V;push().then(()=>api('board',cred())).then(r=>{if(V!==v)return;if(r.ok)V.rows=r.rows;else V.err=ERR[r.e]||ERR.net;board()}).catch(()=>{if(V!==v)return;V.err=ERR.net;board()})}return}
- const R=V.rows,me=S.u.n,pod=[1,0,2].filter(i=>R[i]);
+ const R=V.rows,me=S.u.n,rank=R.findIndex(d=>d.n===me);
  view.innerHTML=`<section class="scr board">${top('טבלת הכיתה')}
-  ${R.length>=3?`<div class="podium" dir="ltr">${pod.map(i=>`<div class="pd pd${i}${R[i].n===me?' me':''}">${i===0?spr('trophy','tro'):''}<b dir="rtl">${esc(R[i].n)}</b><small>${R[i].pts.toLocaleString()}</small><i class="step">${i+1}</i></div>`).join('')}</div>`:''}
-  <ol class="lb">${R.map((d,i)=>`<li class="${d.n===me?'me':''}"><span class="rk">${i+1}</span><span class="nm">${esc(d.n)}${d.n===me?' (אני)':''}${d.streak>=3?`<small> · ${d.streak} ימים ברצף</small>`:''}</span><span class="pt" dir="ltr">${d.pts.toLocaleString()}</span></li>`).join('')}</ol>
-  <p class="foot label">נקודות: ${T.ptsFirst} על תשובה נכונה בניסיון ראשון, ${T.ptsStar} על כל כוכב, ${T.ptsDay} בונוס על כל יום תרגול</p></section>`}
-function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'settings';
+  <div class="podium" dir="ltr">${[1,0,2].map(i=>{const d=R[i];return `<div class="pd pd${i}${d&&d.n===me?' me':''}${d?'':' empty'}">${i===0?spr('trophy','tro'):''}<b dir="auto">${d?esc(d.n):'מקום פנוי'}</b><small>${d?pts(d.pts):'&nbsp;'}</small><i class="step">${i+1}</i></div>`}).join('')}</div>
+  <ol class="lb">${R.map((d,i)=>`<li class="${d.n===me?'me':''}"><span class="rk">${i+1}</span><span class="nm">${esc(d.n)}${d.n===me?' (אני)':''}${d.streak>=3?`<small> · ${num(d.streak)} ימים ברצף</small>`:''}</span><span class="pt">${pts(d.pts)}</span></li>`).join('')}</ol>
+  <div class="guide">${spr('crab_happy','bob')}<p class="label">${R.length<3?'עוד מעט כל הכיתה כאן. כל שלב מוסיף נקודות!':rank===0?'אתם במקום הראשון. כל הכבוד!':'כל שלב שמשחקים מוסיף נקודות'}</p></div>
+  <p class="foot">${num(T.ptsFirst)} נקודות על תשובה נכונה · ${num(T.ptsStar)} על כל כוכב · ${num(T.ptsDay)} על כל יום תרגול</p></section>`}
+function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
  if(!API){view.innerHTML=`<section class="scr teacher">${top('מסך המורה',back)}<p class="panel label msg">מסך המורה יהיה זמין אחרי חיבור הכיתה.</p></section>`;return}
  if(!V.data){view.innerHTML=`<section class="scr teacher">${top('מסך המורה',back)}<form class="panel label" id="tf" autocomplete="off">
    <label for="tc">קוד הכיתה</label><input id="tc" class="in en" dir="ltr" autocomplete="off" value="${esc(V.c??(S.u?S.u.c:S.lastC))}">
    <label for="tt">קוד המורה</label><input id="tt" class="in en" dir="ltr" type="password" autocomplete="off">
-   <p class="err" role="alert">${esc(V.err||'')}</p>${btn('tlogin',V.busy?'רגע…':'כניסה','green',`type="button" ${V.busy?'disabled':''}`)}</form></section>`;return}
+   <p class="err" role="alert">${esc(V.err||'')}</p>${btn('tlogin',V.busy?'רגע…':'כניסה','green',`type="button" ${V.busy?'disabled':''}`)}</form>
+   <div class="guide">${spr('crab_listen','bob')}<p class="label">קוד המורה נמצא בגיליון, בלשונית ${en('config')}</p></div></section>`;return}
  const D=V.data,he=Object.fromEntries(WORDS.map(w=>[w.en,w.he]));
  view.innerHTML=`<section class="scr teacher wide">${top('מסך המורה',back)}
-  <div class="panel label"><h3>המילים שהכיתה הכי טועה בהן</h3>${D.hard.length?`<div class="hard">${D.hard.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]]||'')}</i><b>${w[1]}%</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p>עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
-  <div class="panel label tw">${D.kids.length?`<table><thead><tr><th>תלמיד/ה</th><th>מילים (מתוך 59)</th><th>קריאה</th><th>נקודות</th><th>תרגול אחרון</th><th>מצב</th></tr></thead><tbody>${D.kids.map(d=>{const s=d.words>=40?['g','מוכן/ה']:d.words>=25?['w','בדרך']:['r','צריך חיזוק'],dd=String(d.day||'').split('-');
-   return `<tr><td><b>${esc(d.n)}</b></td><td><span class="num">${d.words}</span><div class="pbar"><i style="width:${Math.min(100,d.words/59*100)}%"></i></div></td><td>${d.reads} מתוך 5</td><td>${d.pts.toLocaleString()}</td><td>${dd.length===3?dd[2]+'/'+dd[1]:'עוד לא'}</td><td><span class="pill ${s[0]}">${s[1]}</span></td></tr>`}).join('')}</tbody></table>`:'<p>עדיין אף תלמיד לא נרשם.</p>'}</div></section>`}
+  <div class="panel label"><h3>המילים הקשות לכיתה</h3>${D.hard.length?`<div class="hard">${D.hard.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]]||'')}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
+  ${D.kids.length?`<div class="kids">${D.kids.map(d=>{const s=d.words>=40?['g','מוכן/ה']:d.words>=25?['w','בדרך']:['r','צריך חיזוק'],dd=String(d.day||'').split('-');
+   return `<div class="kid label"><p class="kn"><b>${esc(d.n)}</b><span class="pill ${s[0]}">${s[1]}</span></p>
+    <p class="kw"><span>מילים שנלמדו</span>${num(d.words+' / 59')}</p><div class="pbar"><i style="width:${Math.min(100,d.words/59*100)}%"></i></div>
+    <p class="ks"><span>קטעי קריאה ${num(d.reads+' / 5')}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span></p></div>`}).join('')}</div>`:'<p class="panel label msg">עדיין אף תלמיד לא נרשם.</p>'}
+  <p class="foot">מילה נחשבת "נלמדה" אחרי שתי תשובות נכונות ברצף</p></section>`}
 
 /* ---------- actions ---------- */
 const A={
  nav(d){SND.tap();if(d.force&&location.hash==='#'+d.to)route();else go(d.to)},
  quit(){SND.tap();const m=location.hash.match(/play\/(\d+)/);go(m?'island/'+m[1]:'map')},
  hint(){if(level&&level.hint){SND.tap();level.hint()}},
- locked(d,el){SND.bad();el.classList.remove('nope');void el.offsetWidth;el.classList.add('nope');const left=d.need-totalStars();toast(`עוד ${left} ${spr('star','st')} וזה נפתח. אפשר לשפר שלבים שכבר שיחקתם!`,2600)},
+ locked(d,el){SND.bad();el.classList.remove('nope');void el.offsetWidth;el.classList.add('nope');const left=d.need-totalStars();toast(`עוד ${num(left)}${star()} וזה נפתח. אפשר לחזור לשלבים ולאסוף עוד!`,2600)},
  ball(d){S.g.ball=+d.i;save();SND.pop();collection()},
  toggle(d){SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);SND.tap();settings()},
  async auth(d){const c=$('#lc').value.trim(),n=$('#ln').value.trim().replace(/\s+/g,' '),p=$('#lp').value;
@@ -169,10 +184,11 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
  switch(V.name){case'map':map();break;case'island':island(a);break;case'play':play(a,b);break;case'collection':collection();break;case'settings':settings();break;
   case'help':help();break;case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}}
 addEventListener('hashchange',route);
+let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='title')title()},150)});
 
 /* ---------- boot ---------- */
 (async function boot(){loader();
- const fonts=document.fonts?Promise.all([document.fonts.load("800 20px 'Playpen Sans Hebrew'",'איי'),document.fonts.load("800 20px 'Playpen Sans Hebrew'",'Word')]).catch(()=>{}):0;
- await Promise.race([Promise.all([preload([BG('title'),BG('map'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign')]),fonts]),sleep(6000)]);
- route();preload([...CORE,BG('paper'),...ISLANDS.map(i=>SP('isl_'+i.id))])})();
+ const fonts=document.fonts?Promise.all([document.fonts.load("700 20px 'Playpen Sans Hebrew'",'איי'),document.fonts.load("800 20px 'Playpen Sans Hebrew'",'Word')]).catch(()=>{}):0;
+ await Promise.race([Promise.all([preload([BG('title'),BG('map'),BG('paper'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign'),SP('scroll')]),fonts]),sleep(6000)]);
+ route();preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
 window.__game={S:()=>S,SET,measure,totalStars,go};
