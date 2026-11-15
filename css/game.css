@@ -270,6 +270,10 @@ td .pbar{display:inline-block;width:60px;vertical-align:middle}
 .story{flex:1;min-height:0;width:100%;max-width:410px;display:flex;flex-direction:column;padding:11.500% 12% 12.500%}
 .story h3{margin:0 0 4px;font-size:21px;font-weight:800;text-align:center;flex:none}
 .text{flex:1;min-height:0;overflow-y:auto;font-size:clamp(16.500px,2.350dvh,20.500px);line-height:1.78;font-weight:600;text-align:left;overscroll-behavior:contain;touch-action:pan-y;padding:0 2px}
+.text.long{font-size:clamp(15px,2.050dvh,19px);line-height:1.7}
+.text.more{-webkit-mask-image:linear-gradient(#000 calc(100% - 44px),transparent);mask-image:linear-gradient(#000 calc(100% - 44px),transparent)}
+.read .row{flex-wrap:nowrap;flex:none}
+.read .tip{min-height:42px;padding:6px 24px}
 .t{border-radius:6px;padding:1px 1px;cursor:pointer}
 .t.v{border-bottom:2.500px dotted var(--coral)}
 .t.sel{background:var(--butter)}
@@ -295,7 +299,7 @@ td .pbar{display:inline-block;width:60px;vertical-align:middle}
 .chip.on{border-color:var(--ink);color:var(--ink);background:#fff3c4}
 .chip .ci{width:16px}
 .span{position:absolute;display:flex;gap:2px;height:42px;z-index:2}
-.echo{position:absolute;left:50%;transform:translateX(-50%) rotate(-1deg);z-index:2;white-space:nowrap;font-size:clamp(19px,5.600vw,24px);font-weight:800;padding:12px 30px 14px;min-width:230px;text-align:center}
+.echo{position:absolute;left:50%;transform:translateX(-50%) rotate(-1deg);z-index:2;width:max-content;max-width:94%;text-wrap:balance;line-height:1.25;font-size:clamp(19px,5.600vw,24px);font-weight:800;padding:12px 30px 14px;min-width:230px;text-align:center}
 .echo i{font-style:normal;color:#b9a48c;letter-spacing:1px}
 .echo b{font-weight:800}
 .slot{min-width:0;display:grid;place-items:center;border:2px dashed rgba(90,69,52,.4);border-radius:8px 10px 7px 9px;background:rgba(255,250,240,.35)}

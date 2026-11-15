@@ -7,13 +7,13 @@
     python3 tests/play.py --shots DIR  # also save a PNG of every screen into DIR
 
 It starts its own static server for the repo and, for class mode, the mock Apps Script backend
-(/tmp/e2e/mock.js by default, override with MOCK=path). Exits non-zero on any failed check or page error.
+(tests/mock.js, a small Node stand-in for the Apps Script runtime that runs backend/Code.gs unchanged). Exits non-zero on any failed check or page error.
 """
 import asyncio, math, os, subprocess, sys, time, socket
 from playwright.async_api import async_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MOCK = os.environ.get('MOCK', '/tmp/e2e/mock.js')
+MOCK = os.environ.get('MOCK', os.path.join(ROOT, 'tests', 'mock.js'))
 CHROME = os.environ.get('CHROME', '/usr/bin/google-chrome')
 QUICK = '--quick' in sys.argv
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else None

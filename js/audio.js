@@ -9,7 +9,7 @@ export const BPM=76,STEP=60/BPM/2;
 
 /* builds the graph on any (real or offline) context; returns the buses */
 export function graph(ctx){
- const master=ctx.createGain();master.gain.value=.5;
+ const master=ctx.createGain();master.gain.value=.8;
  const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2400;lp.Q.value=.3;
  const dl=ctx.createDelay(1);dl.delayTime.value=STEP*1.5;const fb=ctx.createGain();fb.gain.value=.2;const wet=ctx.createGain();wet.gain.value=.35;
  const mus=ctx.createGain();mus.gain.value=.8;const sfx=ctx.createGain();sfx.gain.value=.9;

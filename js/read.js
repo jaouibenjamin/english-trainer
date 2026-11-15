@@ -13,13 +13,14 @@ export async function start(host,cfg,api){
  const g={phase:'story',i:0,miss:0,hint:0,first:0,wrongNow:0,lock:0,order:t.qs.map(q=>shuffle(q[1].map((_,i)=>i))),mark:[],peek:0};let alive=true,glT=0;
  window.__lv={kind:'read',g,answer:()=>t.qs[g.i]?t.qs[g.i][2]:null};
  const story=()=>`<div class="scrollp story"><h3 class="en" dir="ltr">${esc(t.title)}</h3>
-   <div class="text en" dir="ltr">${sents.map((s,i)=>`<span class="sn${g.mark.includes(i)?' hl':''}">${tok(s)}</span>`).join('')}</div></div>`;
+   <div class="text en${t.text.length>360?' long':''}" dir="ltr">${sents.map((s,i)=>`<span class="sn${g.mark.includes(i)?' hl':''}">${tok(s)}</span>`).join('')}</div></div>`;
  function render(){hush();
   if(g.phase==='story'||g.peek){
    host.innerHTML=`<div class="lv read">${hud({i:g.peek?g.i:-1,n:t.qs.length,st:starsFor(g.miss,g.hint,T.starRead),hint:false})}
     ${story()}
-    <p class="tip label" id="gl">${g.mark.length?'התשובה מתחבאת במשפט המסומן':'לחצו על כל מילה כדי לראות מה הפירוש שלה'}</p>
-    <div class="row">${btn('readall',ico('sound')+' הקריאו לי','cream sm')}${g.peek?btn('unpeek','חזרה לשאלה '+ico('next'),'green'):btn('toq','לשאלות '+ico('next'),'green')}</div></div>`}
+    <p class="tip label" id="gl">${g.mark.length?'התשובה מתחבאת במשפט המסומן':'לחצו על מילה כדי לראות את הפירוש שלה'}</p>
+    <div class="row">${btn('readall',ico('sound')+' הקריאו לי','cream sm')}${g.peek?btn('unpeek','חזרה לשאלה '+ico('next'),'green sm'):btn('toq','לשאלות '+ico('next'),'green')}</div></div>`;
+   const tx=host.querySelector('.text'),more=()=>tx.classList.toggle('more',tx.scrollHeight-tx.scrollTop-tx.clientHeight>6);tx.addEventListener('scroll',more,{passive:true});more();setTimeout(more,400)}
   else{const q=t.qs[g.i];
    host.innerHTML=`<div class="lv read qs">${hud({i:g.i,n:t.qs.length,st:starsFor(g.miss,g.hint,T.starRead)})}
     <div class="sign prompt q"><small>בחרו את הבקבוק עם התשובה הנכונה</small><b class="en" dir="ltr">${tok(q[0])}</b></div>

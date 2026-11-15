@@ -61,7 +61,8 @@ export function say(text,rate){return new Promise(res=>{
   const u=new SpeechSynthesisUtterance(text);u.lang='en-US';if(voice)u.voice=voice;u.rate=rate||T.ttsRate;
   let done=0;const fin=v=>{if(!done){done=1;res(v)}};
   u.onstart=()=>fin(true);u.onend=()=>fin(true);u.onerror=()=>fin(false);
-  setTimeout(()=>fin(false),1800);speechSynthesis.speak(u)}catch(e){res(false)}})}
+  /* slow engines (Android cold start) may need a moment: only give up if nothing is speaking or queued */
+  setTimeout(()=>{let busy=false;try{busy=speechSynthesis.speaking||speechSynthesis.pending}catch(e){}if(busy)setTimeout(()=>fin(true),1500);else fin(false)},1600);speechSynthesis.speak(u)}catch(e){res(false)}})}
 export function hush(){if(TTS)try{speechSynthesis.cancel()}catch(e){}}
 let ttsUnlocked=0;
 export function unlockTTS(){if(ttsUnlocked||!TTS)return;ttsUnlocked=1;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;u.lang='en-US';speechSynthesis.speak(u)}catch(e){}}
