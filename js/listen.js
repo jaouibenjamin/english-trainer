@@ -4,7 +4,7 @@
 import {wordsOf,T,starsFor} from './data.js';
 import {mark,say,warm,TTS,shuffle,weakest,esc} from './state.js';
 import {SND} from './audio.js';
-import {SP,hud,bgMap,confetti,en,spr,ico,sleep,stage,toast} from './ui.js';
+import {SP,hud,bgMap,confetti,en,spr,ico,sleep,stage} from './ui.js';
 
 const SHORE=1120;   // in the 752x1344 lagoon art the sand with the little shells starts below this row
 
@@ -23,10 +23,10 @@ export async function start(host,cfg,api){
    bh=bubs.clientWidth*.38*308/300,h=Math.max(bh*2+10,Math.min(bot-top,bh*2+64));
   bubs.style.height=h+'px';bubs.style.top=Math.max(top,top+(bot-top-h)/2)+'px'}
  window.addEventListener('resize',place);
- const hudUp=()=>host.querySelector('#hd').innerHTML=hud({i:g.i,n:ws.length,st:starsFor(ws.length-g.bad,ws.length,g.hint)});
+ const hudUp=()=>host.querySelector('#hd').innerHTML=hud({i:g.i,n:ws.length,st:starsFor(ws.length-g.bad,ws.length,g.hint),hint:g.hint});
  /* sign, button and bubbles always tell the same story */
- const prompt=()=>{lt.textContent=g.tts?(g.mode==='en'?'הקשיבו ולחצו על המילה':'הקשיבו ולחצו על הפירוש'):(g.mode==='en'?'המילה תופיע לרגע':'המילה תופיע לרגע. מה הפירוש?');
-  rl.textContent=g.tts?'השמיעו שוב':'הראו שוב';spk.classList.toggle('nov',!g.tts);spk.setAttribute('aria-label',rl.textContent)};
+ const prompt=()=>{lt.textContent=g.tts?(g.mode==='en'?'הקשיבו ולחצו על המילה':'הקשיבו ולחצו על הפירוש'):('אין קול במכשיר הזה. המילה תופיע לרגע: זכרו אותה ולחצו '+(g.mode==='en'?'עליה':'על הפירוש שלה'));
+  rl.textContent=g.tts?'השמיעו שוב':'הראו שוב';spk.classList.toggle('nov',!g.tts);sign.classList.toggle('nov',!g.tts);spk.setAttribute('aria-label',rl.textContent)};
  const showWord=html=>{lw.innerHTML=html;lw.hidden=false;spk.hidden=true};
  const showBtn=()=>{lw.hidden=true;spk.hidden=false};
  async function speak(){const w=ws[g.i];if(!w||g.lock)return;
@@ -34,7 +34,7 @@ export async function start(host,cfg,api){
   if(g.tts){clearTimeout(onT);spk.classList.remove('on');void spk.offsetWidth;spk.classList.add('on');onT=setTimeout(()=>spk.classList.remove('on'),1300);
    ok=await say(w.en);if(ok)g.said++;if(!alive||ws[g.i]!==w||g.lock)return}
   if(!ok){   // no voice on this device: be honest about it and show the word for a moment instead
-   if(g.tts){g.tts=false;spk.classList.remove('on');prompt();toast('אין קול במכשיר הזה, אז המילה תופיע לרגע על השלט. לחצו על הבועה שלה',3200)}
+   if(g.tts){g.tts=false;spk.classList.remove('on');prompt();place()}   // the sign itself now states the task
    showWord(en(w.en));lw.className='flash';await sleep(1300);if(alive&&ws[g.i]===w&&!g.lock)showBtn()}}
  function round(){const w=ws[g.i];g.mode=g.i<Math.ceil(ws.length/2)?'en':'he';g.wrongNow=0;g.lock=0;
   const others=shuffle(pool.filter(o=>o.en!==w.en&&o.he!==w.he)).slice(0,3),opts=shuffle([w,...others]);

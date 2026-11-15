@@ -6,13 +6,13 @@ export const view=document.getElementById('view');
 export const stage=document.getElementById('stage');
 export const SP=n=>`assets/sp/${n}.webp`;
 export const BG=n=>`assets/bg/${n}.jpg`;
-export const BGW=752,BGH=1344;
+export const BGW=752,BGH=1344,BRIDGE_H=1800;   // the bridge art is taller: its sky continues above the sign on every phone
 
 /* ---------- image cache / preload ---------- */
 const cache=new Map();
 export function img(src){let p=cache.get(src);if(!p){p=new Promise(res=>{const i=new Image();i.decoding='async';i.onload=()=>res(i);i.onerror=()=>res(null);i.src=src});cache.set(src,p)}return p}
 export const preload=list=>Promise.all(list.map(img));
-export const CORE=['pill','pill_green','pill_coral','pill_blue','pill_cream','sign','label','ribbon','scroll','star','star_off','lock','crab_wave','crab_happy','crab_oops','crab_walk','crab_listen','crab_star','bubble_0','bubble_1','bubble_2','bubble_3','plank_0','plank_1','plank_2','plank_3','plank_4','lamp','trophy','chest','fork','conch','bottle','ic_gear','ic_note','ic_speaker','ic_book','ic_bridge','ic_check','ic_x','ic_arrow','ic_door','ic_signpost'].map(SP);
+export const CORE=['pill','pill_green','pill_coral','pill_blue','pill_cream','sign','label','ribbon','scroll','star','star_off','lock','crab_wave','crab_happy','crab_oops','crab_walk','crab_listen','crab_star','bubble_0','bubble_1','bubble_2','bubble_3','plank_0','plank_1','plank_2','plank_3','plank_4','lamp','trophy','chest','fork','conch','bottle','ic_gear','ic_note','ic_speaker','ic_book','ic_bridge','ic_check','ic_x','ic_arrow','ic_door','ic_signpost','compass'].map(SP);
 
 /* ---------- background layers (cross-fade) ---------- */
 const layers=[...document.querySelectorAll('#bg .bgl')];let cur=0,curBg='';
@@ -21,7 +21,7 @@ export function setBg(name,pos){
  const nxt=layers[1-cur];nxt.style.backgroundImage=`url(${BG(name)})`;nxt.dataset.pos=pos||'bottom';nxt.classList.add('on');layers[cur].classList.remove('on');cur=1-cur}
 /* maps a point of the 752x1344 background art to stage pixels for the two fits we use */
 export function bgMap(fit){const W=stage.clientWidth,H=stage.clientHeight;
- if(fit==='bridge'){const s=W/BGW;return{s,ox:0,oy:H-BGH*s,W,H}}
+ if(fit==='bridge'){const s=W/BGW;return{s,ox:0,oy:H-BRIDGE_H*s,W,H}}
  const s=Math.max(W/BGW,H/BGH);return{s,ox:(W-BGW*s)/2,oy:fit==='center'?(H-BGH*s)/2:H-BGH*s,W,H}}
 
 /* ---------- small hand-drawn icons (ink strokes) ---------- */
@@ -67,12 +67,23 @@ export function confetti(x,y,n=70){
 export function clearFx(){fxRun++;const c=document.getElementById('fx');c.getContext('2d').clearRect(0,0,c.width,c.height)}
 
 /* level HUD used by all four level types */
-/* book: 'c' while the story is being read, 'd' once the questions started (reading level only) */
-export function hud({i,n,st,book}){return `<div class="hud">
+/* book: 'c' while the story is being read, 'd' once the questions started (reading level only).
+   The stars are the ones this level is worth right now. One rule in every game (see starsFor): when one is lost it
+   visibly drops, and the first time in a level a line says why. */
+let hudSt=3,hudHint=0;
+export function hudReset(){hudSt=3;hudHint=0}
+export function hud({i,n,st,book,hint}){
+ const lost=st<hudSt?st:-1,byHint=lost>=0&&hint&&!hudHint;hudSt=st;hudHint=hint?1:0;
+ if(lost>=0&&!byHint)toast(st===2?LOSS_NOTE:LOSS_NOTE2,3000);
+ return `<div class="hud">
  <button class="mb" data-a="quit" aria-label="יציאה מהשלב"><span class="rb t1">${ico('close')}</span><small>יציאה</small></button>
- <div class="pips" dir="ltr" aria-label="שאלה ${Math.max(1,Math.min(i+1,n))} מתוך ${n}">${book?`<img class="pb ${book}" src="${SP('ic_book')}" alt="">`:''}${Array.from({length:n},(_,k)=>`<i class="${k<i?'d':k===i?'c':''}"></i>`).join('')}</div>
- ${stars(st,'live')}
+ <div class="pips" aria-label="שאלה ${Math.max(1,Math.min(i+1,n))} מתוך ${n}">${book?`<img class="pb ${book}" src="${SP('ic_book')}" alt="">`:''}${Array.from({length:n},(_,k)=>`<i class="${k<i?'d':k===i?'c':''}"></i>`).join('')}</div>
+ <div class="hst"><span class="stars live" dir="ltr" aria-label="${st} כוכבים מתוך 3">${[0,1,2].map(k=>`<span class="hs${k===lost?' lost':''}">${spr(k<st?'star':'star_off','st')}${k===lost?spr('star','st fall'):''}</span>`).join('')}</span><small>כוכבי השלב</small></div>
  <button class="mb" data-a="hint" aria-label="רמז"><span class="rb t3">${spr('lamp','rbi')}</span><small>רמז</small></button>
 </div>`}
+/* the star rule, worded the same in the help screen, in the level and on the result card */
 export const HINT_NOTE='עם רמז מקבלים עד 2 כוכבים';
+export const SLIP_NOTE='טעות אחת לא מורידה כוכב';
+export const LOSS_NOTE='טעות שנייה בשלב: ירד כוכב';
+export const LOSS_NOTE2='עוד טעות: ירד עוד כוכב';
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));

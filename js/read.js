@@ -12,7 +12,7 @@ export async function start(host,cfg,api){
  const t=TEXTS.find(x=>x.p===cfg.part),sents=sentences(t.text),n=t.qs.length;
  const g={phase:'story',i:0,miss:0,hint:0,first:0,bad:0,wrongNow:0,lock:0,order:t.qs.map(q=>shuffle(q[1].map((_,i)=>i))),mark:[],peek:0,wrong:[]};let alive=true;
  window.__lv={kind:'read',g,answer:()=>t.qs[g.i]?t.qs[g.i][2]:null};
- const head=()=>hud({i:g.phase==='story'?-1:g.i,n,st:starsFor(n-g.bad,n,g.hint),book:g.phase==='story'?'c':'d'});
+ const head=()=>hud({i:g.phase==='story'?-1:g.i,n,st:starsFor(n-g.bad,n,g.hint),hint:g.hint,book:g.phase==='story'?'c':'d'});
  const story=()=>`<div class="scrollp story${t.text.length>360?' long':''}"><h3 class="en" dir="ltr">${esc(t.title)}</h3>
    <div class="text en" dir="ltr">${sents.map((s,i)=>`<span class="sn${g.mark.includes(i)?' hl':''}">${tok(s)}</span>`).join('')}</div></div>`;
  function render(){hush();

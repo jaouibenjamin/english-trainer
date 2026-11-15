@@ -25,7 +25,7 @@ bdi{white-space:nowrap}
 .bgl.on{opacity:1}
 .bgl[data-pos=center]{background-position:center}
 .bgl[data-pos=zoom]{background-size:auto 152%;background-position:center}
-.bgl[data-pos=bridge]{background-size:100% auto}
+.bgl[data-pos=bridge]{background-size:100% auto;background-color:#c3deeb}
 #view{position:absolute;inset:0}
 #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}
 .ico{width:26px;height:26px;fill:none;stroke:var(--ink);stroke-width:2.800;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -104,7 +104,8 @@ bdi{white-space:nowrap}
 .sign.total{width:170px;font-size:20px;font-weight:700;white-space:nowrap;position:absolute;left:50%;top:-4px;transform:translateX(-50%)}
 .sign.total b{display:flex;align-items:center;gap:4px;background:#fff6e2;border:2px solid rgba(90,69,52,.55);border-radius:12px 15px 11px 14px/14px 11px 15px 12px;padding:0 10px 1px;font-weight:700}
 .sign.total .st{width:22px;vertical-align:0}
-.maphead.cls .sign.total{width:148px;font-size:18px}
+.maphead.cls .sign.total{width:140px;font-size:17px;left:calc(50% + 28px)}
+.maphead.cls .sign.total b{padding:0 8px 1px}
 .deco{position:absolute;transform:translate(-50%,-50%);pointer-events:none;width:auto}
 .route{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .route path{fill:none;stroke:var(--ink);stroke-width:2.600;stroke-dasharray:3 9;stroke-linecap:round;opacity:.5;vector-effect:non-scaling-stroke}
@@ -185,15 +186,15 @@ bdi{white-space:nowrap}
 .balls{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:8px 12px;width:100%;max-width:372px;flex:1;min-height:0}
 .ball{position:relative;min-height:0;max-height:176px;align-self:center;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:url(../assets/sp/bubble_0.webp) center/100% 100% no-repeat;padding:6px;transition:transform .09s}
 .ball:nth-child(4n+2){background-image:url(../assets/sp/bubble_1.webp)}.ball:nth-child(4n+3){background-image:url(../assets/sp/bubble_2.webp)}.ball:nth-child(4n){background-image:url(../assets/sp/bubble_3.webp)}
-.ball .bw{position:relative;display:block;width:34%;flex:none}
+.ball .bw{position:relative;display:block;width:44%;flex:none}
 .ball .bi{width:100%;display:block}
 .ball b{font-size:16px;font-weight:700;line-height:1.15}
 .ball small{font-size:13px;font-weight:600;color:var(--ink2);display:flex;align-items:center}
 .ball small .st{width:15px;vertical-align:-2px}
-.ball.locked .bi{filter:grayscale(.55) opacity(.45)}
+.ball.locked .bi{filter:grayscale(.35) opacity(.82)}
 /* badges sit on the ball itself, away from the painted highlight of the bubble */
-.ball .lk{position:absolute;width:50%;left:50%;top:52%;transform:translate(-50%,-50%) rotate(-6deg)}
-.ball .sl{position:absolute;width:46%;right:-26%;bottom:-10%}
+.ball .lk{position:absolute;width:40%;right:-17%;bottom:-9%;transform:rotate(8deg)}
+.ball .sl{position:absolute;width:38%;right:-17%;bottom:-8%}
 .ball.sel::after{content:"";position:absolute;inset:5px 8px;border:4px solid #e2a93b;border-radius:50%;pointer-events:none}
 
 /* settings, help, forms */
@@ -223,7 +224,7 @@ bdi{white-space:nowrap}
 .acct small{font-size:13px;font-weight:500;color:var(--ink2)}
 .acct .btn{margin:0}
 .help{gap:8px}
-.hrow{display:flex;align-items:center;gap:12px;width:100%;max-width:380px;flex:1 1 0;min-height:0;max-height:124px}
+.hrow{display:flex;align-items:center;gap:12px;width:100%;max-width:380px;flex:none}
 .hrow .hi{width:50px;height:50px;flex:none;display:flex;align-items:center;justify-content:center}
 .hrow .hi img{max-width:100%;max-height:100%;width:auto;height:auto}
 .hrow .ht{flex:1;min-width:0}
@@ -244,10 +245,12 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .lcard h3{margin:0;font-size:21px;font-weight:700;text-align:center}
 .lcard label{text-align:center}
 .seg{display:flex;margin:8px 0 2px;border:2.500px solid var(--ink);border-radius:15px 18px 14px 17px/17px 14px 18px 15px;overflow:hidden;background:rgba(255,253,246,.9);flex:none}
-.seg button{flex:1;min-height:44px;font-size:16px;font-weight:700;color:var(--ink2)}
+.seg button{flex:1;min-height:44px;font-size:15.500px;white-space:nowrap;font-weight:700;color:var(--ink2)}
 .seg button+button{border-inline-start:2.500px solid var(--ink)}
 .seg button[aria-selected=true]{background:var(--butter);color:var(--ink)}
-.lnote,.lcard .err{margin:8px 0 2px;min-height:36px;display:flex;align-items:center;justify-content:center;font-size:13.500px;font-weight:600;text-align:center;line-height:1.3}
+.lnote,.lcard .err{margin:8px 0 2px;min-height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13.500px;font-weight:600;text-align:center;line-height:1.3}
+.swl{display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:2px 14px 3px;font-size:15px;font-weight:700;color:var(--ink);background:var(--butter);border:2.500px solid var(--ink);border-radius:15px 18px 14px 17px/17px 14px 18px 15px}
+.swl .ico{width:18px;height:18px}
 .lcard .btn{margin-top:2px}
 .tlink{margin-top:14px;height:44px;font-size:14.500px;opacity:.9}
 .login .logo.sm{margin-bottom:0}
@@ -272,7 +275,7 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .lb small{font-weight:500;font-size:12.500px}
 
 /* teacher: a plain opaque paper page, so nothing of the beach art shows between the cards */
-.teacher.wide{background:#fdf2dc radial-gradient(rgba(90,69,52,.1) 1.1px,transparent 1.3px) 0 0/22px 22px}
+.teacher.wide{background:linear-gradient(rgba(253,242,220,0) 90px,#fdf2dc 190px) local,url(../assets/bg/paper.jpg) top center/100% auto no-repeat local,#fdf2dc}
 .teacher>.credit{border:0;margin:0;padding:0 6px;max-width:372px}
 .kids{display:flex;flex-direction:column;gap:8px;width:100%;max-width:372px;flex:none}
 .kid p{margin:0;display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -296,10 +299,17 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .pips{display:flex;gap:6px;flex:1;justify-content:center;min-width:0}
 .pips i{width:13px;height:13px;border:2.200px solid var(--ink);border-radius:52% 48% 50% 50%/48% 52% 47% 53%;background:#fffaf0;flex:none}
 .pips i.d{background:var(--sage)}.pips i.c{background:var(--butter);transform:scale(1.35)}
-.pips .pb{width:24px;height:auto;margin-right:4px;flex:none;border-radius:8px;padding:2px 2px 1px;box-sizing:content-box}
+.pips .pb{width:24px;height:auto;margin-inline-end:4px;flex:none;border-radius:8px;padding:2px 2px 1px;box-sizing:content-box}
 .pips .pb.c{background:var(--butter);box-shadow:0 0 0 2.200px var(--ink);transform:scale(1.12)}
 .pips .pb.d{opacity:.55}
 .stars.live .st{width:25px}
+.hst{display:flex;flex-direction:column;align-items:center;flex:none;height:62px}
+.hst .stars{height:50px;align-items:center}
+.hst small{font-size:11.500px;font-weight:700;background:rgba(255,250,240,.9);border-radius:8px;padding:0 6px;margin-top:-3px;line-height:1.35;white-space:nowrap}
+.hs{position:relative;display:block;line-height:0}
+.hs .fall{position:absolute;left:0;top:0;animation:starfall .9s cubic-bezier(.5,0,.8,.4) forwards;pointer-events:none}
+.hs.lost>.st:first-child{animation:pulse .5s 2}
+@keyframes starfall{0%{transform:none;opacity:1}18%{transform:translateY(-7px) rotate(-14deg) scale(1.15);opacity:1}100%{transform:translateY(78px) rotate(70deg) scale(.7);opacity:0}}
 .prompt{width:min(84%,318px);flex:none;position:relative;z-index:2;pointer-events:none}
 .prompt small{font-size:13.500px;font-weight:600;color:#5d4634;line-height:1.2}
 .prompt b{font-weight:700;font-size:29px;line-height:1.12}
@@ -341,7 +351,11 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .bub.b1,.bub.b2{animation-direction:normal,alternate-reverse}
 @keyframes rise{from{opacity:0;translate:0 50px}}
 @keyframes drift{from{transform:translate(-6px,5px) rotate(-2deg)}to{transform:translate(6px,-6px) rotate(2deg)}}
-.bub.bad span{opacity:.5}
+.bub.bad span{opacity:.6}
+.bub.bad::before{content:"";position:absolute;inset:3.500%;border-radius:50%;background:rgba(226,104,84,.26);box-shadow:inset 0 0 0 3px rgba(185,80,60,.55);pointer-events:none}
+.bub.bad em{position:relative;box-shadow:0 0 0 2px rgba(185,80,60,.55)}
+.listen .prompt.nov small{font-size:12.500px;line-height:1.22;max-width:96%}
+.listen .prompt.nov .spk{height:40px;margin-top:3px;font-size:17px}
 .bub.ok{animation:burst .5s forwards}
 @keyframes burst{40%{transform:scale(1.25);opacity:1}to{transform:scale(1.5);opacity:0}}
 .flash{animation:popin2 .2s}
@@ -349,7 +363,7 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 
 /* ---------- level 3: reading ---------- */
 .read{gap:8px}
-.read>.tip{margin-top:12px}
+.read>.tip{margin-top:12px;min-height:40px;display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;line-height:1.2}
 /* the two buttons under the story share the width, so they can never run off a narrow screen */
 .read>.row{width:100%;max-width:400px}.read>.row .btn{flex:1 1 0;min-width:0;border-width:0 20px;font-size:clamp(16px,4.900vw,20px)}.read>.row .btn span{gap:6px}.read.qs>.row .btn{flex:0 1 auto;border-width:0 27px}
 .mid{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;container-type:size}
@@ -398,17 +412,17 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .rule.bad{color:var(--bad);border-color:var(--bad);font-weight:700}
 .rule.good{color:var(--good);background:#e4f1d6}
 .rule.en{direction:ltr;font-weight:700}
-.sentc{margin:0;max-width:100%;font-size:25px;font-weight:800;line-height:1.55;text-align:center;color:#3d2d20;flex:none}
-.hole{display:inline-block;min-width:62px;margin:0 3px;padding:0 6px;line-height:1.3;text-decoration:none;text-align:center;color:var(--bad);background:#fffaf0;border:3px dashed var(--bad);border-radius:10px 12px 9px 11px;animation:pulse 1.2s ease-in-out infinite}
-.hole.ok{color:var(--good);background:#e4f1d6;border-style:solid;border-color:var(--good);animation:none}
 .span{position:absolute;display:flex;gap:6px;height:48px;z-index:2}
-.slot{flex:1 1 0;min-width:0;display:grid;place-items:center;border:2.200px dashed rgba(90,69,52,.5);border-radius:9px 11px 8px 10px;background:rgba(255,250,240,.45)}
+.slot{flex:1 1 0;min-width:30px;display:grid;place-items:center;border:2.200px dashed rgba(90,69,52,.5);border-radius:9px 11px 8px 10px;background:rgba(255,250,240,.45)}
 .slot.gap{border-color:var(--bad);border-width:3px;animation:pulse 1.2s ease-in-out infinite}
 .slot.f{border-color:transparent;background:url(../assets/sp/plank_0.webp) center/100% 100% no-repeat}
 .slot.f.p1,.pl.p1{background-image:url(../assets/sp/plank_1.webp)}.slot.f.p2,.pl.p2{background-image:url(../assets/sp/plank_2.webp)}.slot.f.p3,.pl.p3{background-image:url(../assets/sp/plank_3.webp)}.slot.f.p4,.pl.p4{background-image:url(../assets/sp/plank_4.webp)}
 .slot i{font-style:normal;font-weight:800;font-size:var(--fs,16px);color:#3d2d20;white-space:nowrap;letter-spacing:-.2px;padding-bottom:2px;display:flex;align-items:center}
-.dot{display:block;width:13px;height:13px;border-radius:52% 48% 50% 50%/48% 52% 47% 53%;background:#3d2d20}
-.slot .dot{width:10px;height:10px}
+.dot{display:block;width:.42em;height:.42em;min-width:7px;min-height:7px;border-radius:52% 48% 50% 50%/48% 52% 47% 53%;background:#3d2d20}
+/* the full stop stands where a full stop stands: low, on the line the letters sit on */
+.fstop{display:inline-flex;align-items:flex-end;justify-content:center;height:1.05em;width:1.1em;padding-bottom:.1em}
+.capi{height:.82em;width:auto;vertical-align:-.04em;fill:none;stroke:#3d2d20;stroke-width:3.100;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.slot.gap i{color:var(--bad);font-size:20px}
 .slot.laid{animation:drop .3s cubic-bezier(.3,1.5,.5,1)}
 @keyframes drop{from{transform:translateY(-34px) rotate(-8deg);opacity:0}}
 .walker{position:absolute;width:68px;margin:-52px 0 0 -34px;z-index:3;transition:left .5s ease-in-out;pointer-events:none}
@@ -420,11 +434,30 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .bank.n4 .pl{flex-basis:calc(40% - 7px)}
 .pl.lg{font-size:clamp(17px,5vw,20px);letter-spacing:-.3px}.pl.xl{font-size:clamp(15px,4.500vw,18px);letter-spacing:-.4px}
 .bank.tobe .pl{flex-basis:calc(33.333% - 7px);height:clamp(60px,8.400dvh,72px);font-size:29px}
-/* a plank that went to the bridge leaves a quiet empty imprint of the same size, so the tray never jumps */
-.pl.used{background:rgba(90,69,52,.05);box-shadow:inset 0 0 0 2px rgba(90,69,52,.2);border-radius:10px 12px 9px 11px;color:transparent;pointer-events:none}
-.pl.used .dot{visibility:hidden}
-.pl.snap{animation:snap .9s ease-in-out}
-@keyframes snap{10%{transform:translateY(-8px) rotate(-8deg)}26%{transform:translateY(5px) rotate(9deg)}42%{transform:translateY(26px) rotate(16deg)}70%{transform:translateY(26px) rotate(16deg)}100%{transform:none}}
+/* a plank that went to the bridge leaves the tray; its place stays reserved (but empty), so the other planks never jump */
+.pl.used{visibility:hidden;pointer-events:none}
+/* a wrong plank: the tray copy hides while its double drops onto the bridge, cracks and falls; then it is back, outlined in red for a moment */
+.pl.snap{visibility:hidden}
+.pl.back{animation:plback .35s cubic-bezier(.3,1.5,.5,1)}
+.pl.back::after{content:"";position:absolute;inset:1px 2px 3px;border:3px solid var(--bad);border-radius:11px 13px 10px 12px;animation:fadeout 1.4s .5s forwards;pointer-events:none}
+@keyframes plback{from{transform:translateY(-22px) scale(.8);opacity:0}}
+@keyframes fadeout{to{opacity:0}}
+.pl.ghost{position:absolute;z-index:3;flex:none;padding:0 2px 2px;pointer-events:none;box-shadow:0 0 0 2.500px var(--bad);border-radius:9px;transform-origin:20% 50%;animation:plfall .85s ease-in forwards}
+@keyframes plfall{0%{transform:translateY(-34px) rotate(-8deg);opacity:0}16%{transform:none;opacity:1}30%{transform:rotate(-7deg)}42%{transform:rotate(9deg) translateY(4px)}100%{transform:translateY(150px) rotate(38deg);opacity:0}}
+/* the ring breathes, the plank itself stays put (a moving tap target is hard for a thumb) */
+.pl.lead::before{content:"";position:absolute;inset:-5px;border:3.500px solid #e2a93b;border-radius:14px 16px 13px 15px;pointer-events:none;animation:leadring 1s ease-in-out infinite}
+@keyframes leadring{50%{opacity:.35;transform:scale(1.05)}}
+
+/* island subtitle, map finish banner, compass */
+.isub{margin:-6px 0 0;font-size:14.500px;font-weight:600;color:var(--ink2);text-align:center;background:rgba(255,250,240,.8);border-radius:10px;padding:0 10px;flex:none}
+.isub .en{font-weight:700;color:var(--ink)}
+.compass{position:absolute;left:12px;width:58px;pointer-events:none;opacity:.92;transform:rotate(-8deg)}
+.fin{position:absolute;left:8px;right:8px;bottom:calc(8px + var(--sb));z-index:2;display:flex;align-items:center;gap:6px;min-height:76px;border-width:9px 16px 10px}
+.fin .fc{width:58px;flex:none}.fin .ft{width:40px;flex:none;animation:pulse 1.6s ease-in-out infinite}
+.fin p{margin:0;flex:1;min-width:0;text-align:center;line-height:1.25}
+.fin b{display:block;font-size:15.500px;font-weight:700}
+.fin small{display:block;font-size:12.500px;font-weight:600;color:var(--ink2);text-wrap:balance}
+.fin .st{width:14px;vertical-align:-2px;margin:0 1px}
 
 @media (max-height:700px){.prompt b{font-size:25px}.ihero .pic{width:40%}.lvrow{min-height:60px}.logo h1{font-size:50px}.guide img{width:70px}.lwrap{margin-top:40px}.lcrab{width:76px;top:-50px}.in{padding:6px 12px;font-size:18px}.setrow{min-height:54px}}
 @media (max-height:780px){.ihero .pic{width:42%}.hrow small{font-size:13px}}

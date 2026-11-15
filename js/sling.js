@@ -28,15 +28,15 @@ export async function start(host,cfg,api){
   const m=bgMap('bottom'),sr=sign.getBoundingClientRect(),st=stage.getBoundingClientRect();
   zt=sr.bottom-st.top+8;zb=m.oy+SKYLINE*m.s-8;             // clear sky between the sign and the island
   AX=W/2;AY=Math.min(H-150,zb+62);
-  /* four big balloons fanned over the whole sky: the inner pair high, the outer pair lower and 20px clear of the screen edges.
-     Every balloon is in open view of the slingshot and no two can touch (need = smallest safe height difference). */
-  const EDGE=20,room=r=>zb-zt-44-r*3.06,need=r=>Math.sqrt(Math.max(0,(2*r+14)**2-(W/2-2*r-EDGE-4)**2))+14;
-  R=Math.min(52,W*.135);while(R>30&&room(R)<need(R))R-=2;
-  const dy=Math.max(need(R),room(R)*.9),yi=zt+R+4,xs=[EDGE+R,W/2-R-4,W/2+R+4,W-EDGE-R],ys=[yi+dy,yi,yi+12,yi+dy-10];
+  /* a balanced arc of four balloons: the same gap between every pair of neighbours, the inner pair a little higher.
+     Every balloon is in open view of the slingshot and no two can touch. */
+  const EDGE=10,GAPX=6;R=Math.max(30,Math.min(50,(W-2*EDGE-3*GAPX)/8,(zb-zt-70)/3.6));
+  const stepX=2*R+GAPX,x0=W/2-1.5*stepX,lift=R*.62,yi=zt+R+6+Math.max(0,Math.min(40,(zb-zt-R*3.1-lift-120)*.3));
+  const xs=[0,1,2,3].map(k=>x0+k*stepX),ys=[yi+lift,yi,yi,yi+lift];
   g.bub.forEach(b=>{b.x=xs[b.slot];b.y=ys[b.slot]});
-  cap.style.top=(zb-34)+'px';ctip.style.top=Math.min(zb+6,AY-54)+'px';coach.style.left=(AX-66)+'px';coach.style.top=(AY+REST-8)+'px';
+  cap.style.top=(zb-34)+'px';ctip.style.top=Math.min(zb+6,AY-54)+'px';coach.style.left=AX+'px';coach.style.top=(AY+REST+20)+'px';   // the 'pull' arrow starts right under the ball
   if(!g.fly&&!g.drag){g.bx=AX;g.by=AY+REST}}
- function hudUp(){host.querySelector('#hd').innerHTML=hud({i:g.i,n:ws.length,st:starsFor(ws.length-g.bad,ws.length,g.hint)})}
+ function hudUp(){host.querySelector('#hd').innerHTML=hud({i:g.i,n:ws.length,st:starsFor(ws.length-g.bad,ws.length,g.hint),hint:g.hint})}
  function round(){const w=ws[g.i],others=shuffle(pool.filter(o=>o.en!==w.en&&o.he!==w.he)).slice(0,3),slots=shuffle([0,1,2,3]);
   g.bub=[w,...others].map((o,j)=>({w:o,slot:slots[j],x:0,y:0,ph:Math.random()*6,ok:j===0,bad:0,pop:0,img:bal[(slots[j]+g.i)%4],cool:0}));
   g.glow=0;g.wrongNow=0;g.last=[];tg.textContent=w.he;layout();hudUp()}

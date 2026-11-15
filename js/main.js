@@ -2,7 +2,7 @@
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
 import {S,SET,saveSet,save,API,ERR,api,cred,auth,logout,push,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc} from './state.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
-import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE} from './ui.js';
+import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 import * as sling from './sling.js';
 import * as listen from './listen.js';
 import * as read from './read.js';
@@ -33,9 +33,12 @@ function title(){setBg('title','bottom');
 /* ---------- map ---------- */
 function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,H=stage.clientHeight,mt=H<700?88:100;
  /* islands zigzag in two columns, so neighbours in a column are two rows apart; the lowest island and its label end 14px above the bottom */
- const iw=Math.min(W*.37,150,H*.19),cell=iw*.76+48,rowH=(H-mt-cell-14)/5;
+ /* finished: every level of every island has been played. A banner along the beach says so; if stars are still missing it says where to find them */
+ const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),finH=played?84:0;
+ const iw=Math.min(W*.37,150,H*.19),cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
  /* the crab waits on the newest island that is open and still has stars to collect */
  const curI=ISLANDS.filter(i=>isOpen(i)&&islandStars(i)<i.levels.length*3).sort((a,b)=>b.id-a.id)[0]||null;
+
  const place=ISLANDS.map(i=>{const r=6-i.id;return{i,x:r%2?71:29,y:mt+rowH*r}});
  /* the sailboat and the whale swim in the two free gaps of the zigzag, so they can never sit under an island */
  const band=2*rowH-cell,deco=(n,x,r,h)=>band<34?'':`<img class="deco" src="${SP(n)}" alt="" style="left:${x}%;top:${(mt+rowH*r+cell+band/2).toFixed(1)}px;height:${Math.min(h,band-8).toFixed(1)}px">`;
@@ -45,7 +48,9 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
   <header class="maphead${API&&S.u?' cls':''}"><button class="mb" data-a="nav" data-to="settings"><span class="rb t1">${spr('ic_gear','rbi')}</span><small>הגדרות</small></button>
    <div class="sign total"><b>${star()}<span>${num(tot+' / '+MAX_STARS)}</span></b></div>
    <span class="tr">${API&&S.u?`<button class="mb" data-a="nav" data-to="board"><span class="rb t3">${spr('trophy','rbi')}</span><small>טבלה</small></button>`:''}<button class="mb" data-a="nav" data-to="collection"><span class="rb t2">${spr('chest','rbi')}</span><small>האוסף</small></button></span></header>
+  ${played?`<div class="fin label" role="status">${spr('crab_star','fc bob')}<p><b>כל הכבוד! סיימתם את כל האיים</b><small>${all?`כל ${num(MAX_STARS)} הכוכבים שלכם. אפשר לשחק שוב בכל שלב${API&&S.u?' ולצבור נקודות':''}`:`חסרים עוד ${nst(MAX_STARS-tot)}: חזרו לאי מסומן ואספו 3 כוכבים בכל שלב`}</small></p>${spr('trophy','ft')}</div>`:''}
   ${deco('boat',24,0,58)}${deco('whale',76,1,46)}
+  ${played?'':`<img class="compass" src="${SP('compass')}" alt="" style="top:${Math.min(H-80,m.oy+1215*m.s-36).toFixed(1)}px">`}
   <svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="${path}"/></svg>
   ${place.map(({i,x,y})=>{const o=isOpen(i),st=islandStars(i),mx=i.levels.length*3,cur=i===curI;
    return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}${cur?' cur':''}" style="left:${x}%;top:${y.toFixed(1)}px" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}">
@@ -57,7 +62,8 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
 function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');preload([BG(i.bg),BG('listen'),BG('read'),BG('bridge')]);
  const got=islandStars(i);
  view.innerHTML=`<section class="scr island">${top(esc(i.he))}
-  <div class="ihero">${spr('isl_'+i.id,'pic')}<p class="chips"><span class="chip">${star()}${num(got+' / '+i.levels.length*3)}</span><span class="chip">${en(i.en)}</span></p></div>
+  <p class="isub">${i.bonus?'מילות בונוס':'מילים מתוך'}: ${en(i.en)}</p>
+  <div class="ihero">${spr('isl_'+i.id,'pic')}<p class="chips"><span class="chip">${star()}${num(got+' / '+i.levels.length*3)}</span></p></div>
   <div class="lvlist">${i.levels.map(([t],k)=>{const L=LEVEL_INFO[t],s=starsOf(i.id,t);
    return `<button class="lvrow p${k%4}" data-a="nav" data-to="play/${i.id}/${t}"><span class="lic">${spr(L.icon)}</span><span class="lt"><b>${L.name}</b>${stars(s)}<small>${L.sub}</small></span></button>`}).join('')}</div>
   <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus?'אי בונוס: חודשים ומספרים!':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`}
@@ -65,7 +71,7 @@ function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('pa
 /* ---------- play + result ---------- */
 async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type);if(!lv||!isOpen(i))return go('map');
  const my=navId;loader();const bg=LEVEL_INFO[type].bg||i.bg;await preload([BG(bg),...CORE]);if(my!==navId)return;
- setBg(bg,BGFIT[type]);
+ setBg(bg,BGFIT[type]);hudReset();
  const l=await LEVELS[type].start(view,{island:i,type,part:lv[1]},{done:r=>result(i,type,r)});
  if(my!==navId){l.destroy();return}level=l}
 function result(i,type,r){if(level){level.destroy();level=null}clearFx();hush();
@@ -75,7 +81,7 @@ function result(i,type,r){if(level){level.destroy();level=null}clearFx();hush();
  const head=clean&&r.stars===3?'מושלם!':r.stars===3?'כל הכבוד!':r.stars===2?'יפה מאוד!':'סיימתם!';
  /* one line that explains the stars: the same score always gives the same stars unless the hint capped them, and then it says so */
  const capped=r.hint&&starsFor(r.first,r.total,0)===3;
- const note=capped?'נעזרתם ברמז, לכן עד 2 כוכבים':clean?'בלי אף טעות!':r.stars===3?'טעות אחת לא מורידה כוכב':'אפשר לשחק שוב ולאסוף עוד כוכבים';
+ const note=capped?HINT_NOTE:clean?'בלי אף טעות!':r.stars===3?SLIP_NOTE:r.hint?HINT_NOTE+'. אפשר לשחק שוב':'אפשר לשחק שוב ולאסוף עוד כוכבים';
  const tot=totalStars(),lockedI=ISLANDS.find(o=>!isOpen(o));
  const extra=opened.length?`<p class="unlock">${spr('isl_'+opened[0].id,'ui')}<span><i>נפתח אי חדש!</i><b>${esc(opened[0].he)}</b></span></p>`
   :r.review&&r.review.length?`<div class="review"><small>כדאי לחזור על</small>${r.review.slice(0,2).map(w=>`<span class="rv">${en(w.en)} · ${esc(w.he.split(',')[0])}</span>`).join('')}</div>`
@@ -89,7 +95,7 @@ function result(i,type,r){if(level){level.destroy();level=null}clearFx();hush();
    <p class="line">${num(r.first)} מתוך ${num(r.total)} בניסיון הראשון</p>
    <p class="note">${note}</p>
    <div class="xtra">${extra}</div>
-   <p class="gain">${gained?`${num('+'+gained)} כוכבים למפה`:'הכוכבים שלכם נשמרו'}${API&&S.u?` · ${pts(S.pts)} נקודות`:''}</p>
+   <p class="gain">${gained?`${num('+'+gained)} כוכבים למפה`:'הכוכבים שלכם נשמרו'}${API&&S.u?` · ${pts(S.pts)} נקודות לטבלה`:''}</p>
    <div class="rbtns">${btn('nav',`${nextLabel} ${ico('next')}`,'green xl',`data-to="${to}"`)}
     <div class="row">${btn('nav',ico('retry')+' שוב','cream sm',`data-to="play/${i.id}/${type}" data-force="1"`)}${btn('nav','לשלבים','cream sm',`data-to="island/${i.id}"`)}</div></div>
   </div></section>`;
@@ -125,19 +131,22 @@ function help(){setBg('paper','center');
   ${c('conch','תופסים צלילים','שומעים מילה ולוחצים על הבועה שלה. בהמשך לוחצים על הפירוש. אפשר להשמיע שוב ושוב.')}
   ${c('bottle','בקבוק הסיפור','קוראים סיפור קצר. לחיצה על מילה מראה את הפירוש שלה. אחר כך בוחרים את הבקבוק עם התשובה.')}
   ${c('ic_bridge','גשר המשפטים','לוחצים על קרשי המילים לפי הסדר. אות גדולה בהתחלה, נקודה בסוף.')}
-  ${c('star','כוכבים','בכל שלב יש עד 3 כוכבים, והם פותחים איים חדשים. טעות אחת לא מורידה כוכב. עם רמז מקבלים עד 2.')}</section>`}
+  ${c('star','כוכבים','בכל שלב יש עד 3 כוכבים, והם פותחים איים חדשים. הכוכבים למעלה מראים כמה השלב שווה עכשיו. '+SLIP_NOTE+'. '+HINT_NOTE+'.')}</section>`}
 
 /* ---------- class mode: login, leaderboard, teacher (same backend calls as the classic trainer) ---------- */
-function login(){setBg('paper','center');const reg=V.m==='register';
+function login(){setBg('paper','center');
+ /* a device that has never signed in starts on "first time"; afterwards the usual case is coming back */
+ const reg=(V.m||(S.lastC?'login':'register'))==='register';
  const tab=(m,t)=>`<button type="button" role="tab" aria-selected="${(m==='register')===reg}" data-a="lmode" data-m="${m}">${t}</button>`;
+ const sw=V.sw?`<button type="button" class="swl" data-a="lmode" data-m="${V.sw}">${V.sw==='register'?'זאת הפעם הראשונה שלי':'כבר נרשמתי'} ${ico('next')}</button>`:'';
  view.innerHTML=`<section class="scr login"><div class="logo sm"><h1>איי המילים</h1></div>
   <div class="lwrap">${spr('crab_wave','lcrab')}
   <form class="scrollp lcard" id="lf" autocomplete="off"><h3>כניסה לכיתה</h3>
-   <div class="seg" role="tablist" aria-label="כניסה או הרשמה">${tab('login','יש לי קוד')}${tab('register','פעם ראשונה')}</div>
-   <label for="lc">קוד הכיתה</label><input id="lc" class="in en" dir="ltr" autocapitalize="characters" autocomplete="off" value="${esc(V.c??S.lastC)}">
+   <div class="seg" role="tablist" aria-label="כניסה או הרשמה">${tab('login','כבר נרשמתי')}${tab('register','פעם ראשונה שלי')}</div>
+   <label for="lc">קוד הכיתה (מהמורה)</label><input id="lc" class="in en" dir="ltr" autocapitalize="characters" autocomplete="off" value="${esc(V.c??S.lastC)}">
    <label for="ln">השם שלי</label><input id="ln" class="in" maxlength="20" autocomplete="off" value="${esc(V.n||'')}">
    <label for="lp">${reg?'קוד סודי חדש (4 ספרות)':'הקוד הסודי שלי (4 ספרות)'}</label><input id="lp" class="in en pin" dir="ltr" type="password" inputmode="numeric" maxlength="4" autocomplete="off" value="${esc(V.p||'')}">
-   ${V.err?`<p class="err" role="alert">${esc(V.err)}</p>`:`<p class="lnote">${reg?'בוחרים 4 ספרות סודיות וזוכרים אותן':'נכנסים עם השם והקוד הסודי שבחרתם'}</p>`}
+   ${V.err?`<p class="err${sw?' two':''}" role="alert"><span>${esc(V.err)}</span>${sw}</p>`:`<p class="lnote">${reg?'בוחרים 4 ספרות שרק אתם יודעים':'נכנסים עם השם והקוד הסודי שבחרתם'}</p>`}
    ${btn('auth',V.busy?'רגע…':reg?'נרשמים':'כניסה','green wide',`data-m="${reg?'register':'login'}" type="button" ${V.busy?'disabled':''}`)}</form></div>
   ${btn('nav','כניסת מורה','cream sm tlink','data-to="teacher"')}</section>`}
 function board(){if(!API||!S.u)return go('map');setBg('paper','center');
@@ -184,7 +193,7 @@ const A={
  async auth(d){const m=d.m,c=$('#lc').value.trim(),n=$('#ln').value.trim().replace(/\s+/g,' '),p=$('#lp').value;
   if(!c||n.length<2||!/^\d{4}$/.test(p)){V={name:'login',m,c,n,p,err:ERR.input};return login()}
   V={name:'login',m,c,n,p,busy:1};login();const err=await auth(m,c,n,p);if(V.name!=='login')return;
-  if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err};return login()}go('map')},
+  if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err,sw:err===ERR.nouser?'register':err===ERR.taken?'login':''};return login()}go('map')},
  async logout(){await logout();go('login')},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};

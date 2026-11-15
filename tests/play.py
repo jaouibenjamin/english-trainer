@@ -57,6 +57,10 @@ def clip_stub(mode='ok'):
 CLIP_OF = "(async t=>(await import('/js/voice.js')).clipOf(t))"
 
 
+def s_pad(fit):
+    return 30          # the rope holes of the wooden sign take the top 30px
+
+
 def check(label, ok, extra=''):
     print(('PASS ' if ok else 'FAIL ') + label + (' ' + str(extra) if extra else ''), flush=True)
     if not ok:
@@ -133,16 +137,21 @@ async def play_listen(pg, wrong_first=False, use_hint=False, tag=None):
         ans = await pg.evaluate("(()=>{const L=window.__lv;return L&&L.kind==='listen'&&!L.g.lock?L.answer():null})()")
         if not ans:
             await pg.wait_for_timeout(200); continue
-        if use_hint:
-            await pg.click('[data-a=hint]'); use_hint = False; await pg.wait_for_timeout(150)
-            check('hint: the first use says that the level is now limited to 2 stars', await pg.locator('#toast.on').count() == 1 and '2' in await pg.locator('#toast').inner_text())
-            await pg.wait_for_timeout(2900)                  # let the note leave before the next screenshot
         if wrong_first and not done_wrong:
             done_wrong = True
             await pg.locator(f'.bub:not(.bad):not([data-w="{ans}"])').first.click(force=True)
             await pg.wait_for_timeout(250)
+            w = await pg.evaluate("({bad:document.querySelectorAll('.bub.bad').length,glow:document.querySelectorAll('.bub.hinted').length,em:document.querySelector('.bub.bad em').textContent,st:document.querySelectorAll('.hud .hs>img[src*=\"star.webp\"]:not(.fall)').length})")
+            check('listening: a wrong tap marks only the tapped bubble (with its meaning); nothing glows; one slip keeps 3 header stars', w['bad'] == 1 and w['glow'] == 0 and len(w['em']) > 0 and w['st'] == 3, w)
             if tag: await shot(pg, tag + '_wrong')
             await pg.click('[data-a=again]', force=True)
+        if use_hint:
+            await pg.click('[data-a=hint]'); use_hint = False; await pg.wait_for_timeout(150)
+            check('hint: the first use says that the level is now limited to 2 stars', await pg.locator('#toast.on').count() == 1 and '2' in await pg.locator('#toast').inner_text())
+            h = await pg.evaluate("({glow:document.querySelectorAll('.bub.hinted').length,st:document.querySelectorAll('.hud .hs>img[src*=\"star.webp\"]:not(.fall)').length,fall:document.querySelectorAll('.hud .fall').length})")
+            check('hint: the right bubble glows and the header drops to 2 stars at once', h['glow'] == 1 and h['st'] == 2 and h['fall'] == 1, h)
+            if tag: await shot(pg, tag + '_hint')
+            await pg.wait_for_timeout(2900)                  # let the note leave before the next screenshot
         await pg.locator(f'.bub[data-w="{ans}"]').click(force=True)
         await pg.wait_for_timeout(400)
         if tag and not done_wrong: pass
@@ -200,15 +209,25 @@ async def play_bridge(pg, wrong_first=False, use_hint=False, tag=None):
             use_hint = False; await pg.click('[data-a=hint]')
         if tag and kind == 'tobe' and 'tobe' not in shots:
             shots.add('tobe'); await pg.wait_for_timeout(300); await shot(pg, tag + '_tobe')      # the question, before it is answered
-            box = await pg.evaluate("(()=>{const r=e=>document.querySelector(e).getBoundingClientRect(),s=r('.sentc'),b=r('.bank'),H=innerHeight;return [s.top/H,b.bottom/H,document.querySelectorAll('.bank.tobe .pl').length,document.querySelector('.hole').textContent]})()")
-            check('bridge: am/is/are round shows the sentence with a marked gap and three planks mid-screen', box[2] == 3 and box[3] == '?' and .25 < box[0] < .5 and .45 < box[1] < .75, box)
+            box = await pg.evaluate("(()=>{const b=document.querySelector('.bank').getBoundingClientRect(),H=innerHeight;return [document.querySelectorAll('.sentc,.hole').length,b.bottom/H,document.querySelectorAll('.bank.tobe .pl').length,document.querySelectorAll('.slot.gap').length,document.querySelector('.slot.gap').textContent,document.querySelectorAll('.slot.f').length]})()")
+            check('bridge: am/is/are round shows the sentence once (on the bridge) with one marked gap and three planks', box[0] == 0 and box[2] == 3 and box[3] == 1 and box[4] == '?' and box[5] >= 2 and .3 < box[1] < .75, box)
         if wrong_first and not done_wrong and kind == 'build':
             done_wrong = True
+            laid = await pg.locator('.slot.f').count()
             await pg.locator(f'.pl:not(.used):not([data-t="{want}"])').first.click()
             await pg.wait_for_timeout(300)
-            check('bridge: a wrong plank shows the red note', await pg.locator('.rule.bad').count() == 1)
+            check('bridge: a wrong plank shows the red note with the reason', await pg.locator('.rule.bad').count() == 1 and 'הקרש נשבר: ' in await pg.locator('.rule').inner_text())
+            check('bridge: the broken plank falls from the bridge while its tray place waits', await pg.locator('.pl.ghost').count() == 1 and await pg.locator('.bank .pl.snap').count() == 1)
             if tag: await shot(pg, tag + '_snap')
-            await pg.wait_for_timeout(700)
+            await pg.wait_for_timeout(750)
+            check('bridge: the plank is back in the tray with a red outline and the laid planks stayed', await pg.locator('.bank .pl.back').count() == 1 and await pg.locator('.pl.ghost').count() == 0 and await pg.locator('.slot.f').count() == laid)
+            if tag: await shot(pg, tag + '_snap_back')
+            placed = await pg.evaluate("__lv.g.placed")
+            if placed == 0:
+                await pg.wait_for_timeout(300)
+                await pg.locator(f'.pl:not(.used):not(.back):not([data-t="{want}"])').first.click(); await pg.wait_for_timeout(950)
+                check('bridge: after a second miss on the first word the plank that starts the sentence is highlighted', await pg.locator(f'.bank .pl.lead[data-t="{want}"]').count() == 1)
+                if tag: await shot(pg, tag + '_lead')
             await pg.locator(f'.pl:not(.used)[data-t="{want}"]').first.click()
             await pg.wait_for_timeout(260)
             check('bridge: the red note is gone after the next tap', await pg.locator('.rule.bad').count() == 0, await pg.locator('.rule').inner_text())
@@ -267,9 +286,14 @@ async def local_run(b, w, h, full, errs):
     await pg.click('.isl.i1'); await pg.wait_for_selector('.lvrow'); await pg.wait_for_timeout(400)
     await shot(pg, f'{tag}_03_island')
     check(f'[{tag}] island 1 lists 4 levels', await pg.locator('.lvrow').count() == 4)
+    check(f'[{tag}] island: the unit name is a subtitle, not a counter-like pill', 'מילים מתוך' in await pg.locator('.isub').inner_text() and await pg.locator('.chip').count() == 1)
     # onboarding hint on the very first slingshot level
     await pg.evaluate("location.hash='play/1/sling'"); await lv(pg, 'sling'); await pg.wait_for_timeout(500)
     check(f'[{tag}] first run shows the animated drag hint', await pg.locator('#coach:not([hidden])').count() == 1)
+    geo = await pg.evaluate("(()=>{const g=__lv.geom(),c=document.querySelector('#coach').getBoundingClientRect(),cv=document.querySelector('#cv').getBoundingClientRect(),b=__lv.g.bub.slice().sort((a,b)=>a.x-b.x),p=[...document.querySelectorAll('.pips i')].map(e=>e.getBoundingClientRect().left);return {dx:c.left-cv.left-g.AX,dy:c.top-cv.top-g.AY,gaps:[1,2,3].map(k=>Math.round(b[k].x-b[k-1].x)),ys:b.map(o=>Math.round(o.y)),R:g.R,W:g.W,x0:b[0].x,x3:b[3].x,pipsRtl:p[0]>p[1]&&document.querySelector('.pips i').className==='c'}})()")
+    check(f'[{tag}] sling: the pull arrow starts right under the ball', abs(geo['dx']) < 2 and 10 < geo['dy'] < 50, geo)
+    check(f'[{tag}] sling: four balloons in a balanced arc with even spacing, inside the screen', len(set(geo['gaps'])) == 1 and geo['gaps'][0] >= 2 * geo['R'] and geo['ys'][0] == geo['ys'][3] and geo['ys'][1] == geo['ys'][2] < geo['ys'][0] and geo['x0'] - geo['R'] >= 4 and geo['x3'] + geo['R'] <= geo['W'] - 4 and abs(geo['x0'] + geo['x3'] - geo['W']) < 1, geo)
+    check(f'[{tag}] progress dots fill from the right', geo['pipsRtl'], geo)
     await shot(pg, f'{tag}_04_sling_start')
     s1 = await play_level(pg, 1, 'sling', wrong_first=True, tag=f'{tag}_05_sling')
     await shot(pg, f'{tag}_06_result_sling')
@@ -300,7 +324,11 @@ async def local_run(b, w, h, full, errs):
     await play_level(pg, 1, 'listen', wrong_first=True, use_hint=True)
     st2 = await pg.evaluate("(()=>{const S=__game.S();return {tot:__game.totalStars(),pts:S.pts}})()")
     check(f'[{tag}] replay keeps best stars and raises points', st2['tot'] == st['tot'] and st2['pts'] > pts0, st2)
+    await star_loss(pg, tag)
     await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(400)
+    check(f'[{tag}] no finish banner while levels are still unplayed', await pg.locator('.fin').count() == 0 and await pg.locator('.compass').count() == 1)
+    cb = await pg.evaluate("(()=>{const r=document.querySelector('.compass').getBoundingClientRect(),s=document.querySelector('#stage').getBoundingClientRect();return [r.left-s.left,s.right-r.right,s.bottom-r.bottom,r.width]})()")
+    check(f'[{tag}] the compass is whole, inside the screen', cb[0] >= 4 and cb[1] > 0 and cb[2] >= 4 and cb[3] > 40, cb)
     check(f'[{tag}] island 2 unlocked after island 1', await pg.locator('.isl.i2.locked').count() == 0)
     check(f'[{tag}] the "continue here" crab moved to the newest open island', await pg.locator('.isl.i2.cur .here').count() == 1 and await pg.locator('.isl.cur').count() == 1)
     await shot(pg, f'{tag}_15_map_progress')
@@ -335,12 +363,42 @@ async def local_run(b, w, h, full, errs):
             check(f'[{tag}] bonus island {typ} stars', s == 3, s)
         await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(500); await shot(pg, f'{tag}_50_map_all_open')
         check(f'[{tag}] all islands open at the end', await pg.locator('.isl.locked').count() == 0)
+        await finished_map(pg, tag)
         m = await pg.evaluate("__game.measure(40)")
         check('audio: offline render peak below 0.5 and not silent', 0.02 < m['peak'] < 0.5, m)
     # old trainer still works and links back
     await pg.goto(BASE.replace('index.html', 'trainer.html')); await pg.wait_for_timeout(500)
     check(f'[{tag}] classic trainer loads with a link back to the game', await pg.locator('a[href="./"]').count() == 1 and await pg.locator('.tile').count() == 6)
     await c.close()
+
+
+async def finished_map(pg, tag):
+    fin = await pg.evaluate("(()=>{const f=document.querySelector('.fin');if(!f)return null;const r=f.getBoundingClientRect(),low=Math.max(...[...document.querySelectorAll('.isl')].map(e=>e.getBoundingClientRect().bottom));return {t:f.innerText,clear:r.top-low,cur:document.querySelectorAll('.isl.cur').length}})()")
+    check(f'[{tag}] map at 66/66: finished banner under the islands, nothing left to point at', fin and 'סיימתם את כל האיים' in fin['t'] and '66' in fin['t'] and fin['clear'] >= 0 and fin['cur'] == 0, fin)
+    await pg.evaluate("(()=>{const S=__game.S();S.g.st['3-read']=2;S.g.st['5-bridge']=1;localStorage.setItem('aam-unit1-v1',JSON.stringify(S));__game.go('map')})()")
+    await pg.wait_for_timeout(500)
+    fin = await pg.evaluate("({t:document.querySelector('.fin').innerText,cur:document.querySelectorAll('.isl.cur').length})")
+    check(f'[{tag}] all levels played but stars missing: the banner says how many and the crab marks an island', '3' in fin['t'] and 'חסרים' in fin['t'] and fin['cur'] == 1, fin)
+    await shot(pg, f'{tag}_51_map_played_stars_missing')
+    await pg.evaluate("(()=>{const S=__game.S();S.g.st['3-read']=3;S.g.st['5-bridge']=3;localStorage.setItem('aam-unit1-v1',JSON.stringify(S))})()")
+
+
+async def star_loss(pg, tag):
+    """One star rule, shown live: the second mistake in a level drops a header star and says why, in every game the same way."""
+    stars = "document.querySelectorAll('.hud .hs>img[src*=\"star.webp\"]:not(.fall)').length"
+    await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .isl')      # the result screen keeps the level's hash
+    await pg.evaluate("location.hash='play/1/listen'"); await lv(pg, 'listen')
+    for k in range(2):
+        await pg.wait_for_function(f"window.__lv&&__lv.kind==='listen'&&!__lv.g.lock&&__lv.g.i==={k}", timeout=8000)
+        ans = await pg.evaluate("__lv.answer()")
+        await pg.locator(f'.bub:not([data-w="{ans}"])').first.click(force=True); await pg.wait_for_timeout(200)
+        if k == 0:
+            check(f'[{tag}] listening: after one slip the header still shows 3 stars', await pg.evaluate(stars) == 3)
+            await pg.locator(f'.bub[data-w="{ans}"]').click(force=True)
+    r = await pg.evaluate("({st:%s,fall:document.querySelectorAll('.hud .fall').length,toast:document.querySelector('#toast.on')?document.querySelector('#toast').innerText:''})" % stars)
+    check(f'[{tag}] listening: the second mistake drops a header star, animated, with a one-line reason', r['st'] == 2 and r['fall'] == 1 and 'ירד כוכב' in r['toast'], r)
+    await shot(pg, f'{tag}_08_listen_star_lost')
+    await pg.wait_for_timeout(3000)                          # let the note leave
 
 
 async def fallback_run(b, w, h, errs):
@@ -350,9 +408,11 @@ async def fallback_run(b, w, h, errs):
     await pg.goto(BASE + '#play/1/listen'); await lv(pg, 'listen')
     await pg.wait_for_function("window.__lv&&window.__lv.g.tts===false&&!document.querySelector('#lw').hidden", timeout=8000)
     L = await pg.evaluate("({ans:__lv.answer(),word:document.querySelector('#lw').textContent,sign:document.querySelector('#lt').textContent,btn:document.querySelector('#rl').textContent})")
-    check(f'[{tag}] the word is flashed on the sign with honest wording', L['word'] == L['ans'] and 'המילה תופיע לרגע' in L['sign'] and L['btn'] == 'הראו שוב', L)
+    check(f'[{tag}] the word is flashed and the sign states the task', L['word'] == L['ans'] and L['sign'] == 'אין קול במכשיר הזה. המילה תופיע לרגע: זכרו אותה ולחצו עליה' and L['btn'] == 'הראו שוב', L)
     await pg.wait_for_timeout(1700)
     check(f'[{tag}] after the flash the sign offers "show again" (never an empty plank)', await pg.locator('#spk:not([hidden])').count() == 1 and await pg.locator('#lw[hidden]').count() == 1)
+    fit = await pg.evaluate("(()=>{const s=document.querySelector('.listen .prompt').getBoundingClientRect(),t=document.querySelector('#lt').getBoundingClientRect(),b=document.querySelector('#spk').getBoundingClientRect();return [t.top-s.top,s.bottom-b.bottom,t.left-s.left,s.right-t.right]})()")
+    check(f'[{tag}] the longer sign text and its button stay inside the wooden sign', fit[0] > s_pad(fit) and fit[1] > 8 and fit[2] > 10 and fit[3] > 10, fit)
     await pg.wait_for_timeout(1600); await shot(pg, f'{w}x{h}_07_listen_fallback')
     await pg.click('[data-a=again]'); await pg.wait_for_timeout(250)
     check(f'[{tag}] "show again" flashes the word again', await pg.locator('#lw:not([hidden])').count() == 1)
@@ -418,25 +478,30 @@ async def class_run(b, w, h, errs):
     c, pg = await new_page(b, w, h, api=api, errs=errs)
     await pg.goto(BASE); await pg.wait_for_selector('#lc'); await pg.wait_for_timeout(500)
     # a few invented classmates so the leaderboard and the teacher screen look like a real class
-    mates = [('נועה', 640, 31, 3, 4), ('איתי', 505, 24, 2, 2), ('מאיה', 410, 19, 1, 6), ('עומר', 220, 9, 0, 1)]
+    mates = [('נועה', 640, 31, 3, 4), ('איתי', 505, 24, 2, 2), ('מאיה', 410, 19, 1, 6), ('עומר', 220, 9, 0, 1),
+             ('אלה', 1180, 47, 5, 7), ('יונתן', 960, 42, 4, 3), ('רומי', 845, 38, 4, 5), ('נדב', 730, 33, 3, 2), ('טליה', 150, 12, 1, 1), ('אריאל', 95, 11, 0, 1), ('שחר', 60, 10, 0, 1)]   # with the pupil: a class of 12
     taken = await pg.evaluate('''async ([api, mates]) => { const out = []; for (const [n, pts, words, reads, streak] of mates) {
         const post = d => fetch(api, {method: 'POST', body: JSON.stringify(d)}).then(r => r.json());
         const r = await post({a: 'register', c: 'EN-1234', n, p: '1111'}); out.push(r.ok ? '' : r.e);
         await post({a: 'save', c: 'EN-1234', n, p: '1111', s: {pts, streak, day: '2026-11-14', k: {words, reads}, st: {their: [6, 4], special: [5, 2], subject: [6, 3], 'a lot of': [4, 2]}}}); } return out }''', [api, mates])
     name = None
-    for cand in ('יובל', 'תמר', 'אורי', 'שירה', 'דניאל', 'רוני', 'גיא', 'ליה', 'אדם', 'מיכל', 'עידו', 'הילה'):
+    for cand in ('יובל', 'תמר', 'אורי', 'שירה', 'דניאל', 'רוני', 'גיא', 'ליה', 'אדם', 'מיכל', 'עידו', 'הילה', 'בן', 'גל', 'זיו', 'חן', 'טל', 'לי', 'מור', 'ניר', 'סהר', 'עדי', 'פז', 'צוף', 'קרן', 'רז', 'שי', 'תום'):
         r = await pg.evaluate("async ([api,n])=>(await fetch(api,{method:'POST',body:JSON.stringify({a:'login',c:'EN-1234',n,p:'0000'})})).json()", [api, cand])
         if r.get('e') == 'nouser':
             name = cand; break
     check(f'[{tag}] a free pupil name is available on the mock backend', name is not None)
     await shot(pg, f'class_01_login')
     check(f'[{tag}] login is required', await pg.locator('#lc').count() == 1)
+    tabs = await pg.evaluate("[...document.querySelectorAll('.seg button')].map(b=>[b.textContent,b.getAttribute('aria-selected')])")
+    check(f'[{tag}] a device that never signed in starts on "first time"; the tabs say who they are for', tabs == [['כבר נרשמתי', 'false'], ['פעם ראשונה שלי', 'true']] and 'שרק אתם יודעים' in await pg.locator('.lnote').inner_text(), tabs)
+    await pg.click('.seg [data-m=login]'); await pg.wait_for_timeout(150)
+    await shot(pg, f'class_01_login_returning')
     await pg.fill('#lc', 'EN-1234'); await pg.fill('#ln', name); await pg.fill('#lp', '4321')
     check(f'[{tag}] one form, one primary button', await pg.locator('.lcard .btn').count() == 1 and (await pg.locator('.lcard .btn').inner_text()).strip() == 'כניסה')
     await pg.click('.lcard .btn'); await pg.wait_for_function("document.querySelector('.err')&&document.querySelector('.err').textContent.length>3")
-    check(f'[{tag}] unknown name gets a friendly message', 'פעם ראשונה' in await pg.locator('.err').inner_text())
+    check(f'[{tag}] unknown name gets a friendly message with a one-tap switch to first-time mode', 'לא מצאנו' in await pg.locator('.err').inner_text() and await pg.locator('.err .swl[data-m=register]').count() == 1)
     await shot(pg, f'class_02_login_error')
-    await pg.click('.seg [data-m=register]'); await pg.wait_for_timeout(150)
+    await pg.click('.err .swl'); await pg.wait_for_timeout(150)
     check(f'[{tag}] the switch turns the form into sign-up and keeps what was typed', (await pg.locator('.lcard .btn').inner_text()).strip() == 'נרשמים' and await pg.input_value('#ln') == name and await pg.input_value('#lp') == '4321')
     await shot(pg, f'class_02_login_register')
     await pg.click('.lcard .btn'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(400)
@@ -444,6 +509,7 @@ async def class_run(b, w, h, errs):
     await shot(pg, 'class_07_map')
     s = await play_level(pg, 1, 'sling')
     check(f'[{tag}] perfect sling gives 3 stars', s == 3, s)
+    check(f'[{tag}] the result card labels the number: points for the table', 'נקודות לטבלה' in await pg.locator('.result .gain').inner_text())
     await shot(pg, f'class_03_result')
     for typ in ('listen', 'read'):
         s = await play_level(pg, 1, typ)
@@ -454,11 +520,14 @@ async def class_run(b, w, h, errs):
     await pg.evaluate("location.hash='board'"); await pg.wait_for_selector('.lb li')
     txt = await pg.locator('.lb li.me').inner_text()
     check(f'[{tag}] own row on the leaderboard with points', name in txt and f'{pts:,}' in txt, txt.replace('\n', ' '))
-    check(f'[{tag}] leaderboard shows the top five (and the pupil), not the bottom of the class', await pg.locator('.lb li:not(.sep)').count() - await pg.locator('.lb li.sep').count() == 5 and await pg.locator('.lb li.me').count() == 1)
+    lb = await pg.evaluate("async api=>{const S=__game.S();const r=await (await fetch(api,{method:'POST',body:JSON.stringify({a:'board',c:S.u.c,n:S.u.n,p:S.u.p})})).json();return {cls:r.rows.length,rank:r.rows.findIndex(d=>d.n===S.u.n)+1,li:document.querySelectorAll('.lb li:not(.sep)').length,sep:document.querySelectorAll('.lb li.sep').length,me:document.querySelectorAll('.lb li.me').length,ranks:[...document.querySelectorAll('.lb .rk')].map(e=>+e.textContent)}}", api)
+    check(f'[{tag}] class of 12 or more, pupil outside the top five: only the top 5 and the own row are drawn', lb['cls'] >= 12 and lb['rank'] > 5 and lb['li'] == 6 and lb['sep'] == 1 and lb['me'] == 1 and lb['ranks'] == [1, 2, 3, 4, 5, lb['rank']], lb)
+
     await shot(pg, f'class_04_board')
     # a second device logs in and gets the same progress
     c2, p2 = await new_page(b, w, h, api=api, errs=errs)
     await p2.goto(BASE); await p2.wait_for_selector('#lc')
+    await p2.click('.seg [data-m=login]'); await p2.wait_for_timeout(100)
     await p2.fill('#lc', 'en-1234'); await p2.fill('#ln', name); await p2.fill('#lp', '0000'); await p2.click('.lcard .btn')
     await p2.wait_for_function("document.querySelector('.err')&&document.querySelector('.err').textContent.length>3")
     check(f'[{tag}] wrong secret code is refused', 'הקוד הסודי' in await p2.locator('.err').inner_text())
@@ -473,6 +542,7 @@ async def class_run(b, w, h, errs):
     await p2.evaluate("location.hash='settings'"); await p2.wait_for_selector('[data-a=logout]')
     await p2.click('[data-a=logout]'); await p2.wait_for_selector('#lc')
     check(f'[{tag}] logout returns to login and clears local progress', await p2.evaluate("__game.totalStars()") == 0)
+    check(f'[{tag}] a device that signed in before starts on "already registered"', await p2.locator('.seg [data-m=login][aria-selected=true]').count() == 1)
     await p2.fill('#ln', name); await p2.fill('#lp', '4321'); await p2.click('.lcard .btn'); await p2.wait_for_selector('.map .isl')
     st2 = await p2.evaluate("[__game.totalStars(),__game.S().pts]")
     check(f'[{tag}] stars survive a save made by the classic trainer', st2[0] == 9 and st2[1] > pts, st2)
