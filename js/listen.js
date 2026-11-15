@@ -2,7 +2,7 @@
    First rounds show the written English words, later rounds show Hebrew meanings.
    If the device cannot speak (no recorded clip reachable and no browser voice), the level says so and flashes the word on the sign instead ("show again"). */
 import {wordsOf,T,starsFor} from './data.js';
-import {mark,say,warm,TTS,shuffle,weakest,esc} from './state.js';
+import {mark,say,warm,ready,TTS,shuffle,weakest,esc} from './state.js';
 import {SND} from './audio.js';
 import {SP,hud,bgMap,confetti,en,spr,ico,sleep,stage} from './ui.js';
 
@@ -10,8 +10,10 @@ const SHORE=1120;   // in the 752x1344 lagoon art the sand with the little shell
 
 export async function start(host,cfg,api){
  const pool=wordsOf(cfg.part),ws=weakest(pool,Math.min(T.listenWords,pool.length));
+ /* the words are fetched and decoded before the level shows: it opens when the first word is ready to be spoken (or after 3 s) */
+ warm(ws.map(w=>w.en));await ready(ws[0].en);
  const g={i:0,miss:0,hint:0,first:0,bad:0,lock:0,wrongNow:0,results:[],tts:TTS,mode:'en',said:0};let alive=true,onT=0;
- window.__lv={kind:'listen',g,answer:()=>ws[g.i]&&ws[g.i].en};
+ window.__lv={kind:'listen',g,answer:()=>ws[g.i]&&ws[g.i].en,t:performance.now()};
  host.innerHTML=`<div class="lv listen"><div id="hd"></div>
   <div class="sign prompt"><small id="lt"></small>
    <button class="btn blue spk" id="spk" data-a="again"><span>${spr('ic_speaker','bi')}${ico('eye','eye')}<em id="rl"></em><i class="eqz" aria-hidden="true"><i></i><i></i><i></i><i></i></i></span></button>
@@ -40,7 +42,9 @@ export async function start(host,cfg,api){
   const others=shuffle(pool.filter(o=>o.en!==w.en&&o.he!==w.he)).slice(0,3),opts=shuffle([w,...others]);
   prompt();showBtn();
   bubs.innerHTML=opts.map((o,k)=>`<button class="bub b${k} ${g.mode==='en'?'en':''}" data-w="${esc(o.en)}" style="--d:${(k*0.09).toFixed(2)}s;background-image:url(${SP('bubble_'+((k+g.i)%4))})"><span ${g.mode==='en'?'dir="ltr"':''}>${esc(g.mode==='en'?o.en:o.he)}</span><em hidden></em></button>`).join('');
-  hudUp();place();speak()}
+  hudUp();place();
+  /* the very first word waits a quarter of a second, so the sound output is awake and the pupil is looking */
+  if(g.i||g.said)speak();else sleep(250).then(()=>{if(alive&&!g.i&&!g.said)speak()})}
  function pick(el){if(g.lock||el.classList.contains('bad'))return;const w=ws[g.i],o=pool.find(p=>p.en===el.dataset.w);
   if(o.en===w.en){g.lock=1;el.classList.add('ok');SND.pop();const ok1=!g.wrongNow;if(ok1)g.first++;mark(w,ok1);g.results.push({w,ok:ok1});
    lw.className='';showWord(`${en(w.en)} <span class="eq">=</span> ${esc(w.he.split(',')[0])}`);const r=el.getBoundingClientRect(),s=host.getBoundingClientRect();confetti(r.left-s.left+r.width/2,r.top-s.top+r.height/2,26);
@@ -48,7 +52,6 @@ export async function start(host,cfg,api){
   else{g.miss++;if(!g.wrongNow)g.bad++;g.wrongNow++;el.classList.add('bad');SND.bad();const em=el.querySelector('em');em.textContent=g.mode==='en'?o.he.split(',')[0]:o.en;em.hidden=false;if(g.mode==='he')em.setAttribute('dir','ltr');hudUp()}}
  const onClick=e=>{const b=e.target.closest('.bub');if(b)return pick(b);if(e.target.closest('[data-a=again]')){SND.tap();speak()}};
  host.addEventListener('click',onClick);
- warm(ws.map(w=>w.en));
  round();
  return{destroy(){alive=false;clearTimeout(onT);host.removeEventListener('click',onClick);window.removeEventListener('resize',place);delete window.__lv},
   hint(){if(g.lock)return;const isNew=!g.hint;if(isNew){g.hint=1;hudUp()}const el=[...bubs.children].find(b=>b.dataset.w===ws[g.i].en);if(el)el.classList.add('hinted');return isNew}}}

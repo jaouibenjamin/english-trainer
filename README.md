@@ -65,3 +65,20 @@ The script starts its own static server. Headless Chrome has no speech engine, s
 check the no-voice fallback. Class mode runs against `tests/mock.js`, a small Node stand-in for the Apps Script
 runtime that executes `backend/Code.gs` unchanged (`node tests/mock.js unit` runs the backend checks on their own).
 `CHROME` overrides the browser path.
+
+### Recorded voice
+
+`js/voice.js` maps every English text the game can speak to a recorded clip and to the stretch of that clip that
+holds the words (start and end in milliseconds). The files themselves are not trustworthy at their edges: the speech
+generator often starts a word at the very first sample, lets it run into the end of the file, or says it twice. So
+every file was measured (speech = above 5% of the peak, blips under 20 ms ignored), words and short phrases were
+recorded again as a repetition ("Piano. Piano. Piano.") and one clean repetition was chosen, the one with silence on
+both sides. `tests/voice_map.py` writes `js/voice.js` from the generation log, which carries those measurements.
+
+Playback (`say()` in `js/state.js`) is Web Audio: the clip is fetched and decoded once, the stretch is cut out with
+30 ms before and 80 ms after it, levelled, cached (60 clips), and scheduled 80 ms ahead with a 12 ms fade-in and a
+40 ms fade-out on the same audio context that plays the music, so the output is already awake and a phone does not
+swallow the start of a word. A level preloads its clips and opens when its first one is ready (or after 3 s). If a
+clip cannot be fetched or decoded within 3 s, the old `<audio>` element plays the same stretch, and after that the
+browser's own voice speaks. The tests answer the clip host with a small generated WAV, so this path runs for real
+in headless Chrome (`python3 tests/play.py --voice` runs only the speech checks).

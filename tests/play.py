@@ -44,17 +44,36 @@ SPEECH_NONE = """(()=>{window.__spoken=[];
 # Real (trusted) load errors of the unreachable host are kept away from the game so only the stand-in decides what the clip does.
 CLIPS_HOST = 'cloudfront.net'
 def clip_stub(mode='ok'):
-    return """(()=>{const clips=[];window.__clips=clips;window.__clipMode='%s';const P=HTMLMediaElement.prototype,pause=P.pause;
+    return """(()=>{const clips=[],plays=[];window.__clips=clips;window.__plays=plays;window.__fetched=[];window.__clipMode='%s';
+ const HOST=/cloudfront\\.net/;
+ /* Web Audio path: the clip host answers with a small real WAV (8 s, 8 kHz, a quiet tone), so fetch + decodeAudioData run for real.
+    modes: ok | error (fetch and <audio> both fail) | mute (nothing ever answers) | nofetch (fetch fails, <audio> works) */
+ const wav=()=>{const sr=8000,n=sr*8,b=new ArrayBuffer(44+n),v=new DataView(b),w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);
+  for(let i=0;i<n;i++)v.setUint8(44+i,128+Math.round(40*Math.sin(i*.35)));return b};
+ const realFetch=window.fetch;
+ window.fetch=function(u,o){const url=String(u&&u.url||u);if(!HOST.test(url))return realFetch.apply(this,arguments);
+  window.__fetched.push(url);const m=window.__clipMode;
+  if(m==='mute')return new Promise(()=>{});
+  if(m!=='ok')return Promise.reject(new TypeError('offline'));
+  return Promise.resolve(new Response(wav(),{status:200,headers:{'Content-Type':'audio/wav'}}))};
+ /* a scheduled clip is logged with its stretch and cut short, so the tests do not sit through whole sentences */
+ const S=AudioBufferSourceNode.prototype,start=S.start;
+ S.start=function(when,off,dur){const c=this.buffer&&this.buffer.clip;
+  if(c){clips.push(c.url);plays.push({via:'buf',url:c.url,s:c.s,e:c.e,dur:this.buffer.duration,when:when-this.context.currentTime,state:this.context.state,t:performance.now()});
+   setTimeout(()=>{try{this.stop()}catch(e){}},160)}
+  return start.apply(this,arguments)};
+ const P=HTMLMediaElement.prototype,pause=P.pause;
  const add=P.addEventListener,rem=P.removeEventListener;   // the elements are not in the document, so their listeners are wrapped directly
  P.addEventListener=function(t,f,o){if(t!=='error')return add.call(this,t,f,o);f.__w=f.__w||(e=>{if(!e.isTrusted)f.call(this,e)});return add.call(this,t,f.__w,o)};
  P.removeEventListener=function(t,f,o){return rem.call(this,t,(t==='error'&&f.__w)||f,o)};
- P.play=function(){const src=this.getAttribute('src')||'',n=this.__n=(this.__n||0)+1,real=/^https?:/.test(src),mode=real?window.__clipMode:'ok',
+ P.play=function(){const src=this.getAttribute('src')||'',n=this.__n=(this.__n||0)+1,real=/^https?:/.test(src),m=window.__clipMode,mode=real?(m==='nofetch'?'ok':m):'ok',
    fire=(t,ms)=>setTimeout(()=>{if(this.__n===n)this.dispatchEvent(new Event(t))},ms);
-  if(real)clips.push(src);
+  if(real){clips.push(src.split('#')[0]);plays.push({via:'el',url:src.split('#')[0],frag:src.split('#')[1]||'',t:performance.now()})}
   if(mode==='error')fire('error',20);else if(mode==='ok'){fire('playing',20);fire('ended',160)}
   return Promise.resolve()};
  P.pause=function(){this.__n=(this.__n||0)+1;return pause.call(this)}})()""" % mode
-CLIP_OF = "(async t=>(await import('/js/voice.js')).clipOf(t))"
+CLIP_OF = "(async t=>((await import('/js/voice.js')).clipOf(t)||{}).url||null)"
 
 
 def s_pad(fit):
@@ -440,6 +459,16 @@ async def voice_run(b, w, h, errs):
     R = await pg.evaluate("({clips:[...__clips],spoken:[...__spoken],tts:__lv.g.tts})")
     check(f'[{tag}] a word with a clip requests exactly its clip URL and the browser voice stays silent', bool(want) and want.startswith('https://') and R['clips'][-1] == want and ans not in R['spoken'] and R['tts'], {'want': want, **R})
     await pg.wait_for_function("__lv.g.said>0", timeout=3000)
+    # the new path: Web Audio, only the measured stretch of the file, scheduled a moment ahead on a running context
+    P = await pg.evaluate("(async()=>{const c=(await import('/js/voice.js')).clipOf(__lv.answer()),p=__plays[__plays.length-1];return {c,p,n:__plays.length}})()")
+    c0, p0 = P['c'], P['p']
+    span = (min(8, c0['e'] + .08) - max(0, c0['s'] - .03)) if c0['e'] > c0['s'] else 8
+    check(f'[{tag}] the word plays through Web Audio: its own stretch of the file (30 ms before, 80 ms after), about 80 ms ahead, on a running context',
+          p0['via'] == 'buf' and p0['url'] == c0['url'] and c0['e'] > c0['s'] and abs(p0['dur'] - span) < .01 and .05 < p0['when'] < .12 and p0['state'] == 'running' and P['n'] == 1, P)
+    check(f'[{tag}] the level waited for its first word and then a quarter of a second before speaking', await pg.evaluate("__plays[0].t-__lv.t") >= 240, await pg.evaluate("__plays[0].t-__lv.t"))
+    f0 = await pg.evaluate("__fetched.length")
+    t = await pg.evaluate("(async()=>{const n=__plays.length,t0=performance.now();document.querySelector('[data-a=again]').click();for(let i=0;i<100&&__plays.length===n;i++)await new Promise(r=>setTimeout(r,5));return __plays.length>n?__plays[__plays.length-1].t-t0:-1})()")
+    check(f'[{tag}] "play again" replays at once from the decoded clip, without another download', 0 <= t < 150 and await pg.evaluate("__fetched.length") == f0 and await pg.evaluate("__plays.slice(-1)[0].via") == 'buf', {'ms': t})
     await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .isl')
     n = await pg.evaluate("__clips.length")
     r = await pg.evaluate(SAY, 'purple xylophone')
@@ -449,7 +478,7 @@ async def voice_run(b, w, h, errs):
     check(f'[{tag}] lookup ignores case and extra spaces when there is no exact match', r['ok'] and R['clip'] == await pg.evaluate(CLIP_OF, 'goal') and await pg.evaluate(CLIP_OF, '  a  lot of ') == await pg.evaluate(CLIP_OF, 'a lot of') and 'Goal' not in R['spoken'], R)
     # read to me: title, then every sentence, in order; leaving the story stops it
     await pg.evaluate("location.hash='play/1/read'"); await lv(pg, 'read')
-    parts = await pg.evaluate("(async()=>{const d=await import('/js/data.js'),v=await import('/js/voice.js'),t=d.TEXTS.find(x=>x.p===1);return [t.title,...(t.text.match(/[^.!?]+[.!?]+[\"”]?\\s*/g)||[t.text])].map(v.clipOf)})()")
+    parts = await pg.evaluate("(async()=>{const d=await import('/js/data.js'),v=await import('/js/voice.js'),t=d.TEXTS.find(x=>x.p===1);return [t.title,...(t.text.match(/[^.!?]+[.!?]+[\"”]?\\s*/g)||[t.text])].map(x=>(v.clipOf(x)||{}).url||null)})()")
     n = await pg.evaluate("__clips.length"); await pg.click('[data-a=readall]')
     await pg.wait_for_function(f"__clips.length>={n + len(parts)}", timeout=20000)
     await pg.wait_for_timeout(900)
@@ -462,11 +491,19 @@ async def voice_run(b, w, h, errs):
     await pg.click('[data-a=toq]'); m = await pg.evaluate("__clips.length"); await pg.wait_for_timeout(1500)
     check(f'[{tag}] read to me stops when the pupil moves on', 1 <= m - n <= 3 and await pg.evaluate("__clips.length") == m, {'started': m - n})
     await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .isl')
-    # a clip that fails, and one that never starts, hand over to the browser voice
+    # a clip that fails, and one that never starts, hand over to the browser voice (fresh page: nothing decoded yet)
+    await pg.reload(); await pg.wait_for_selector('.map .isl')
     await pg.evaluate("window.__clipMode='error'"); r = await pg.evaluate(SAY, 'kick')
     check(f'[{tag}] a clip that errors falls back to the browser voice', r['ok'] and await pg.evaluate("__spoken.slice(-1)[0]") == 'kick' and r['ms'] < 1500, r)
+    # the download fails but the <audio> element can still play: the old path takes over and plays the same stretch
+    await pg.evaluate("window.__clipMode='nofetch'"); r = await pg.evaluate(SAY, 'card'); p1 = await pg.evaluate("__plays.slice(-1)[0]"); c1 = await pg.evaluate("(async()=>(await import('/js/voice.js')).clipOf('card'))()")
+    check(f'[{tag}] a clip that cannot be fetched plays through the <audio> element, limited to the same stretch', r['ok'] and p1['via'] == 'el' and p1['url'] == c1['url'] and p1['frag'] == 't=%.2f,%.2f' % (max(0, c1['s'] - .03), c1['e'] + .08) and await pg.evaluate("__spoken.slice(-1)[0]") != 'card', {'r': r, 'p': p1})
     await pg.evaluate("window.__clipMode='mute'"); r = await pg.evaluate(SAY, 'song')
-    check(f'[{tag}] a clip that has not started within 2.5 s falls back to the browser voice', r['ok'] and await pg.evaluate("__spoken.slice(-1)[0]") == 'song' and 2300 < r['ms'] < 4000, r)
+    check(f'[{tag}] a clip that neither downloads within 3 s nor starts within 2.5 s falls back to the browser voice', r['ok'] and await pg.evaluate("__spoken.slice(-1)[0]") == 'song' and 5300 < r['ms'] < 7500, r)
+    # hush() stops a scheduled clip
+    await pg.evaluate("window.__clipMode='ok'")
+    r = await pg.evaluate("(async()=>{const m=await import('/js/state.js');await m.say('goal');const t0=performance.now(),p=m.say('piano');await new Promise(r=>setTimeout(r,40));m.hush();const ok=await p;return {ok,ms:performance.now()-t0}})()")
+    check(f'[{tag}] hush() stops the clip at once', r['ok'] and r['ms'] < 140, r)
     await c.close()
     # no speech engine at all, clips reachable: the listening level keeps its voice
     c, pg = await new_page(b, w, h, errs=errs, speech=SPEECH_NONE)

@@ -1,7 +1,7 @@
 /* Level 4: the sentence bridge. Lay the word planks in order and the crab walks across.
    A wrong plank snaps and drops back; the planks already laid stay. am / is / are rounds fill one missing plank. */
 import {SENT,TOBE_BY,T,starsFor} from './data.js';
-import {award,say,warm,shuffle,esc} from './state.js';
+import {award,say,warm,ready,shuffle,esc} from './state.js';
 import {SND} from './audio.js';
 import {SP,hud,bgMap,confetti,stage,en} from './ui.js';
 
@@ -21,7 +21,7 @@ const size=t=>t.length>8?' xl':t.length>6?' lg':'';
 export async function start(host,cfg,api){
  const builds=shuffle(SENT[cfg.part]).slice(0,T.bridgeBuild),tobes=shuffle(TOBE_BY[cfg.part]).slice(0,T.bridgeTobe),rounds=[];
  for(let i=0;i<Math.max(builds.length,tobes.length);i++){if(builds[i])rounds.push({kind:'build',en:builds[i][0],he:builds[i][1]});if(tobes[i])rounds.push({kind:'tobe',en:tobes[i][0].replace('___',tobes[i][1]),gap:tobes[i][1],raw:tobes[i][0]})}
- warm(rounds.map(r=>r.en));
+ warm(rounds.map(r=>r.en));await ready(rounds[0].en);   // the level opens when its first sentence can be spoken (or after 3 s)
  const g={i:0,miss:0,hint:0,first:0,bad:0,wrongNow:0,lock:0,r:null,placed:0,lead:0},n=rounds.length;let alive=true,ruleT=0;
  window.__lv={kind:'bridge',g,next:()=>g.r&&(g.r.kind==='tobe'?g.r.gap:g.r.t[g.placed])};
  host.innerHTML=`<div class="lv bridge"><div id="hd"></div>

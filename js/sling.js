@@ -1,6 +1,6 @@
 /* Level 1: the word slingshot. Hebrew meaning on the sign, pull back and pop the balloon with the matching English word. */
 import {wordsOf,T,starsFor} from './data.js';
-import {S,mark,say,warm,shuffle,weakest,esc,reduced,save} from './state.js';
+import {S,mark,say,warm,ready,shuffle,weakest,esc,reduced,save} from './state.js';
 import {SND} from './audio.js';
 import {img,SP,hud,stage,bgMap,en,toastAt} from './ui.js';
 
@@ -9,8 +9,10 @@ const SKYLINE=1020;   // in the 752x1344 island art nothing is drawn above this 
 
 export async function start(host,cfg,api){
  const pool=wordsOf(cfg.part),ws=weakest(pool,Math.min(T.slingWords,pool.length));warm(ws.map(w=>w.en));
+ const voiced=ready(ws[0].en);   // the level opens when its first word can be spoken (or after 3 s)
  const [fork,crabI,crabH,crabO,ballI,...bal]=await Promise.all([SP('fork'),SP('crab_wave'),SP('crab_happy'),SP('crab_oops'),SP('ball_'+(S.g.ball||0)),SP('balloon_0'),SP('balloon_1'),SP('balloon_2'),SP('balloon_3')].map(img));
  try{await document.fonts.load("700 16px 'Playpen Sans Hebrew'","goal שער")}catch(e){}
+ await voiced;
  const first=!S.g.ob.sling;
  host.innerHTML=`<div class="lv sling"><div id="hd"></div>
   <div class="sign prompt"><small>קלעו לבלון עם המילה שפירושה</small><b id="tg"></b></div>
