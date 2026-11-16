@@ -220,7 +220,7 @@ function seg(key,items){return `<div class="row">${items.map(([v,l])=>`<button c
 
 /* ---------- home ---------- */
 function home(){
- const d=Math.ceil((new Date(2026,10,24)-new Date())/864e5);
+ const d=Math.ceil((new Date(2026,10,25)-new Date())/864e5);
  const tiles=[['listen','♪','var(--violet)','הבנת הנשמע','שומעים מילה ובוחרים מה היא אומרת','חלק 1 במבחן'],['cards','Aa','var(--coral)','כרטיסיות','לומדים את המילים, הופכים ובודקים','חלק 2 במבחן'],['quiz','א?','var(--sky)','חידון תרגום','מאנגלית לעברית ולהפך, בוחרים כמה שאלות','חלק 2 במבחן'],['read','¶','var(--mint)','הבנת הנקרא','קטעים קצרים. לוחצים על מילה ורואים תרגום','חלק 3 במבחן'],['write','✎','var(--pink)','כתיבת משפטים','בונים משפט, am / is / are, כותבים על עצמי','חלק 4 במבחן'],['class','★','var(--ink)','משחק כיתתי','קבוצות, ניקוד, המורה בוחרת את השאלות','למסך בכיתה']];
  app.innerHTML=`${API&&S.u?`<div class="row"><span class="chip" aria-pressed="true">${esc(S.u.n)} · ${S.pts.toLocaleString()} נק׳${S.streak>1?` · ${S.streak} ימים ברצף`:''}</span><a class="chip" href="#board">טבלת הכיתה</a><button class="chip" data-a="logout">יציאה</button></div>`:''}<section class="hero"><div><h1><span>All About</span> Me</h1><p>מתאמנים למבחן באנגלית · <span class="en">Fantastic 5, Unit 1</span></p></div>
  <div class="count">${d>0?`<b>${d}</b>ימים למבחן`:'<b>!</b>בהצלחה במבחן'}</div></section>
@@ -360,7 +360,7 @@ const A={
   V={name:'login',c,n,busy:1};render();let r;try{r=await api(d.m,{c,n,p})}catch(e){r={e:'net'}}
   if(!r.ok){V={name:'login',c,n,err:ERR[r.e]||ERR.net};return render()}
   const o=S;S=Object.assign(blank(),{parts:o.parts,dir:o.dir,cnt:o.cnt,ct:o.ct,ccnt:o.ccnt,ctypes:o.ctypes},r.s||{},{u:{c,n,p},lastC:c});delete S.k;dirty=0;saveLocal();if(location.hash==='#home')route();else location.hash='home'},
- async logout(){await push();const c=S.lastC;S=Object.assign(blank(),{lastC:c});dirty=0;saveLocal();route()},
+ async logout(){await push();if(dirty&&navigator.onLine===false){alert('אין חיבור כרגע, וההתקדמות עוד לא נשמרה. נסו להתנתק שוב בעוד רגע.');return}const c=S.lastC;S=Object.assign(blank(),{lastC:c});dirty=0;saveLocal();route()},
  async tlogin(){const c=document.getElementById('tc').value.trim(),t=document.getElementById('tt').value.trim();V={name:'teacher',c,busy:1};render();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r}:{name:'teacher',c,err:ERR[r.e]||ERR.net};render()},
  part(d){const p=+d.p,i=S.parts.indexOf(p);if(i<0)S.parts.push(p);else if(S.parts.length>1)S.parts.splice(i,1);save();render()},

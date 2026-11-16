@@ -32,12 +32,17 @@ export async function start(host,cfg,api){
  const showWord=html=>{lw.innerHTML=html;lw.hidden=false;spk.hidden=true};
  const showBtn=()=>{lw.hidden=true;spk.hidden=false};
  async function speak(){const w=ws[g.i];if(!w||g.lock)return;
+  const here=()=>alive&&ws[g.i]===w&&!g.lock;
   let ok=false;
   if(g.tts){clearTimeout(onT);spk.classList.remove('on');void spk.offsetWidth;spk.classList.add('on');onT=setTimeout(()=>spk.classList.remove('on'),1300);
-   ok=await say(w.en);if(ok)g.said++;if(!alive||ws[g.i]!==w||g.lock)return}
-  if(!ok){   // no voice on this device: be honest about it and show the word for a moment instead
+   ok=await say(w.en);if(!here())return;
+   if(!ok){ok=await say(w.en);if(!here())return}   // one hiccup (a slow network, a sleepy speech engine) is not "no voice": try once more
+   if(ok)g.said++}
+  /* written mode is not for ever: every word still tries the voice, and the moment it works the level listens again */
+  else say(w.en).then(v=>{if(v&&alive&&!g.tts){g.tts=true;g.said++;prompt();place()}});
+  if(!ok){   // no voice right now: be honest about it and show the word for a moment instead
    if(g.tts){g.tts=false;spk.classList.remove('on');prompt();place()}   // the sign itself now states the task
-   showWord(en(w.en));lw.className='flash';await sleep(1300);if(alive&&ws[g.i]===w&&!g.lock)showBtn()}}
+   showWord(en(w.en));lw.className='flash';await sleep(1300);if(here())showBtn()}}
  function round(){const w=ws[g.i];g.mode=g.i<Math.ceil(ws.length/2)?'en':'he';g.wrongNow=0;g.lock=0;
   const others=shuffle(pool.filter(o=>o.en!==w.en&&o.he!==w.he)).slice(0,3),opts=shuffle([w,...others]);
   prompt();showBtn();
