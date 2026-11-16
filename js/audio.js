@@ -17,7 +17,7 @@ export function graph(ctx){
  sfx.connect(master);master.connect(ctx.destination);
  return{master,mus,sfx}}
 function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();const g=graph(AC);MASTER=g.master;MUS=g.mus;SFX=g.sfx}catch(e){AC=null}}
- if(AC&&AC.state==='suspended')AC.resume().catch(()=>{});return AC}
+ if(AC&&AC.state!=='running'&&AC.state!=='closed')AC.resume().catch(()=>{});return AC}   // iOS also has 'interrupted' (after a call, Siri, a locked screen)
 
 /* the recorded voice (js/state.js) plays on this same context, so the output is already awake when a word is spoken.
    It gets its own bus straight to the output (no music filter); the music steps back a little while a word is spoken. */
@@ -57,10 +57,28 @@ export function songStep(ctx,out,n,t){
  if(mel)pluck(ctx,out,mel,t,s>=64&&s<128?.12:.1)}
 function tick(){if(!AC)return;while(next<AC.currentTime+.3){songStep(AC,MUS,step,next);next+=STEP;step++}}
 function run(on){clearInterval(timer);timer=0;if(!on||!SET.music||!ac())return;next=AC.currentTime+.1;timer=setInterval(tick,100)}
-/* call from the first user gesture */
-export function unlock(){if(!ac())return;if(!wanted){wanted=true;run(true)}}
+/* ---------- iPhone and iPad: the ring/silent switch ----------
+   iOS treats Web Audio as "ambient" sound and mutes it when the side switch is on silent, which is how most children's
+   phones are set. Two ways out, both harmless elsewhere:
+   - iOS 17 and later: tell the browser this page plays media (navigator.audioSession.type='playback').
+   - older iOS: keep a silent <audio> element looping while the game is in front; that moves the whole page,
+     Web Audio included, to the media channel. It is dropped when the page is hidden so no player shows on the lock screen. */
+const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+let keep=null,keepUrl='';
+function playbackSession(){try{if(navigator.audioSession){if(navigator.audioSession.type!=='playback')navigator.audioSession.type='playback';return true}}catch(e){}return false}
+function silentUrl(){if(keepUrl)return keepUrl;const sr=8000,n=sr/2,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+ w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+ keepUrl=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));return keepUrl}
+function keepAwake(on){if(!IOS||playbackSession())return;
+ try{if(!on){if(keep){keep.pause();keep.removeAttribute('src');keep.load();keep=null}return}
+  if(!keep){keep=new Audio();keep.loop=true;keep.preload='auto';keep.setAttribute('playsinline','');keep.setAttribute('x-webkit-airplay','deny');keep.src=silentUrl()}
+  if(keep.paused){const p=keep.play();if(p&&p.catch)p.catch(()=>{})}}catch(e){}}
+playbackSession();
+/* call from every user gesture (cheap after the first) */
+export function unlock(){keepAwake(true);if(!ac())return;if(!wanted){wanted=true;run(true)}}
 export function musicOn(v){SET.music=v;if(wanted)run(v&&document.visibilityState==='visible')}
 document.addEventListener('visibilitychange',()=>{const vis=document.visibilityState==='visible';if(wanted)run(vis);
+ if(!vis)keepAwake(false);
  if(AC){if(vis)AC.resume().catch(()=>{});else AC.suspend().catch(()=>{})}});
 
 /* ---------- sound effects: short sine/triangle blips only ---------- */
