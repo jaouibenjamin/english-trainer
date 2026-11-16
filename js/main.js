@@ -125,7 +125,7 @@ function settings(){setBg('paper','center');
    <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p></div>
   ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br>${num(wordsKnown())} מילים שנלמדו</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
   </div>
-  <div class="guide">${spr('crab_listen','bob')}<p class="label">${API&&S.u?'ההתקדמות נשמרת לפי השם והקוד הסודי שלכם':'ההתקדמות נשמרת במכשיר הזה'}</p></div></section>`}
+  ${API&&S.u?'':`<div class="guide">${spr('crab_listen','bob')}<p class="label">ההתקדמות נשמרת במכשיר הזה</p></div>`}</section>`}   // signed in, the account panel takes the note's place
 function help(){setBg('paper','center');
  const c=(icon,t,d)=>`<div class="hrow label"><span class="hi">${spr(icon)}</span><span class="ht"><b>${t}</b><small>${d}</small></span></div>`;
  view.innerHTML=`<section class="scr help">${top('איך משחקים?','settings')}

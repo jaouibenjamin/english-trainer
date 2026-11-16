@@ -498,3 +498,4 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 /* short phones: the settings list has three switches now, so the crab's note steps aside instead of covering the numbers */
 @media (max-height:700px){.settings .guide{display:none}}
+@media (max-height:700px){.settings .setrow{min-height:46px}.settings .setrow .si{width:34px;height:34px}}
