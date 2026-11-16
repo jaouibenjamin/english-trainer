@@ -494,3 +494,8 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 @media (max-width:375px){.pips{gap:4px}.pips i{width:11px;height:11px}.stars.live .st{width:22px}.hud{gap:6px}.lvrow{padding-left:26px;padding-right:26px}.lvrow b{font-size:18px}}
 @media (min-width:500px){.scr{padding-left:22px;padding-right:22px}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+/* the same, switched on from the game's settings ("תצוגה רגועה") */
+html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+/* short phones: the settings list has three switches now, so the crab's note steps aside instead of covering the numbers */
+@media (max-height:700px){.settings .guide{display:none}}
+@media (max-height:700px){.settings .setrow{min-height:46px}.settings .setrow .si{width:34px;height:34px}}

@@ -15,6 +15,10 @@ One star rule everywhere: no mistake or a single slip gives 3 stars, at least 60
 otherwise 1; using the hint (the lantern) caps the level at 2 and the result screen says so.
 The interface is Hebrew (RTL); all English content comes from the teacher's word list.
 
+Motion and sound are kept gentle: nothing on screen flashes more than about once a second, there are no full-screen
+flashes, and effects play well under the voice. Settings has a "תצוגה רגועה" (calm display) switch that stops the
+looping animations, confetti and shaking; the device's own "reduce motion" setting does the same.
+
 ## Files
 
 - `index.html`, `css/game.css`, `js/*.js`: the game. Static files, no build step, ES modules.
@@ -51,6 +55,10 @@ With `config.js` empty the game still works, without login, and progress stays o
   After changing `backend/Code.gs`, paste it into the script again and deploy a new version (Deploy > Manage deployments > edit > Version: New version).
 - The leaderboard shows the podium, the top five and the pupil's own place; nobody is listed as last.
 - To reset a pupil's forgotten code, delete their row in the `kids` tab; they register again.
+- A pupil can play on more than one device: when the game opens or comes back to the front it joins the record on the
+  server with the one on the device (the higher stars, word knowledge and points win), so nothing earned is lost.
+  A save that fails is tried again by itself, and signing out waits until progress is saved.
+- Ten wrong teacher codes close the teacher screen for 5 minutes (the counter lives in `config`, cells C2:D2).
 - Points: 10 for a correct answer on the first try (4 after a mistake), 15 per star when a level is finished,
   50 for a story answered without mistakes, 20 for each day of practice.
 

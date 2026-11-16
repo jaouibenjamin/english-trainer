@@ -31,11 +31,12 @@ if(process.argv[2]==='unit'){
  t('board',call({...B,a:'board'}).rows.map(r=>r.n+r.pts),['איתי500','נועה130']);
  t('teacher bad',call({c:'EN-1234',a:'teacher',t:'1'}),{ok:false,e:'teacher'});
  t('teacher',call({c:'EN-1234',a:'teacher',t:'654321'}).hard,[['their',75,4]]);
+ call({...B,n:'איתי',a:'save',s:{pts:500,st:{goal:null,kick:[2,1]},k:{words:20}}});
+ t('teacher survives a damaged record',call({c:'EN-1234',a:'teacher',t:'654321'}).ok,true);
+ for(let i=0;i<10;i++)call({c:'EN-1234',a:'teacher',t:'000000'});
+ t('teacher locked after 10 wrong codes',call({c:'EN-1234',a:'teacher',t:'654321'}),{ok:false,e:'locked'});
  for(let i=0;i<5;i++)call({...B,p:'0000',a:'login'});
  t('locked',call({...B,a:'login'}),{ok:false,e:'locked'});
- for(let i=0;i<5;i++)call({c:'EN-1234',a:'teacher',t:'000000'});
- t('teacher locked after 5 wrong codes',call({c:'EN-1234',a:'teacher',t:'654321'}),{ok:false,e:'locked'});
- sheets.config.d[3][1]=0;t('teacher in again after the wait',call({c:'EN-1234',a:'teacher',t:'654321'}).ok,true);
  t('empty roster: anyone with the class code registers',call({...B,n:'עומר',a:'register'}).ok,true);
  sheets.roster.d.push(['מאיה'],[' רוני  ']);
  t('roster: a name not on the list is refused',call({...B,n:'שחר',a:'register'}),{ok:false,e:'roster'});

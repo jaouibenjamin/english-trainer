@@ -12,7 +12,7 @@ export function graph(ctx){
  const master=ctx.createGain();master.gain.value=.8;
  const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2400;lp.Q.value=.3;
  const dl=ctx.createDelay(1);dl.delayTime.value=STEP*1.5;const fb=ctx.createGain();fb.gain.value=.2;const wet=ctx.createGain();wet.gain.value=.35;
- const mus=ctx.createGain();mus.gain.value=.8;const sfx=ctx.createGain();sfx.gain.value=.9;
+ const mus=ctx.createGain();mus.gain.value=.8;const sfx=ctx.createGain();sfx.gain.value=.5;   // effects sit well under the voice and the music: a classroom of phones stays calm
  mus.connect(lp);lp.connect(master);lp.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(wet);wet.connect(master);
  sfx.connect(master);master.connect(ctx.destination);
  return{master,mus,sfx}}
@@ -89,7 +89,7 @@ export const SND={
  tap:()=>fx(660,.07,.05),
  pull:()=>fx(180,.09,.04,230),
  shoot:()=>fx(240,.22,.09,680),
- pop:()=>{fx(700,.16,.11,1400);if(SET.sfx&&AC)blip(AC,SFX,1050,.22,.06,1580,'sine',AC.currentTime+.07)},
+ pop:()=>{fx(700,.16,.09,1400);if(SET.sfx&&AC)blip(AC,SFX,1050,.22,.05,1580,'sine',AC.currentTime+.07)},
  bad:()=>fx(220,.26,.07,150,'triangle'),
  plank:()=>fx(330,.1,.08,260,'triangle'),
  snap:()=>{fx(200,.2,.08,90,'triangle')},

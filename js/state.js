@@ -15,7 +15,7 @@ load();
 export const saveLocal=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 export const save=()=>{saveLocal();touch()};
 
-export const SET={music:true,sfx:true};
+export const SET={music:true,sfx:true,calm:false};   // calm: the game's own "reduce motion" switch, for pupils who are sensitive to movement
 try{Object.assign(SET,JSON.parse(localStorage.getItem(SET_KEY))||{})}catch(e){}
 export const saveSet=()=>{try{localStorage.setItem(SET_KEY,JSON.stringify(SET))}catch(e){}};
 
@@ -26,15 +26,54 @@ export async function api(a,d){const r=await fetch(API,{method:'POST',body:JSON.
 export const cred=()=>({c:S.u.c,n:S.u.n,p:S.u.p});
 export const wordsKnown=()=>WORDS.filter(w=>w.p<6&&(S.w[w.en]||0)>=2).length;
 const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
-let dirty=0,syncT=0;
+let dirty=0,syncT=0,retryT=0,retryN=0,inflight=null,fatal=false;
+const FATAL=['pin','nouser','class','input','big','setup'];   // the server will never take this save: do not keep trying
 function touch(){if(!API||!S.u)return;dirty=1;clearTimeout(syncT);syncT=setTimeout(push,2500)}
-export async function push(){clearTimeout(syncT);if(!dirty||!API||!S.u)return;dirty=0;try{const r=await api('save',{...cred(),s:pack()});if(!r.ok)dirty=1}catch(e){dirty=1}}
+/* resolves true when nothing is left to save. One save at a time; a save that failed is tried again by itself
+   (5 s, 10 s, ... up to a minute) and as soon as the connection is back, not only at the pupil's next answer. */
+export function push(){
+ if(inflight)return inflight.then(()=>push());
+ clearTimeout(syncT);clearTimeout(retryT);if(!dirty||!API||!S.u)return Promise.resolve(true);
+ dirty=0;
+ inflight=(async()=>{let r=null;try{r=await api('save',{...cred(),s:pack()})}catch(e){}
+  inflight=null;
+  if(r&&r.ok){retryN=0;fatal=false;return true}
+  dirty=1;fatal=!!(r&&FATAL.includes(r.e));
+  if(!fatal)retryT=setTimeout(push,Math.min(60000,5000*2**retryN++));
+  return false})();
+ return inflight}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')push()});
+addEventListener('online',()=>{push()});
+/* ---------- two devices, one pupil ----------
+   The record on the server and the one on this device are joined so that nothing earned is ever lost:
+   the higher star count of every level, the higher knowledge of every word, the higher points. */
+const dnum=d=>{const p=String(d||'').split('-').map(Number);return p.length===3&&!p.some(isNaN)?p[0]*10000+p[1]*100+p[2]:0};
+const sum=o=>Object.values(o||{}).reduce((a,v)=>a+(+v||0),0);
+const sig=o=>[+o.pts||0,sum(o.g&&o.g.st),sum(o.w),sum(o.read),Object.keys(o.st||{}).length,o.day||''].join('|');
+function merge(r){
+ const mx=(a,b)=>{for(const k in b||{})if((+b[k]||0)>(+a[k]||0))a[k]=+b[k]};
+ mx(S.w,r.w);mx(S.read,r.read);
+ if(r.g&&typeof r.g==='object'){mx(S.g.st,r.g.st);Object.assign(S.g.ob,r.g.ob||{});S.g.plays=Math.max(S.g.plays,+r.g.plays||0)}
+ for(const k in r.st||{}){const a=S.st[k],b=r.st[k];if(Array.isArray(b)&&(!a||(+b[0]||0)>(+a[0]||0)))S.st[k]=b}
+ S.pts=Math.max(S.pts,+r.pts||0);
+ const dl=dnum(S.day),dr=dnum(r.day);if(dr>dl){S.day=r.day;S.streak=+r.streak||0}else if(dr===dl)S.streak=Math.max(+S.streak||0,+r.streak||0)}
+/* fetch the pupil's record and join it with this device's; resolves true when this device learned something new */
+let pullAt=0;
+export async function pull(){
+ if(!API||!S.u||Date.now()-pullAt<60000)return false;pullAt=Date.now();
+ const u=S.u;let r;try{r=await api('login',cred())}catch(e){return false}
+ if(!r||!r.ok||S.u!==u)return false;
+ const rs=r.s||{},before=sig(S);merge(rs);fix();saveLocal();
+ if(sig(S)!==sig(rs))touch();
+ return sig(S)!==before}
 export async function auth(mode,c,n,p){
  let r;try{r=await api(mode,{c,n,p})}catch(e){r={e:'net'}}
  if(!r.ok)return ERR[r.e]||ERR.net;
- const o=S;S=Object.assign(blank(),{parts:o.parts,dir:o.dir,cnt:o.cnt,ct:o.ct,ccnt:o.ccnt,ctypes:o.ctypes},r.s||{},{u:{c,n,p},lastC:c});delete S.k;fix();dirty=0;saveLocal();return null}
-export async function logout(){await push();const c=S.lastC;S=Object.assign(blank(),{lastC:c});dirty=0;saveLocal()}
+ const o=S;S=Object.assign(blank(),{parts:o.parts,dir:o.dir,cnt:o.cnt,ct:o.ct,ccnt:o.ccnt,ctypes:o.ctypes},r.s||{},{u:{c,n,p},lastC:c});delete S.k;fix();dirty=0;fatal=false;pullAt=Date.now();saveLocal();return null}
+/* resolves false, and keeps the pupil signed in, while progress is still waiting to be saved (no connection):
+   signing out would erase it. A record the server refuses for good (the teacher removed the pupil) does not hold anyone back. */
+export async function logout(){const ok=await push();if(!ok&&!fatal)return false;
+ clearTimeout(syncT);clearTimeout(retryT);const c=S.lastC;S=Object.assign(blank(),{lastC:c});dirty=0;fatal=false;saveLocal();return true}
 
 /* ---------- points, streak, word knowledge ---------- */
 const dstr=d=>d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
@@ -181,4 +220,6 @@ export const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 export const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 /* weakest words first, with a little shuffle inside equal knowledge */
 export const weakest=(ws,n)=>shuffle(ws).sort((a,b)=>(S.w[a.en]||0)-(S.w[b.en]||0)).slice(0,n);
-export const reduced=()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
+export const reduced=()=>SET.calm||matchMedia('(prefers-reduced-motion:reduce)').matches;
+export const applyCalm=()=>document.documentElement.classList.toggle('calm',!!SET.calm);
+applyCalm();

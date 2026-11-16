@@ -1,6 +1,6 @@
 /* Word Islands: router and all non-level screens. */
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
-import {S,SET,saveSet,save,API,ERR,api,cred,auth,logout,push,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc} from './state.js';
+import {S,SET,saveSet,save,API,ERR,api,cred,auth,logout,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
 import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 import * as sling from './sling.js';
@@ -21,7 +21,7 @@ const nst=n=>`<span class="nb">${num(n)}${star()}</span>`;   // a number and its
 
 /* ---------- title ---------- */
 function title(){setBg('title','bottom');
- const d=Math.ceil((new Date(2026,10,24)-new Date())/864e5),m=bgMap('bottom');
+ const d=Math.ceil((new Date(2026,10,25)-new Date())/864e5),m=bgMap('bottom');
  view.innerHTML=`<section class="scr title">
   <div class="logo"><h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p></div>
   ${d>0&&d<60?`<p class="label days">עוד ${num(d)} ימים למבחן</p>`:''}
@@ -118,14 +118,14 @@ function settings(){setBg('paper','center');
  const lnk=(inner,icon,t,d)=>`<${inner} class="setrow link">${spr(icon,'si')}<span class="sl">${t}<small>${d}</small></span>${ico('next','go')}</${inner.split(' ')[0]}>`;
  view.innerHTML=`<section class="scr settings">${top('הגדרות')}
   <div class="fill">
-  <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}</div>
+  <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}${tog('calm','תצוגה רגועה<small>בלי תנועה וקונפטי</small>','ic_check')}</div>
   <div class="panel label">${lnk('button data-a="nav" data-to="help"','ic_buoy','איך משחקים?','הסבר קצר על ארבעת השלבים')}
    ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}</div>
   <div class="panel label"><div class="prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter(v=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
    <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p></div>
   ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br>${num(wordsKnown())} מילים שנלמדו</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
   </div>
-  <div class="guide">${spr('crab_listen','bob')}<p class="label">${API&&S.u?'ההתקדמות נשמרת לפי השם והקוד הסודי שלכם':'ההתקדמות נשמרת במכשיר הזה'}</p></div></section>`}
+  ${API&&S.u?'':`<div class="guide">${spr('crab_listen','bob')}<p class="label">ההתקדמות נשמרת במכשיר הזה</p></div>`}</section>`}   // signed in, the account panel takes the note's place
 function help(){setBg('paper','center');
  const c=(icon,t,d)=>`<div class="hrow label"><span class="hi">${spr(icon)}</span><span class="ht"><b>${t}</b><small>${d}</small></span></div>`;
  view.innerHTML=`<section class="scr help">${top('איך משחקים?','settings')}
@@ -200,13 +200,13 @@ const A={
  hint(){if(level&&level.hint){SND.tap();if(level.hint()===true)toast(HINT_NOTE,2800)}},   // the first hint in a level says what it costs
  locked(d,el){SND.bad();el.classList.remove('nope');void el.offsetWidth;el.classList.add('nope');const left=d.need-totalStars();toast(`עוד ${nst(left)} ${el.classList.contains('ball')?'והכדור שלכם':'והאי נפתח'}!<br>אוספים כוכבים בכל שלב שפתוח`,2600)},
  ball(d){S.g.ball=+d.i;save();SND.pop();collection()},
- toggle(d){SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);SND.tap();settings()},
+ toggle(d){SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);if(d.k==='calm')applyCalm();SND.tap();settings()},
  lmode(d){SND.tap();V={name:'login',m:d.m,c:$('#lc').value.trim(),n:$('#ln').value,p:$('#lp').value};login()},
  async auth(d){const m=d.m,c=$('#lc').value.trim(),n=$('#ln').value.trim().replace(/\s+/g,' '),p=$('#lp').value;
   if(!c||n.length<2||!/^\d{4}$/.test(p)){V={name:'login',m,c,n,p,err:ERR.input};return login()}
   V={name:'login',m,c,n,p,busy:1};login();const err=await auth(m,c,n,p);if(V.name!=='login')return;
   if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err,sw:err===ERR.nouser?'register':err===ERR.taken?'login':''};return login()}go('map')},
- async logout(){await logout();go('login')},
+ async logout(){if(await logout())go('login');else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el)}});
@@ -227,11 +227,18 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
  switch(V.name){case'map':map();break;case'island':island(a);break;case'play':play(a,b);break;case'collection':collection();break;case'settings':settings();break;
   case'help':help();break;case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}}
 addEventListener('hashchange',route);
+/* a pupil who also plays on another device: bring that progress in when the game opens or comes back to the front.
+   Only the calm screens are drawn again; a level in play just keeps the better record underneath. */
+const redraw=changed=>{if(changed&&['title','map','island','collection','settings'].includes(V.name))route()};
+const refresh=()=>pull().then(redraw);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
 let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='title')title()},150)});
 
 /* ---------- boot ---------- */
 (async function boot(){loader();
+ const pulled=pull();let late=true;   // asked for while the pictures load, so the first screen is usually drawn once, already up to date
  const fonts=document.fonts?Promise.all([document.fonts.load("700 20px 'Playpen Sans Hebrew'",'איי'),document.fonts.load("800 20px 'Playpen Sans Hebrew'",'Word')]).catch(()=>{}):0;
  await Promise.race([Promise.all([preload([BG('title'),BG('map'),BG('paper'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign'),SP('scroll')]),fonts]),sleep(6000)]);
- route();preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
+ await Promise.race([pulled.then(()=>{late=false}),sleep(1200)]);
+ route();if(late)pulled.then(redraw);preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
 window.__game={S:()=>S,SET,measure,totalStars,go};

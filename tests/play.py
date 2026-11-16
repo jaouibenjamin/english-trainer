@@ -286,8 +286,12 @@ async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
     pg.on('requestfailed', lambda r: errs.append('requestfailed: ' + r.url) if 'fonts.g' not in r.url and CLIPS_HOST not in r.url else None)   # the classic trainer uses Google Fonts and the voice clips live on a CDN; offline CI cannot reach either
     pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 and CLIPS_HOST not in r.url else None)
+    # config.js in the repository carries the real class backend: a test page never talks to it (local mode = no backend at all)
+    # (pinned from an init script, not by intercepting the file: interception switches the browser cache off for the page)
     if api:
         await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body=f"window.API_URL='{api}';"))
+    else:
+        await pg.add_init_script("Object.defineProperty(window,'API_URL',{get:()=>'',set(){},configurable:true})")
     return c, pg
 
 

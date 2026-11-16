@@ -8,7 +8,7 @@
  * Class list: write the pupils' first names in column A of the `roster` tab (from row 2). Once it holds at least one name,
  * only those names can register. Left empty, anyone with the class code can register any name.
  */
-const KIDS = 'kids', CFG = 'config', ROSTER = 'roster', MAX_KIDS = 60, MAX_FAILS = 5, LOCK_MS = 5 * 60000;
+const KIDS = 'kids', CFG = 'config', ROSTER = 'roster', MAX_KIDS = 60, TEACHER_TRIES = 10, MAX_FAILS = 5, LOCK_MS = 5 * 60000;
 const HEAD = ['name', 'salt', 'hash', 'points', 'words', 'reads', 'streak', 'lastDay', 'fails', 'lockUntil', 'state', 'updated'];
 const NAME_RE = /^[\p{L}\p{M}'’״׳ .\-]{2,20}$/u;
 
@@ -66,15 +66,15 @@ function handle(d) {
   const rows = last > 1 ? ks.getRange(2, 1, last - 1, HEAD.length).getValues() : [];
 
   if (d.a === 'teacher') {
-    /* the teacher code gets the same protection as a pupil's code: five wrong tries, then a five-minute wait */
-    const tl = cs.getRange(3, 1, 2, 2).getValues(), tFails = Number(tl[0][1]) || 0, tUntil = Number(tl[1][1]) || 0, tNow = Date.now();
-    if (tUntil > tNow) return { ok: false, e: 'locked' };
+    // the teacher code opens every pupil's record, so guessing is slowed down: 10 wrong codes close the door for 5 minutes (the same wait the pupils get)
+    const guard = cs.getRange(2, 3, 1, 2), gv = guard.getValues()[0], now = Date.now();
+    if (Number(gv[1]) > now) return { ok: false, e: 'locked' };
     if (!teacherCode || String(d.t || '').trim() !== teacherCode) {
-      const f = tFails + 1;
-      cs.getRange(3, 1, 2, 2).setValues([['teacher wrong tries', f >= MAX_FAILS ? 0 : f], ['teacher locked until', f >= MAX_FAILS ? tNow + LOCK_MS : 0]]);
+      const f = (Number(gv[0]) || 0) + 1;
+      guard.setValues([f >= TEACHER_TRIES ? [0, now + 5 * 60000] : [f, 0]]);
       return { ok: false, e: 'teacher' };
     }
-    if (tFails || tUntil) cs.getRange(3, 1, 2, 2).setValues([['teacher wrong tries', 0], ['teacher locked until', 0]]);
+    if (Number(gv[0])) guard.setValues([[0, 0]]);
     return teacherView(rows);
   }
 
@@ -123,6 +123,7 @@ function teacherView(rows) {
     const state = parse(x[10]), st = state.st || {}, lv = (state.g && state.g.st) || {};
     let tries = 0, miss = 0, stars = 0, levels = 0;
     Object.keys(st).forEach(function (w) {
+      if (!Array.isArray(st[w])) return;   // one damaged record must not take the whole screen down
       const a = agg[w] || (agg[w] = [0, 0]), t = Number(st[w][0]) || 0, m = Number(st[w][1]) || 0;
       a[0] += t; a[1] += m; tries += t; miss += m;
     });
