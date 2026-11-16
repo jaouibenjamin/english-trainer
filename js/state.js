@@ -15,7 +15,7 @@ load();
 export const saveLocal=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 export const save=()=>{saveLocal();touch()};
 
-export const SET={music:true,sfx:true};
+export const SET={music:true,sfx:true,calm:false};   // calm: the game's own "reduce motion" switch, for pupils who are sensitive to movement
 try{Object.assign(SET,JSON.parse(localStorage.getItem(SET_KEY))||{})}catch(e){}
 export const saveSet=()=>{try{localStorage.setItem(SET_KEY,JSON.stringify(SET))}catch(e){}};
 
@@ -220,4 +220,6 @@ export const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 export const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 /* weakest words first, with a little shuffle inside equal knowledge */
 export const weakest=(ws,n)=>shuffle(ws).sort((a,b)=>(S.w[a.en]||0)-(S.w[b.en]||0)).slice(0,n);
-export const reduced=()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
+export const reduced=()=>SET.calm||matchMedia('(prefers-reduced-motion:reduce)').matches;
+export const applyCalm=()=>document.documentElement.classList.toggle('calm',!!SET.calm);
+applyCalm();

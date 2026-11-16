@@ -1,6 +1,6 @@
 /* Word Islands: router and all non-level screens. */
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
-import {S,SET,saveSet,save,API,ERR,api,cred,auth,logout,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc} from './state.js';
+import {S,SET,saveSet,save,API,ERR,api,cred,auth,logout,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
 import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 import * as sling from './sling.js';
@@ -118,7 +118,7 @@ function settings(){setBg('paper','center');
  const lnk=(inner,icon,t,d)=>`<${inner} class="setrow link">${spr(icon,'si')}<span class="sl">${t}<small>${d}</small></span>${ico('next','go')}</${inner.split(' ')[0]}>`;
  view.innerHTML=`<section class="scr settings">${top('הגדרות')}
   <div class="fill">
-  <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}</div>
+  <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}${tog('calm','תצוגה רגועה<small>בלי תנועה וקונפטי</small>','ic_check')}</div>
   <div class="panel label">${lnk('button data-a="nav" data-to="help"','ic_buoy','איך משחקים?','הסבר קצר על ארבעת השלבים')}
    ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}</div>
   <div class="panel label"><div class="prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter(v=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
@@ -200,7 +200,7 @@ const A={
  hint(){if(level&&level.hint){SND.tap();if(level.hint()===true)toast(HINT_NOTE,2800)}},   // the first hint in a level says what it costs
  locked(d,el){SND.bad();el.classList.remove('nope');void el.offsetWidth;el.classList.add('nope');const left=d.need-totalStars();toast(`עוד ${nst(left)} ${el.classList.contains('ball')?'והכדור שלכם':'והאי נפתח'}!<br>אוספים כוכבים בכל שלב שפתוח`,2600)},
  ball(d){S.g.ball=+d.i;save();SND.pop();collection()},
- toggle(d){SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);SND.tap();settings()},
+ toggle(d){SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);if(d.k==='calm')applyCalm();SND.tap();settings()},
  lmode(d){SND.tap();V={name:'login',m:d.m,c:$('#lc').value.trim(),n:$('#ln').value,p:$('#lp').value};login()},
  async auth(d){const m=d.m,c=$('#lc').value.trim(),n=$('#ln').value.trim().replace(/\s+/g,' '),p=$('#lp').value;
   if(!c||n.length<2||!/^\d{4}$/.test(p)){V={name:'login',m,c,n,p,err:ERR.input};return login()}

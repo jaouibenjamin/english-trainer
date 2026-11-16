@@ -15,6 +15,10 @@ One star rule everywhere: no mistake or a single slip gives 3 stars, at least 60
 otherwise 1; using the hint (the lantern) caps the level at 2 and the result screen says so.
 The interface is Hebrew (RTL); all English content comes from the teacher's word list.
 
+Motion and sound are kept gentle: nothing on screen flashes more than about once a second, there are no full-screen
+flashes, and effects play well under the voice. Settings has a "תצוגה רגועה" (calm display) switch that stops the
+looping animations, confetti and shaking; the device's own "reduce motion" setting does the same.
+
 ## Files
 
 - `index.html`, `css/game.css`, `js/*.js`: the game. Static files, no build step, ES modules.
