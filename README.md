@@ -49,6 +49,10 @@ With `config.js` empty the game still works, without login, and progress stays o
   After changing `backend/Code.gs`, paste it into the script again and deploy a new version (Deploy > Manage deployments > edit > Version: New version).
 - The leaderboard shows the podium, the top five and the pupil's own place; nobody is listed as last.
 - To reset a pupil's forgotten code, delete their row in the `kids` tab; they register again.
+- A pupil can play on more than one device: when the game opens or comes back to the front it joins the record on the
+  server with the one on the device (the higher stars, word knowledge and points win), so nothing earned is lost.
+  A save that fails is tried again by itself, and signing out waits until progress is saved.
+- Ten wrong teacher codes close the teacher screen for 5 minutes (the counter lives in `config`, cells C2:D2).
 - Points: 10 for a correct answer on the first try (4 after a mistake), 15 per star when a level is finished,
   50 for a story answered without mistakes, 20 for each day of practice.
 

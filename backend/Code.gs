@@ -3,7 +3,7 @@
  * 1. Run setup() once.  2. Deploy > New deployment > Web app (Execute as: Me, Who has access: Anyone).
  * The sheet holds first names, salted PIN hashes and scores. Nothing here is stored in the GitHub repo.
  */
-const KIDS = 'kids', CFG = 'config', MAX_KIDS = 60;
+const KIDS = 'kids', CFG = 'config', MAX_KIDS = 60, TEACHER_TRIES = 10;
 const HEAD = ['name', 'salt', 'hash', 'points', 'words', 'reads', 'streak', 'lastDay', 'fails', 'lockUntil', 'state', 'updated'];
 const NAME_RE = /^[\p{L}\p{M}'’״׳ .\-]{2,20}$/u;
 
@@ -51,7 +51,15 @@ function handle(d) {
   const rows = last > 1 ? ks.getRange(2, 1, last - 1, HEAD.length).getValues() : [];
 
   if (d.a === 'teacher') {
-    if (!teacherCode || String(d.t || '').trim() !== teacherCode) return { ok: false, e: 'teacher' };
+    // the teacher code opens every pupil's record, so guessing is slowed down: 10 wrong codes close the door for 5 minutes (the same wait the pupils get)
+    const guard = cs.getRange(2, 3, 1, 2), gv = guard.getValues()[0], now = Date.now();
+    if (Number(gv[1]) > now) return { ok: false, e: 'locked' };
+    if (!teacherCode || String(d.t || '').trim() !== teacherCode) {
+      const f = (Number(gv[0]) || 0) + 1;
+      guard.setValues([f >= TEACHER_TRIES ? [0, now + 5 * 60000] : [f, 0]]);
+      return { ok: false, e: 'teacher' };
+    }
+    if (Number(gv[0])) guard.setValues([[0, 0]]);
     return teacherView(rows);
   }
 
@@ -98,6 +106,7 @@ function teacherView(rows) {
     const state = parse(x[10]), st = state.st || {}, lv = (state.g && state.g.st) || {};
     let tries = 0, miss = 0, stars = 0, levels = 0;
     Object.keys(st).forEach(function (w) {
+      if (!Array.isArray(st[w])) return;   // one damaged record must not take the whole screen down
       const a = agg[w] || (agg[w] = [0, 0]), t = Number(st[w][0]) || 0, m = Number(st[w][1]) || 0;
       a[0] += t; a[1] += m; tries += t; miss += m;
     });
