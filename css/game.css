@@ -8,7 +8,7 @@
  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
  color-scheme:light}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:manipulation}   /* pinch zoom allowed, no double-tap zoom */
 body{background:#efe2c6 radial-gradient(rgba(90,69,52,.13) 1.1px,transparent 1.3px) 0 0/22px 22px;color:var(--ink);font-family:var(--hand);font-size:17px;line-height:1.4;-webkit-font-smoothing:antialiased}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer;background:none;border:0;padding:0;touch-action:manipulation}

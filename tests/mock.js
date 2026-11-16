@@ -33,5 +33,13 @@ if(process.argv[2]==='unit'){
  t('teacher',call({c:'EN-1234',a:'teacher',t:'654321'}).hard,[['their',75,4]]);
  for(let i=0;i<5;i++)call({...B,p:'0000',a:'login'});
  t('locked',call({...B,a:'login'}),{ok:false,e:'locked'});
+ for(let i=0;i<5;i++)call({c:'EN-1234',a:'teacher',t:'000000'});
+ t('teacher locked after 5 wrong codes',call({c:'EN-1234',a:'teacher',t:'654321'}),{ok:false,e:'locked'});
+ sheets.config.d[3][1]=0;t('teacher in again after the wait',call({c:'EN-1234',a:'teacher',t:'654321'}).ok,true);
+ t('empty roster: anyone with the class code registers',call({...B,n:'עומר',a:'register'}).ok,true);
+ sheets.roster.d.push(['מאיה'],[' רוני  ']);
+ t('roster: a name not on the list is refused',call({...B,n:'שחר',a:'register'}),{ok:false,e:'roster'});
+ t('roster: a listed name registers',call({...B,n:'רוני',a:'register'}).ok,true);
+ t('roster: pupils registered earlier still log in',call({...B,n:'עומר',a:'login'}).ok,true);
  t('pin hash not plain',/1234/.test(sheets.kids.d[1][2])===false&&sheets.kids.d[1][2].length===64,true);
 }else http.createServer((q,s)=>{let b='';q.on('data',c=>b+=c);q.on('end',()=>{s.writeHead(200,{'Access-Control-Allow-Origin':'*','Content-Type':'application/json'});s.end(q.method==='POST'?JSON.stringify(call(JSON.parse(b))):'{}')})}).listen(8765);

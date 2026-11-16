@@ -21,7 +21,7 @@ export const saveSet=()=>{try{localStorage.setItem(SET_KEY,JSON.stringify(SET))}
 
 /* ---------- class backend (Google Sheet via Apps Script) ---------- */
 export const API=(window.API_URL||'').trim();
-export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסודי לא נכון. נסו שוב.',nouser:'לא מצאנו את השם הזה בכיתה. עוד לא נרשמתם?',taken:'השם הזה כבר רשום. לא אתם? הוסיפו אות משם המשפחה. זה אתם?',locked:'יותר מדי ניסיונות.\nחכו 5 דקות ונסו שוב.',full:'הכיתה מלאה. פנו למורה.',input:'צריך קוד כיתה, שם באותיות\nוקוד סודי של 4 ספרות.',teacher:'קוד המורה לא נכון.',setup:'המערכת עוד לא הוגדרה.',net:'אין חיבור כרגע.\nבדקו את האינטרנט ונסו שוב.'};
+export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסודי לא נכון. נסו שוב.',nouser:'לא מצאנו את השם הזה בכיתה. עוד לא נרשמתם?',taken:'השם הזה כבר רשום. לא אתם? הוסיפו אות אחת אחרי השם. זה אתם?',roster:'השם לא נמצא ברשימת הכיתה.\nכתבו את השם הפרטי, או בקשו מהמורה להוסיף אתכם.',locked:'יותר מדי ניסיונות.\nחכו 5 דקות ונסו שוב.',full:'הכיתה מלאה. פנו למורה.',input:'צריך קוד כיתה, שם באותיות\nוקוד סודי של 4 ספרות.',teacher:'קוד המורה לא נכון.',setup:'המערכת עוד לא הוגדרה.',net:'אין חיבור כרגע.\nבדקו את האינטרנט ונסו שוב.'};
 export async function api(a,d){const r=await fetch(API,{method:'POST',body:JSON.stringify({a,...d}),keepalive:a==='save'});return r.json()}
 export const cred=()=>({c:S.u.c,n:S.u.n,p:S.u.p});
 export const wordsKnown=()=>WORDS.filter(w=>w.p<6&&(S.w[w.en]||0)>=2).length;

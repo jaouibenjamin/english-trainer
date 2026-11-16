@@ -148,7 +148,7 @@ function login(){setBg('paper','center');
    <label for="lc">קוד הכיתה (מהמורה)</label><input id="lc" class="in en" dir="ltr" autocapitalize="characters" autocomplete="off" value="${esc(V.c??S.lastC)}">
    <label for="ln">השם שלי</label><input id="ln" class="in" maxlength="20" autocomplete="off" value="${esc(V.n||'')}">
    <label for="lp">${reg?'קוד סודי חדש (4 ספרות)':'הקוד הסודי שלי (4 ספרות)'}</label><input id="lp" class="in en pin" dir="ltr" type="password" inputmode="numeric" maxlength="4" autocomplete="off" value="${esc(V.p||'')}">
-   ${V.err?`<p class="err" role="alert"><span>${esc(V.err)}</span>${sw}</p>`:`<p class="lnote">${reg?'בוחרים 4 ספרות שרק אתם יודעים':'נכנסים עם השם והקוד הסודי שבחרתם'}</p>`}
+   ${V.err?`<p class="err" role="alert"><span>${esc(V.err)}</span>${sw}</p>`:`<p class="lnote">${reg?'בוחרים 4 ספרות שרק אתם יודעים. לא הקוד של הטלפון!':'נכנסים עם השם והקוד הסודי שבחרתם'}</p>`}
    ${btn('auth',V.busy?'רגע…':reg?'נרשמים':'כניסה','green wide',`data-m="${reg?'register':'login'}" type="button" ${V.busy?'disabled':''}`)}</form></div>
   ${btn('nav','כניסת מורה','cream sm tlink','data-to="teacher"')}</section>`}
 function board(){if(!API||!S.u)return go('map');setBg('paper','center');

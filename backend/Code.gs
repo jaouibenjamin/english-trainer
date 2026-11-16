@@ -1,9 +1,14 @@
 /**
+ * @OnlyCurrentDoc
+ * (the line above limits this script to the one spreadsheet it lives in, instead of all your Google Sheets)
+ *
  * English Trainer backend. Lives inside a Google Sheet (Extensions > Apps Script).
  * 1. Run setup() once.  2. Deploy > New deployment > Web app (Execute as: Me, Who has access: Anyone).
  * The sheet holds first names, salted PIN hashes and scores. Nothing here is stored in the GitHub repo.
+ * Class list: write the pupils' first names in column A of the `roster` tab (from row 2). Once it holds at least one name,
+ * only those names can register. Left empty, anyone with the class code can register any name.
  */
-const KIDS = 'kids', CFG = 'config', MAX_KIDS = 60;
+const KIDS = 'kids', CFG = 'config', ROSTER = 'roster', MAX_KIDS = 60, MAX_FAILS = 5, LOCK_MS = 5 * 60000;
 const HEAD = ['name', 'salt', 'hash', 'points', 'words', 'reads', 'streak', 'lastDay', 'fails', 'lockUntil', 'state', 'updated'];
 const NAME_RE = /^[\p{L}\p{M}'’״׳ .\-]{2,20}$/u;
 
@@ -18,6 +23,16 @@ function setup() {
   k.getRange('A:C').setNumberFormat('@');
   k.getRange('H:H').setNumberFormat('@');
   k.getRange('K:K').setNumberFormat('@');
+  roster(ss);
+}
+
+/* the class list tab; made on first use so an older sheet gets it without running setup() again */
+function roster(ss) {
+  let r = ss.getSheetByName(ROSTER);
+  if (!r) { r = ss.insertSheet(ROSTER); r.getRange(1, 1, 1, 1).setValues([['name']]); }
+  const last = r.getLastRow();
+  if (last < 2) return [];
+  return r.getRange(2, 1, last - 1, 1).getValues().map(function (x) { return String(x[0] || '').trim().replace(/\s+/g, ' '); }).filter(String);
 }
 
 function digits(n) { let s = ''; for (let i = 0; i < n; i++) s += Math.floor(Math.random() * 10); return s; }
@@ -51,7 +66,15 @@ function handle(d) {
   const rows = last > 1 ? ks.getRange(2, 1, last - 1, HEAD.length).getValues() : [];
 
   if (d.a === 'teacher') {
-    if (!teacherCode || String(d.t || '').trim() !== teacherCode) return { ok: false, e: 'teacher' };
+    /* the teacher code gets the same protection as a pupil's code: five wrong tries, then a five-minute wait */
+    const tl = cs.getRange(3, 1, 2, 2).getValues(), tFails = Number(tl[0][1]) || 0, tUntil = Number(tl[1][1]) || 0, tNow = Date.now();
+    if (tUntil > tNow) return { ok: false, e: 'locked' };
+    if (!teacherCode || String(d.t || '').trim() !== teacherCode) {
+      const f = tFails + 1;
+      cs.getRange(3, 1, 2, 2).setValues([['teacher wrong tries', f >= MAX_FAILS ? 0 : f], ['teacher locked until', f >= MAX_FAILS ? tNow + LOCK_MS : 0]]);
+      return { ok: false, e: 'teacher' };
+    }
+    if (tFails || tUntil) cs.getRange(3, 1, 2, 2).setValues([['teacher wrong tries', 0], ['teacher locked until', 0]]);
     return teacherView(rows);
   }
 
@@ -61,6 +84,8 @@ function handle(d) {
 
   if (d.a === 'register') {
     if (i >= 0) return { ok: false, e: 'taken' };
+    const list = roster(ss);
+    if (list.length && list.indexOf(name) < 0) return { ok: false, e: 'roster' };
     if (rows.length >= MAX_KIDS) return { ok: false, e: 'full' };
     const salt = Utilities.getUuid();
     ks.appendRow([name, salt, hash(salt, pin), 0, 0, 0, 0, '', 0, 0, '{}', new Date()]);
@@ -72,7 +97,7 @@ function handle(d) {
   if (Number(r[9]) > now) return { ok: false, e: 'locked' };
   if (hash(String(r[1]), pin) !== String(r[2])) {
     const f = Number(r[8]) + 1;
-    ks.getRange(rowNo, 9, 1, 2).setValues([f >= 5 ? [0, now + 5 * 60000] : [f, 0]]);
+    ks.getRange(rowNo, 9, 1, 2).setValues([f >= MAX_FAILS ? [0, now + LOCK_MS] : [f, 0]]);
     return { ok: false, e: 'pin' };
   }
   if (Number(r[8])) ks.getRange(rowNo, 9, 1, 2).setValues([[0, 0]]);
