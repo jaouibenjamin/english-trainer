@@ -24,6 +24,7 @@ export async function start(host,cfg,api){
  let W=0,H=0,D=1,AX=0,AY=0,R=42,zt=0,zb=0,alive=true,capT=0;
  const g={i:0,miss:0,hint:0,first:0,bad:0,bx:0,by:0,vx:0,vy:0,fly:0,gone:0,drag:0,trail:[],last:[],bub:[],fx:[],t:0,ft:0,lock:0,pose:'i',poseT:0,glow:0,down:null,wrongNow:0,results:[]};
  window.__lv={kind:'sling',g,geom:()=>({W,H,AX,AY,R}),K:T.launchK,G:T.gravity};
+ const still=reduced();   // calm display: no shaking, hopping or pulsing on the canvas either
  const REST=12;   // the ball hangs a little below the prongs so the band is visible
 
  function layout(){W=stage.clientWidth;H=stage.clientHeight;D=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*D);cv.height=Math.round(H*D);
@@ -95,12 +96,12 @@ export async function start(host,cfg,api){
    x.fillStyle='rgba(90,69,52,.25)';g.last.forEach(p=>{x.beginPath();x.arc(p[0],p[1],2.6,0,6.3);x.fill()});
    x.fillStyle='rgba(239,143,122,.7)';g.trail.forEach(p=>{x.beginPath();x.arc(p[0],p[1],2.6,0,6.3);x.fill()})}
   // balloons
-  for(const b of g.bub){if(b.pop)continue;const by=b.y+Math.sin(g.t/30+b.ph)*4,sx=b.shake>g.t?Math.sin(g.t*1.3)*4:0,w=R*2.06,h=w*1.5;
-   if(g.glow&&b.ok){const gr=x.createRadialGradient(b.x,by,R*.7,b.x,by,R+22);gr.addColorStop(0,'rgba(247,215,116,.95)');gr.addColorStop(1,'rgba(247,215,116,0)');x.fillStyle=gr;x.globalAlpha=.65+.35*Math.sin(g.t/9);x.beginPath();x.arc(b.x,by,R+22,0,6.3);x.fill();x.globalAlpha=1}
+  for(const b of g.bub){if(b.pop)continue;const by=b.y+Math.sin(g.t/30+b.ph)*4,sx=b.shake>g.t&&!still?Math.sin(g.t*.45)*3:0,w=R*2.06,h=w*1.5;
+   if(g.glow&&b.ok){const gr=x.createRadialGradient(b.x,by,R*.7,b.x,by,R+22);gr.addColorStop(0,'rgba(247,215,116,.95)');gr.addColorStop(1,'rgba(247,215,116,0)');x.fillStyle=gr;x.globalAlpha=still?.85:.65+.35*Math.sin(g.t/9);x.beginPath();x.arc(b.x,by,R+22,0,6.3);x.fill();x.globalAlpha=1}
    x.globalAlpha=b.bad?.6:1;if(b.img)x.drawImage(b.img,b.x-w/2+sx,by-R*1.03,w,h);x.globalAlpha=1;
    x.save();x.translate(sx,0);label(b,by-1);x.restore()}
   // crab mascot
-  const now=performance.now(),ci=now<g.poseT?(g.pose==='h'?crabH:crabO):crabI,cw=Math.min(74,W*.19),chh=ci?cw*ci.height/ci.width:0,hop=now<g.poseT&&g.pose==='h'&&!reduced()?Math.abs(Math.sin(g.t/7))*9:0;
+  const now=performance.now(),ci=now<g.poseT?(g.pose==='h'?crabH:crabO):crabI,cw=Math.min(74,W*.19),chh=ci?cw*ci.height/ci.width:0,hop=now<g.poseT&&g.pose==='h'&&!still?Math.abs(Math.sin(g.t/7))*9:0;
   if(ci)x.drawImage(ci,AX+46,Math.min(H-chh-18,AY+112-chh)-hop,cw,chh);
   // slingshot: far strand, fork, pouch + ball, near strand
   const fw=82,fh=fw*362/251,tl=[AX-fw*.36,AY+2],tr=[AX+fw*.36,AY+2],held=!g.fly;
