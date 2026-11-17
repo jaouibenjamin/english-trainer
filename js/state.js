@@ -6,11 +6,12 @@ import {voiceCtx,voiceOut,duck} from './audio.js';
 export const KEY='aam-unit1-v1';          // shared with trainer.html so both keep one progress record
 const SET_KEY='word-islands-settings-v1'; // device-only preferences
 const blankG=()=>({st:{},ball:0,ob:{},plays:0});
-export const blank=()=>({w:{},read:{},parts:[1,2,3,4,5],dir:'en-he',cnt:10,me:[],ct:3,ccnt:15,ctypes:['en-he','he-en','tobe'],pts:0,st:{},day:'',streak:0,u:null,lastC:'',g:blankG()});
+export const blank=()=>({m:{st:{},plays:0},w:{},read:{},parts:[1,2,3,4,5],dir:'en-he',cnt:10,me:[],ct:3,ccnt:15,ctypes:['en-he','he-en','tobe'],pts:0,st:{},day:'',streak:0,u:null,lastC:'',g:blankG()});
 export let S=blank();
 function load(){try{Object.assign(S,JSON.parse(localStorage.getItem(KEY))||{})}catch(e){}fix()}
 function fix(){if(!S.g||typeof S.g!=='object')S.g=blankG();const g=S.g;if(!g.st||typeof g.st!=='object')g.st={};if(!g.ob||typeof g.ob!=='object')g.ob={};g.ball=+g.ball||0;g.plays=+g.plays||0;
- for(const k of['w','read','st'])if(!S[k]||typeof S[k]!=='object')S[k]={};S.pts=+S.pts||0}
+ for(const k of['w','read','st'])if(!S[k]||typeof S[k]!=='object')S[k]={};S.pts=+S.pts||0;
+ if(!S.m||typeof S.m!=='object')S.m={};if(!S.m.st||typeof S.m.st!=='object')S.m.st={};S.m.plays=+S.m.plays||0}   // m: the math world (Fraction Bay)
 load();
 export const saveLocal=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 export const save=()=>{saveLocal();touch()};
@@ -25,7 +26,7 @@ export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסו�
 export async function api(a,d){const r=await fetch(API,{method:'POST',body:JSON.stringify({a,...d}),keepalive:a==='save'});return r.json()}
 export const cred=()=>({c:S.u.c,n:S.u.n,p:S.u.p});
 export const wordsKnown=()=>WORDS.filter(w=>w.p<6&&(S.w[w.en]||0)>=2).length;
-const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
+const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,m:S.m,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
 let dirty=0,syncT=0,retryT=0,retryN=0,inflight=null,fatal=false;
 const FATAL=['pin','nouser','class','input','big','setup'];   // the server will never take this save: do not keep trying
 function touch(){if(!API||!S.u)return;dirty=1;clearTimeout(syncT);syncT=setTimeout(push,2500)}
@@ -49,11 +50,12 @@ addEventListener('online',()=>{push()});
    the higher star count of every level, the higher knowledge of every word, the higher points. */
 const dnum=d=>{const p=String(d||'').split('-').map(Number);return p.length===3&&!p.some(isNaN)?p[0]*10000+p[1]*100+p[2]:0};
 const sum=o=>Object.values(o||{}).reduce((a,v)=>a+(+v||0),0);
-const sig=o=>[+o.pts||0,sum(o.g&&o.g.st),sum(o.w),sum(o.read),Object.keys(o.st||{}).length,o.day||''].join('|');
+const sig=o=>[+o.pts||0,sum(o.g&&o.g.st),sum(o.m&&o.m.st),sum(o.w),sum(o.read),Object.keys(o.st||{}).length,o.day||''].join('|');
 function merge(r){
  const mx=(a,b)=>{for(const k in b||{})if((+b[k]||0)>(+a[k]||0))a[k]=+b[k]};
  mx(S.w,r.w);mx(S.read,r.read);
  if(r.g&&typeof r.g==='object'){mx(S.g.st,r.g.st);Object.assign(S.g.ob,r.g.ob||{});S.g.plays=Math.max(S.g.plays,+r.g.plays||0)}
+ if(r.m&&typeof r.m==='object'){if(!S.m||typeof S.m!=='object')S.m={st:{},plays:0};if(!S.m.st)S.m.st={};mx(S.m.st,r.m.st);S.m.plays=Math.max(+S.m.plays||0,+r.m.plays||0)}
  for(const k in r.st||{}){const a=S.st[k],b=r.st[k];if(Array.isArray(b)&&(!a||(+b[0]||0)>(+a[0]||0)))S.st[k]=b}
  S.pts=Math.max(S.pts,+r.pts||0);
  const dl=dnum(S.day),dr=dnum(r.day);if(dr>dl){S.day=r.day;S.streak=+r.streak||0}else if(dr===dl)S.streak=Math.max(+S.streak||0,+r.streak||0)}

@@ -7,6 +7,7 @@ import * as sling from './sling.js';
 import * as listen from './listen.js';
 import * as read from './read.js';
 import * as bridge from './bridge.js';
+import * as M from './math.js';
 
 const LEVELS={sling,listen,read,bridge};
 const BGFIT={sling:'bottom',listen:'bottom',read:'bottom',bridge:'bridge'};
@@ -21,11 +22,12 @@ const nst=n=>`<span class="nb">${num(n)}${star()}</span>`;   // a number and its
 
 /* ---------- title ---------- */
 function title(){setBg('title','bottom');
- const d=Math.ceil((new Date(2026,10,25)-new Date())/864e5),m=bgMap('bottom');
+ const d=Math.ceil((new Date(2026,10,25)-new Date())/864e5),md=M.daysToExam(),m=bgMap('bottom');
  view.innerHTML=`<section class="scr title">
   <div class="logo"><h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p></div>
-  ${d>0&&d<60?`<p class="label days">עוד ${num(d)} ימים למבחן</p>`:''}
-  <div class="tgo">${btn('nav','יוצאים לדרך','green xl','data-to="map"')}
+  <div class="tgo subj"><p class="label pick">במה מתאמנים היום?</p>
+   <button class="btn green xl sb" data-a="nav" data-to="map"><span><b>אנגלית</b><small>איי המילים${d>0&&d<60?` · מבחן בעוד ${num(d)} ימים`:''}</small></span></button>
+   <button class="btn blue xl sb" data-a="nav" data-to="math"><span><b>חשבון: שברים</b><small>מפרץ השברים${md>0&&md<30?` · מבחן בעוד ${num(md)} ימים`:''}</small></span></button>
    ${API&&S.u?`<p class="who">${esc(S.u.n)} · ${pts(S.pts)} נקודות</p>`:''}</div>
   ${spr('crab_wave','tcrab bob')}</section>`;
  const c=view.querySelector('.tcrab');c.style.left=(m.ox+466*m.s)+'px';c.style.top=(m.oy+1240*m.s)+'px'}
@@ -51,6 +53,7 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
    <span class="tr">${API&&S.u?`<button class="mb" data-a="nav" data-to="board"><span class="rb t3">${spr('trophy','rbi')}</span><small>טבלה</small></button>`:''}<button class="mb" data-a="nav" data-to="collection"><span class="rb t2">${spr('chest','rbi')}</span><small>האוסף</small></button></span></header>
   ${played?`<div class="fin label${all?' all':''}" role="status">${spr(all?'crab_star':'crab_wave','fc bob')}<p>${all?`<b>כל הכבוד! סיימתם את כל האיים</b><small>כל ${num(MAX_STARS)} הכוכבים שלכם. אפשר לשחק שוב בכל שלב${API&&S.u?' ולצבור נקודות':''}</small>`
    :`<b>עברתם בכל האיים!</b><small><span class="nb">${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`}</span> <span class="nb">באיים שבמסגרת הצהובה</span></small>`}</p>${all?spr('trophy','ft'):`<span class="fs">${star()}<i>${num(tot+'/'+MAX_STARS)}</i></span>`}</div>`:''}
+  <button class="subjpill" data-a="nav" data-to="">${ico('back')}<span>מקצועות</span></button>
   ${deco('boat',24,0,58)}${deco('whale',76,1,46)}
   ${played?'':`<img class="compass" src="${SP('compass')}" alt="" style="top:${Math.min(H-80,m.oy+1215*m.s-36).toFixed(1)}px">`}
   <svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="${path}"/></svg>
@@ -196,20 +199,27 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
 /* ---------- actions ---------- */
 const A={
  nav(d){SND.tap();if(d.force&&location.hash==='#'+d.to)route();else go(d.to)},
- quit(){SND.tap();const m=location.hash.match(/play\/(\d+)/);go(m?'island/'+m[1]:'map')},
+ quit(){SND.tap();const m=location.hash.match(/(m?)play\/(\d+)/);go(m?(m[1]?'misland/':'island/')+m[2]:'map')},
  hint(){if(level&&level.hint){SND.tap();if(level.hint()===true)toast(HINT_NOTE,2800)}},   // the first hint in a level says what it costs
- locked(d,el){SND.bad();el.classList.remove('nope');void el.offsetWidth;el.classList.add('nope');const left=d.need-totalStars();toast(`עוד ${nst(left)} ${el.classList.contains('ball')?'והכדור שלכם':'והאי נפתח'}!<br>אוספים כוכבים בכל שלב שפתוח`,2600)},
+ locked(d,el){SND.bad();el.classList.remove('nope');void el.offsetWidth;el.classList.add('nope');const left=d.need-(d.m?M.mTotal():totalStars());toast(`עוד ${nst(left)} ${el.classList.contains('ball')?'והכדור שלכם':'והאי נפתח'}!<br>אוספים כוכבים בכל שלב שפתוח`,2600)},
+ /* math levels: keypad, answer slots, choices, pizzas */
+ mkey(d){if(level&&level.key)level.key(d.k)},
+ mslot(d){if(level&&level.slot)level.slot(d.k)},
+ mpick(d){if(level&&level.pick)level.pick(+d.k)},
+ mpz(d,el,e){if(!level||!level.tap)return;const s=e&&e.target.closest&&e.target.closest('[data-s]');level.tap(+d.j,s?+s.dataset.s:-1)},
+ mpzok(){if(level&&level.ok)level.ok()},
+ mmerge(){if(level&&level.merge)level.merge()},
  ball(d){S.g.ball=+d.i;save();SND.pop();collection()},
  toggle(d){SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);if(d.k==='calm')applyCalm();SND.tap();settings()},
  lmode(d){SND.tap();V={name:'login',m:d.m,c:$('#lc').value.trim(),n:$('#ln').value,p:$('#lp').value};login()},
  async auth(d){const m=d.m,c=$('#lc').value.trim(),n=$('#ln').value.trim().replace(/\s+/g,' '),p=$('#lp').value;
   if(!c||n.length<2||!/^\d{4}$/.test(p)){V={name:'login',m,c,n,p,err:ERR.input};return login()}
   V={name:'login',m,c,n,p,busy:1};login();const err=await auth(m,c,n,p);if(V.name!=='login')return;
-  if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err,sw:err===ERR.nouser?'register':err===ERR.taken?'login':''};return login()}go('map')},
+  if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err,sw:err===ERR.nouser?'register':err===ERR.taken?'login':''};return login()}go('title')},
  async logout(){if(await logout())go('login');else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};
-document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el)}});
+document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el,e)}});
 document.addEventListener('submit',e=>{e.preventDefault();const b=e.target.querySelector('[data-a=auth],[data-a=tlogin]');if(b)b.click()});
 for(const ev of['pointerdown','touchend','click'])document.addEventListener(ev,()=>{unlock();unlockTTS()},{passive:true});
 document.addEventListener('keydown',()=>unlock(),{passive:true});
@@ -225,14 +235,15 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
  if(API&&S.u&&n==='login')n='map';
  V={name:n||'title'};stage.dataset.scr=V.name;
  switch(V.name){case'map':map();break;case'island':island(a);break;case'play':play(a,b);break;case'collection':collection();break;case'settings':settings();break;
+  case'math':M.map();break;case'misland':M.island(a,go);break;case'mplay':{const my=navId;loader();M.play(a,b,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
   case'help':help();break;case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}}
 addEventListener('hashchange',route);
 /* a pupil who also plays on another device: bring that progress in when the game opens or comes back to the front.
    Only the calm screens are drawn again; a level in play just keeps the better record underneath. */
-const redraw=changed=>{if(changed&&['title','map','island','collection','settings'].includes(V.name))route()};
+const redraw=changed=>{if(changed&&['title','map','island','collection','settings','math','misland'].includes(V.name))route()};
 const refresh=()=>pull().then(redraw);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
-let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='title')title()},150)});
+let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='math')M.map();else if(V.name==='title')title()},150)});
 
 /* ---------- boot ---------- */
 (async function boot(){loader();

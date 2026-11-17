@@ -95,3 +95,17 @@ swallow the start of a word. A level preloads its clips and opens when its first
 clip cannot be fetched or decoded within 3 s, the old `<audio>` element plays the same stretch, and after that the
 browser's own voice speaks. The tests answer the clip host with a small generated WAV, so this path runs for real
 in headless Chrome (`python3 tests/play.py --voice` runs only the speech checks).
+
+## Fraction Bay (מפרץ השברים): math
+
+A second subject in the same game and under the same class login, for the math exam on Friday 20.11.26 (from the teachers' notice):
+adding and subtracting fractions and mixed numbers with the same denominator, with regrouping (פריטה), and mixed number ↔ improper fraction.
+
+- Four islands: conversion, addition, subtraction, and an exam island that mixes everything. 11 levels, 33 stars.
+- Three level types: the pizza table (build and see the fractions, cut a whole pizza to regroup), the fraction slingshot,
+  and the exam sheet (answers typed digit by digit, wrong twice shows the worked solution).
+- Every exercise is generated (`js/mdata.js`), so replays are new. `node tests/mdata_check.mjs` checks 30,000 of them:
+  right answer, right form, no distractor equal to the answer.
+- Progress is saved in the same record as English (`S.m`), so it needs no backend change. Math points count on the class board;
+  the teacher screen still shows English only.
+- `python3 tests/math.py` plays every math level at two phone sizes and a laptop size (`--quick`: a short run).

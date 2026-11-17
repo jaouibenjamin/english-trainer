@@ -1,0 +1,112 @@
+/* Fraction Bay (מפרץ השברים): the math world. Built on game.css; only what is new for fractions lives here. */
+
+/* ---------- fractions as they are written in the math book ---------- */
+.mx{display:inline-flex;align-items:center;gap:.14em;direction:ltr;unicode-bidi:isolate;vertical-align:middle;font-variant-numeric:tabular-nums}
+.mw{font-weight:800;font-size:1.25em;line-height:1}
+.fr{display:inline-flex;flex-direction:column;align-items:stretch;text-align:center;font-weight:800;font-size:.82em;line-height:1.05}
+.fr i{font-style:normal;padding:0 .18em}
+.fr i:first-child{border-bottom:.11em solid currentColor;padding-bottom:.06em}
+.fr i:last-child{padding-top:.06em}
+.ex{display:inline-flex;align-items:center;gap:.32em;direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.ex>em{font-style:normal;font-weight:700}
+.mrun{white-space:nowrap}
+
+/* ---------- title: choose the subject ---------- */
+.tgo.subj{gap:10px;width:100%;max-width:330px}
+.tgo.subj .pick{font-size:16px;margin:0}
+.tgo.subj .btn{animation:none;width:100%}
+.btn.xl.sb{height:80px;border-width:0 30px}
+.btn.sb span{display:flex;flex-direction:column;align-items:center;line-height:1.15}
+.btn.sb b{font-size:24px}
+.btn.sb small{font-size:14px;font-weight:600}
+.tgo.subj .btn.green{animation:pulse 2.2s ease-in-out infinite}
+
+/* the English map: a way back to the subjects, centred between the two island columns */
+.subjpill{position:absolute;right:10px;top:calc(70px + var(--st));z-index:4;display:inline-flex;align-items:center;gap:3px;font-size:14px;font-weight:700;background:rgba(255,250,240,.95);border:2px solid rgba(90,69,52,.55);border-radius:14px 17px 13px 16px/16px 13px 17px 14px;padding:3px 12px 4px 8px;color:var(--ink);min-height:36px}
+.subjpill .ico{width:18px;height:18px}
+.calm .subjpill{transition:none}
+
+/* ---------- math map ---------- */
+.mmap .mtitle{position:absolute;top:calc(62px + var(--st));left:50%;transform:translateX(-50%);margin:0;text-align:center;display:flex;flex-direction:column;z-index:3;white-space:nowrap}
+.mmap .mtitle b{font-size:20px;line-height:1.1}
+.mmap .mtitle small{font-size:13px;font-weight:600;color:var(--ink2)}
+.mbsp{display:block;width:52px}
+
+/* ---------- island level icons ---------- */
+.mic{display:grid;place-items:center;width:100%;height:100%}
+.mic .pzs{width:88%;height:88%}
+
+/* ---------- the slingshot sign ---------- */
+.mprompt b{font-size:30px;display:flex;align-items:center;justify-content:center;gap:.3em}
+.mprompt b .q{font-style:normal;font-weight:800}
+.mprompt small{font-size:14px}
+.cap .ex{font-size:20px}
+
+/* ---------- the exam sheet ---------- */
+.mlv{gap:10px}
+.sheet .paper{width:100%;max-width:380px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.sheet .qn{margin:0;font-size:13px;font-weight:700;color:var(--ink2)}
+.sheet .ask{margin:0;font-size:15.500px;font-weight:700;line-height:1.25}
+.eqrow{display:flex;align-items:center;justify-content:center;gap:10px;font-size:32px;margin:6px 0 2px;direction:ltr}
+.eqrow>em{font-style:normal;font-weight:800}
+.ansbox{display:inline-flex;align-items:center;gap:6px}
+.ansbox .af{display:inline-flex;flex-direction:column;align-items:center;gap:3px}
+.ansbox .abar{display:block;width:100%;height:3px;border-radius:2px;background:var(--ink)}
+.aslot{min-width:44px;height:44px;padding:0 6px;border-radius:10px;border:2.5px dashed rgba(90,69,52,.55);background:#fffaf0;font:inherit;font-size:26px;font-weight:800;line-height:1;color:var(--ink);display:grid;place-items:center}
+.aw .aslot{min-width:48px;height:56px;font-size:32px}
+.aslot.aon{border-style:solid;border-color:#e0845f;background:#fff3d6;box-shadow:0 0 0 3px rgba(239,143,122,.3)}
+.aslot:not(.aempty){border-style:solid}
+.mfb{min-height:24px;font-size:15px;font-weight:700;line-height:1.35;display:flex;flex-direction:column;align-items:center;gap:4px}
+.mfb.mok{color:#3f6d32}
+.mfb.mbad,.mfb.mwarn{color:#a1412f}
+.mfb.mhint .mst,.mfb.msol .mst{font-weight:600}
+.mfb .mst{display:block}
+.mfb .mst .mx,.mfb .mst .ex{font-size:1.05em}
+.mfb .mres{font-size:22px;color:#3f6d32;margin-top:2px}
+.mfb .btn{margin-top:4px}
+.pad{direction:ltr;width:100%;max-width:340px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:auto;flex:none}
+.key{height:clamp(46px,6.6dvh,58px);border-radius:14px 16px 13px 15px/15px 13px 16px 14px;background:#fffaf0;border:2.5px solid rgba(90,69,52,.6);box-shadow:0 3px 0 rgba(90,69,52,.35);font:inherit;font-size:26px;font-weight:800;color:var(--ink);display:grid;place-items:center}
+.key:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(90,69,52,.35)}
+.key.kok{background:#cfe3b4;font-size:19px}
+.key.kdel{font-size:22px}
+.key.kdel .ico{width:26px;height:26px}
+.pad.off{opacity:.35;pointer-events:none}
+
+/* ---------- the pizza table ---------- */
+.pizza .ptask{width:100%;max-width:380px;flex:none;text-align:center;display:flex;flex-direction:column;gap:2px}
+.pizza .ptask b{font-size:22px;display:flex;align-items:center;justify-content:center;gap:.3em;flex-wrap:wrap}
+.pizza .ptask small{font-size:13.500px;font-weight:600;color:var(--ink2);line-height:1.3}
+.table{flex:1 1 auto;min-height:0;width:100%;max-width:400px;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:6px 10px;direction:ltr}
+.pz{width:min(42%,150px,20dvh);aspect-ratio:1;padding:0;border-radius:50%;transition:transform .12s}
+.table.many .pz{width:min(30%,118px,16dvh)}
+.pz:active{transform:scale(.97)}
+.pzs{width:100%;height:100%;display:block;overflow:visible}
+.pzs .crust{fill:#e3b06a;stroke:#5a4534;stroke-width:2.6}
+.pzs .rim{fill:none;stroke:rgba(90,69,52,.45);stroke-width:1.3}
+.pzs .psl{stroke:none}
+.pzs .cuts line{stroke:#5a4534;stroke-width:1.6;stroke-linecap:round}
+.pzs .psl.pgone{fill:#efe2c6}
+.pz.whole .pzs .crust{stroke-width:3}
+.pz.whole{filter:drop-shadow(0 3px 0 rgba(90,69,52,.25))}
+.pz.justcut{animation:cut .5s ease-out}
+@keyframes cut{0%{transform:scale(1.08) rotate(-6deg)}100%{transform:none}}
+.table.merged .pz{animation:popin2 .5s ease-out}
+.pplus{font-style:normal;font-weight:800;font-size:34px;align-self:center;padding:0 2px}
+.pfoot{width:100%;max-width:380px;flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.pfoot .mq{margin:0;font-size:16.500px;font-weight:700;line-height:1.35;background:rgba(255,250,240,.92);border-radius:12px;padding:4px 12px}
+.pfoot .mq b{font-weight:800}
+.pfoot .mq .ex,.pfoot .mq .mx{font-size:1.15em}
+.pfoot .cnt b{font-size:18px}
+.pfoot .pc{display:inline-block;margin-inline-start:8px;background:#fff3d6;border-radius:9px;padding:0 8px;white-space:nowrap}
+.pfoot .okq{color:#3f6d32;font-size:20px}
+.mch{display:flex;justify-content:center;gap:10px;width:100%}
+.mc{flex:1 1 0;max-width:112px;min-height:78px;border-radius:16px 19px 15px 18px/18px 15px 19px 16px;background:#fffaf0;border:2.5px solid rgba(90,69,52,.6);box-shadow:0 3px 0 rgba(90,69,52,.35);font:inherit;font-size:28px;color:var(--ink);display:grid;place-items:center;padding:4px}
+.mch.nums .mc{min-height:62px}
+.mc .big{font-size:30px;font-weight:800}
+.mc.mbad{background:#f6d5cc;border-color:#b9503c;opacity:.75}
+.mc.mgood{background:#d9ebc4;border-color:#5f8a4a}
+.mc.mglow{box-shadow:0 0 0 4px rgba(247,215,116,.95),0 3px 0 rgba(90,69,52,.35)}
+.mrev .rv .ex{font-size:18px}
+
+@media (max-height:700px){.eqrow{font-size:28px}.aslot{height:40px}.aw .aslot{height:50px}.mc{min-height:66px;font-size:24px}.pizza .ptask b{font-size:19px}}
+.calm .pz.justcut,.calm .table.merged .pz{animation:none}

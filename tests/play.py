@@ -532,7 +532,7 @@ async def class_run(b, w, h, errs):
     taken = await pg.evaluate('''async ([api, mates]) => { const out = []; for (const [n, pts, words, reads, streak] of mates) {
         const post = d => fetch(api, {method: 'POST', body: JSON.stringify(d)}).then(r => r.json());
         const r = await post({a: 'register', c: 'EN-1234', n, p: '1111'}); out.push(r.ok ? '' : r.e);
-        await post({a: 'save', c: 'EN-1234', n, p: '1111', s: {pts, streak, day: '2026-11-14', k: {words, reads}, g: {st: Object.fromEntries(Array.from({length: Math.round(words / 59 * 22)}, (_, i) => ['L' + i, 3]))},
+        await post({a: 'save', c: 'EN-1234', n, p: '1111', s: {pts, streak, day: new Date().toISOString().slice(0, 10), k: {words, reads}, g: {st: Object.fromEntries(Array.from({length: Math.round(words / 59 * 22)}, (_, i) => ['L' + i, 3]))},
             st: words < 13 ? {their: [6, 4], special: [5, 2], subject: [6, 3], 'a lot of': [4, 2]} : {their: [6, 1], special: [5, 0], subject: [6, 1], 'a lot of': [4, 2]}}}); } return out }''', [api, mates])
     name = None
     for cand in ('יובל', 'תמר', 'אורי', 'שירה', 'דניאל', 'רוני', 'גיא', 'ליה', 'אדם', 'מיכל', 'עידו', 'הילה', 'בן', 'גל', 'זיו', 'חן', 'טל', 'לי', 'מור', 'ניר', 'סהר', 'עדי', 'פז', 'צוף', 'קרן', 'רז', 'שי', 'תום'):
@@ -554,7 +554,9 @@ async def class_run(b, w, h, errs):
     await pg.click('.err .swl'); await pg.wait_for_timeout(150)
     check(f'[{tag}] the switch turns the form into sign-up and keeps what was typed', (await pg.locator('.lcard .btn').inner_text()).strip() == 'נרשמים' and await pg.input_value('#ln') == name and await pg.input_value('#lp') == '4321')
     await shot(pg, f'class_02_login_register')
-    await pg.click('.lcard .btn'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(400)
+    await pg.click('.lcard .btn'); await pg.wait_for_selector('.title .sb')   # signed in: the pupil picks a subject
+    check(f'[{tag}] after signing in the pupil chooses English or math', await pg.locator('.title .sb').count() == 2)
+    await pg.click('.title .sb.green', force=True); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(400)
     check(f'[{tag}] register lands on the map with the labelled leaderboard button', await pg.locator('[data-to=board] small').count() == 1)
     await shot(pg, 'class_07_map')
     s = await play_level(pg, 1, 'sling')
@@ -583,7 +585,7 @@ async def class_run(b, w, h, errs):
     await p2.fill('#lc', 'en-1234'); await p2.fill('#ln', name); await p2.fill('#lp', '0000'); await p2.click('.lcard .btn')
     await p2.wait_for_function("document.querySelector('.err')&&document.querySelector('.err').textContent.length>3")
     check(f'[{tag}] wrong secret code is refused', 'הקוד הסודי' in await p2.locator('.err').inner_text())
-    await p2.fill('#lp', '4321'); await p2.click('.lcard .btn'); await p2.wait_for_selector('.map .isl')
+    await p2.fill('#lp', '4321'); await p2.click('.lcard .btn'); await p2.wait_for_selector('.title .sb'); await p2.click('.title .sb.green', force=True); await p2.wait_for_selector('.map .isl')
     st = await p2.evaluate("(()=>{const S=__game.S();return [__game.totalStars(),S.pts,Object.keys(S.w).length]})()")
     check(f'[{tag}] second device receives stars, points and word knowledge', st[0] == 9 and st[1] == pts and st[2] >= 7, st)
     # the classic trainer shares the login and must not drop the game stars when it saves
@@ -595,7 +597,7 @@ async def class_run(b, w, h, errs):
     await p2.click('[data-a=logout]'); await p2.wait_for_selector('#lc')
     check(f'[{tag}] logout returns to login and clears local progress', await p2.evaluate("__game.totalStars()") == 0)
     check(f'[{tag}] a device that signed in before starts on "already registered"', await p2.locator('.seg [data-m=login][aria-selected=true]').count() == 1)
-    await p2.fill('#ln', name); await p2.fill('#lp', '4321'); await p2.click('.lcard .btn'); await p2.wait_for_selector('.map .isl')
+    await p2.fill('#ln', name); await p2.fill('#lp', '4321'); await p2.click('.lcard .btn'); await p2.wait_for_selector('.title .sb'); await p2.click('.title .sb.green', force=True); await p2.wait_for_selector('.map .isl')
     st2 = await p2.evaluate("[__game.totalStars(),__game.S().pts]")
     check(f'[{tag}] stars survive a save made by the classic trainer', st2[0] == 9 and st2[1] > pts, st2)
     # teacher screen
@@ -654,4 +656,5 @@ async def main():
     print(f"\n{'ALL PASSED' if not fails else str(len(fails)) + ' FAILED: ' + '; '.join(fails)}")
     sys.exit(1 if fails else 0)
 
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())
