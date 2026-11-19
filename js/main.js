@@ -1,6 +1,6 @@
 /* Word Islands: router and all non-level screens. */
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
-import {S,SET,saveSet,save,API,ERR,api,cred,auth,logout,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
+import {S,SET,saveSet,save,API,ERR,api,cred,auth,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
 import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 import * as sling from './sling.js';
@@ -126,7 +126,7 @@ function settings(){setBg('paper','center');
    ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}</div>
   <div class="panel label"><div class="prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter(v=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
    <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p></div>
-  ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br>${num(wordsKnown())} מילים שנלמדו</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
+  ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br>${num(wordsKnown())} מילים שנלמדו<br>${syncLine()}</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
   </div>
   ${API&&S.u?'':`<div class="guide">${spr('crab_listen','bob')}<p class="label">ההתקדמות נשמרת במכשיר הזה</p></div>`}</section>`}   // signed in, the account panel takes the note's place
 function help(){setBg('paper','center');
@@ -154,6 +154,17 @@ function login(){setBg('paper','center');
    ${V.err?`<p class="err" role="alert"><span>${esc(V.err)}</span>${sw}</p>`:`<p class="lnote">${reg?'בוחרים 4 ספרות שרק אתם יודעים. לא הקוד של הטלפון!':'נכנסים עם השם והקוד הסודי שבחרתם'}</p>`}
    ${btn('auth',V.busy?'רגע…':reg?'נרשמים':'כניסה','green wide',`data-m="${reg?'register':'login'}" type="button" ${V.busy?'disabled':''}`)}</form></div>
   ${btn('nav','כניסת מורה','cream sm tlink','data-to="teacher"')}</section>`}
+/* ---------- the class table did not take this device's progress ----------
+   Shown on the main screens until the pupil signs in again. Before this, a refused save was silent. */
+const RELOG_MSG={class:'קוד הכיתה השתנה. התחברו עם הקוד החדש.',nouser:'השם שלכם לא נמצא בטבלת הכיתה. אולי הוא שונה: התחברו עם השם החדש.',pin:'הקוד הסודי לא מתאים. התחברו שוב.'};
+function syncBar(){const el=document.getElementById('syncbar');if(!el)return;
+ const show=needsRelogin()&&['title','map','math','misland','island','settings','board','collection'].includes(V.name);
+ el.classList.toggle('on',show);
+ el.innerHTML=show?`<button class="syncb" data-a="relogin"><b>ההתקדמות לא נשמרת בטבלת הכיתה</b><small>${esc((RELOG_MSG[syncState().err]||'').split('.')[0])}. לחצו כאן כדי להתחבר שוב</small></button>`:''}
+addEventListener('sync',syncBar);
+function syncLine(){const s=syncState();if(needsRelogin())return'<b class="sbad">לא נשמר בטבלת הכיתה</b>';
+ if(!s.at)return'עוד לא נשמר בטבלת הכיתה';const t=new Date(s.at),today=new Date().toDateString()===t.toDateString();
+ return`נשמר בטבלת הכיתה ${today?'היום':num(t.getDate()+'/'+(t.getMonth()+1))} ב־${num(String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'))}`}
 function board(){if(!API||!S.u)return go('map');setBg('paper','center');
  if(!V.rows){view.innerHTML=`<section class="scr board">${top('טבלת הכיתה')}<p class="panel label msg">${esc(V.err||'טוענים את הטבלה…')}</p></section>`;
   if(!V.req){V.req=1;const v=V;push().then(()=>api('board',cred())).then(r=>{if(V!==v)return;if(r.ok)V.rows=r.rows;else V.err=ERR[r.e]||ERR.net;board()}).catch(()=>{if(V!==v)return;V.err=ERR.net;board()})}return}
@@ -216,6 +227,8 @@ const A={
   if(!c||n.length<2||!/^\d{4}$/.test(p)){V={name:'login',m,c,n,p,err:ERR.input};return login()}
   V={name:'login',m,c,n,p,busy:1};login();const err=await auth(m,c,n,p);if(V.name!=='login')return;
   if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err,sw:err===ERR.nouser?'register':err===ERR.taken?'login':''};return login()}go('title')},
+ relogin(){SND.tap();const o=relogin();if(!o)return go('login');
+  V={name:'login',m:'login',c:o.c,n:o.n,p:'',err:(RELOG_MSG[o.e]||RELOG_MSG.nouser)+'\nההתקדמות מהמכשיר הזה שמורה, והיא תעבור לחשבון כשתתחברו.'};login();syncBar()},
  async logout(){if(await logout())go('login');else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};
@@ -236,7 +249,7 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
  V={name:n||'title'};stage.dataset.scr=V.name;
  switch(V.name){case'map':map();break;case'island':island(a);break;case'play':play(a,b);break;case'collection':collection();break;case'settings':settings();break;
   case'math':M.map();break;case'misland':M.island(a,go);break;case'mplay':{const my=navId;loader();M.play(a,b,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
-  case'help':help();break;case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}}
+  case'help':help();break;case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
 addEventListener('hashchange',route);
 /* a pupil who also plays on another device: bring that progress in when the game opens or comes back to the front.
    Only the calm screens are drawn again; a level in play just keeps the better record underneath. */
@@ -252,4 +265,4 @@ let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{i
  await Promise.race([Promise.all([preload([BG('title'),BG('map'),BG('paper'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign'),SP('scroll')]),fonts]),sleep(6000)]);
  await Promise.race([pulled.then(()=>{late=false}),sleep(1200)]);
  route();if(late)pulled.then(redraw);preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
-window.__game={S:()=>S,SET,measure,totalStars,go};
+window.__game={S:()=>S,SET,measure,totalStars,go,award,push};

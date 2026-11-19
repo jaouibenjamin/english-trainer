@@ -29,6 +29,17 @@ export const wordsKnown=()=>WORDS.filter(w=>w.p<6&&(S.w[w.en]||0)>=2).length;
 const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,m:S.m,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
 let dirty=0,syncT=0,retryT=0,retryN=0,inflight=null,fatal=false;
 const FATAL=['pin','nouser','class','input','big','setup'];   // the server will never take this save: do not keep trying
+/* ---------- is the class table up to date? ----------
+   S.sync = {at: time of the last save the server took, err: why the last one was refused}. Kept on the device, never sent.
+   A refusal for good (the class code changed, the pupil's name was edited in the sheet, the row was deleted) used to be
+   silent: the device kept the points and the sheet never saw them. Now the pupil is asked to sign in again, and what this
+   device earned is joined to the account they sign in to, when it is the same pupil (see auth). */
+export const RELOGIN=['pin','nouser','class'];
+export const syncState=()=>S.sync||{};
+export const needsRelogin=()=>!!(API&&S.u&&S.sync&&RELOGIN.includes(S.sync.err));
+const onSync=()=>{try{dispatchEvent(new Event('sync'))}catch(e){}};
+const synced=()=>{S.sync={at:Date.now()};saveLocal();onSync()};
+const refused=e=>{S.sync={...(S.sync||{}),err:e||'net',errAt:Date.now()};saveLocal();onSync()};
 function touch(){if(!API||!S.u)return;dirty=1;clearTimeout(syncT);syncT=setTimeout(push,2500)}
 /* resolves true when nothing is left to save. One save at a time; a save that failed is tried again by itself
    (5 s, 10 s, ... up to a minute) and as soon as the connection is back, not only at the pupil's next answer. */
@@ -38,8 +49,8 @@ export function push(){
  dirty=0;
  inflight=(async()=>{let r=null;try{r=await api('save',{...cred(),s:pack()})}catch(e){}
   inflight=null;
-  if(r&&r.ok){retryN=0;fatal=false;return true}
-  dirty=1;fatal=!!(r&&FATAL.includes(r.e));
+  if(r&&r.ok){retryN=0;fatal=false;synced();return true}
+  dirty=1;fatal=!!(r&&FATAL.includes(r.e));refused(r&&r.e);
   if(!fatal)retryT=setTimeout(push,Math.min(60000,5000*2**retryN++));
   return false})();
  return inflight}
@@ -64,18 +75,32 @@ let pullAt=0;
 export async function pull(){
  if(!API||!S.u||Date.now()-pullAt<60000)return false;pullAt=Date.now();
  const u=S.u;let r;try{r=await api('login',cred())}catch(e){return false}
+ if(r&&!r.ok&&S.u===u&&FATAL.includes(r.e)){fatal=true;refused(r.e);return true}   // the account no longer takes this device's progress: ask to sign in again
  if(!r||!r.ok||S.u!==u)return false;
+ if(S.sync&&S.sync.err&&RELOGIN.includes(S.sync.err)){S.sync={at:Date.now()};onSync()}
  const rs=r.s||{},before=sig(S);merge(rs);fix();saveLocal();
  if(sig(S)!==sig(rs))touch();
  return sig(S)!==before}
 export async function auth(mode,c,n,p){
  let r;try{r=await api(mode,{c,n,p})}catch(e){r={e:'net'}}
  if(!r.ok)return ERR[r.e]||ERR.net;
- const o=S;S=Object.assign(blank(),{parts:o.parts,dir:o.dir,cnt:o.cnt,ct:o.ct,ccnt:o.ccnt,ctypes:o.ctypes},r.s||{},{u:{c,n,p},lastC:c});delete S.k;fix();dirty=0;fatal=false;pullAt=Date.now();saveLocal();return null}
+ const o=S,mine=o.u?{n:o.u.n,s:pack()}:o.stash||null;
+ S=Object.assign(blank(),{parts:o.parts,dir:o.dir,cnt:o.cnt,ct:o.ct,ccnt:o.ccnt,ctypes:o.ctypes},r.s||{},{u:{c,n,p},lastC:c});delete S.k;delete S.stash;delete S.sync;fix();dirty=0;fatal=false;pullAt=Date.now();
+ /* the same pupil signing in again (same name, or the same first name after the sheet was tidied): nothing this device
+    earned is lost. Someone else signing in on a shared device does not get it; it waits on the device for its owner. */
+ if(mine&&sameKid(mine.n,n)){const before=sig(r.s||{});merge(mine.s);fix();if(sig(S)!==before)touch()}
+ else if(mine&&hasProgress(mine.s))S.stash=mine;
+ S.sync={at:Date.now()};saveLocal();onSync();return null}
+const norm=x=>String(x||'').trim().replace(/\s+/g,' ');
+export const sameKid=(a,b)=>{a=norm(a);b=norm(b);return!!a&&(a===b||a.split(' ')[0]===b.split(' ')[0])};
+const hasProgress=s=>!!s&&((+s.pts||0)>0);
+/* sign in again after a refusal: what this device earned is put aside and joined in when the same pupil signs in */
+export function relogin(){const u=S.u;if(!u)return null;S.stash={n:u.n,s:pack()};clearTimeout(syncT);clearTimeout(retryT);const e=(S.sync&&S.sync.err)||'';S.u=null;dirty=0;fatal=false;delete S.sync;saveLocal();onSync();return{c:u.c,n:u.n,e}}
 /* resolves false, and keeps the pupil signed in, while progress is still waiting to be saved (no connection):
    signing out would erase it. A record the server refuses for good (the teacher removed the pupil) does not hold anyone back. */
 export async function logout(){const ok=await push();if(!ok&&!fatal)return false;
- clearTimeout(syncT);clearTimeout(retryT);const c=S.lastC;S=Object.assign(blank(),{lastC:c});dirty=0;fatal=false;saveLocal();return true}
+ clearTimeout(syncT);clearTimeout(retryT);const c=S.lastC,keep=fatal&&hasProgress(pack())?{n:S.u.n,s:pack()}:S.stash||null;   // a refused record is not thrown away: it waits for its owner to sign in
+ S=Object.assign(blank(),{lastC:c},keep?{stash:keep}:{});dirty=0;fatal=false;saveLocal();onSync();return true}
 
 /* ---------- points, streak, word knowledge ---------- */
 const dstr=d=>d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();

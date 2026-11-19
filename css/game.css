@@ -499,3 +499,10 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 /* short phones: the settings list has three switches now, so the crab's note steps aside instead of covering the numbers */
 @media (max-height:700px){.settings .guide{display:none}}
 @media (max-height:700px){.settings .setrow{min-height:46px}.settings .setrow .si{width:34px;height:34px}}
+/* the class table did not take this device's progress: a calm, clear bar with one action */
+#syncbar{position:absolute;left:10px;right:10px;bottom:calc(14px + var(--sb));z-index:30;display:none;justify-content:center}
+#syncbar.on{display:flex}
+.syncb{width:100%;max-width:380px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 12px;border-radius:16px 19px 15px 18px/18px 15px 19px 16px;background:#fde3d6;border:2.5px solid #b9503c;box-shadow:0 3px 0 rgba(90,69,52,.3);font:inherit;color:#7a2f22;text-align:center}
+.syncb b{font-size:16px}
+.syncb small{font-size:13.500px;font-weight:600;line-height:1.3}
+.acct .sbad{color:#a1412f}

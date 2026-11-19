@@ -43,4 +43,7 @@ if(process.argv[2]==='unit'){
  t('roster: a listed name registers',call({...B,n:'רוני',a:'register'}).ok,true);
  t('roster: pupils registered earlier still log in',call({...B,n:'עומר',a:'login'}).ok,true);
  t('pin hash not plain',/1234/.test(sheets.kids.d[1][2])===false&&sheets.kids.d[1][2].length===64,true);
-}else http.createServer((q,s)=>{let b='';q.on('data',c=>b+=c);q.on('end',()=>{s.writeHead(200,{'Access-Control-Allow-Origin':'*','Content-Type':'application/json'});s.end(q.method==='POST'?JSON.stringify(call(JSON.parse(b))):'{}')})}).listen(8765);
+}else http.createServer((q,s)=>{let b='';q.on('data',c=>b+=c);q.on('end',()=>{s.writeHead(200,{'Access-Control-Allow-Origin':'*','Content-Type':'application/json'});const d=q.method==='POST'?JSON.parse(b):null;
+  /* test only: tidy a pupil's name in the sheet, as a teacher or parent might */
+  if(d&&d.a==='__rename'){const r=sheets.kids.d.find(x=>x[0]===d.from);if(r)r[0]=d.to;return s.end(JSON.stringify({ok:!!r}))}
+  s.end(d?JSON.stringify(call(d)):'{}')})}).listen(8765);

@@ -613,6 +613,26 @@ async def class_run(b, w, h, errs):
     red = await p2.locator('.kid .pill.r').count(); kids = await p2.locator('.kid').count()
     check(f'[{tag}] the "needs reinforcement" tag is kept for the few who need it', 0 < red < kids - 1, [red, kids])
     await shot(p2, 'class_06_teacher')
+    # the sheet is tidied while the pupil plays: their row is renamed. The device's next save is refused for good.
+    # Before: silent, the device kept the points and the sheet never saw them. Now: a bar asks to sign in again,
+    # and what the device earned joins the renamed account.
+    newname = name + ' כ'
+    ok = await p2.evaluate("async ([api,a,b])=>(await fetch(api,{method:'POST',body:JSON.stringify({a:'__rename',from:a,to:b})})).json()", [api, name, newname])
+    check(f'[{tag}] test setup: the pupil row is renamed on the mock', ok.get('ok'))
+    await p2.evaluate("location.hash='map'"); await p2.wait_for_selector('.map .isl')
+    mine = await p2.evaluate("(async()=>{__game.award(200);await __game.push();return __game.S().pts})()")
+    await p2.wait_for_selector('#syncbar.on .syncb', timeout=8000)
+    check(f'[{tag}] a refused save shows the sign-in-again bar on the map', await p2.locator('#syncbar.on').count() == 1)
+    await shot(p2, 'class_07_syncbar')
+    await p2.click('.syncb'); await p2.wait_for_selector('#lc')
+    check(f'[{tag}] the bar opens sign-in with the old name filled in and a reason', await p2.input_value('#ln') == name and 'נשמרת' not in await p2.locator('.err').inner_text() and len(await p2.locator('.err').inner_text()) > 10, await p2.locator('.err').inner_text())
+    await shot(p2, 'class_08_relogin')
+    await p2.fill('#ln', newname); await p2.fill('#lp', '4321'); await p2.click('.lcard .btn'); await p2.wait_for_selector('.title .sb')
+    await p2.wait_for_timeout(3500)
+    srv = await p2.evaluate("async ([api,n])=>(await fetch(api,{method:'POST',body:JSON.stringify({a:'login',c:'EN-1234',n,p:'4321'})})).json()", [api, newname])
+    got = (srv.get('s') or {}).get('pts', 0)
+    check(f'[{tag}] the device progress reached the renamed account in the sheet', got >= mine and await p2.evaluate("__game.S().pts") >= mine, [got, mine])
+    check(f'[{tag}] the bar is gone once the account takes the saves', await p2.locator('#syncbar.on').count() == 0)
     await c.close(); await c2.close()
 
 
