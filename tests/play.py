@@ -633,6 +633,22 @@ async def class_run(b, w, h, errs):
     got = (srv.get('s') or {}).get('pts', 0)
     check(f'[{tag}] the device progress reached the renamed account in the sheet', got >= mine and await p2.evaluate("__game.S().pts") >= mine, [got, mine])
     check(f'[{tag}] the bar is gone once the account takes the saves', await p2.locator('#syncbar.on').count() == 0)
+    # a forgotten secret code: the teacher resets it from the teacher screen, and the next sign-in chooses a new one
+    await p2.evaluate("location.hash='teacher'"); await p2.wait_for_selector('#tt')
+    await p2.fill('#tt', '654321'); await p2.click('[data-a=tlogin]'); await p2.wait_for_selector('.kid')
+    rb = p2.locator('.kid', has_text=newname).locator('.treset')
+    await rb.click(); check(f'[{tag}] reset asks for a second tap', 'שוב' in await rb.inner_text())
+    await rb.click(); await p2.wait_for_function("document.querySelector('#toast').textContent.includes('אופס')")
+    await shot(p2, 'class_09_teacher_reset')
+    await p2.evaluate("location.hash='settings'"); await p2.wait_for_selector('[data-a=logout]')
+    await p2.click('[data-a=logout]'); await p2.wait_for_selector('#lc')
+    check(f'[{tag}] sign-in offers help for a forgotten code', await p2.locator('[data-a=forgot]').count() == 1)
+    await p2.click('[data-a=forgot]'); check(f'[{tag}] the forgot-code note explains the reset', 'לאפס' in await p2.locator('.err').inner_text())
+    await p2.fill('#lc', 'EN-1234'); await p2.fill('#ln', newname); await p2.fill('#lp', '2468'); await p2.click('.lcard .btn'); await p2.wait_for_selector('.title .sb')
+    await p2.wait_for_function("document.querySelector('#toast').textContent.includes('2468')", timeout=4000)
+    await shot(p2, 'class_10_new_code')
+    again = await p2.evaluate("async ([api,n])=>(await fetch(api,{method:'POST',body:JSON.stringify({a:'login',c:'EN-1234',n,p:'2468'})})).json()", [api, newname])
+    check(f'[{tag}] after a reset the new code works and the progress is still there', again.get('ok') and (again.get('s') or {}).get('pts', 0) >= mine, again.get('e'))
     await c.close(); await c2.close()
 
 

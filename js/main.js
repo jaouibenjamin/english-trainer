@@ -1,6 +1,6 @@
 /* Word Islands: router and all non-level screens. */
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
-import {S,SET,saveSet,save,API,ERR,api,cred,auth,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
+import {S,SET,saveSet,save,API,ERR,api,cred,auth,takeNewPin,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
 import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 import * as sling from './sling.js';
@@ -144,6 +144,7 @@ function login(){setBg('paper','center');
  const reg=(V.m||(S.lastC?'login':'register'))==='register';
  const tab=(m,t)=>`<button type="button" role="tab" aria-selected="${(m==='register')===reg}" data-a="lmode" data-m="${m}">${t}</button>`;
  const sw=V.sw?`<button type="button" class="swl" data-a="lmode" data-m="${V.sw}">${V.sw==='register'?'זאת הפעם הראשונה שלי':'כבר נרשמתי'} ${ico('next')}</button>`:'';
+ const fg=`<button type="button" class="swl" data-a="forgot">שכחתי את הקוד ${ico('next')}</button>`,pinErr=V.err===ERR.pin||V.err===ERR.locked;
  view.innerHTML=`<section class="scr login"><div class="logo sm"><h1>איי המילים</h1></div>
   <div class="lwrap">${spr('crab_wave','lcrab')}
   <form class="scrollp lcard" id="lf" autocomplete="off"><h3>כניסה לכיתה</h3>
@@ -151,7 +152,7 @@ function login(){setBg('paper','center');
    <label for="lc">קוד הכיתה (מהמורה)</label><input id="lc" class="in en" dir="ltr" autocapitalize="characters" autocomplete="off" value="${esc(V.c??S.lastC)}">
    <label for="ln">השם שלי</label><input id="ln" class="in" maxlength="20" autocomplete="off" value="${esc(V.n||'')}">
    <label for="lp">${reg?'קוד סודי חדש (4 ספרות)':'הקוד הסודי שלי (4 ספרות)'}</label><input id="lp" class="in en pin" dir="ltr" type="password" inputmode="numeric" maxlength="4" autocomplete="off" value="${esc(V.p||'')}">
-   ${V.err?`<p class="err" role="alert"><span>${esc(V.err)}</span>${sw}</p>`:`<p class="lnote">${reg?'בוחרים 4 ספרות שרק אתם יודעים. לא הקוד של הטלפון!':'נכנסים עם השם והקוד הסודי שבחרתם'}</p>`}
+   ${V.err?`<p class="err" role="alert"><span>${esc(V.err)}</span>${sw||(pinErr&&!reg?fg:'')}</p>`:`<p class="lnote">${reg?'בוחרים 4 ספרות שרק אתם יודעים. לא הקוד של הטלפון!':`נכנסים עם השם והקוד הסודי שבחרתם <button type="button" class="fgl" data-a="forgot">שכחתי את הקוד</button>`}</p>`}
    ${btn('auth',V.busy?'רגע…':reg?'נרשמים':'כניסה','green wide',`data-m="${reg?'register':'login'}" type="button" ${V.busy?'disabled':''}`)}</form></div>
   ${btn('nav','כניסת מורה','cream sm tlink','data-to="teacher"')}</section>`}
 /* ---------- the class table did not take this device's progress ----------
@@ -199,7 +200,7 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
  view.innerHTML=`<section class="scr teacher wide">${top('מסך המורה',back)}
   <div class="panel label"><h3>המילים הקשות לכיתה</h3>${D.hard.length?`<div class="hard">${D.hard.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]]||'')}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
   ${D.kids.length?`<div class="kids">${D.kids.map(d=>{const s=tag(d),dd=String(d.day||'').split('-');
-   return `<div class="kid label"><p class="kn"><b>${esc(d.n)}</b><span class="pill ${s[0]}">${s[1]}</span></p>
+   return `<div class="kid label"><p class="kn"><b>${esc(d.n)}</b><span class="pill ${s[0]}">${s[1]}</span><button class="treset" data-a="treset" data-n="${esc(d.n)}">איפוס קוד</button></p>
     ${hasStars(d)?`<p class="kw"><span>כוכבים</span>${num(d.stars+' / '+MAX_STARS)}</p><div class="pbar"><i style="width:${Math.min(100,d.stars/MAX_STARS*100)}%"></i></div>
     <p class="ks"><span>שלבים ${num(d.levels+' / '+NL)}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span></p>
     <p class="ks"><span>מילים שנלמדו ${num(d.words+' / 59')}</span><span>קטעי קריאה בלי טעות ${num(d.reads+' / 5')}</span>${d.tries?`<span>${num(Math.round(d.miss/d.tries*100)+'%')} טעויות</span>`:''}`
@@ -226,12 +227,19 @@ const A={
  async auth(d){const m=d.m,c=$('#lc').value.trim(),n=$('#ln').value.trim().replace(/\s+/g,' '),p=$('#lp').value;
   if(!c||n.length<2||!/^\d{4}$/.test(p)){V={name:'login',m,c,n,p,err:ERR.input};return login()}
   V={name:'login',m,c,n,p,busy:1};login();const err=await auth(m,c,n,p);if(V.name!=='login')return;
-  if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err,sw:err===ERR.nouser?'register':err===ERR.taken?'login':''};return login()}go('title')},
+  if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err,sw:err===ERR.nouser?'register':err===ERR.taken?'login':''};return login()}
+  const np=takeNewPin();go('title');if(np)setTimeout(()=>toast(`זה הקוד הסודי החדש שלכם: <b dir="ltr">${esc(np)}</b><br>כתבו אותו במקום שלא יאבד`,8000),400)},
+ forgot(){SND.tap();V={name:'login',m:'login',c:$('#lc').value.trim(),n:$('#ln').value,p:'',err:'שכחתם את הקוד? בקשו מהמורה או מההורה שמנהל את הכיתה לאפס אותו.\nאחרי האיפוס נכנסים עם השם וכל 4 ספרות שבוחרים: הן הקוד החדש.'};login()},
+ async treset(d,el){if(!V.data)return;SND.tap();
+  if(!el.dataset.arm){el.dataset.arm=1;el.textContent='לאפס? לחצו שוב';setTimeout(()=>{if(el.isConnected){delete el.dataset.arm;el.textContent='איפוס קוד'}},4000);return}
+  el.disabled=true;el.textContent='רגע…';let r;try{r=await api('reset',{c:V.c,t:V.t,n:d.n})}catch(e){r={e:'net'}}
+  if(r.ok){el.textContent='הקוד אופס';toast(`הקוד של ${esc(d.n)} אופס.<br>עכשיו נכנסים עם השם וכל 4 ספרות, והן הקוד החדש`,6000)}
+  else{el.disabled=false;delete el.dataset.arm;el.textContent='איפוס קוד';toast(esc(ERR[r.e]||ERR.net),3500)}},
  relogin(){SND.tap();const o=relogin();if(!o)return go('login');
   V={name:'login',m:'login',c:o.c,n:o.n,p:'',err:(RELOG_MSG[o.e]||RELOG_MSG.nouser)+'\nההתקדמות מהמכשיר הזה שמורה, והיא תעבור לחשבון כשתתחברו.'};login();syncBar()},
  async logout(){if(await logout())go('login');else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
-  if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};
+  if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r,c,t}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};   // the teacher code is kept on this screen only, for resetting a pupil's code
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el,e)}});
 document.addEventListener('submit',e=>{e.preventDefault();const b=e.target.querySelector('[data-a=auth],[data-a=tlogin]');if(b)b.click()});
 for(const ev of['pointerdown','touchend','click'])document.addEventListener(ev,()=>{unlock();unlockTTS()},{passive:true});

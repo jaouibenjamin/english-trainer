@@ -506,3 +506,9 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .syncb b{font-size:16px}
 .syncb small{font-size:13.500px;font-weight:600;line-height:1.3}
 .acct .sbad{color:#a1412f}
+/* forgotten secret code: a quiet link on sign-in, and a reset button on each teacher card */
+.fgl{display:inline;font:inherit;font-weight:700;color:#8a4a2e;text-decoration:underline;text-underline-offset:3px;padding:6px 2px;min-height:32px}
+.kid .kn{flex-wrap:wrap}
+.treset{margin-inline-start:auto;font:inherit;font-size:12.500px;font-weight:700;color:#8a4a2e;background:#fff3d6;border:1.5px solid rgba(138,74,46,.45);border-radius:10px;padding:3px 9px;min-height:30px}
+.treset[data-arm]{background:#fde3d6;border-color:#b9503c;color:#7a2f22}
+.treset:disabled{opacity:.6}

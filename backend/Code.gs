@@ -65,7 +65,7 @@ function handle(d) {
   const last = ks.getLastRow();
   const rows = last > 1 ? ks.getRange(2, 1, last - 1, HEAD.length).getValues() : [];
 
-  if (d.a === 'teacher') {
+  if (d.a === 'teacher' || d.a === 'reset') {
     // the teacher code opens every pupil's record, so guessing is slowed down: 10 wrong codes close the door for 5 minutes (the same wait the pupils get)
     const guard = cs.getRange(2, 3, 1, 2), gv = guard.getValues()[0], now = Date.now();
     if (Number(gv[1]) > now) return { ok: false, e: 'locked' };
@@ -75,6 +75,15 @@ function handle(d) {
       return { ok: false, e: 'teacher' };
     }
     if (Number(gv[0])) guard.setValues([[0, 0]]);
+    if (d.a === 'reset') {
+      /* a pupil forgot the secret code: the teacher (or the parent, by clearing the hash cell in column C) resets it.
+         The next sign-in with that name and any 4 digits makes those digits the new code. Progress stays. */
+      const rn = String(d.n || '').trim().replace(/\s+/g, ' '), ri = rows.findIndex(function (r) { return String(r[0]) === rn; });
+      if (ri < 0) return { ok: false, e: 'nouser' };
+      ks.getRange(ri + 2, 2, 1, 2).setValues([['', '']]);
+      ks.getRange(ri + 2, 9, 1, 2).setValues([[0, 0]]);
+      return { ok: true };
+    }
     return teacherView(rows);
   }
 
@@ -94,6 +103,14 @@ function handle(d) {
   if (i < 0) return { ok: false, e: 'nouser' };
 
   const r = rows[i], rowNo = i + 2, now = Date.now();
+  /* code reset (the hash cell is empty): signing in sets the new code. A device still signed in with the old code is asked to sign in again. */
+  if (!String(r[2]).trim()) {
+    if (d.a !== 'login') return { ok: false, e: 'pin' };
+    const salt = Utilities.getUuid();
+    ks.getRange(rowNo, 2, 1, 2).setValues([[salt, hash(salt, pin)]]);
+    ks.getRange(rowNo, 9, 1, 2).setValues([[0, 0]]);
+    return { ok: true, s: parse(r[10]), newpin: true };
+  }
   if (Number(r[9]) > now) return { ok: false, e: 'locked' };
   if (hash(String(r[1]), pin) !== String(r[2])) {
     const f = Number(r[8]) + 1;

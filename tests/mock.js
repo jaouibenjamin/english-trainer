@@ -42,6 +42,14 @@ if(process.argv[2]==='unit'){
  t('roster: a name not on the list is refused',call({...B,n:'שחר',a:'register'}),{ok:false,e:'roster'});
  t('roster: a listed name registers',call({...B,n:'רוני',a:'register'}).ok,true);
  t('roster: pupils registered earlier still log in',call({...B,n:'עומר',a:'login'}).ok,true);
+ sheets.config.d[1][2]=0;sheets.config.d[1][3]=0;   // the teacher-code guard, left locked by the checks above
+ t('reset: wrong teacher code is refused',call({c:'EN-1234',a:'reset',t:'000000',n:'עומר'}).e,'teacher');
+ t('reset: the teacher resets a pupil code',call({c:'EN-1234',a:'reset',t:'654321',n:'עומר'}).ok,true);
+ t('reset: a device still signed in with the old code must sign in again',call({c:'EN-1234',n:'עומר',p:'1234',a:'save',s:{pts:1}}).e,'pin');
+ const np=call({c:'EN-1234',n:'עומר',p:'8642',a:'login'});
+ t('reset: the next sign-in sets the new code and keeps the progress',!!(np.ok&&np.newpin&&typeof np.s==='object'),true);
+ t('reset: the old code no longer works',call({c:'EN-1234',n:'עומר',p:'1234',a:'login'}).e,'pin');
+ t('reset: the new code works, and is no longer new',(()=>{const x=call({c:'EN-1234',n:'עומר',p:'8642',a:'login'});return x.ok&&!x.newpin})(),true);
  t('pin hash not plain',/1234/.test(sheets.kids.d[1][2])===false&&sheets.kids.d[1][2].length===64,true);
 }else http.createServer((q,s)=>{let b='';q.on('data',c=>b+=c);q.on('end',()=>{s.writeHead(200,{'Access-Control-Allow-Origin':'*','Content-Type':'application/json'});const d=q.method==='POST'?JSON.parse(b):null;
   /* test only: tidy a pupil's name in the sheet, as a teacher or parent might */

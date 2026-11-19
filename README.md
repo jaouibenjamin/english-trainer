@@ -52,6 +52,8 @@ With `config.js` empty the game still works, without login, and progress stays o
   A pupil gets the red tag when 30% or more of their answers were wrong, or after 3 days without practice.
   Class list: first names in column A of the `roster` tab (from row 2). With at least one name there, only listed names can register.
   The teacher code locks for 5 minutes after 5 wrong tries, like a pupil's code.
+  Forgotten code: the teacher taps "איפוס קוד" on the pupil's card (or the parent clears the hash cell, column C, in the `kids` tab).
+  The pupil then signs in with their name and any 4 digits, which become the new code. Progress stays.
   After changing `backend/Code.gs`, paste it into the script again and deploy a new version (Deploy > Manage deployments > edit > Version: New version).
 - The leaderboard shows the podium, the top five and the pupil's own place; nobody is listed as last.
 - To reset a pupil's forgotten code, delete their row in the `kids` tab; they register again.

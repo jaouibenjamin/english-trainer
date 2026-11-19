@@ -84,6 +84,7 @@ export async function pull(){
 export async function auth(mode,c,n,p){
  let r;try{r=await api(mode,{c,n,p})}catch(e){r={e:'net'}}
  if(!r.ok)return ERR[r.e]||ERR.net;
+ newPin=r.newpin?p:'';   // the code was reset: these digits are the pupil's new code
  const o=S,mine=o.u?{n:o.u.n,s:pack()}:o.stash||null;
  S=Object.assign(blank(),{parts:o.parts,dir:o.dir,cnt:o.cnt,ct:o.ct,ccnt:o.ccnt,ctypes:o.ctypes},r.s||{},{u:{c,n,p},lastC:c});delete S.k;delete S.stash;delete S.sync;fix();dirty=0;fatal=false;pullAt=Date.now();
  /* the same pupil signing in again (same name, or the same first name after the sheet was tidied): nothing this device
@@ -91,6 +92,8 @@ export async function auth(mode,c,n,p){
  if(mine&&sameKid(mine.n,n)){const before=sig(r.s||{});merge(mine.s);fix();if(sig(S)!==before)touch()}
  else if(mine&&hasProgress(mine.s))S.stash=mine;
  S.sync={at:Date.now()};saveLocal();onSync();return null}
+let newPin='';
+export const takeNewPin=()=>{const p=newPin;newPin='';return p};
 const norm=x=>String(x||'').trim().replace(/\s+/g,' ');
 export const sameKid=(a,b)=>{a=norm(a);b=norm(b);return!!a&&(a===b||a.split(' ')[0]===b.split(' ')[0])};
 const hasProgress=s=>!!s&&((+s.pts||0)>0);
