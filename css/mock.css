@@ -177,3 +177,19 @@
 
 .xsrc{margin:6px 0 10px;padding:10px 12px;border-radius:14px;background:#fff7d6;border:2px solid #f2c94c;font-size:17px;font-weight:700;line-height:1.35;text-align:center;color:#5a3d00}
 .xsrc b{color:#c0392b}
+
+/* bigger Guess Who cards */
+.xkids{grid-template-columns:repeat(2,1fr)!important;gap:8px!important}
+.xkid{flex-direction:column;padding:8px 6px!important;gap:2px;font-size:15px!important}
+.xkid>b{font-size:40px!important;line-height:1.1}
+.xkid .xkn{font-size:21px;font-weight:800}
+.xkid .xkf{font-size:15px;font-weight:600;color:var(--ink2)}.xkid .xkf b{color:var(--ink);font-weight:800}
+/* a big, readable clock on the invitation */
+.xinv .xi4{grid-column:1/-1;padding:8px}
+.xinv .xi4 svg{width:118px;height:118px}
+/* the crab's mouth moves while she talks */
+.ncrab .nmouth{position:absolute;left:46%;top:45%;width:11px;height:3px;transform:translate(-50%,-50%);background:#7a2f22;border-radius:2px 2px 7px 7px;display:none;pointer-events:none}
+.narr.talk .ncrab .nmouth{display:block;animation:mouth .34s steps(1,end) infinite}
+@keyframes mouth{0%{height:3px}25%{height:8px}50%{height:5px}75%{height:9px}}
+.calm .narr.talk .ncrab .nmouth{animation:mouth 1.2s steps(1,end) infinite}
+.xinv{grid-template-columns:1fr 1fr!important}
