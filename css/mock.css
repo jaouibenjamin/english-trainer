@@ -155,3 +155,22 @@
 .xrule .xex{display:block;font-weight:700;color:#3f6d32;text-align:left;font-size:15px}
 .xready>span>span{display:block}
 .xkid small+small{margin-top:-2px}
+
+/* the narrator: Pitzi talks; the words light up as she says them */
+.narr{width:100%;max-width:380px;flex:none;display:flex;align-items:flex-start;gap:8px;direction:rtl}
+.ncrab{position:relative;flex:none;width:74px;height:74px;padding:0;border-radius:50%;background:#fff3d6;border:2.5px solid rgba(90,69,52,.5);display:grid;place-items:center;box-shadow:0 3px 0 rgba(90,69,52,.3)}
+.ncrab .nc{width:62px;height:auto}
+.nsp{position:absolute;bottom:-4px;left:-4px;width:28px;height:28px;border-radius:50%;background:#fffaf0;border:2px solid rgba(90,69,52,.5);display:grid;place-items:center}
+.nsp img{width:18px;height:18px}
+.narr.talk .nc{animation:talk .45s ease-in-out infinite alternate}
+@keyframes talk{from{transform:translateY(0) rotate(-2deg)}to{transform:translateY(-3px) rotate(2deg)}}
+.narr.tap .nsp{animation:pulse 1.4s ease-in-out infinite;background:#f7d774}
+.nbub{position:relative;margin:0;flex:1;background:#fffaf0;border:2.5px solid rgba(90,69,52,.55);border-radius:18px 20px 16px 6px/18px 16px 20px 6px;padding:8px 12px;font-size:15.500px;font-weight:600;line-height:1.45;min-height:60px}
+.nbub::before{content:'';position:absolute;right:-10px;top:22px;border:8px solid transparent;border-left-color:rgba(90,69,52,.55)}
+.nbub span{opacity:.18;transition:opacity .25s}
+.nbub span.on,.narr.all .nbub span{opacity:1}
+.calm .narr.talk .nc{animation:none}
+.xloop{display:flex;align-items:center;justify-content:center;gap:4px;margin:2px 0 4px}
+.xloop span{display:flex;flex-direction:column;align-items:center;font-size:24px;line-height:1.1;background:#fff3d6;border-radius:12px;padding:4px 6px;min-width:58px}
+.xloop small{font-size:12px;font-weight:700}
+.xloop i{font-style:normal;font-weight:800;color:#8a4a2e}

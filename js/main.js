@@ -220,7 +220,7 @@ const A={
  locked(d,el){SND.bad();el.classList.remove('nope');void el.offsetWidth;el.classList.add('nope');const left=d.need-(d.m?M.mTotal():totalStars());toast(`עוד ${nst(left)} ${el.classList.contains('ball')?'והכדור שלכם':'והאי נפתח'}!<br>אוספים כוכבים בכל שלב שפתוח`,2600)},
  /* math levels: keypad, answer slots, choices, pizzas */
  /* mock exam */
- mockpick(d){X.MOCK_A.pick(d)},mocktile(d,el){X.MOCK_A.tile(d,el)},mockcheck(){X.MOCK_A.check()},mocknext(){SND.tap();X.next()},
+ mockpick(d){X.MOCK_A.pick(d)},mocktile(d,el){X.MOCK_A.tile(d,el)},mockcheck(){X.MOCK_A.check()},mocknext(){SND.tap();X.next()},mocksay(d){X.say(d.k)},
  mockquit(){SND.tap();if(level&&level.quit&&!level.quit())return;go('mock')},
  mkey(d){if(level&&level.key)level.key(d.k)},
  mslot(d){if(level&&level.slot)level.slot(d.k)},
