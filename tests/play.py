@@ -555,7 +555,7 @@ async def class_run(b, w, h, errs):
     check(f'[{tag}] the switch turns the form into sign-up and keeps what was typed', (await pg.locator('.lcard .btn').inner_text()).strip() == 'נרשמים' and await pg.input_value('#ln') == name and await pg.input_value('#lp') == '4321')
     await shot(pg, f'class_02_login_register')
     await pg.click('.lcard .btn'); await pg.wait_for_selector('.title .sb')   # signed in: the pupil picks a subject
-    check(f'[{tag}] after signing in the pupil chooses English or math', await pg.locator('.title .sb').count() == 2)
+    check(f'[{tag}] after signing in the pupil chooses English, the mock exam or math', await pg.locator('.title .sb').count() == 3)
     await pg.click('.title .sb.green', force=True); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(400)
     check(f'[{tag}] register lands on the map with the labelled leaderboard button', await pg.locator('[data-to=board] small').count() == 1)
     await shot(pg, 'class_07_map')

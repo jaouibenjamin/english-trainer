@@ -26,7 +26,7 @@ export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסו�
 export async function api(a,d){const r=await fetch(API,{method:'POST',body:JSON.stringify({a,...d}),keepalive:a==='save'});return r.json()}
 export const cred=()=>({c:S.u.c,n:S.u.n,p:S.u.p});
 export const wordsKnown=()=>WORDS.filter(w=>w.p<6&&(S.w[w.en]||0)>=2).length;
-const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,m:S.m,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
+const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,m:S.m,x:S.x,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
 let dirty=0,syncT=0,retryT=0,retryN=0,inflight=null,fatal=false;
 const FATAL=['pin','nouser','class','input','big','setup'];   // the server will never take this save: do not keep trying
 /* ---------- is the class table up to date? ----------
@@ -61,11 +61,15 @@ addEventListener('online',()=>{push()});
    the higher star count of every level, the higher knowledge of every word, the higher points. */
 const dnum=d=>{const p=String(d||'').split('-').map(Number);return p.length===3&&!p.some(isNaN)?p[0]*10000+p[1]*100+p[2]:0};
 const sum=o=>Object.values(o||{}).reduce((a,v)=>a+(+v||0),0);
-const sig=o=>[+o.pts||0,sum(o.g&&o.g.st),sum(o.m&&o.m.st),sum(o.w),sum(o.read),Object.keys(o.st||{}).length,o.day||''].join('|');
+const sig=o=>[+o.pts||0,sum(o.g&&o.g.st),sum(o.m&&o.m.st),(o.x&&o.x.tries||[]).length,sum(o.w),sum(o.read),Object.keys(o.st||{}).length,o.day||''].join('|');
 function merge(r){
  const mx=(a,b)=>{for(const k in b||{})if((+b[k]||0)>(+a[k]||0))a[k]=+b[k]};
  mx(S.w,r.w);mx(S.read,r.read);
  if(r.g&&typeof r.g==='object'){mx(S.g.st,r.g.st);Object.assign(S.g.ob,r.g.ob||{});S.g.plays=Math.max(S.g.plays,+r.g.plays||0)}
+ /* mock exam: every finished paper is kept, whichever device it was taken on */
+ if(r.x&&typeof r.x==='object'){if(!S.x||typeof S.x!=='object')S.x={};const a=Array.isArray(S.x.tries)?S.x.tries:[],b=Array.isArray(r.x.tries)?r.x.tries:[],at=new Set(a.map(t=>t.at));
+  S.x.tries=[...a,...b.filter(t=>t&&!at.has(t.at))].sort((p,q)=>p.at-q.at).slice(-20);S.x.prac=Object.assign({},r.x.prac||{},S.x.prac||{});for(const k in r.x.prac||{})S.x.prac[k]=Math.max(+S.x.prac[k]||0,+r.x.prac[k]||0);
+  S.x.seen=[...new Set([...(S.x.seen||[]),...(r.x.seen||[])])].slice(-400)}
  if(r.m&&typeof r.m==='object'){if(!S.m||typeof S.m!=='object')S.m={st:{},plays:0};if(!S.m.st)S.m.st={};mx(S.m.st,r.m.st);S.m.plays=Math.max(+S.m.plays||0,+r.m.plays||0)}
  for(const k in r.st||{}){const a=S.st[k],b=r.st[k];if(Array.isArray(b)&&(!a||(+b[0]||0)>(+a[0]||0)))S.st[k]=b}
  S.pts=Math.max(S.pts,+r.pts||0);

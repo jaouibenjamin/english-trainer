@@ -111,3 +111,15 @@ adding and subtracting fractions and mixed numbers with the same denominator, wi
 - Progress is saved in the same record as English (`S.m`), so it needs no backend change. Math points count on the class board;
   the teacher screen still shows English only.
 - `python3 tests/math.py` plays every math level at two phone sizes and a laptop size (`--quick`: a short run).
+
+## Mock exam (מבחן דמו)
+
+Built from the teacher's seven review stations (Word Power, Guess Who, Be the Boss, Birthday Time, Reading Detective, Mime It)
+and her "My Unit 1 check-in". 20 questions in four stations (words, grammar, reading, writing), one try per question.
+The report fills in the check-in card per skill; every skill under 80% gets a practice (a rule card and 8 items with
+explanations and a second try). A new paper opens only after that practice, drawn mostly from items the pupil has not seen.
+
+- Content: `js/xdata.js` (about 200 items; `src:'ws'` marks items copied from the worksheets). Screens: `js/mock.js`, `css/mock.css`.
+- Pictures: `assets/x/pics.webp`, one sheet of 23 drawings in the game's style (made with Higgsfield, `tools/sheet.html` lays them out for capture).
+- Progress: `S.x` in the account record (papers, practice times, items seen). No backend change.
+- `python3 tests/mock.py` plays exam, report, practice and a second paper at two phone sizes and a laptop size.

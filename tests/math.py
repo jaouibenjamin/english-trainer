@@ -166,7 +166,7 @@ async def run(b, w, h, full, errs, laptop=False):
     c, pg = await new_page(b, w, h, errs=errs)
     await pg.goto(P.BASE); await pg.wait_for_selector('.title .sb'); await pg.wait_for_timeout(600)
     await shot(pg, f'{t}_01_title')
-    check(f'[{t}] title offers English and math', await pg.locator('.title .sb').count() == 2)
+    check(f'[{t}] title offers English, the mock exam and math', await pg.locator('.title .sb').count() == 3)
     await pg.click('.title .sb.blue', force=True); await pg.wait_for_selector('.mmap .isl'); await pg.wait_for_timeout(500)
     await shot(pg, f'{t}_02_map')
     check(f'[{t}] math map: 4 islands, only the first open', await pg.locator('.isl').count() == 4 and await pg.locator('.isl.locked').count() == 3)
