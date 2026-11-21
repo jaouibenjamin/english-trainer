@@ -23,27 +23,58 @@ const pic=(w,cls='')=>{const i=PIC.indexOf(w);if(i<0)return'';const c=i%6,r=Math
 const blank=s=>esc(s).replace('___','<i class="gap">&nbsp;</i>');
 const top=(title,back)=>`<header class="top">${rb('nav',ico('back'),'חזרה',1,`data-to="${back}"`)}<h2 class="ribbon"><span>${title}</span></h2><span class="rbsp"></span></header>`;
 
+
+/* ---------- the narrator: Pitzi the crab, in the gentle voice the pupils know from the English game ----------
+   Short Hebrew lines at the start and the end, so a low first score reads as the start of practice, not as a failure.
+   The words appear as she says them; the crab replays the line. Each line plays by itself once per visit. */
+const VB='https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/hf_20261121_';
+const NARR={
+ intro:['171203_26c3dd33-7ed4-4231-adbc-99d98cf84c06','היי! ברוכים הבאים למבחן הדמו. רגע לפני שמתחילים, חשוב לי שתדעו: זה לא מבחן אמיתי, והוא לא נכנס לשום ציון. המטרה היא לא להצליח בפעם הראשונה. המטרה היא לגלות במה אתם כבר חזקים, ובמה כדאי עוד להתאמן. אז ענו בנחת. גם טעות זה בסדר גמור, כי כל טעות מראה לנו מה ללמוד. בהצלחה!'],
+ again:['171203_3790986f-c9d9-421d-b2fa-f6bebc6bee6b','ברוכים השבים! התאמנתם, ועכשיו זה הזמן לראות כמה השתפרתם. לאט ובנחת, אני כאן איתכם.'],
+ endPractice:['171203_b6a8b203-d883-4974-a015-b44ab3ba93c4','כל הכבוד שסיימתם! עכשיו אנחנו יודעים בדיוק במה להתאמן. אחרי אימון קצר, נסו שוב, ותראו כמה השתפרתם.'],
+ endBetter:['171203_1cc9b5ff-12a9-450f-8005-03d0dd644eb8','השתפרתם מהפעם הקודמת! ככה זה עובד: מתאמנים, ומשתפרים. עוד קצת אימון, ואתם שם.'],
+ endReady:['171204_7dd42f6e-ad55-4e0e-b77b-1c4d34e1dfaf','וואו! כל התחנות מעל שמונים אחוז. אתם מוכנים למבחן, ואני כל כך גאה בכם!'],
+ pracStart:['171204_e83cd667-7795-46cb-ae24-30cbf5dab72e','בואו נתאמן ביחד. קודם כלל אחד קצר, ואחר כך תרגילים. אם טועים, מנסים שוב. ככה לומדים.'],
+ pracDone:['171204_29e949fe-86ff-4277-b460-627f93df2f83','יופי של אימון! עכשיו אתם מוכנים לנסות שוב.']};
+let na=null,naKey='',naT=0;const heard=new Set();
+const narrBox=k=>`<div class="narr" data-k="${k}"><button class="ncrab" data-a="mocksay" data-k="${k}" aria-label="להשמיע שוב">${spr('crab_wave','nc')}<span class="nsp">${spr('ic_speaker','')}</span></button>
+ <p class="nbub">${NARR[k][1].split(' ').map(w=>`<span>${esc(w)} </span>`).join('')}</p></div>`;
+export function stopNarr(){if(na){try{na.pause()}catch(e){}}clearInterval(naT);document.querySelectorAll('.narr.talk').forEach(e=>e.classList.remove('talk'))}
+export function say(k,auto){const box=document.querySelector(`.narr[data-k="${k}"]`);if(!box||!NARR[k])return;
+ if(auto&&heard.has(k)){box.classList.add('all');return}heard.add(k);stopNarr();
+ if(!na){na=new Audio();na.preload='auto';na.setAttribute('playsinline','')}
+ const words=[...box.querySelectorAll('.nbub span')];words.forEach(w=>w.classList.remove('on'));box.classList.remove('all');
+ na.src=VB+NARR[k][0]+'.mp3';naKey=k;
+ const show=()=>{const d=na.duration||0,t=na.currentTime||0;if(!d)return;const n=Math.ceil(words.length*Math.min(1,(t+.25)/(d*.94)));words.forEach((w,i)=>w.classList.toggle('on',i<n))};
+ const end=()=>{clearInterval(naT);box.classList.remove('talk');box.classList.add('all')};
+ na.onended=end;na.onerror=end;
+ const p=na.play();box.classList.add('talk');naT=setInterval(show,120);
+ if(p&&p.catch)p.catch(()=>{end();box.classList.add('tap')})}   // no sound allowed yet: the whole line shows, and the crab invites a tap
+addEventListener('hashchange',stopNarr);
+
 /* ======================================================================
    The hub: what the mock exam is, the last check-in, practice, retake
    ====================================================================== */
 export function hub(){setBg('paper','center');const x=XS(),t=last(),nd=needs(),rt=canRetake();
  if(!t){view.innerHTML=`<section class="scr mockhub">${top('מבחן דמו','')}
-  <div class="xintro label">${spr('crab_listen','xcrab bob')}
-   <h3>לפני המבחן באנגלית</h3>
-   <p>${num(20)} שאלות ב־${num(4)} תחנות: מילים, דקדוק, קריאה וכתיבה. הכול מהדפים שהמורה חילקה בכיתה.</p>
-   <p class="strong">כמו במבחן אמיתי: לכל שאלה יש ניסיון אחד.</p>
-   <p>בסוף מקבלים תעודה שמראה במה אתם חזקים ובמה כדאי להתאמן. אחרי האימון אפשר לגשת שוב, עם שאלות חדשות.</p></div>
+  ${narrBox('intro')}
+  <div class="xintro label">
+   <h3>המטרה: להשתפר, לא לקבל 100</h3>
+   <div class="xloop" dir="rtl"><span>📝<small>מבחן</small></span><i>←</i><span>📋<small>תעודה</small></span><i>←</i><span>💪<small>אימון</small></span><i>←</i><span>📈<small>מבחן חדש</small></span></div>
+   <p>${num(20)} שאלות ב־${num(4)} תחנות, מהדפים שהמורה חילקה בכיתה. לכל שאלה ניסיון אחד, כמו במבחן.</p>
+   <p class="strong">טעות זה בסדר. היא מראה לנו במה להתאמן.</p></div>
   <div class="xstations">${XORDER.map((k,i)=>`<span class="xst s${i}"><b>${XSKILL[k].icon}</b><small>${XSKILL[k].he}</small></span>`).join('')}</div>
-  <div class="xgo">${btn('nav','מתחילים את המבחן','green xl','data-to="mockrun"')}<p class="xnote">בערך ${num(12)} דקות</p></div></section>`;return}
+  <div class="xgo">${btn('nav','מתחילים את המבחן','green xl','data-to="mockrun"')}<p class="xnote">בערך ${num(12)} דקות</p></div></section>`;say('intro',true);return}
  const hist=x.tries.slice(-4);
  view.innerHTML=`<section class="scr mockhub">${top('מבחן דמו','')}
+  ${rt?narrBox('again'):''}
   ${card(t,{small:true})}
   ${hist.length>1?`<div class="xhist label"><b>ההתקדמות שלי</b><div class="xh" dir="ltr">${hist.map((h,i)=>{const p=P100(h.total[0]/h.total[1]);return`<span class="hb" style="--h:${Math.max(8,p)}%"><i>${p}%</i><small>${i===hist.length-1?'עכשיו':'ניסיון '+(x.tries.length-hist.length+i+1)}</small></span>`}).join('')}</div></div>`:''}
   ${nd.length?`<div class="xplan label"><b>תוכנית האימון שלי</b>${nd.map(k=>`<button class="xpr ${practised(k)?'done':''}" data-a="nav" data-to="mockprac/${k}"><span class="xic">${XSKILL[k].icon}</span><span class="xt"><b>אימון ב${XSKILL[k].he}</b><small>${practised(k)?'עשיתם! אפשר להתאמן שוב':'כלל קצר ו־8 תרגילים עם הסברים'}</small></span>${practised(k)?spr('ic_check','xck'):ico('next')}</button>`).join('')}</div>`
    :`<p class="xready label">${spr('crab_star','')}<span><b>מוכנים למבחן!</b><span>כל התחנות מעל ${num('80%')}. אפשר לגשת שוב כדי להתאמן עוד.</span></span></p>`}
   <div class="xgo">${rt?btn('nav',`${ico('retry')} מבחן חדש`,'green xl','data-to="mockrun"')
    :`<button class="btn cream xl" disabled><span>${spr('lock','xlk')} מבחן חדש אחרי האימון</span></button><p class="xnote">קודם מתאמנים במה שסומן, ואז ניגשים שוב עם שאלות חדשות</p>`}</div>
- </section>`}
+ </section>`;if(rt)say('again',true)}
 
 /* the check-in card: the teacher's self-check sheet, filled in by the results */
 function card(t,{small=false}={}){const tot=t.total,p=P100(tot[0]/tot[1]);
@@ -85,11 +116,12 @@ export async function run(ctx){setBg('paper','center');await preload(['assets/x/
 /* the report: the check-in card, the plan, and the mistakes with the right answers */
 function report(t,items,ctx){ctx.setLevel(null);clearFx();const nd=needs(),p=P100(t.total[0]/t.total[1]);
  const head=!nd.length?'מוכנים למבחן!':p>=60?'כל הכבוד על המבחן!':'סיימתם את המבחן!';
+ const prev=XS().tries[XS().tries.length-2],better=prev&&t.total[0]/t.total[1]>prev.total[0]/prev.total[1],nk=!nd.length?'endReady':better?'endBetter':'endPractice';
  const weak=nd.map(k=>XSKILL[k].he);
  const wrong=t.wrong.map(([k,v])=>{const it=items.find(q=>q.k===k);return it?`<div class="xw"><span class="xwq">${XSKILL[it.skill].icon} ${it.sent?blank(it.sent):it.big?en(it.big):it.pic?pic(it.pic,'mini'):esc(it.q)}</span>
   <span class="xwa"><s dir="ltr">${esc(v||'—')}</s><b dir="ltr">${esc(it.type==='sentence'?it.a:it.a)}</b></span></div>`:''}).join('');
  view.innerHTML=`<section class="scr mockrep"><h2 class="ribbon"><span>${head}</span></h2>
-  ${spr(!nd.length?'crab_star':p>=60?'crab_happy':'crab_wave','xrcrab bob')}
+  ${narrBox(nk)}
   ${card(t)}
   ${nd.length?`<div class="xmsg label"><b>שמנו לב שכדאי לחזק: ${weak.join(' ו')}</b><span>הכנו לכם אימון קצר ב${weak.length>1?'כל אחד מהם':weak[0]}. אחרי האימון אפשר לגשת שוב למבחן הדמו, עם שאלות חדשות.</span></div>`
    :`<div class="xmsg label ok"><b>כל התחנות מעל ${num('80%')}!</b><span>אפשר לגשת שוב למבחן חדש כדי להישאר בכושר.</span></div>`}
@@ -97,7 +129,7 @@ function report(t,items,ctx){ctx.setLevel(null);clearFx();const nd=needs(),p=P10
   ${wrong?`<details class="xrev label"><summary>הטעויות שלי (${num(t.wrong.length)}) והתשובות הנכונות</summary>${wrong}</details>`:''}
  </section>`;
  view.querySelectorAll('.xbar i').forEach((b,i)=>setTimeout(()=>b.classList.add('go'),300+i*250));
- if(!nd.length){confetti();SND.win()}else SND.star(1)}
+ if(!nd.length){confetti();SND.win()}else SND.star(1);setTimeout(()=>say(nk,true),900)}
 
 /* ======================================================================
    Practice: a rule card, then 8 items. Wrong → why and one more try. Wrong twice → the answer and on.
@@ -107,9 +139,10 @@ export async function prac(k,ctx){if(!XSKILL[k])return ctx.go('mock');setBg('pap
  window.__lv={kind:'mockprac',items,i:()=>i};
  view.innerHTML=`<section class="scr mockprac">${top('אימון ב'+XSKILL[k].he,'mock')}<div class="xbody" id="xb"></div></section>`;
  const xb=document.getElementById('xb');
- xb.innerHTML=`<div class="xrule label">${spr('crab_listen','xcrab bob')}<h3>${esc(R.t)}</h3><ul>${R.lines.map((l,j)=>`<li style="--i:${j}"><span>${fmt(l[0])}</span>${l[1]?`<bdi class="xex" dir="ltr">${esc(l[1])}</bdi>`:''}</li>`).join('')}</ul>${btn('mocknext','הבנתי, מתאמנים','green')}</div>`;
+ xb.innerHTML=`${narrBox('pracStart')}<div class="xrule label"><h3>${esc(R.t)}</h3><ul>${R.lines.map((l,j)=>`<li style="--i:${j}"><span>${fmt(l[0])}</span>${l[1]?`<bdi class="xex" dir="ltr">${esc(l[1])}</bdi>`:''}</li>`).join('')}</ul>${btn('mocknext','הבנתי, מתאמנים','green')}</div>`;
  ctx.setLevel({destroy(){alive=false;waiter=null;pending=null;delete window.__lv}});
- await waitNext();if(!alive)return;
+ say('pracStart',true);
+ await waitNext();if(!alive)return;stopNarr();
  for(;i<n&&alive;i++){const it=items[i];xb.innerHTML=`<p class="xcount">תרגיל ${num(i+1)} מתוך ${num(n)}</p>${question(it,'prac')}`;focusInput();
   let tries=0,done=false;
   while(!done&&alive){const r=await answer(it,'prac',ctx,tries);if(!alive)return;
@@ -120,12 +153,12 @@ export async function prac(k,ctx){if(!XSKILL[k])return ctx.go('mock');setBg('pap
  if(!alive)return;
  XS().prac[k]=Date.now();save();delete window.__lv;ctx.setLevel(null);
  const left=needs().filter(s=>!practised(s));
- view.innerHTML=`<section class="scr mockrep"><h2 class="ribbon"><span>סיימתם אימון ב${XSKILL[k].he}!</span></h2>${spr('crab_happy','xrcrab bob')}
+ view.innerHTML=`<section class="scr mockrep"><h2 class="ribbon"><span>סיימתם אימון ב${XSKILL[k].he}!</span></h2>${narrBox('pracDone')}
   <p class="line label">${num(first)} מתוך ${num(n)} בניסיון הראשון</p>
   <div class="xmsg label ${left.length?'':'ok'}"><b>${left.length?`עוד אימון אחד: ${XSKILL[left[0]].he}`:'אפשר לגשת שוב למבחן הדמו!'}</b><span>${left.length?'ואז נפתח מבחן חדש':'המבחן החדש עם שאלות אחרות. בהצלחה!'}</span></div>
   <div class="xgo">${left.length?btn('nav',`לאימון ב${XSKILL[left[0]].he} ${ico('next')}`,'green xl',`data-to="mockprac/${left[0]}"`):btn('nav',`${ico('retry')} למבחן חדש`,'green xl','data-to="mockrun"')}
    ${btn('nav','לעמוד מבחן הדמו','cream sm','data-to="mock"')}</div></section>`;
- confetti(undefined,undefined,40);SND.win()}
+ confetti(undefined,undefined,40);SND.win();setTimeout(()=>say('pracDone'),700)}
 
 const fmt=l=>esc(l).replace(/([A-Za-z][A-Za-z' .,?!\/…()·→]*[A-Za-z.?!)])/g,m=>`<bdi dir="ltr" class="en">${m}</bdi>`);
 
