@@ -29,7 +29,7 @@ const top=(title,back)=>`<header class="top">${rb('nav',ico('back'),'חזרה',1
    The words appear as she says them; the crab replays the line. Each line plays by itself once per visit. */
 const VB='https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/hf_20261121_';
 const NARR={
- intro:['171203_26c3dd33-7ed4-4231-adbc-99d98cf84c06','היי! ברוכים הבאים למבחן הדמו. רגע לפני שמתחילים, חשוב לי שתדעו: זה לא מבחן אמיתי, והוא לא נכנס לשום ציון. המטרה היא לא להצליח בפעם הראשונה. המטרה היא לגלות במה אתם כבר חזקים, ובמה כדאי עוד להתאמן. אז ענו בנחת. גם טעות זה בסדר גמור, כי כל טעות מראה לנו מה ללמוד. בהצלחה!'],
+ intro:['173415_4c4e2d50-9e11-4134-bee4-95c2e6957987','היי! ברוכים הבאים למבחן הדמו. המטרה שלנו פשוטה: שתגיעו מוכנים למבחן ביום רביעי. כל השאלות כאן מבוססות רק על הדפים שקיבלתם מהמורה בכיתה. זה לא מבחן אמיתי, והוא לא נכנס לשום ציון. עונים, רואים במה אתם כבר חזקים ובמה כדאי עוד להתאמן, מתאמנים, ומנסים שוב. טעות זה בסדר גמור, כי כל טעות מראה לנו מה ללמוד. בהצלחה!'],
  again:['171203_3790986f-c9d9-421d-b2fa-f6bebc6bee6b','ברוכים השבים! התאמנתם, ועכשיו זה הזמן לראות כמה השתפרתם. לאט ובנחת, אני כאן איתכם.'],
  endPractice:['171203_b6a8b203-d883-4974-a015-b44ab3ba93c4','כל הכבוד שסיימתם! עכשיו אנחנו יודעים בדיוק במה להתאמן. אחרי אימון קצר, נסו שוב, ותראו כמה השתפרתם.'],
  endBetter:['171203_1cc9b5ff-12a9-450f-8005-03d0dd644eb8','השתפרתם מהפעם הקודמת! ככה זה עובד: מתאמנים, ומשתפרים. עוד קצת אימון, ואתם שם.'],
@@ -59,9 +59,10 @@ export function hub(){setBg('paper','center');const x=XS(),t=last(),nd=needs(),r
  if(!t){view.innerHTML=`<section class="scr mockhub">${top('מבחן דמו','')}
   ${narrBox('intro')}
   <div class="xintro label">
-   <h3>המטרה: להשתפר, לא לקבל 100</h3>
+   <h3>המטרה: להגיע מוכנים למבחן ביום רביעי</h3>
+   <p class="xsrc">📄 כל השאלות כאן מבוססות <b>רק</b> על הדפים שקיבלתם מהמורה בכיתה</p>
    <div class="xloop" dir="rtl"><span>📝<small>מבחן</small></span><i>←</i><span>📋<small>תעודה</small></span><i>←</i><span>💪<small>אימון</small></span><i>←</i><span>📈<small>מבחן חדש</small></span></div>
-   <p>${num(20)} שאלות ב־${num(4)} תחנות, מהדפים שהמורה חילקה בכיתה. לכל שאלה ניסיון אחד, כמו במבחן.</p>
+   <p>${num(20)} שאלות ב־${num(4)} תחנות. לכל שאלה ניסיון אחד, כמו במבחן.</p>
    <p class="strong">טעות זה בסדר. היא מראה לנו במה להתאמן.</p></div>
   <div class="xstations">${XORDER.map((k,i)=>`<span class="xst s${i}"><b>${XSKILL[k].icon}</b><small>${XSKILL[k].he}</small></span>`).join('')}</div>
   <div class="xgo">${btn('nav','מתחילים את המבחן','green xl','data-to="mockrun"')}<p class="xnote">בערך ${num(12)} דקות</p></div></section>`;say('intro',true);return}

@@ -174,3 +174,6 @@
 .xloop span{display:flex;flex-direction:column;align-items:center;font-size:24px;line-height:1.1;background:#fff3d6;border-radius:12px;padding:4px 6px;min-width:58px}
 .xloop small{font-size:12px;font-weight:700}
 .xloop i{font-style:normal;font-weight:800;color:#8a4a2e}
+
+.xsrc{margin:6px 0 10px;padding:10px 12px;border-radius:14px;background:#fff7d6;border:2px solid #f2c94c;font-size:17px;font-weight:700;line-height:1.35;text-align:center;color:#5a3d00}
+.xsrc b{color:#c0392b}
