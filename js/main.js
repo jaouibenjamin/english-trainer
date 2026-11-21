@@ -8,6 +8,7 @@ import * as listen from './listen.js';
 import * as read from './read.js';
 import * as bridge from './bridge.js';
 import * as M from './math.js';
+import * as X from './mock.js';
 
 const LEVELS={sling,listen,read,bridge};
 const BGFIT={sling:'bottom',listen:'bottom',read:'bottom',bridge:'bridge'};
@@ -27,6 +28,7 @@ function title(){setBg('title','bottom');
   <div class="logo"><h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p></div>
   <div class="tgo subj"><p class="label pick">במה מתאמנים היום?</p>
    <button class="btn green xl sb" data-a="nav" data-to="map"><span><b>אנגלית</b><small>איי המילים${d>0&&d<60?` · מבחן בעוד ${num(d)} ימים`:''}</small></span></button>
+   <button class="btn coral sb xm" data-a="nav" data-to="mock"><span><b>מבחן דמו באנגלית</b><small>${XS_last()}</small></span></button>
    <button class="btn blue xl sb" data-a="nav" data-to="math"><span><b>חשבון: שברים</b><small>מפרץ השברים${md>0&&md<30?` · מבחן בעוד ${num(md)} ימים`:''}</small></span></button>
    ${API&&S.u?`<p class="who">${esc(S.u.n)} · ${pts(S.pts)} נקודות</p>`:''}</div>
   ${spr('crab_wave','tcrab bob')}</section>`;
@@ -158,6 +160,8 @@ function login(){setBg('paper','center');
 /* ---------- the class table did not take this device's progress ----------
    Shown on the main screens until the pupil signs in again. Before this, a refused save was silent. */
 const RELOG_MSG={class:'קוד הכיתה השתנה. התחברו עם הקוד החדש.',nouser:'השם שלכם לא נמצא בטבלת הכיתה. אולי הוא שונה: התחברו עם השם החדש.',pin:'הקוד הסודי לא מתאים. התחברו שוב.'};
+/* the mock exam line on the title: what to do next */
+function XS_last(){const x=X.XS(),t=x.tries[x.tries.length-1];if(!t)return'20 שאלות, כמו במבחן';const p=Math.round(t.total[0]/t.total[1]*100);return X.needs().length&&!X.canRetake()?`${p}% · יש אימון שמחכה לכם`:`${p}% בניסיון האחרון`}
 function syncBar(){const el=document.getElementById('syncbar');if(!el)return;
  const show=needsRelogin()&&['title','map','math','misland','island','settings','board','collection'].includes(V.name);
  el.classList.toggle('on',show);
@@ -215,6 +219,9 @@ const A={
  hint(){if(level&&level.hint){SND.tap();if(level.hint()===true)toast(HINT_NOTE,2800)}},   // the first hint in a level says what it costs
  locked(d,el){SND.bad();el.classList.remove('nope');void el.offsetWidth;el.classList.add('nope');const left=d.need-(d.m?M.mTotal():totalStars());toast(`עוד ${nst(left)} ${el.classList.contains('ball')?'והכדור שלכם':'והאי נפתח'}!<br>אוספים כוכבים בכל שלב שפתוח`,2600)},
  /* math levels: keypad, answer slots, choices, pizzas */
+ /* mock exam */
+ mockpick(d){X.MOCK_A.pick(d)},mocktile(d,el){X.MOCK_A.tile(d,el)},mockcheck(){X.MOCK_A.check()},mocknext(){SND.tap();X.next()},
+ mockquit(){SND.tap();if(level&&level.quit&&!level.quit())return;go('mock')},
  mkey(d){if(level&&level.key)level.key(d.k)},
  mslot(d){if(level&&level.slot)level.slot(d.k)},
  mpick(d){if(level&&level.pick)level.pick(+d.k)},
@@ -257,11 +264,12 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
  V={name:n||'title'};stage.dataset.scr=V.name;
  switch(V.name){case'map':map();break;case'island':island(a);break;case'play':play(a,b);break;case'collection':collection();break;case'settings':settings();break;
   case'math':M.map();break;case'misland':M.island(a,go);break;case'mplay':{const my=navId;loader();M.play(a,b,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
+  case'mock':X.hub();break;case'mockrun':{const my=navId;X.run({go,live:()=>my===navId,setLevel:l=>{level=l}});break}case'mockprac':{const my=navId;X.prac(a,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
   case'help':help();break;case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
 addEventListener('hashchange',route);
 /* a pupil who also plays on another device: bring that progress in when the game opens or comes back to the front.
    Only the calm screens are drawn again; a level in play just keeps the better record underneath. */
-const redraw=changed=>{if(changed&&['title','map','island','collection','settings','math','misland'].includes(V.name))route()};
+const redraw=changed=>{if(changed&&['title','map','island','collection','settings','math','misland','mock'].includes(V.name))route()};
 const refresh=()=>pull().then(redraw);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
 let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='math')M.map();else if(V.name==='title')title()},150)});

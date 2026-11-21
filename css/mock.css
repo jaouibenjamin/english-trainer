@@ -1,0 +1,157 @@
+/* The mock exam (מבחן דמו). Built on game.css: the same paper, labels, pills and ink. */
+
+/* title: the third choice, under English */
+.tgo.subj .btn.xm{height:64px;border-width:0 28px}
+.btn.xm b{font-size:20px}
+
+/* word pictures from one sheet (assets/x/pics.webp, 6 × 4) */
+.xpic{display:block;background:url(../assets/x/pics.webp) no-repeat;background-size:600% 400%;border-radius:14px;flex:none}
+.xpic.big{width:min(46vw,170px,22dvh);aspect-ratio:1;margin:2px auto;box-shadow:0 0 0 2px rgba(90,69,52,.25)}
+.xpic.mini{width:42px;height:42px;border-radius:8px;display:inline-block;vertical-align:middle}
+
+/* ---------- hub ---------- */
+.mockhub{gap:12px}
+.xintro{width:100%;max-width:380px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px;flex:none}
+.xintro h3{margin:0;font-size:22px}
+.xintro p{margin:0;font-size:15.500px;line-height:1.4}
+.xintro .strong{font-weight:800;color:#8a4a2e}
+.xcrab{width:84px;height:auto;margin-top:-6px}
+.xstations{display:flex;gap:8px;justify-content:center;flex:none}
+.xst{display:flex;flex-direction:column;align-items:center;gap:2px;width:72px;padding:8px 2px;border-radius:16px;background:rgba(255,250,240,.9);border:2px solid rgba(90,69,52,.35);animation:popin2 .5s ease-out both}
+.xst.s1{animation-delay:.1s}.xst.s2{animation-delay:.2s}.xst.s3{animation-delay:.3s}
+.xst b{font-size:26px;line-height:1}.xst small{font-size:13px;font-weight:700}
+.xgo{display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;margin-top:4px}
+.xnote{margin:0;font-size:13.500px;font-weight:600;color:var(--ink2);text-align:center;max-width:300px}
+.xlk{width:22px;height:22px;vertical-align:middle}
+.xready{display:flex;align-items:center;gap:10px;width:100%;max-width:380px;margin:0;flex:none}
+.xready img{width:62px;flex:none}.xready span{display:flex;flex-direction:column;font-size:14.500px;line-height:1.35}.xready b{font-size:18px}
+
+/* the check-in card */
+.xcard{width:100%;max-width:380px;flex:none;display:flex;flex-direction:column;gap:6px}
+.xcard h3{margin:0;display:flex;flex-direction:column;align-items:center;font-size:18px;line-height:1.2}
+.xcard h3 .en{font-size:13px;font-weight:600;color:var(--ink2)}
+.xscore{margin:0;display:flex;align-items:baseline;justify-content:center;gap:8px}
+.xscore b{font-size:30px}.xscore small{font-size:16px;font-weight:700;color:var(--ink2)}
+.xrows{display:flex;flex-direction:column;gap:7px}
+.xrow{display:grid;grid-template-columns:88px 1fr 30px 36px;align-items:center;gap:6px;animation:slidein .45s ease-out both;animation-delay:calc(var(--i)*.12s)}
+.xn{font-size:15px;font-weight:700;white-space:nowrap}
+.xbar{height:14px;border-radius:8px;background:rgba(90,69,52,.12);overflow:hidden;border:1.5px solid rgba(90,69,52,.35)}
+.xbar i{display:block;height:100%;width:0;border-radius:8px;background:#e8a06e;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.xcard.small .xbar i,.xbar i.go{width:var(--w)}
+.xrow.g .xbar i{background:#8fb66f}.xrow.n .xbar i{background:#f0c25a}
+.xf{font-size:24px;line-height:1;text-align:center}
+.xc{font-size:13px;font-weight:700;color:var(--ink2);text-align:end}
+.xcard.small .xscore b{font-size:24px}
+@keyframes slidein{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+
+.xhist{width:100%;max-width:380px;flex:none;display:flex;flex-direction:column;gap:6px;text-align:center}
+.xhist>b{font-size:15px}
+.xh{display:flex;justify-content:center;align-items:flex-end;gap:14px;height:96px;margin-top:20px}
+.hb{position:relative;width:46px;height:var(--h);background:#cfe3b4;border:2px solid rgba(90,69,52,.45);border-radius:10px 10px 4px 4px;display:flex;flex-direction:column;justify-content:flex-start;align-items:center}
+.hb:last-child{background:#8fb66f}
+.hb i{font-style:normal;font-weight:800;font-size:13px;margin-top:-20px}
+.hb small{position:absolute;bottom:-20px;font-size:11.500px;font-weight:700;white-space:nowrap}
+.xhist{padding-bottom:22px}
+.xplan{width:100%;max-width:380px;flex:none;display:flex;flex-direction:column;gap:8px}
+.xplan>b{font-size:16px;text-align:center}
+.xpr{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:16px 19px 15px 18px/18px 15px 19px 16px;background:#fff3d6;border:2.5px solid rgba(90,69,52,.55);box-shadow:0 3px 0 rgba(90,69,52,.3);font:inherit;color:var(--ink);text-align:start}
+.xpr.done{background:#e3efd3}
+.xpr .xic{font-size:28px}.xpr .xt{flex:1;display:flex;flex-direction:column}.xpr .xt b{font-size:17px}.xpr .xt small{font-size:13px;font-weight:600;color:var(--ink2)}
+.xpr .xck{width:28px}.xpr .ico{width:22px;height:22px}
+
+/* ---------- exam ---------- */
+.mockrun,.mockprac{gap:8px}
+.xtop{width:100%;max-width:400px;flex:none;display:flex;flex-direction:column;gap:2px;position:relative}
+.xquit{position:absolute;inset-inline-end:0;top:0;width:40px;height:40px}
+.xtrail{position:relative;display:flex;align-items:center;justify-content:center;gap:0;padding:6px 44px 22px;direction:rtl}
+.xs{display:flex;flex-direction:column;align-items:center;width:48px;opacity:.55;transition:opacity .3s,transform .3s}
+.xs b{width:38px;height:38px;display:grid;place-items:center;font-size:20px;border-radius:50%;background:#fffaf0;border:2.5px solid rgba(90,69,52,.5)}
+.xs small{font-size:11.500px;font-weight:700}
+.xs.on{opacity:1;transform:scale(1.08)}.xs.on b{background:#f7d774;border-color:var(--ink)}
+.xline{flex:1;max-width:30px;height:3px;border-radius:2px;background:repeating-linear-gradient(90deg,rgba(90,69,52,.5) 0 6px,transparent 6px 10px);margin-bottom:14px}
+.xwalker{position:absolute;left:0;bottom:-6px;width:40px;height:auto;transition:transform .9s cubic-bezier(.4,.1,.2,1);pointer-events:none}
+.xcount{margin:0;text-align:center;font-size:13.500px;font-weight:700;color:var(--ink2)}
+.xbody{width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:10px;flex:1 0 auto}
+.xstation{margin:auto 0;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;animation:popin2 .55s ease-out both}
+.xsn{font-size:14px;font-weight:800;color:#8a4a2e;letter-spacing:.02em}
+.xbig{font-size:64px;line-height:1.1}
+.xstation h3{margin:0;font-size:30px}
+.xstation .en{font-size:15px;font-weight:600;color:var(--ink2)}
+.xstation p{margin:6px 0 10px;font-size:16px;font-weight:600}
+
+.xq{width:100%;flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.xq.okq{animation:okpulse .5s ease-out}.xq.noq{animation:shake .4s}
+@keyframes okpulse{40%{transform:scale(1.025)}}
+.xqt{margin:0;font-size:15.500px;font-weight:700;line-height:1.3}
+.xbigw{margin:0;font-size:44px;font-weight:800;line-height:1.1}
+.xsent{margin:0;font-size:21px;font-weight:700;line-height:1.35}
+.xraw{margin:0;font-size:20px;font-weight:600;color:var(--ink2);font-style:italic}
+.gap{display:inline-block;width:2.6em;border-bottom:2.5px solid var(--ink);margin:0 .2em;vertical-align:-.1em}
+.xopts{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:9px;flex:none}
+.xopts.long{grid-template-columns:1fr}
+.xopts.four.long{grid-template-columns:1fr 1fr}
+.xo{min-height:54px;padding:6px 10px;border-radius:16px 19px 15px 18px/18px 15px 19px 16px;background:#fffaf0;border:2.5px solid rgba(90,69,52,.6);box-shadow:0 3px 0 rgba(90,69,52,.35);font:inherit;font-size:19px;font-weight:700;color:var(--ink);line-height:1.2}
+.xo:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(90,69,52,.35)}
+.xo.good{background:#d9ebc4;border-color:#5f8a4a}
+.xo.bad{background:#f6d5cc;border-color:#b9503c}
+.xo:disabled{cursor:default}
+.xo.shake{animation:shake .4s}
+.xopts .xo:last-child:nth-child(odd){grid-column:1/-1}
+
+/* Guess Who */
+.xkids{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%}
+.xkid{display:flex;flex-direction:column;align-items:center;padding:4px 2px;border-radius:12px;background:#fffaf0;border:2px solid rgba(90,69,52,.35);font-size:14px;font-weight:700}
+.xkid b{font-size:24px;line-height:1.1}.xkid small{font-size:12px;font-weight:600;color:var(--ink2)}
+.xdesc{width:100%;text-align:left;background:#fff3d6;border-radius:12px;padding:6px 12px}
+.xdesc p{margin:2px 0;font-size:17px;font-weight:600}
+/* Reading detective */
+.xtext{width:100%;text-align:left;background:#fffaf0;border-radius:12px;border:2px solid rgba(90,69,52,.3);padding:4px 12px}
+.xtext summary{cursor:pointer;font-weight:700;font-size:15px;padding:4px 0;text-align:right}
+.xtext p{margin:3px 0;font-size:16px;line-height:1.35}
+.xtext p.ev{background:#f7e3a0;border-radius:6px;box-shadow:0 0 0 3px #f7e3a0}
+/* make the question */
+.xans{width:100%;min-height:54px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;padding:6px;border-radius:14px;border:2.5px dashed rgba(90,69,52,.5);background:rgba(255,250,240,.8)}
+.xph{font-size:14px;font-weight:600;color:var(--ink2);direction:rtl}
+.xtiles{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;align-items:center}
+.xtile{min-height:46px;padding:4px 14px;border-radius:12px;background:#cfe0f0;border:2.5px solid rgba(90,69,52,.6);box-shadow:0 3px 0 rgba(90,69,52,.3);font:inherit;font-size:19px;font-weight:700;color:var(--ink)}
+.xtiles .xq{font-size:24px;font-weight:800;width:auto;flex:none}
+/* writing */
+.xtype{width:100%;display:flex;flex-direction:column;align-items:center;gap:8px}
+.xtype .in{font-size:21px;text-align:left;max-width:360px}
+/* the invitation picture */
+.xinv{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;width:100%;font-size:14px}
+.xinv>span{background:#fffaf0;border:2px solid rgba(90,69,52,.35);border-radius:12px;padding:6px 4px;display:flex;align-items:center;justify-content:center;gap:4px;text-align:center}
+.xinv .xi1{grid-column:1/-1;font-size:17px}
+.xinv .xi3{flex-direction:column;gap:0;background:#e6f0f8}.xinv .xi3 small{font-size:12px;font-weight:700}.xinv .xi3 b{font-size:22px;line-height:1}
+.xinv .xi4 svg{width:44px;height:44px}
+.xinv .xi5{grid-column:1/-1}
+.xinv b{font-weight:800}
+
+/* practice feedback */
+.xfb{width:100%;min-height:8px;text-align:center;font-size:15.500px;font-weight:600;line-height:1.4;display:flex;flex-direction:column;align-items:center;gap:4px}
+.xfb.ok{color:#3f6d32}.xfb.bad{color:#a1412f}
+.xfb.sol{background:rgba(255,250,240,.95);border-radius:14px;padding:8px 10px;border:2px solid rgba(90,69,52,.3)}
+.xfb.sol b{font-size:17px}
+.xrule{width:100%;max-width:380px;display:flex;flex-direction:column;align-items:center;gap:8px;margin:auto 0;text-align:center}
+.xrule h3{margin:0;font-size:22px}
+.xrule ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;text-align:start;width:100%}
+.xrule li{display:flex;flex-direction:column;gap:2px;font-size:15.500px;font-weight:600;line-height:1.4;padding:6px 10px;background:#fff3d6;border-radius:12px;animation:slidein .45s ease-out both;animation-delay:calc(.25s + var(--i)*.35s)}
+
+/* ---------- report ---------- */
+.mockrep{gap:10px;justify-content:flex-start;background:rgba(255,244,222,.5)}
+.xrcrab{width:92px;height:auto;flex:none;margin:-6px 0 -10px}
+.xmsg{width:100%;max-width:380px;flex:none;display:flex;flex-direction:column;gap:2px;text-align:center}
+.xmsg b{font-size:17px;color:#8a4a2e}.xmsg.ok b{color:#3f6d32}.xmsg span{font-size:14.500px;line-height:1.35}
+.xrev{width:100%;max-width:380px;flex:none}
+.xrev summary{cursor:pointer;font-weight:700;font-size:15px;text-align:center}
+.xw{display:flex;flex-direction:column;gap:2px;padding:6px 0;border-top:1.5px dashed rgba(90,69,52,.3)}
+.xwq{font-size:15px;font-weight:600}
+.xwa{display:flex;gap:10px;justify-content:center;align-items:center;font-size:15px}
+.xwa s{color:#a1412f}.xwa b{color:#3f6d32}
+.mockrep .line{margin:0}
+@media (max-height:700px){.xpic.big{width:min(40vw,130px,20dvh)}.xbigw{font-size:36px}.xo{min-height:48px;font-size:17px}.xsent{font-size:19px}}
+.calm .xst,.calm .xrow,.calm .xrule li,.calm .xstation{animation:none}
+.calm .xwalker,.calm .xbar i{transition:none}
+.xrule .xex{display:block;font-weight:700;color:#3f6d32;text-align:left;font-size:15px}
+.xready>span>span{display:block}
+.xkid small+small{margin-top:-2px}
