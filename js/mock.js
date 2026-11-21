@@ -37,7 +37,7 @@ const NARR={
  pracStart:['171204_e83cd667-7795-46cb-ae24-30cbf5dab72e','בואו נתאמן ביחד. קודם כלל אחד קצר, ואחר כך תרגילים. אם טועים, מנסים שוב. ככה לומדים.'],
  pracDone:['171204_29e949fe-86ff-4277-b460-627f93df2f83','יופי של אימון! עכשיו אתם מוכנים לנסות שוב.']};
 let na=null,naKey='',naT=0;const heard=new Set();
-const narrBox=k=>`<div class="narr" data-k="${k}"><button class="ncrab" data-a="mocksay" data-k="${k}" aria-label="להשמיע שוב">${spr('crab_wave','nc')}<span class="nsp">${spr('ic_speaker','')}</span></button>
+const narrBox=k=>`<div class="narr" data-k="${k}"><button class="ncrab" data-a="mocksay" data-k="${k}" aria-label="להשמיע שוב">${spr('crab_wave','nc')}<span class="nmouth"></span><span class="nsp">${spr('ic_speaker','')}</span></button>
  <p class="nbub">${NARR[k][1].split(' ').map(w=>`<span>${esc(w)} </span>`).join('')}</p></div>`;
 export function stopNarr(){if(na){try{na.pause()}catch(e){}}clearInterval(naT);document.querySelectorAll('.narr.talk').forEach(e=>e.classList.remove('talk'))}
 export function say(k,auto){const box=document.querySelector(`.narr[data-k="${k}"]`);if(!box||!NARR[k])return;
@@ -166,7 +166,7 @@ const fmt=l=>esc(l).replace(/([A-Za-z][A-Za-z' .,?!\/…()·→]*[A-Za-z.?!)])/g
 /* ---------- one question on the screen ---------- */
 function question(it,mode){
  let body='';
- if(it.type==='who')body=`<div class="xkids">${KIDS.map(c=>`<span class="xkid"><b>${c.em}</b>${en(c.n)}<small>${en(String(c.age))}</small>${c.month?`<small>${en(c.month)}</small>`:''}</span>`).join('')}</div>
+ if(it.type==='who')body=`<div class="xkids">${KIDS.map(c=>`<span class="xkid"><b>${c.em}</b><span class="xkn">${en(c.n)}</span><span class="xkf" dir="ltr">🎂 age <b>${c.age}</b></span>${c.month?`<span class="xkf" dir="ltr">📅 <b>${esc(c.month)}</b></span>`:''}</span>`).join('')}</div>
   <div class="xdesc" dir="ltr">${it.lines.map(l=>`<p>${esc(l)}</p>`).join('')}</div>`;
  else if(it.type==='read')body=`<details class="xtext" ${mode==='prac'||it.k==='trip:0'?'open':''} dir="ltr"><summary dir="rtl">📄 הקטע: ${en(TRIP.title)}</summary>${TRIP.lines.map((l,j)=>`<p class="${mode==='prac'&&j===it.line?'ev':''}" data-l="${j}">${esc(l)}</p>`).join('')}</details>
   <p class="xsent" dir="ltr">${blank(it.sent)}</p>`;
@@ -177,9 +177,9 @@ function question(it,mode){
  else ans=`<div class="xtype"><input id="xi" class="in en" dir="ltr" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${it.type==='sentence'?'Write the sentence here':'Write here'}">${btn('mockcheck','בדיקה','green')}</div>`;
  return`<div class="xq label"><p class="xqt">${esc(it.q)}</p>${body}</div>${ans}<div class="xfb" id="xfb" role="status" aria-live="polite"></div>`}
 
-function invite(){const d=INVITE;
+export function invite(){const d=INVITE;
  return`<div class="xinv" dir="ltr"><span class="xi1">🎈 <b>${esc(d.name)}'s Birthday!</b></span><span class="xi2">🎂 <b>${d.age}</b></span>
-  <span class="xi3"><small>October</small><b>14</b></span><span class="xi4"><svg viewBox="-12 -12 24 24" aria-label="clock"><circle r="11" fill="#fffaf0" stroke="#5a4534" stroke-width="1.6"/><line x1="0" y1="0" x2="0" y2="-8" stroke="#5a4534" stroke-width="1.6" stroke-linecap="round"/><line x1="0" y1="0" x2="4.8" y2="2.8" stroke="#5a4534" stroke-width="2" stroke-linecap="round"/>${[0,1,2,3,4,5,6,7,8,9,10,11].map(h=>{const a=h*Math.PI/6;return`<circle cx="${(Math.sin(a)*9).toFixed(2)}" cy="${(-Math.cos(a)*9).toFixed(2)}" r="${h%3?0.5:0.9}" fill="#5a4534"/>`}).join('')}</svg></span>
+  <span class="xi3"><small>October</small><b>14</b></span><span class="xi4"><svg viewBox="-50 -50 100 100" role="img" aria-label="clock at four"><circle r="47" fill="#fffdf6" stroke="#5a4534" stroke-width="3.5"/>${[12,1,2,3,4,5,6,7,8,9,10,11].map((h,k)=>{const a=k*Math.PI/6;return`<text x="${(Math.sin(a)*36).toFixed(1)}" y="${(-Math.cos(a)*36+5.5).toFixed(1)}" text-anchor="middle" font-size="${h%3?12:15}" font-weight="800" fill="${h===4?'#c0392b':'#5a4534'}" font-family="Fredoka,Arial,sans-serif">${h}</text>`}).join('')}<line x1="0" y1="0" x2="0" y2="-23" stroke="#2f6fa8" stroke-width="3.5" stroke-linecap="round"/><line x1="0" y1="0" x2="${(Math.sin(4*Math.PI/6)*21).toFixed(1)}" y2="${(-Math.cos(4*Math.PI/6)*21).toFixed(1)}" stroke="#c0392b" stroke-width="6" stroke-linecap="round"/><circle r="4" fill="#5a4534"/></svg></span>
   <span class="xi5">🏠 <b>8 Rose Street</b></span></div>`}
 
 function focusInput(){const i=document.getElementById('xi');if(i&&matchMedia('(pointer:fine)').matches)setTimeout(()=>i.focus(),50)}
