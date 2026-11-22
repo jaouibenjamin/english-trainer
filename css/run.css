@@ -77,3 +77,9 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .ln.none{opacity:.35}
 .mpic{display:inline-block;width:40px;height:40px;vertical-align:middle;margin-inline-end:6px;border-radius:8px;background:url(../assets/x/pics.webp) no-repeat;background-size:600% 400%}
 .crabhead.hero{width:120px;height:120px;object-fit:cover;border-radius:50%;border:3px solid rgba(74,54,40,.45);background:#fff;margin-top:-70px}
+/* anime speed lines while running */
+#speed{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .4s;background:repeating-conic-gradient(from 0deg at 50% 46%,rgba(255,255,255,0) 0deg 4deg,rgba(255,255,255,.55) 4.3deg 4.6deg,rgba(255,255,255,0) 5deg 9deg);
+ -webkit-mask:radial-gradient(circle at 50% 46%,transparent 38%,#000 75%);mask:radial-gradient(circle at 50% 46%,transparent 38%,#000 75%)}
+.anime #speed.on{opacity:.55;animation:spd .18s steps(2) infinite}
+@keyframes spd{50%{transform:rotate(2deg) scale(1.02)}}
+.calm #speed{display:none}
