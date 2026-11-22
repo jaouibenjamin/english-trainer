@@ -76,3 +76,4 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .ln.cur{border-color:#2f6fa8;background:#e3f0fb;box-shadow:0 0 0 2px #2f6fa8 inset}
 .ln.none{opacity:.35}
 .mpic{display:inline-block;width:40px;height:40px;vertical-align:middle;margin-inline-end:6px;border-radius:8px;background:url(../assets/x/pics.webp) no-repeat;background-size:600% 400%}
+.crabhead.hero{width:120px;height:120px;object-fit:cover;border-radius:50%;border:3px solid rgba(74,54,40,.45);background:#fff;margin-top:-70px}
