@@ -83,10 +83,11 @@ function makeCrab(){
 const crab=makeCrab();scene.add(crab.root);scene.add(crab.shadow);
 
 /* the hero: a low-poly runner made in Higgsfield (image to rigged, animated 3D). If it cannot load, Pitzi runs instead. */
+const HERO_PIC='https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/hf_20261122_091647_e1c4af42-4710-4261-b59c-e0dd1df63c87.png';
 const HERO_URL='https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/hf_20261122_091919_b439053f-4747-4a22-8aa0-0a67974a1928.glb';
 let hero=null;
 if(HERO_URL.startsWith('https://'))new GLTFLoader().load(HERO_URL,g=>{const m=g.scene;
-  const b=new THREE.Box3().setFromObject(m),sz=b.getSize(new THREE.Vector3()),k=1.55/(sz.y||1);m.scale.setScalar(k);
+  const b=new THREE.Box3().setFromObject(m),sz=b.getSize(new THREE.Vector3()),k=1.95/(sz.y||1);m.scale.setScalar(k);
   const b2=new THREE.Box3().setFromObject(m),c=b2.getCenter(new THREE.Vector3());m.position.set(-c.x,-b2.min.y,-c.z);
   m.traverse(o=>{if(o.isMesh){o.frustumCulled=false;const mt=o.material;if(mt&&mt.map)mt.map.colorSpace=THREE.SRGBColorSpace}});
   const root=new THREE.Group();root.add(m);scene.add(root);
@@ -287,7 +288,7 @@ function setPause(v){if(!G||!G.on||G.ended)return;paused=v;if(v){menu.hidden=fal
 /* ---------------- menus ---------------- */
 const who=()=>API&&S.u?`<p class="who">${esc(S.u.n)} · <bdi>${S.pts}</bdi> נקודות</p>`:API?`<p class="who">לא מחוברים, אז הנקודות לא ייכנסו לטבלת הכיתה. <a href="index.html">להתחברות</a></p>`:'';
 function start(){const r=R();hud.hidden=pad.hidden=true;menu.hidden=false;
- menu.innerHTML=`<div class="card"><img class="crabhead" src="assets/sp/crab_wave.webp" alt=""><h1>ריצת החוף</h1>
+ menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" onerror="this.src='assets/sp/crab_wave.webp'"><h1>ריצת החוף</h1>
   <p class="goal">רצים, עונים, ומתאמנים עוד ועוד. כל השאלות מהדפים שקיבלתם מהמורה.</p>
   <div class="how"><span><b>◀ ▶</b>מחליפים מסלול</span><span><b>▲</b>קופצים מעל מכשול</span><span><b>🪧</b>רצים מתחת לתשובה הנכונה</span></div>
   <p>טעיתם? רואים את התשובה הנכונה, והשאלה חוזרת עוד מעט באותה ריצה.</p>${r.best?`<p class="who">השיא שלכם: <bdi>${r.best}</bdi> תשובות נכונות</p>`:''}${who()}</div>
@@ -298,7 +299,7 @@ function end(done){if(!G||G.ended)return;G.ended=true;G.gate=null;banner.hidden=
  setTimeout(()=>{hud.hidden=pad.hidden=true;menu.hidden=false;
   const mini=w=>{const i=PIC.indexOf(w);return i<0?'':`<span class="mpic" style="background-position:${(i%6)*20}% ${(Math.floor(i/6)*100/3).toFixed(3)}%"></span>`};
   const miss=G.missed.map(m=>`<li>${m.pic?mini(m.pic):''}${m.sent?`<bdi dir="ltr">${esc(m.sent)}</bdi>`:m.pic?'':esc(m.q)} ← <b>${esc(m.a)}</b></li>`).join('');
-  menu.innerHTML=`<div class="card"><img class="crabhead" src="assets/sp/${done?'crab_star':'crab_oops'}.webp" alt=""><h2>${done?'הגעתם לסוף המסלול!':'נגמרו הלבבות'}</h2>
+  menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" onerror="this.src='assets/sp/crab_star.webp'"><h2>${done?'הגעתם לסוף המסלול!':'נגמרו הלבבות'}</h2>
    <div class="score"><span><b>${G.firstRight}</b>נכון בפעם הראשונה</span><span><b>${G.shells}</b>צדפים</span><span><b dir="ltr">+${G.pts}</b>נקודות</span></div>
    ${G.missed.length?`<p>את אלה כדאי לחזור עליהם. הם יופיעו שוב בריצה הבאה:</p><ul class="miss">${miss}</ul>`:`<p class="goal">אף טעות! ככה מגיעים מוכנים למבחן.</p>`}
    ${R().dpts>=DAY_CAP?'<p class="who">היום כבר אספתם את כל הנקודות של ריצת החוף. אפשר להמשיך לרוץ ולהתאמן.</p>':''}${who()}</div>
