@@ -195,14 +195,15 @@ function spawnRow(z){const free=[0,1,2];const n=Math.random()<.3?2:1;const block
  if(Math.random()<.75){const l=free.filter(k=>!block.includes(k))[Math.random()*(3-n)|0];for(let i=0;i<5;i++){const s=shell();s.position.set(LANE[l],0,z-2-i*1.5);s.userData.lane=l;s.userData.sh=1;scene.add(s);things.push(s)}}}
 function spawnGate(){const e=G.queue.shift();if(!e)return;const q={e,it:e.it,lanes:lanesFor(e.it)};G.gate=q;G.gateObj=makeGate(q);G.gateObj.position.z=-82;scene.add(G.gateObj);
  for(const o of things)if(o.position.z<-62){scene.remove(o);o.userData.dead=1}
- shownLane=-1;showQ(q.it,q);updHud();SND.pop()}
+ shownLane=-1;G.dash=false;dashBtn.hidden=false;dashBtn.classList.remove('on');showQ(q.it,q);updHud();SND.pop()}
 function laneChips(q){return`<div class="lanes" dir="ltr">${q.lanes.map((t,i)=>`<span class="ln${i===G.lane?' cur':''}${t==null?' none':''}" dir="${t&&/[\u0590-\u05FF]/.test(t)?'rtl':'ltr'}">${t==null?'—':esc(t)}</span>`).join('')}</div>`}
-function showQ(it,q){let h=`<p class="q">${esc(it.q)}</p>`;
- if(it.pic){const i=PIC.indexOf(it.pic);if(i>=0)h+=`<span class="pic" role="img" aria-label="${esc(it.pic)}" style="background-position:${(i%6)*20}% ${(Math.floor(i/6)*100/3).toFixed(3)}%"></span>`}
+function showQ(it,q){
  const spk=t=>`<button class="say" data-say="${esc(t)}" aria-label="להשמיע">🔊</button>`;
- if(it.big)h+=`<p class="big">${esc(it.big)}${/[a-z]/i.test(it.big)?spk(it.big):''}</p>`;
- if(it.sent)h+=`<p class="sent">${esc(it.sent).replace('___','<i class="gap"></i>')}</p>`;
- h+=laneChips(q);if(G.asked<2)h+=`<p class="hint">רוצו מתחת לשלט עם התשובה הנכונה</p>`;
+ let pic='',tx=`<p class="q">${esc(it.q)}</p>`;
+ if(it.pic){const i=PIC.indexOf(it.pic);if(i>=0)pic=`<span class="pic" role="img" aria-label="${esc(it.pic)}" style="background-position:${(i%6)*20}% ${(Math.floor(i/6)*100/3).toFixed(3)}%"></span>`}
+ if(it.big)tx+=`<p class="big">${esc(it.big)}${/[a-z]/i.test(it.big)?spk(it.big):''}</p>`;
+ if(it.sent)tx+=`<p class="sent">${esc(it.sent).replace('___','<i class="gap"></i>')}</p>`;
+ let h=`<div class="qrow">${pic}<div class="qtx">${tx}</div></div>`+laneChips(q);
  banner.className='banner';banner.innerHTML=h;banner.hidden=false}
 let shownLane=-1;function syncChips(){if(!G||!G.gate||G.lane===shownLane)return;shownLane=G.lane;banner.querySelectorAll('.ln').forEach((e,i)=>e.classList.toggle('cur',i===G.lane))}
 function judge(){const q=G.gate,lane=G.lane,pick=q.lanes[lane],ok=pick===q.it.a,ci=q.lanes.indexOf(q.it.a);G.asked++;
@@ -216,12 +217,12 @@ function judge(){const q=G.gate,lane=G.lane,pick=q.lanes[lane],ok=pick===q.it.a,
   const r=R();if(!r.miss.includes(q.it.k))r.miss=[...r.miss,q.it.k].slice(-40);
   if(!q.e.again){G.queue.splice(Math.min(3,G.queue.length),0,{it:q.it,again:true});G.total++}
   banner.className='banner bad';banner.innerHTML=`<p class="q">התשובה הנכונה:</p><p class="ans"><b>${esc(q.it.a)}</b></p><p class="ans">${esc(q.it.tip||'')}</p><p class="hint">השאלה הזאת תחזור עוד מעט</p>`}
- G.fb=ok?1.8:3.4;G.gate=null;updHud()}
+ G.fb=ok?1.8:3.4;G.gate=null;G.dash=false;dashBtn.hidden=true;updHud()}
 function hit(o){if(G.inv>0||window.__runNoHit)return;G.hearts--;G.inv=1.6;shakeT=.35;SND.bad();const h=$('#hearts');h.classList.remove('hit');void h.offsetWidth;h.classList.add('hit');
  o.userData.fly=new THREE.Vector3((Math.random()-.5)*4,5,-6);updHud();if(G.hearts<=0)end(false)}
 
 function step(dt){
- const sp=G.ended?0:G.speed*(G.gate?.74:1)*(G.stun>0?.55:1);const d=sp*dt;G.dist+=d;G.since+=d;
+ const sp=G.ended?0:G.speed*PACE[pace()].k*(G.gate?(G.dash?2.8:.74):1)*(G.stun>0?.55:1);const d=sp*dt;G.dist+=d;G.since+=d;
  /* the world flows toward the camera */
  boardTex.offset.y+=d*(TRACK_L/4)/TRACK_L;sandTex.offset.y+=d*(TRACK_L/8)/TRACK_L;seaTex.offset.x+=dt*.01;
  for(const o of decor){o.position.z+=d;if(o.position.z>10){o.position.z-=126;o.position.x=o.userData.side*(4.4+Math.random()*3.5)}}
@@ -273,6 +274,8 @@ function makeFinish(){const g=new THREE.Group();for(const s of[-1,1]){const p=me
 function fit(){const w=stageEl.clientWidth,h=stageEl.clientHeight;renderer.setSize(w,h,false);cam.aspect=w/h;cam.fov=w/h<.62?64:56;cam.updateProjectionMatrix()}
 addEventListener('resize',fit);fit();
 const camRun=new THREE.Vector3(0,5.2,8.6),camMenu=new THREE.Vector3(0,2.1,4.6);let camMix=0;
+const PACE={slow:{k:.8,ic:'🐢',t:'רגוע'},mid:{k:1,ic:'🏃',t:'רגיל'},fast:{k:1.3,ic:'⚡',t:'מהיר'}};
+const dashBtn=$('#dash');
 const spdEl=$('#speed');let spdOn=false;
 function frame(t){requestAnimationFrame(frame);const dt=Math.min(.05,(t-(last||t))/1000)*(window.__runFast||1);last=t;
  if(paused){renderer.render(scene,cam);return}
@@ -283,20 +286,22 @@ function frame(t){requestAnimationFrame(frame);const dt=Math.min(.05,(t-(last||t
  camMix+=((run?1:0)-camMix)*Math.min(1,dt*2.2);
  const cx=(G&&run?G.x*.45:0);cam.position.lerpVectors(camMenu,camRun,camMix);cam.position.x+=cx;
  if(shakeT>0&&!reduced()){shakeT-=dt;cam.position.x+=(Math.random()-.5)*.25;cam.position.y+=(Math.random()-.5)*.2}
- cam.lookAt(cx*.6,camMix*1.2+.7,-6*camMix-1);
+ cam.lookAt(cx*.6,camMix*2.3+.7,-6*camMix-1);
  renderer.render(scene,cam)}
 
 /* ---------------- input ---------------- */
 function act(k){if(!G||!G.on||G.ended||paused)return;
+ if(k==='dash'){if(G.gate&&!G.dash){G.dash=true;dashBtn.classList.add('on');SND.pop()}return}
  if(k==='left'&&G.lane>0){G.lane--;SND.tap()}else if(k==='right'&&G.lane<2){G.lane++;SND.tap()}
  else if(k==='jump'&&G.y===0){G.vy=9.2;SND.pull()}}
-addEventListener('keydown',e=>{const m={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'jump',KeyW:'jump',Space:'jump'}[e.code];if(m){e.preventDefault();act(m)}
+addEventListener('keydown',e=>{const m={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'jump',KeyW:'jump',Space:'jump',ArrowDown:'dash',KeyS:'dash',Enter:'dash'}[e.code];if(m){e.preventDefault();act(m)}
  if(e.code==='Escape')setPause(!paused)});
 pad.addEventListener('pointerdown',e=>{const b=e.target.closest('.pb');if(b){e.preventDefault();act(b.dataset.k)}});
+dashBtn.addEventListener('pointerdown',e=>{e.preventDefault();act('dash')});
 let t0=null;
-stageEl.addEventListener('touchstart',e=>{if(e.target.closest('.pb,.sheet,button'))return;const t=e.touches[0];t0={x:t.clientX,y:t.clientY,done:false}},{passive:true});
+stageEl.addEventListener('touchstart',e=>{if(e.target.closest('.pb,.pbd,.sheet,button'))return;const t=e.touches[0];t0={x:t.clientX,y:t.clientY,done:false}},{passive:true});
 stageEl.addEventListener('touchmove',e=>{if(!t0||t0.done)return;const t=e.touches[0],dx=t.clientX-t0.x,dy=t.clientY-t0.y;
- if(Math.abs(dx)>28&&Math.abs(dx)>Math.abs(dy)){act(dx<0?'left':'right');t0.done=true}else if(dy<-28&&Math.abs(dy)>Math.abs(dx)){act('jump');t0.done=true}},{passive:true});
+ if(Math.abs(dx)>28&&Math.abs(dx)>Math.abs(dy)){act(dx<0?'left':'right');t0.done=true}else if(dy<-28&&Math.abs(dy)>Math.abs(dx)){act('jump');t0.done=true}else if(dy>34&&Math.abs(dy)>Math.abs(dx)){act('dash');t0.done=true}},{passive:true});
 stageEl.addEventListener('touchend',()=>{t0=null});
 banner.addEventListener('click',e=>{const b=e.target.closest('[data-say]');if(b)sayEn(b.dataset.say)});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&G&&G.on&&!G.ended)setPause(true)});
@@ -307,9 +312,11 @@ const who=()=>API&&S.u?`<p class="who">${esc(S.u.n)} · <bdi>${S.pts}</bdi> נק
 function start(){const r=R();hud.hidden=pad.hidden=true;menu.hidden=false;
  menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" onerror="this.src='assets/sp/crab_wave.webp'"><h1>ריצת החוף</h1>
   <p class="goal">רצים, עונים, ומתאמנים עוד ועוד. כל השאלות מהדפים שקיבלתם מהמורה.</p>
-  <div class="how"><span><b>◀ ▶</b>מחליפים מסלול</span><span><b>▲</b>קופצים מעל מכשול</span><span><b>🪧</b>רצים מתחת לתשובה הנכונה</span></div>
+  <div class="how"><span><b>◀ ▶</b>מחליפים מסלול</span><span><b>▲</b>קופצים מעל מכשול</span><span><b>🪧</b>רצים מתחת לתשובה הנכונה</span></div><p class="pl">קצב ריצה</p>${paceRow()}<p class="who">יודעים כבר את התשובה? לחצו ⏩ והשער יגיע מהר.</p>
   <p>טעיתם? רואים את התשובה הנכונה, והשאלה חוזרת עוד מעט באותה ריצה.</p>${r.best?`<p class="who">השיא שלכם: <bdi>${r.best}</bdi> תשובות נכונות</p>`:''}${who()}</div>
   <button class="big-btn" data-go="run">רצים!</button><a class="sm-btn" href="index.html">חזרה למשחק</a>`}
+function pace(){const p=R().pace;return PACE[p]?p:'mid'}
+function paceRow(){return`<div class="pace" role="radiogroup" aria-label="קצב ריצה">${Object.entries(PACE).map(([k,v])=>`<button role="radio" aria-checked="${k===pace()}" class="${k===pace()?'on':''}" data-pace="${k}"><b>${v.ic}</b>${v.t}</button>`).join('')}</div>`}
 function begin(){unlock();menu.hidden=true;hud.hidden=false;pad.hidden=false;banner.hidden=true;newRun();last=0}
 function end(done){if(!G||G.ended)return;G.ended=true;G.gate=null;banner.hidden=true;const r=R();r.runs++;r.best=Math.max(r.best,G.firstRight);saveLocal();if(API&&S.u)push();
  if(done){burst(0,2,-1,60);SND.win()}
@@ -321,7 +328,8 @@ function end(done){if(!G||G.ended)return;G.ended=true;G.gate=null;banner.hidden=
    ${G.missed.length?`<p>את אלה כדאי לחזור עליהם. הם יופיעו שוב בריצה הבאה:</p><ul class="miss">${miss}</ul>`:`<p class="goal">אף טעות! ככה מגיעים מוכנים למבחן.</p>`}
    ${R().dpts>=DAY_CAP?'<p class="who">היום כבר אספתם את כל הנקודות של ריצת החוף. אפשר להמשיך לרוץ ולהתאמן.</p>':''}${who()}</div>
    <button class="big-btn" data-go="run">רצים שוב</button><a class="sm-btn" href="index.html">חזרה למשחק</a>`},done?1400:900)}
-menu.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;SND.tap();if(b.dataset.go==='run')begin();else if(b.dataset.go==='resume')setPause(false)});
+menu.addEventListener('click',e=>{const pb=e.target.closest('[data-pace]');if(pb){R().pace=pb.dataset.pace;saveLocal();SND.tap();menu.querySelector('.pace').outerHTML=paceRow();return}
+ const b=e.target.closest('[data-go]');if(!b)return;SND.tap();if(b.dataset.go==='run')begin();else if(b.dataset.go==='resume')setPause(false)});
 
 /* test hooks */
 window.__run={G:()=>G,act,begin,lanes:()=>G&&G.gate?G.gate.lanes:null,answer:()=>G&&G.gate?G.gate.it.a:null,
