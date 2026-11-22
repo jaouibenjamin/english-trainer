@@ -1,0 +1,6 @@
+<!DOCTYPE html><meta charset="utf-8"><title>cors check</title><pre id="o">checking…</pre>
+<script>
+const u=new URLSearchParams(location.search).get('u');
+fetch(u,{mode:'cors'}).then(async r=>{const b=await r.arrayBuffer();o.textContent='OK '+r.status+' bytes='+b.byteLength+' acao='+r.headers.get('access-control-allow-origin')+' type='+r.headers.get('content-type')})
+.catch(e=>o.textContent='FAIL '+e);
+</script>
