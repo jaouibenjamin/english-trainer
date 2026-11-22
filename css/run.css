@@ -83,3 +83,23 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .anime #speed.on{opacity:.55;animation:spd .18s steps(2) infinite}
 @keyframes spd{50%{transform:rotate(2deg) scale(1.02)}}
 .calm #speed{display:none}
+/* compact question card, so the road ahead stays in view */
+.banner{padding:7px 9px 8px;border-radius:16px;margin-top:8px}
+.qrow{display:flex;align-items:center;gap:10px;justify-content:center}
+.qtx{flex:1;min-width:0}
+.banner .q{font-size:15px}
+.banner .pic{margin:0;width:66px;flex:none;border-radius:10px}
+.banner .big{font-size:26px;margin-top:2px}
+.banner .sent{font-size:19px;margin-top:2px}
+.banner .say{width:32px;height:32px;font-size:15px}
+.banner .hint{margin-top:4px;font-size:13px}
+.lanes{margin-top:6px;gap:5px}
+.ln{min-height:34px;padding:5px 3px;font-size:15px}
+.pbd{position:absolute;right:12px;bottom:calc(env(safe-area-inset-bottom) + 82px);padding:9px 14px;border-radius:999px;border:2.5px solid #3e7d33;background:rgba(232,247,224,.92);font-size:17px;font-weight:800;color:#183e12;box-shadow:0 3px 0 #3e7d33}
+.pbd.on{background:#7cc36b;transform:translateY(2px);box-shadow:0 1px 0 #3e7d33}
+#pad[hidden]~.pbd{display:none}
+.pl{margin:10px 0 0!important;font-weight:800;font-size:15px!important}
+.pace{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:4px}
+.pace button{padding:7px 4px;border-radius:14px;border:2px solid rgba(74,54,40,.25);background:#fff;font-size:14px;font-weight:700;display:flex;flex-direction:column;align-items:center}
+.pace button b{font-size:22px}
+.pace button.on{border-color:#2f6fa8;background:#e3f0fb;box-shadow:0 0 0 2px #2f6fa8 inset}
