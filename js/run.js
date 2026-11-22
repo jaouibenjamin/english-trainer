@@ -3,7 +3,8 @@
    over each lane, and the pupil runs under the right one. A wrong answer never ends the run: the right answer is shown
    and the question comes back later in the same run. Questions are the mock exam's, built from the teacher's worksheets.
    It shares the pupil's record (points, login) with the main game and changes nothing else in it. */
-import * as THREE from '../vendor/three.module.min.js';
+import * as THREE from 'three';
+import {GLTFLoader} from '../vendor/jsm/loaders/GLTFLoader.js';
 import {S,award,saveLocal,API,esc,say as sayEn,SET,reduced,push} from './state.js';
 import {POOL,PIC,shuf} from './xdata.js';
 import {SND,unlock} from './audio.js';
@@ -31,23 +32,24 @@ try{renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 const scene=new THREE.Scene();
-const SKY_TOP='#7ec8e8',SKY_LOW='#d9f1f4';
-scene.fog=new THREE.Fog(0xcdeef2,38,105);
-scene.background=(()=>{const c=document.createElement('canvas');c.width=4;c.height=256;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,256);gr.addColorStop(0,SKY_TOP);gr.addColorStop(.62,SKY_LOW);gr.addColorStop(1,'#f6efd9');g.fillStyle=gr;g.fillRect(0,0,4,256);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t})();
+const SKY_TOP='#5d4fa3',SKY_LOW='#f6a77f';
+scene.fog=new THREE.Fog(0xf3b08c,40,110);
+scene.background=(()=>{const c=document.createElement('canvas');c.width=4;c.height=256;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,256);gr.addColorStop(0,SKY_TOP);gr.addColorStop(.62,SKY_LOW);gr.addColorStop(1,'#ffd7a6');g.fillStyle=gr;g.fillRect(0,0,4,256);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t})();
 const cam=new THREE.PerspectiveCamera(62,1,.1,220);
-scene.add(new THREE.HemisphereLight(0xfff6e0,0x8fb7a0,1.25));
+scene.add(new THREE.HemisphereLight(0xffe6d0,0x6a5acd,1.35));
 const sun=new THREE.DirectionalLight(0xffffff,1.6);sun.position.set(-4,10,6);scene.add(sun);
 
 /* toon shading: three hard tones and a dark outline shell */
 const GRAD=(()=>{const t=new THREE.DataTexture(new Uint8Array([90,90,90,255,170,170,170,255,255,255,255,255]),3,1);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;return t})();
-const toon=(c,o={})=>new THREE.MeshToonMaterial({color:c,gradientMap:GRAD,...o});
+const toon=(c,o={})=>new THREE.MeshLambertMaterial({color:c,flatShading:true,...o});
+const toonC=(c,o={})=>new THREE.MeshToonMaterial({color:c,gradientMap:GRAD,...o});
 const INK=new THREE.MeshBasicMaterial({color:0x3a281c,side:THREE.BackSide});
-function mesh(geo,mat,outline=0.05){const m=new THREE.Mesh(geo,mat);if(outline){const o=new THREE.Mesh(geo,INK);o.scale.setScalar(1+outline);m.add(o)}return m}
+function mesh(geo,mat,outline=0.05){const m=new THREE.Mesh(geo,mat);if(outline&&mat.isMeshToonMaterial){const o=new THREE.Mesh(geo,INK);o.scale.setScalar(1+outline);m.add(o)}return m}
 
 /* ---------------- Pitzi, built from shapes ---------------- */
 function makeCrab(){
  const root=new THREE.Group(),body=new THREE.Group();root.add(body);
- const CORAL=toon(0xf28466),CORAL2=toon(0xe66e52),CREAM=toon(0xfff2dc),WHITE=toon(0xffffff),BLACK=new THREE.MeshBasicMaterial({color:0x2a1a12}),BLUE=toon(0x6fa7d8),PINK=new THREE.MeshBasicMaterial({color:0xf7a1a1,transparent:true,opacity:.8});
+ const CORAL=toonC(0xf28466),CORAL2=toonC(0xe66e52),CREAM=toonC(0xfff2dc),WHITE=toonC(0xffffff),BLACK=new THREE.MeshBasicMaterial({color:0x2a1a12}),BLUE=toonC(0x6fa7d8),PINK=new THREE.MeshBasicMaterial({color:0xf7a1a1,transparent:true,opacity:.8});
  const shell=mesh(new THREE.SphereGeometry(.55,28,18),CORAL,.045);shell.scale.set(1.18,.8,.96);shell.position.y=.66;body.add(shell);
  const belly=mesh(new THREE.SphereGeometry(.42,20,14),CREAM,0);belly.scale.set(1.05,.62,.5);belly.position.set(0,.55,.3);body.add(belly);
  /* sailor scarf */
@@ -80,6 +82,17 @@ function makeCrab(){
  return{root,body,eyes,claws,legs,shadow,smile}}
 const crab=makeCrab();scene.add(crab.root);scene.add(crab.shadow);
 
+/* the hero: a low-poly runner made in Higgsfield (image to rigged, animated 3D). If it cannot load, Pitzi runs instead. */
+const HERO_URL='https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/hf_20261122_091919_b439053f-4747-4a22-8aa0-0a67974a1928.glb';
+let hero=null;
+if(HERO_URL.startsWith('https://'))new GLTFLoader().load(HERO_URL,g=>{const m=g.scene;
+  const b=new THREE.Box3().setFromObject(m),sz=b.getSize(new THREE.Vector3()),k=1.55/(sz.y||1);m.scale.setScalar(k);
+  const b2=new THREE.Box3().setFromObject(m),c=b2.getCenter(new THREE.Vector3());m.position.set(-c.x,-b2.min.y,-c.z);
+  m.traverse(o=>{if(o.isMesh){o.frustumCulled=false;const mt=o.material;if(mt&&mt.map)mt.map.colorSpace=THREE.SRGBColorSpace}});
+  const root=new THREE.Group();root.add(m);scene.add(root);
+  const mixer=new THREE.AnimationMixer(m),clip=g.animations[0],act=clip?mixer.clipAction(clip):null;if(act)act.play();
+  hero={root,mixer,act};crab.root.visible=false;window.__heroLoaded=true},undefined,e=>{console.warn('hero did not load, Pitzi runs',e);window.__heroLoaded=false});
+
 /* ---------------- the beach ---------------- */
 const LANE=[-1.7,0,1.7],TRACK_W=5.6,TRACK_L=220;
 function canvasTex(w,h,draw,rep){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;
@@ -90,22 +103,22 @@ const boardTex=canvasTex(256,256,(g,w,h)=>{g.fillStyle='#c99a66';g.fillRect(0,0,
  g.fillStyle='rgba(255,255,255,.28)';for(const u of[.3534,.6466])g.fillRect(u*w-2,0,4,h);
  g.fillStyle='rgba(90,55,30,.6)';g.fillRect(0,0,6,h);g.fillRect(w-6,0,6,h)},[1,TRACK_L/4]);
 const track=new THREE.Mesh(new THREE.PlaneGeometry(TRACK_W,TRACK_L),toon(0xffffff,{map:boardTex}));track.rotation.x=-Math.PI/2;track.position.set(0,.01,-TRACK_L/2+10);scene.add(track);
-const sandTex=canvasTex(256,256,(g,w,h)=>{g.fillStyle='#f3dfae';g.fillRect(0,0,w,h);for(let i=0;i<500;i++){g.fillStyle=Math.random()<.5?'rgba(200,160,100,.35)':'rgba(255,255,255,.4)';g.fillRect(Math.random()*w,Math.random()*h,2,2)}},[8,TRACK_L/8]);
+const sandTex=canvasTex(256,256,(g,w,h)=>{g.fillStyle='#f4c99a';g.fillRect(0,0,w,h);for(let i=0;i<500;i++){g.fillStyle=Math.random()<.5?'rgba(200,160,100,.35)':'rgba(255,255,255,.4)';g.fillRect(Math.random()*w,Math.random()*h,2,2)}},[8,TRACK_L/8]);
 const sand=new THREE.Mesh(new THREE.PlaneGeometry(64,TRACK_L),toon(0xffffff,{map:sandTex}));sand.rotation.x=-Math.PI/2;sand.position.set(0,-.02,-TRACK_L/2+10);scene.add(sand);
-const seaTex=canvasTex(256,256,(g,w,h)=>{g.fillStyle='#57b8d9';g.fillRect(0,0,w,h);g.strokeStyle='rgba(255,255,255,.45)';g.lineWidth=3;for(let y=10;y<h;y+=32){g.beginPath();for(let x=0;x<=w;x+=8)g.lineTo(x,y+Math.sin(x/18+y)*4);g.stroke()}},[10,30]);
+const seaTex=canvasTex(256,256,(g,w,h)=>{g.fillStyle='#2bb3b1';g.fillRect(0,0,w,h);g.strokeStyle='rgba(255,255,255,.45)';g.lineWidth=3;for(let y=10;y<h;y+=32){g.beginPath();for(let x=0;x<=w;x+=8)g.lineTo(x,y+Math.sin(x/18+y)*4);g.stroke()}},[10,30]);
 for(const s of[-1,1]){const sea=new THREE.Mesh(new THREE.PlaneGeometry(120,TRACK_L),new THREE.MeshBasicMaterial({map:seaTex}));sea.rotation.x=-Math.PI/2;sea.position.set(s*(32+60),.0,-TRACK_L/2+10);scene.add(sea);sea.userData.sea=1}
 const SEAS=scene.children.filter(o=>o.userData.sea);
 /* far islands */
-for(const [x,z,r,c] of[[-30,-150,18,0x8fcf8a],[26,-160,22,0x7cc07a],[0,-185,30,0xa6d99a]]){const m=new THREE.Mesh(new THREE.SphereGeometry(r,24,12,0,Math.PI*2,0,Math.PI/2),toon(c));m.scale.y=.45;m.position.set(x,-1,z);scene.add(m)}
+for(const [x,z,r,c] of[[-30,-150,18,0x8fcf8a],[26,-160,22,0x7cc07a],[0,-185,30,0xa6d99a]]){const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,4,0,Math.PI*2,0,Math.PI/2),toon(c));m.scale.y=.45;m.position.set(x,-1,z);scene.add(m)}
 
 /* decorations that scroll past: palms, umbrellas, towels */
-const GREEN=toon(0x6dbb5a),TRUNK=toon(0xa9744a),UMB=[toon(0xf28466),toon(0xf6c64a),toon(0x6fc4c8),toon(0xffffff)];
-function palm(){const g=new THREE.Group();let x=0,y=0;for(let i=0;i<6;i++){const c=mesh(new THREE.CylinderGeometry(.16-i*.012,.19-i*.012,.62,8),TRUNK,.08);x+=.05*i;c.position.set(x,y+.31,0);c.rotation.z=-.05*i;g.add(c);y+=.58}
- for(let i=0;i<7;i++){const l=mesh(new THREE.SphereGeometry(1,10,6),GREEN,.06);l.scale.set(.22,.06,1.25);const a=i/7*Math.PI*2;l.position.set(x+Math.sin(a)*.9,y+.05,Math.cos(a)*.9);l.rotation.set(Math.cos(a)*.45,a,0);l.rotation.order='YXZ';l.rotation.x=.35;g.add(l)}
+const GREEN=toon(0x3fae7a),TRUNK=toon(0xb07a4f),UMB=[toon(0xf2785c),toon(0xf6c64a),toon(0x8a6fd1),toon(0xffffff)];
+function palm(){const g=new THREE.Group();let x=0,y=0;for(let i=0;i<6;i++){const c=mesh(new THREE.CylinderGeometry(.16-i*.012,.19-i*.012,.62,5),TRUNK,.08);x+=.05*i;c.position.set(x,y+.31,0);c.rotation.z=-.05*i;g.add(c);y+=.58}
+ for(let i=0;i<7;i++){const l=mesh(new THREE.ConeGeometry(1,1,4),GREEN,.06);l.scale.set(.35,.08,1.3);const a=i/7*Math.PI*2;l.position.set(x+Math.sin(a)*.9,y+.05,Math.cos(a)*.9);l.rotation.set(Math.cos(a)*.45,a,0);l.rotation.order='YXZ';l.rotation.x=.35;g.add(l)}
  const co=toon(0x7a5230);for(let i=0;i<3;i++){const n=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),co);n.position.set(x+Math.sin(i*2)*.18,y-.12,Math.cos(i*2)*.18);g.add(n)}
  return g}
 function umbrella(i){const g=new THREE.Group();const p=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,2.1,6),toon(0xf5f0e6));p.position.y=1.05;g.add(p);
- const c=mesh(new THREE.ConeGeometry(1.15,.55,12,1,true),UMB[i%3],.04);c.material=UMB[i%3].clone();c.material.side=THREE.DoubleSide;c.position.y=2.15;g.add(c);
+ const c=mesh(new THREE.ConeGeometry(1.15,.55,6,1,true),UMB[i%3],.04);c.material=UMB[i%3].clone();c.material.side=THREE.DoubleSide;c.position.y=2.15;g.add(c);
  const t=new THREE.Mesh(new THREE.BoxGeometry(.9,.04,1.7),UMB[(i+1)%4]);t.position.set(.9,.03,.4);t.rotation.y=.3;g.add(t);return g}
 const decor=[];
 for(let i=0;i<18;i++){const side=i%2?1:-1,o=i%3===2?umbrella(i):palm();o.position.set(side*(4.4+Math.random()*3.5),0,-i*7-6);o.rotation.y=Math.random()*Math.PI;o.userData.side=side;scene.add(o);decor.push(o)}
@@ -115,7 +128,7 @@ const WOOD=toon(0xb07a45),WOOD2=toon(0x8e5c30),ROCK=toon(0x9aa3a8);
 const ballTex=canvasTex(256,128,(g,w,h)=>{const c=['#f25c54','#ffffff','#f6c64a','#ffffff','#4aa3df','#ffffff'];c.forEach((k,i)=>{g.fillStyle=k;g.fillRect(i*w/6,0,w/6+1,h)})});
 const OB={
  crate:()=>{const g=new THREE.Group();const b=mesh(new THREE.BoxGeometry(1.1,.85,.9),WOOD,.04);b.position.y=.43;g.add(b);for(const y of[.15,.7]){const s=new THREE.Mesh(new THREE.BoxGeometry(1.14,.1,.94),WOOD2);s.position.y=y;g.add(s)}g.userData.h=.85;return g},
- ball:()=>{const g=new THREE.Group();const b=mesh(new THREE.SphereGeometry(.45,20,14),toon(0xffffff,{map:ballTex}),.04);b.position.y=.45;g.add(b);g.userData.h=.85;g.userData.spin=b;return g},
+ ball:()=>{const g=new THREE.Group();const b=mesh(new THREE.IcosahedronGeometry(.45,1),toon(0xffffff,{map:ballTex}),.04);b.position.y=.45;g.add(b);g.userData.h=.85;g.userData.spin=b;return g},
  rock:()=>{const g=new THREE.Group();const b=mesh(new THREE.DodecahedronGeometry(.55,0),ROCK,.05);b.scale.set(1.15,.75,.9);b.position.y=.38;g.add(b);g.userData.h=.75;return g},
  castle:()=>{const g=new THREE.Group(),m=toon(0xf0d08a);const b=mesh(new THREE.CylinderGeometry(.5,.58,.55,10),m,.05);b.position.y=.27;g.add(b);const t=mesh(new THREE.CylinderGeometry(.28,.32,.4,8),m,.06);t.position.y=.72;g.add(t);
   const f=new THREE.Mesh(new THREE.ConeGeometry(.12,.2,4),toon(0xf25c54));f.position.y=1.0;g.add(f);g.userData.h=.9;return g}};
@@ -137,7 +150,7 @@ function signTex(text,state){return canvasTex(512,288,(g,w,h)=>{
  while(!fit()&&size>26)size-=2;
  const lh=size*1.12,y0=h/2-(lines.length-1)*lh/2+6;lines.forEach((l,i)=>g.fillText(l,w/2,y0+i*lh))})}
 function rr(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
-const POST=toon(0x6fa7d8),BEAM=toon(0xf28466),ROPE=new THREE.MeshBasicMaterial({color:0x7a5a40});
+const POST=toon(0x2bb3b1),BEAM=toon(0x8a6fd1),ROPE=new THREE.MeshBasicMaterial({color:0x7a5a40});
 function makeGate(q){const g=new THREE.Group();g.userData.gate=q;
  for(const s of[-1,1]){const p=mesh(new THREE.CylinderGeometry(.16,.2,4.2,10),POST,.06);p.position.set(s*2.75,2.1,0);g.add(p);const k=mesh(new THREE.SphereGeometry(.26,12,10),BEAM,.06);k.position.set(s*2.75,4.3,0);g.add(k)}
  const beam=mesh(new THREE.BoxGeometry(5.9,.32,.32),BEAM,.04);beam.position.y=4.1;g.add(beam);
@@ -228,10 +241,13 @@ function poseRun(dt,sp){tAnim+=dt*(sp>0?sp*.9:3);const c=crab,air=G&&G.y>0;
  for(const l of c.legs)l.p.rotation.x=air?(l.s>0?.5:.5):Math.sin(tAnim*2+l.ph)*.6;
  c.claws.forEach((k,i)=>{k.arm.rotation.x=Math.sin(tAnim+i*Math.PI)*.35-(air?.6:0);k.top.rotation.z=(i?-1:1)*(.2+Math.max(0,Math.sin(tAnim*1.5))*.3)});
  c.root.visible=!(G&&G.inv>0&&Math.floor(G.inv*12)%2);
- c.shadow.position.set(c.root.position.x,.02,0);const s=1-Math.min(.5,(G?G.y:0)*.25);c.shadow.scale.set(s,s,s)}
+ c.shadow.position.set(c.root.position.x,.02,0);const s=1-Math.min(.5,(G?G.y:0)*.25);c.shadow.scale.set(s,s,s);
+ if(hero){c.root.visible=false;hero.root.position.copy(c.root.position);hero.root.rotation.y=Math.PI+(G?(LANE[G.lane]-G.x)*-.3:0);hero.root.rotation.z=G&&G.stun>0?Math.sin(G.stun*20)*.15:0;
+  hero.root.visible=!(G&&G.inv>0&&Math.floor(G.inv*12)%2);hero.mixer.update(dt*(air?.25:Math.max(.6,sp/9)))}}
 function poseIdle(dt){tAnim+=dt*2.5;const c=crab;c.root.position.set(0,0,0);c.root.rotation.y=Math.sin(tAnim*.3)*.25;c.body.position.y=Math.abs(Math.sin(tAnim))*.04;c.body.rotation.z=0;c.body.rotation.x=0;
  for(const l of c.legs)l.p.rotation.x=0;c.claws[0].arm.rotation.x=0;c.claws[1].arm.rotation.x=-1.1+Math.sin(tAnim*2)*.35;c.claws[1].top.rotation.z=-.2-Math.max(0,Math.sin(tAnim*3))*.4;c.claws[0].top.rotation.z=.2;
- c.root.visible=true;c.shadow.position.set(0,.02,0);c.shadow.scale.setScalar(1)}
+ c.root.visible=!hero;c.shadow.position.set(0,.02,0);c.shadow.scale.setScalar(1);
+ if(hero){hero.root.position.set(0,0,0);hero.root.rotation.set(0,Math.sin(tAnim*.3)*.35,0);hero.root.visible=true;hero.mixer.update(dt*.55)}}
 
 function makeFinish(){const g=new THREE.Group();for(const s of[-1,1]){const p=mesh(new THREE.CylinderGeometry(.16,.2,4.2,10),toon(0xf6c64a),.06);p.position.set(s*2.75,2.1,0);g.add(p)}
  const flagTex=canvasTex(512,128,(c,w,h)=>{for(let x=0;x<16;x++)for(let y=0;y<4;y++){c.fillStyle=(x+y)%2?'#3a2a20':'#ffffff';c.fillRect(x*32,y*32,32,32)}});
