@@ -103,8 +103,8 @@ export const WRITE_CHECK={
   if(miss.length)return{ok:false,why:'name',w:miss[0]};
   if(!/[.?!]$/.test(t))return{ok:false,why:'stop'};
   return{ok:true}}};
-const write_inv=[['age','It\'s my birthday! I\'m ___ years old.',['12','twelve'],'הגיל כתוב על העוגה'],['date','Date: ___',['October 14','14 October','October 14th','14th October','the 14th of October','14th of October','October fourteenth'],'מה כתוב בלוח השנה?'],
- ['time','Time: ___',['4 o\'clock','four o\'clock','4:00','4','four','at 4 o\'clock','at four o\'clock','4 oclock','four oclock'],'מה השעה בשעון?'],['where','Where: ___',['8 Rose Street','8 rose street','Rose Street 8','eight Rose Street'],'מה כתוב על השלט ליד הבית?'],
+const write_inv=[['age','It\'s my birthday! I\'m ___ years old.',['12','twelve'],'הגיל כתוב על העוגה'],['date','Date: ___',['October 14','14 October','October 14th','14th October','the 14th of October','14th of October','October fourteenth'],'מה כתוב בדף לוח השנה? כתבו את החודש ואת היום'],
+ ['time','Time: ___ o\'clock',['4','four','4 o\'clock','four o\'clock','4:00','4 oclock','four oclock'],'לאיזה מספר מצביע המחוג האדום הקצר? כתבו רק את המספר'],['where','Where: ___',['8 Rose Street','8 rose street','Rose Street 8','eight Rose Street'],'מה כתוב על השלט ליד הבית?'],
  ['from','From: ___',['Lia'],'מי מזמינה למסיבה?']].map(([f,s,acc,hint])=>({k:'inv:'+f,skill:'writing',type:'type',card:'invite',q:'השלימו את ההזמנה לפי התמונה',sent:s,acc,a:acc[0],src:'ws',hint,
  tip:`${s.replace('___',acc[0])}`}));
 const SPELL=['guitar','sofa','card','cake','piano','market','present','toilet','village','building'];

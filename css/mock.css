@@ -193,3 +193,8 @@
 @keyframes mouth{0%{height:3px}25%{height:8px}50%{height:5px}75%{height:9px}}
 .calm .narr.talk .ncrab .nmouth{animation:mouth 1.2s steps(1,end) infinite}
 .xinv{grid-template-columns:1fr 1fr!important}
+.xinv .xi3{background:#fffaf0!important;gap:4px!important}
+.xinv .xcal{display:flex;flex-direction:column;align-items:center;width:64px;border-radius:8px;overflow:hidden;border:2px solid #5a4534;background:#fff}
+.xinv .xcal small{display:block;width:100%;background:#c0392b;color:#fff;font-size:11px!important;font-weight:800;padding:1px 0}
+.xinv .xcal b{font-size:26px!important;line-height:1.15}
+.xinv .xi3 em{font-style:normal;font-weight:800;font-size:15px}
