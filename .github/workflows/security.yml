@@ -1,0 +1,24 @@
+name: security
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for secrets (gitleaks)
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect --source /repo --redact --verbose
+  personal-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No pupil data or server keys in the repo
+        run: |
+          set -e
+          ! grep -rInE "service_role|SUPABASE_SERVICE|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY" --exclude-dir=.git --exclude-dir=vendor --exclude-dir=.github . || (echo "possible server key in repo" && exit 1)

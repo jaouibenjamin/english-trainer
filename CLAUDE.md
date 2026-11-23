@@ -13,7 +13,7 @@ Read this file and `docs/PLAN.md` before changing anything.
   - `engineer`: code, backend, tests, security and privacy review. Runs before anything ships.
   - `kids-ui-designer`: screens, copy and flow for 10 to 11 year olds, Hebrew RTL, accessibility.
   - `motion-designer`: animation, illustration, sound and voice direction.
-- The lead does not ship a change the engineer has not reviewed.
+- The lead does not ship a change the engineer has not reviewed. The engineer's review always includes a security code review, not only tests (see `.claude/agents/engineer.md`), and the `security` GitHub workflow (secret scan) must be green.
 
 ## Hard rules (owner's, do not relax)
 
