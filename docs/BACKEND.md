@@ -36,7 +36,7 @@ not exposed by the API at all and no browser role has any right on it; only the 
 | `answers` | `id bigint pk`, `pupil_id`, `item_id`, `correct bool`, `first_try bool`, `pts smallint`, `flag smallint`, `at timestamptz` | Append only. One row per item answered. `pts` and `flag` are set by the server, never by the client. |
 | `points` | `id bigint pk`, `pupil_id`, `delta int`, `reason` (`day`, `stars`, `read`, `exam`, `run`, `migrated`, `fix`), `ref text`, `at` | Append only ledger for points that are not one answer: daily bonus, level stars, the total carried over from the Sheet, a teacher's correction. Written by the server only. |
 | `pupil_totals` | `pupil_id pk`, `points int`, `answers int`, `first_try int`, `wrong int`, `last_at` | Kept up to date by the same server function that writes `answers` and `points`. The board reads this, so it never scans `answers`. A check function recomputes it from the two ledgers and must match (tested). |
-| `progress` | `pupil_id pk`, `state jsonb` (at most 30,000 characters, as today), `updated_at` | Transitional: today's `pack()` blob, so the game changes little. `state.pts` is ignored by the board. |
+| `progress` | `pupil_id pk`, `state jsonb` (at most 40,000 characters of JSON; the game's own limit stays 30,000), `updated_at` | Transitional: today's `pack()` blob, so the game changes little. `state.pts` is ignored by the board. |
 | `flags` | `id bigint pk`, `pupil_id`, `kind` (`rate`, `repeat`, `daycap`, `marathon`, `items`, `levels`, `unusual`, `bonus`), `day date`, `n int`, unique (`pupil_id`,`kind`,`day`) | Sanity-check findings for the teacher. One row per pupil, kind and day with a counter, so a cheater cannot fill the table. |
 | `answer_daily` | `pupil_id`, `day`, `item_id`, `tries`, `correct`, `first_try`, `pts` | Roll-up of `answers` older than 90 days (the raw rows are then deleted). Keeps the database inside the free 500 MB. |
 
@@ -212,17 +212,23 @@ a picture.
 
 ### The numbers behind this, plainly
 
-- Two pictures in order out of 20 are 380 possibilities. Three tries on one name: 0.8%. (One picture was 15%; two
-  without order 1.6%. Order costs the pupil a little and halves the risk; a swapped order uses one try, not three.)
-- Someone who knows the class code and every first name can try pictures on many names, but only 5 wrong a day from
-  one network and 10 wrong a day in the whole class before recovery pauses for everybody until the next day and the
-  teacher is told. That is at most a 2.6% chance a day that one account in the class falls, and every such day is on
-  the teacher's screen. If she never reacted, all tries of all 35 names would be used after 11 days with a 24% chance
-  that one account fell; closed names stay closed until she reopens them.
-- A random 4-digit code from one phone on one network: 10 wrong a day, 0.1% a day. From many devices and networks:
-  20 a day, 29 with a known shared device, about 6% to 9% a month for one targeted name. The weak-code rule removes
-  about 400 of the 10,000 codes, the ones a sprayer tries first; spraying one code over 35 names is stopped by the
-  30-a-day network cap and shown to the teacher.
+All of these assume secrets chosen at random. Children pick favourites (the cat, a birthday), so read every figure
+as a **lower bound** on the attacker's chance; what really protects a class is that tries are few, counted across the
+whole class, and shown to the teacher.
+
+- Two pictures in order out of 20 are 380 possibilities. Three tries on one name: 0.79%. (One picture was 15%; two
+  without order 1.6%. A swapped order uses one try, not three.)
+- Pictures across a class: 5 wrong a day from one network, 10 wrong a day in the whole class, then recovery pauses for
+  everybody until the count drops and the teacher is told. At most 2.6% a day that one account in the class falls;
+  24.2% if she ignored it for 11 days, after which every name is closed.
+- One targeted random code: from one network 10 wrong a day (0.1% a day, 3.1% a month); from many networks 20 a day
+  (6.25% a month, 76% a year). So a code is not a secret for a year against someone determined; the teacher's
+  "locked N times today" is what ends it.
+- Spraying popular codes over a class is **not stopped, it is capped**: one network gets 30 wrong codes a day for the
+  class, any number of networks 100 a day (the class brake). The expected accounts opened in a day are
+  `wrong tries allowed x share of pupils whose code is among the codes tried / number of codes tried`. With 3 codes
+  and 3% of pupils on them: about 1 account a day at the brake, about 26% a day from one network. The weak-code rule
+  exists to push that 3% towards zero: it refuses 965 of the 10,000 codes (below).
 
 ## 4. How it works underneath
 
@@ -298,7 +304,9 @@ Honest strength (review S6):
   function would widen what a function bug can leak.
 
 **Weak codes** are refused at registration and whenever a new code is set: four equal digits, ascending or descending
-runs, `abab`, `aabb`, `19xx` and `20xx` (about 400 codes).
+runs, `abab`, `aabb`, `19xx` and `20xx` (402 codes), every code that reads as a date (`DDMM` or `MMDD`, 588 codes: a
+classmate often knows the birthday) and the common keypad lines (2580, 1470, 1357 and the like). Together 965 codes;
+9,035 remain. The message is friendly: "pick one that is harder to guess".
 
 **Hashes from the Sheet** (`SHA-256(salt + ":" + code)`, fast, so dangerous alone):
 
@@ -339,7 +347,7 @@ Who is asking (review S2, S3):
 | Wrong codes in 24 h, one address, **all names of a class** | 30 | strangers (review B2) |
 | Wrong codes in 24 h, one name, strangers | **20** | every address together |
 | Wrong codes in 24 h, one name, everything | **29** (9 reserved for the pupil's known devices) | |
-| Wrong codes in 24 h, one class, strangers | 60 → the teacher sees "many wrong codes today"; 100 → sign-in from unknown devices is paused for the class until the count drops | class brake |
+| Wrong codes in 24 h, one class, strangers | 60 → the teacher sees "many wrong codes today"; 100 → sign-in from unknown devices is paused for the class until the count drops **or the teacher lifts it** | class brake; known devices are never paused |
 | Wrong picture pairs, one name | **3 → recovery closed until the teacher reopens it** (review B1) | no decay |
 | Wrong picture pairs in 24 h, one address, all names | 5 | |
 | Wrong picture pairs in 24 h, one class | 10 → recovery by pictures is paused for the class until the count drops, teacher sees it | class brake |
@@ -348,6 +356,13 @@ Who is asking (review S2, S3):
 | Wrong class codes per address | 30 an hour | |
 | Calls per address, any kind | 120 an hour | |
 | Registrations per address | 60 an hour (a class registering from the school's one address must fit) | |
+
+The teacher has two remedies, both in `teacher-reset` (review N1, N2): **unlock a pupil** clears that name's locks
+and counters without touching the code or the pictures (for the pupil kept off the school computers by someone's
+wrong guesses), and **lift the class brake** does the same for the class-wide pauses, so wrong codes before school
+cannot cost a lesson. Each use is on record and counted; neither gives the person who caused the lock anything but
+their tries back. Exempting "addresses that signed in correctly for this class in the last 30 days", as the review
+suggests, is not possible here: address hashes are salted per day and forgotten after two.
 
 What this gives, and what it does not:
 
@@ -358,6 +373,8 @@ What this gives, and what it does not:
 - A hard ceiling means a determined person with several networks can keep new devices out of one name, or pause
   unknown-device sign-in for a class, for a day. Open sessions and known devices are not affected, the teacher sees
   it, and her reset clears a name.
+- A bully with many networks can still cancel a one-time code with 30 wrong tries (review N3). That only denies: the
+  teacher sees it and issues another.
 - The one-time code is consumed in the same transaction that sets the new code, and the auth user is replaced before
   the session is issued.
 
@@ -376,8 +393,9 @@ never in a query string; the same amount of work on every path.
 | `pupil-register` | anyone with the public key | class → class list, free name, class not full, weak-code rule → pupil, code hash, picture hash → session and device token. |
 | `pupil-login` | anyone with the public key | limits → verify → (migrated pupil: require the new code and pictures in the same request) → check the auth user is untouched, create one if missing → session, device token, the `progress` blob. |
 | `pupil-recover` | anyone with the public key | pictures (or the teacher's one-time code) + new code + new pictures → everything applied in one transaction → new auth user → session. |
-| `teacher-reset` | a signed-in teacher; the function verifies her token with Supabase Auth and the database checks again that she teaches that pupil's class; nothing in the body decides who she is | clears the code, replaces the auth user, clears the name's locks, stores the one-time code's hash, returns the code once. |
+| `teacher-reset` (actions `reset`, `unlock`, `unlock_class`) | a signed-in teacher; the function verifies her token with Supabase Auth and the database checks again that she teaches that pupil's class; nothing in the body decides who she is | clears the code, replaces the auth user, clears the name's locks, stores the one-time code's hash, returns the code once. |
 | `admin-wrap-legacy` | the server key only; used once at migration | wraps the Sheet's hashes with the pepper (4.2). |
+| `admin-class` | the server key only | creates a class and its 8-character code (the lookup needs the pepper), shows the code once; also rotates a class's code. |
 
 Teacher sign-in is Google through Supabase. No bridge from today's teacher code (review S14).
 
@@ -399,9 +417,13 @@ is ignored.
 | `run` {points} | Beach Run, at most 60 a day | the points sent | 60 a day | — |
 | daily bonus | 20 on the first points of a day | 20, decided by the server (Israel time) | once a day | — |
 
+Storage is finite (500 MB for everybody), so what one pupil's device can add in a day is capped too: 1,000 answer
+rows and 1,500 calls; past that nothing is written but a counter on one flag row, an empty batch leaves no row, and
+a call over 64 KB is refused unread (tested: 50,000 answers from one pupil store at most 1,000 rows).
+
 Time (review S10): the client's `t` is used for the order of answers and the day they belong to (never in the
-future, at most 48 hours back, never before the pupil's previous answer), so a pupil who played offline is credited
-fairly. But **every cap is also counted by the server's arrival time**: 600 answers with points per arrival day
+future, at most 48 hours back), so a pupil who played offline, also on a second device that delivers an earlier
+hour late, is credited fairly and not flagged. But **every cap is also counted by the server's arrival time**: 600 answers with points per arrival day
 whatever the client claims, so back-dating buys nothing.
 
 Catalogue (review S9): `items`, `levels` and `texts` keys are generated from the repo's content files
@@ -445,8 +467,15 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
   artifact of a public repo can be downloaded by any signed-in GitHub user. So: the database itself produces an
   **encrypted** export. `backup_export()` returns every table as one document encrypted with pgcrypto to a public key
   whose private key only the owner holds (on his computer and one offline copy; never in GitHub, Supabase or a chat).
-  The export is ciphertext only, so the twice-weekly workflow may fetch it with a low-right export token and keep the
-  last few as artifacts; whoever downloads one has nothing.
+- Fetching it: `backup_export(p_token)` may be called with the public key. It compares `sha256(p_token)` with a hash
+  stored in `private.settings`, answers at most once in 6 hours, and returns ciphertext only. The token is a random
+  string the owner generates; GitHub holds the token, the database holds its hash. A leaked token yields ciphertext
+  and is revoked by storing a new hash. Supabase has no key type for this; it is our own function.
+- The twice-weekly workflow keeps each export as an artifact for **7 days** (a public repository's artifacts can be
+  downloaded by any signed-in GitHub user, and if the owner's private key ever leaked, every export still stored
+  would open). The owner also saves one a month outside GitHub.
+- The key is RSA 4096 (what pgcrypto's public-key encryption supports, to be confirmed, section 10). The export is
+  produced table by table in chunks so that no statement timeout cuts it.
 - **Restore drill** before the switch: the owner decrypts one export and `tools/restore.py` loads it into a second
   free project; the totals check must pass there. Repeated once a term.
 - **Summer:** GitHub switches schedules off after 60 days without repository activity and mails the owner; the
@@ -458,8 +487,9 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
 
 - We store: first name, class, game events, hashes that need the pepper. No email, surname, birth date or photo.
 - Supabase itself keeps the caller's address in `auth.sessions`, the Auth audit log and gateway logs. We cannot turn
-  that off on the free plan; `maintenance()` deletes audit-log rows older than 30 days (if the platform lets the
-  server role do it, section 10), and sessions die with the rotated auth users. This goes into the note for parents.
+  that off on the free plan; `maintenance()` deletes audit-log rows older than 30 days and reports `audit_purged:
+  false` when the platform refuses (section 10), and sessions die with the rotated auth users. `maintenance()` runs
+  every night from pg_cron inside the database, not from GitHub. This goes into the note for parents.
 - Typed names of failed sign-ins stay 30 days in `private.auth_attempts` (needed for the limits), then are deleted.
 - `teacher_delete_pupil` removes the pupil row and everything keyed by the pupil or by class and name (events,
   ledgers, blob, secrets, devices, one-time code, tries, locks) and the auth user. Tested table by table.
@@ -474,9 +504,9 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
 | | Change their own auth user (password, email, second factor) to keep a back door | Project settings, triggers, a check at every sign-in, a new auth user at every reset and recovery | To be proven on the real project (section 10) before the switch. |
 | | Reach the teacher screen | Teacher views return rows only for a user in `teachers`, added by the owner | Nothing. |
 | | Find the code on a shared device | The code is never stored; the old version's copy is deleted on first run | An unlocked, signed-in phone can be played by whoever holds it. |
-| A classmate who knows the class code and the names | Guess one pupil's code | 20 a day per name, growing locks | 6% to 9% a month against one name with many devices; 0.1% a day from one phone. |
+| A classmate who knows the class code and the names | Guess one pupil's code | 20 a day per name, growing locks | 6.25% a month against one name from many networks (76% a year); 3.1% a month from one network. Lower bounds. |
 | | Try the popular codes on everybody | Weak-code rule; 30 a day per network for the class; class alarm at 60, brake at 100 | A code that is weak in a way the rule misses. |
-| | Guess pictures, on one name or on all | 3 tries per name then closed; 5 a day per network; class pause at 10 a day; teacher told | 0.8% per name; at most 2.6% a day for the class, every day visible. |
+| | Guess pictures, on one name or on all | 3 tries per name then closed; 5 a day per network; class pause at 10 a day; teacher told | 0.79% per name; at most 2.6% a day for the class, every day visible. Lower bounds: children pick favourites. |
 | | Take over, then keep the account | Recovery forces new pictures; the real pupil's devices are signed out and they tell the teacher; reset gives a one-time code only the teacher hands out | Until the pupil or teacher notices. |
 | | Lock a classmate out | Locks stop new sign-ins only; known devices exempt; one-time code cannot be burnt from one network | New devices kept out of a name for a day. |
 | | Register under a classmate's name | Class list required; teacher can delete a wrong registration | A not-yet-registered pupil can be impersonated until noticed. Register in class, together. |
@@ -493,7 +523,11 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
 ## 8. Cutover (Phase 2), with the way back
 
 1. **Shadow.** The game writes to the Sheet first, then to Supabase. Reads, sign-in, the teacher screen and reset
-   stay on the Sheet. Supabase has no recovery, pictures or resets in use; pupils exist there only as migrated rows.
+   stay on the Sheet. The server setting `shadow_mode` (default off) is on during this step only: a correct
+   Sheet-era code then opens a session **without** a new code or pictures, under our lockout, so the copy has
+   something to write with. A shadow session can only receive copies (`save_progress`, `record_events`): recovery,
+   pictures, one-time codes and registration are refused while the setting is on, and nothing it writes is shown to
+   a pupil. Turning the setting off replaces every pupil's auth user, which ends every shadow session at once.
    A nightly, idempotent re-sync (`tools/migrate_sheet.py`) repairs anything a device missed.
 2. **Compare daily**, per pupil: number of answers, stars per level, equality of the blob; and points **per source**
    (answers, stars, daily bonus, reading, exam, Beach Run), so a gap names its cause. Not point totals alone.
@@ -512,36 +546,50 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
 
 ## 9. Owner's manual checklist (in click order)
 
+Steps 12 to 16 need a computer with the Supabase CLI, `openssl` and `gpg`; the rest can be done in a browser.
+
 Accounts first:
 
-1. 2FA on the Supabase account, the GitHub account and the Google account. Recovery codes on paper.
-2. Supabase: sign up with GitHub, no card. One project, EU region (Frankfurt), a generated database password kept in
+1. Supabase: sign up with GitHub, no card. One project, EU region (Frankfurt), a generated database password kept in
    the password manager.
+2. 2FA on the Supabase account, the GitHub account and the Google account. Recovery codes on paper.
+3. GitHub → repository settings → Code security: secret scanning and push protection on.
 
 Project settings (each has a test in section 10):
 
-3. Authentication → Sign In / Providers: **Allow new users to sign up: off.** Anonymous sign-ins: off. Phone: off.
+4. Authentication → Sign In / Providers: **Allow new users to sign up: off.** Anonymous sign-ins: off. Phone: off.
    Email provider: on (needed for the server-side token), "Confirm email": on, "Secure email change": on. Every
    OAuth provider off except Google.
-4. Authentication → Google: client id and secret from the owner's own Google Cloud project (free).
-5. Authentication → Advanced / Multi-factor: enrolment off for all factor types. Manual identity linking: off.
-6. Authentication → Sessions: JWT expiry 3600; refresh-token rotation on, reuse interval 10 s.
-7. Authentication → Rate limits: token verifications raised to at least 150 per 5 minutes; sign-ups and email sends
-   left at the minimum. No custom SMTP.
-8. Authentication → URL configuration: site URL and redirect list = the game's address only.
-9. API settings: exposed schemas = `public` only. `pg_graphql` extension off. Realtime: off for every table.
-10. Database → Extensions: `pgcrypto` on (for the encrypted export).
-11. Run the migrations (`supabase db push`), then `supabase/seed/catalog.sql`.
-12. Secrets for the functions: `PUPIL_PEPPER` generated on the owner's computer (`openssl rand -base64 32`), set with
+5. Authentication → Google: client id and secret from the owner's own Google Cloud project (free).
+6. Authentication → Advanced / Multi-factor: enrolment off for all factor types. Manual identity linking: off.
+7. Authentication → Sessions: JWT expiry 3600; refresh-token rotation on, reuse interval 10 s.
+8. Authentication → Rate limits: token verifications raised to at least 150 per 5 minutes for one class. The limit
+   is per calling address and all our functions share theirs, so five classes signing in in the same five minutes
+   need five times that; raise it again before a second class joins. Sign-ups and email sends at the minimum. No
+   custom SMTP.
+9. Authentication → URL configuration: site URL and redirect list = the game's address only.
+10. API settings: exposed schemas = `public` only. `pg_graphql` extension off. Realtime: off for every table.
+11. Database → Extensions: `pgcrypto` (the encrypted export) and `pg_cron` (the nightly clean-up) on.
+12. Run the migrations (`supabase db push`), then `supabase/seed/catalog.sql`. Check the output says the nightly job
+    is scheduled.
+13. Secrets for the functions: `PUPIL_PEPPER` generated on the owner's computer (`openssl rand -base64 32`), set with
     `supabase secrets set`, never pasted anywhere else. `ALLOWED_ORIGINS`. Deploy the functions.
-13. Backup key: generate the key pair on the owner's computer; the public key goes into `private.settings`, the
-    private key stays on the computer and on one offline copy.
-14. Authentication → Users: create the teacher's user with her Google address (sign-up is off, so it must exist
-    before she signs in). Insert her row in `teachers` with the SQL editor.
-15. GitHub → repository secrets: the project URL, the public key, the export token. **Not** the server key, not the
-    database password, not the pepper.
-16. Send the lead: project URL and public key. Nothing else.
-17. Calendar: last school week, "take a backup export, check the keep-alive".
+14. Backup: generate an RSA 4096 key pair with `gpg` on the owner's computer; store the **public** key in
+    `private.settings`; the private key stays on the computer and on one offline copy. Generate the export token
+    (`openssl rand -hex 32`) and store its sha256 in `private.settings`.
+15. Create the class: call the admin function `admin-class` with the server key (it needs the pepper, so it cannot be
+    done in the SQL editor); it prints the 8-character class code once. Load the class list (first names) with the
+    SQL editor or, later, the teacher screen.
+16. Migration, when Phase 2 starts: `docs/BACKEND.md` 4.2 steps 1 and 2 (`tools/migrate_sheet.py`, then
+    `admin-wrap-legacy`), then `shadow_mode` on.
+17. Authentication → Users: create the teacher's user with her Google address, auto-confirmed, with a password of 64
+    random characters that is thrown away at once (the form asks for one; it must not be usable). Insert her row in
+    `teachers` with the SQL editor.
+18. GitHub → repository secrets: the project URL, the public key, the export token. **Not** the server key, not the
+    database password, not the pepper, not the backup private key.
+19. Send the lead: project URL and public key. Nothing else.
+20. After the restore drill: delete the drill project.
+21. Calendar: last school week, "take a backup export, check the keep-alive".
 
 ## 10. Verify on a real project before the switch
 
@@ -567,6 +615,9 @@ same assertions as the local suites where a local version exists. None can be an
 | 15 | `backup_export()` decrypts with the owner's key and restores into a second project with the totals check green | the restore drill |
 | 16 | Free-plan numbers of section 6 and the restore window of a paused project | read on the day |
 | 17 | Load: 35 pupils, 3 rounds, through the real API | the load test of `tests/db.py` over HTTP |
+| 18 | pg_cron is available on the free plan and the nightly `maintenance()` is scheduled and runs | read `cron.job` and `cron.job_run_details` the next morning; `audit_purged` is true |
+| 19 | pgcrypto encrypts to the owner's RSA 4096 public key, and a whole-class export finishes inside the statement timeout of the public role | `backup_export` with the token, decrypt, count rows |
+| 20 | The local tests ran on PostgreSQL 16; the project's version behaves the same | `tests/db.py` and `tests/functions.py` assertions through the API |
 
 ## 11. What the local tests cannot prove
 
@@ -594,7 +645,7 @@ the JWT claims in a transaction, on a project it calls the REST API with that pu
 | S6 | 4.2 |
 | S7 | section 2: explicit revokes and default privileges, `search_path = ''`, functions raise without a pupil. **Not FORCE:** forcing RLS on the owner would make the owner-rights views depend on the platform owner role having BYPASSRLS, which is unverified; unforced, the only role that skips RLS is the owner, which no browser can be. Re-examined at 10 item 8. |
 | S8 | section 5, the blob |
-| S9 | section 5, catalogue |
+| S9 | section 5, catalogue (the seed tool, the seed file and its staleness test come with the client PR that fixes the event keys) |
 | S10 | section 5, time, "unusual" column, migrated points |
 | S11 | section 6, privacy notes |
 | S12 | client (PR D): sign-out with local scope; on refresh failure keep local progress and ask to sign in; plain `fetch`, no vendored client; the project host in `connect-src` |

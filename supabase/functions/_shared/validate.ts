@@ -18,11 +18,17 @@ export function isPictures(x: unknown, count: number, choices: number): x is num
 }
 export const pictureSecret = (x: number[]): string => x.join(">");
 
-/** Codes everybody tries first: four equal digits, runs up or down, abab, aabb, years 19xx and 20xx. About 400 of 10,000. */
+/** Codes everybody tries first: four equal digits, runs up or down, abab, aabb, years 19xx and 20xx (402 codes),
+    anything that reads as a date, DDMM or MMDD (a classmate often knows the birthday), and the common keypad lines.
+    965 of the 10,000 in all. */
+const KEYPAD = new Set(["2580", "0852", "1470", "0741", "3690", "0963", "1357", "2468", "9753", "8642", "1379", "7913", "1397", "2684"]);
+const DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const isDate = (day: number, month: number) => month >= 1 && month <= 12 && day >= 1 && day <= DAYS[month - 1];
 export function isWeakCode(code: string): boolean {
   const d = [...code].map(Number);
   const step = d[1] - d[0];
   const run = Math.abs(step) === 1 && d[2] - d[1] === step && d[3] - d[2] === step;
+  const a = Number(code.slice(0, 2)), b = Number(code.slice(2));
   return (d[0] === d[1] && d[1] === d[2] && d[2] === d[3]) || run || (d[0] === d[2] && d[1] === d[3]) || (d[0] === d[1] && d[2] === d[3]) ||
-    code.startsWith("19") || code.startsWith("20");
+    code.startsWith("19") || code.startsWith("20") || isDate(a, b) || isDate(b, a) || KEYPAD.has(code);
 }

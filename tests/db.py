@@ -85,7 +85,7 @@ def fixture(db):
 PUBLIC_TABLES = ['classes', 'roster', 'teachers', 'pupils', 'items', 'levels', 'level_best', 'answers', 'points', 'pupil_totals', 'progress', 'flags', 'answer_daily']
 VIEWS = ['class_board', 'teacher_view', 'teacher_items']
 PRIVATE_TABLES = ['class_codes', 'pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'auth_attempts', 'auth_buckets',
-                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings']
+                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions']
 PUPIL_KEYED = ['pupil_totals', 'progress', 'answers', 'points', 'flags', 'answer_daily', 'level_best']
 PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days']
 
@@ -111,7 +111,7 @@ def test_catalogue(db):
        db.admin(rel % "has_table_privilege('authenticated', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE')"), [['public.roster']])
     eq('authenticated: no right on any sequence', db.admin(seq % 'authenticated'), [])
     eq('authenticated: may run exactly the listed functions', [r[0] for r in db.admin(fn % 'authenticated')],
-       ['app.class_id', 'app.name_key', 'app.obj', 'app.pupil_id', 'app.safe_int', 'app.teaches', 'app.teaches_pupil',
+       ['app.class_id', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.safe_int', 'app.teaches', 'app.teaches_pupil',
         'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil'])
     eq('row level security is on for every table in public and private',
        db.admin("""select n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -278,6 +278,33 @@ def test_points(db):
     denied('a batch over 200 events is refused whole', record(db, 'E', ans(201, key='w')), 'bad input')
     denied('events that are not an array are refused', db.rpc(kid('E'), 'record_events', dict(p_batch=str(uuid.uuid4()), p_events={'a': 1})), 'bad input')
 
+    print('-- honest offline play is not cheating; back-dating earns no extra bonus')
+    dbx = lambda k: db.admin(f"select kind, n from public.flags where pupil_id = '{pid(k)}'")
+    record(db, 'H', [dict(type='answer', game='en', item='hat', correct=True, first_try=True, t=NOW - 60000)])      # the laptop, a minute ago
+    r, _ = record(db, 'H', [dict(type='answer', game='en', item=f'w{i}', correct=True, first_try=True, t=NOW - 45 * 60000 + i * 20000) for i in range(29)])   # the phone, played 45 minutes ago, arriving now
+    eq('29 answers played earlier on another device, arriving late: all count, nothing is flagged', (r['points'], r['flagged'], dbx('H')), (10 + 20 + 290, 0, []))
+    eq('answers from three claimed days in one call bring one daily bonus, not three',
+       record_as(db, kid('X'), [dict(type='answer', game='en', item=f'w{i}', correct=True, first_try=True, t=NOW - i * 20 * 3600 * 1000) for i in range(3)])[0]['points'] - int(tot('X')[0]) + 30, 30)
+
+    print('-- one pupil cannot fill the database')
+    rows_before = int(db.one('select count(*) from public.answers')) + int(db.one('select count(*) from private.answer_batches'))
+    sent = 0
+    for i in range(250):            # 50,000 answers and 50 empty calls from one console
+        r, err = record(db, 'F', [dict(type='answer', game='en', item=f'burst{j}', correct=False, first_try=False) for j in range(200)])
+        sent += 200
+    for i in range(50):
+        record(db, 'F', [])
+    stored = int(db.one(f"select count(*) from public.answers where pupil_id = '{pid('F')}'"))
+    batches = int(db.one(f"select count(*) from private.answer_batches where pupil_id = '{pid('F')}'"))
+    check(f'{sent} answers sent: at most 1,000 rows stored for the day, and one batch row per call that stored something', stored <= 1000 and batches <= 6, f'{stored} rows, {batches} batch rows')
+    eq('the rest is one counter on one flag row', db.admin(f"select n > 40000 from public.flags where pupil_id = '{pid('F')}' and kind = 'daycap'"), [['t']])
+    db.admin('update private.settings set max_calls_day = 300')
+    r, _ = record(db, 'F', [dict(type='level', game='math', level='bay:1', stars=3)])
+    db.admin('update private.settings set max_calls_day = 1500')
+    eq('past the daily number of calls nothing at all is processed', (r.get('capped'), r['added']), (True, 0))
+    denied('a call over 64 KB is refused before it is looked at', record(db, 'F', [dict(type='answer', game='en', item='x' * 700) for _ in range(100)]), 'bad input')
+    db.admin(f"delete from private.pupil_days where pupil_id = '{pid('F')}'; delete from public.flags where pupil_id = '{pid('F')}'")
+
     print('-- levels, reading, exam, Beach Run: every source of points is priced here')
     lv = lambda i, s: dict(type='level', game='math', level=f'bay:{i}', stars=s)
     r, _ = record(db, 'F', [lv(1, 3)])
@@ -358,11 +385,14 @@ def test_teacher(db):
         {'pupils': int(db.one(f"select count(*) from public.pupils where id = '{g}'")), 'auth.users': int(db.one(f"select count(*) from auth.users where id = '{uid('G')}'"))}
     before = count()
     check('before: the pupil has rows in every table that can hold them', all(v > 0 for v in before.values()), before)
-    eq('every table with a pupil_id column is covered by this test', sorted(r[0] for r in db.admin("select table_schema || '.' || table_name from information_schema.columns where column_name = 'pupil_id' and table_schema in ('public', 'private') and table_name not in ('teacher_view')")),
+    eq('every table with a pupil_id column is covered by this test', sorted(r[0] for r in db.admin("select table_schema || '.' || table_name from information_schema.columns where column_name = 'pupil_id' and table_schema in ('public', 'private') and table_name not in ('teacher_view', 'deletions')")),
        sorted(['public.' + t for t in PUPIL_KEYED] + ['private.' + t for t in PUPIL_KEYED_PRIVATE]))
     v, err = db.rpc(T, 'teacher_delete_pupil', dict(p_pupil=g))
     after = count()
     check('teacher 1 deletes her pupil: nothing of them is left anywhere, the auth user included', err is None and all(x == 0 for x in after.values()), err or after)
+    eq('the deletion is on record (who, which class, how much), without the name',
+       db.admin(f"select teacher, class_id, pupil_id, answers > 0 from private.deletions"), [[T1, C1, g, 't']])
+    check('the record holds no name column', 'name' not in db.one("select string_agg(column_name, ',') from information_schema.columns where table_schema = 'private' and table_name = 'deletions'"))
     rows_n('teacher 2 reads pupils: only class 2', db.select(TEACHER2, 'pupils'), 1)
     rows_n('teacher 2 reads the board: only class 2', db.select(TEACHER2, 'class_board'), 1)
 
@@ -371,6 +401,10 @@ def test_teacher(db):
     check('a name with markup is refused by the table', bad('<b>x</b>') is not None)
     check('a spreadsheet formula as a name is refused', bad('=1+1') is not None)
     check('a one-letter name is refused', bad('x') is not None)
+    check('a name with a zero-width character is refused (it would look like another pupil)', bad('Da\u200bna') is not None)
+    check('a name with a direction-override character is refused', bad('Da\u202ena') is not None and bad('\ufeffDana') is not None)
+    denied("the class list has the same rule: a teacher's token cannot store markup in it", db.insert(TEACHER1, 'roster', dict(class_id=C1, name_key='<b onclick=x>', display_name='<b onclick=x>')), 'violates check constraint')
+    denied('nor an invisible character', db.insert(TEACHER1, 'roster', dict(class_id=C1, name_key='da\u200bna', display_name='Da\u200bna')), 'violates check constraint')
     check('the same name in other letter case and spacing is the same pupil', 'duplicate key' in (bad(' ' + NAMES['A'] + '  ') or ''))
     check('the same name in another class is allowed', bad("  O'Neil-Ben ") is None and db.psql(f"insert into public.pupils (class_id, display_name) values ('{C2}', $n$o'neil-ben$n$)")[1] is None)
 
@@ -384,7 +418,11 @@ def test_teacher(db):
     eq('old answers are rolled up, not lost: totals unchanged', db.admin(f"select points, answers from public.pupil_totals where pupil_id = '{pid('H')}'"), before)
     eq('the roll-up holds them per day and item', db.admin(f"select sum(tries), sum(first_try), sum(pts) from public.answer_daily where pupil_id = '{pid('H')}'"), [['7', '5', '50']])
     eq('weak items still count rolled-up answers', db.select(TEACHER1, 'teacher_items', 'tries, wrong', dict(item_key='hard'))[0], [dict(tries=3, wrong=2)])
-    eq("the Auth log's addresses older than 30 days are deleted", db.one('select count(*) from auth.audit_log_entries'), '1')
+    eq("the Auth log's addresses older than 30 days are deleted, and the answer says so", (db.one('select count(*) from auth.audit_log_entries'), m.get('audit_purged')), ('1', True))
+    db.psql('revoke delete on auth.audit_log_entries from postgres', user='supabase_admin')
+    m2, _ = db.rpc(SERVER, 'maintenance')
+    db.psql('grant delete on auth.audit_log_entries to postgres', user='supabase_admin')
+    eq('where the platform does not allow that purge, maintenance reports it instead of hiding it', (m2.get('audit_purged'), m2.get('ok')), (False, False))
     rows_n('the server role reads everything (RLS does not apply to it)', db.select(SERVER, 'pupils'), 10)
 
 

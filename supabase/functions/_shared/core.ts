@@ -169,9 +169,17 @@ export async function recover(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
 
 /** The caller must be a signed-in teacher of that pupil's class. The token decides who she is; nothing in the body does. */
 export async function teacherReset(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
-  if (!isUuid(body.pupil_id)) return fail("input");
+  const action = body.action ?? "reset";
+  if (!["reset", "unlock", "unlock_class"].includes(action) || !isUuid(action === "unlock_class" ? body.class_id : body.pupil_id)) return fail("input");
   const teacher = ctx.token ? await d.sessions.userOf(ctx.token) : null;
   if (!teacher) return fail("forbidden");
+  if (action !== "reset") { // clear locks only: the code and the pictures are not touched
+    const now = d.now().toISOString();
+    const u = action === "unlock"
+      ? (await d.sql`select private.teacher_unlock(${teacher}::uuid, ${body.pupil_id}::uuid, ${now}::timestamptz) as v`)[0].v
+      : (await d.sql`select private.teacher_unlock_class(${teacher}::uuid, ${body.class_id}::uuid, ${now}::timestamptz) as v`)[0].v;
+    return u.ok ? { ok: true } : fail("forbidden");
+  }
   const iter = (await d.sql`select kdf_iter from private.settings`)[0].kdf_iter as number;
   const otc = randomDigits(6);
   const salt = randomBytes(16);
@@ -195,4 +203,32 @@ export async function wrapLegacy(d: Deps, _body: Body, ctx: Ctx): Promise<Reply>
     remaining = (await d.sql`select private.legacy_store(${row.pupil}::uuid, ${hex(salt)}, ${hash}, ${iter}::int) as v`)[0].v as number;
   }
   return { ok: true, wrapped: rows.length, remaining };
+}
+
+const CLASS_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I/L
+function classCode(): string {
+  let out = "";
+  while (out.length < 8) for (const x of randomBytes(16)) if (x < 248 && out.length < 8) out += CLASS_ALPHABET[x % 31];
+  return out;
+}
+/** Owner only (the server key): create a class, give a class a new code, switch the copy phase on or off.
+    The class code is shown once, here; the database keeps only a keyed lookup of it. */
+export async function adminClass(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
+  if (!d.serverKey || !ctx.token || !sameHex(await tag(d.pepper, "k", ctx.token), await tag(d.pepper, "k", d.serverKey))) return fail("forbidden");
+  if (body.action === "create" && typeof body.name === "string" && body.name.length >= 1 && body.name.length <= 40) {
+    const code = classCode();
+    const id = (await d.sql`select private.class_create(${body.name}, ${String(body.grade ?? "").slice(0, 20)}, ${await tag(d.pepper, "class", code)}) as v`)[0].v;
+    return { ok: true, class_id: id, class_code: code };
+  }
+  if (body.action === "rotate" && isUuid(body.class_id)) {
+    const code = classCode();
+    const done = (await d.sql`select private.class_rotate(${body.class_id}::uuid, ${await tag(d.pepper, "class", code)}) as v`)[0].v;
+    return done ? { ok: true, class_code: code } : fail("input");
+  }
+  if (body.action === "shadow_on" || body.action === "shadow_off") {
+    const r = (await d.sql`select private.shadow_set(${body.action === "shadow_on"}) as v`)[0].v;
+    for (const u of r.old_auth_users as string[]) await d.sessions.remove(u);
+    return { ok: true, shadow_mode: r.shadow_mode, signed_out: r.old_auth_users.length };
+  }
+  return fail("input");
 }
