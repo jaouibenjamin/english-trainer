@@ -320,6 +320,11 @@ async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     aborted_clip = lambda r: CLIPS_HOST in r.url and r.resource_type == 'media' and r.failure == 'net::ERR_ABORTED'
     pg.on('requestfailed', lambda r: errs.append(f'requestfailed: {r.url} ({r.resource_type}, {r.failure})') if not aborted_clip(r) else None)
     pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 else None)   # a missing voice file is an error
+    # Everything the pages load is ours: a request to any other host is an error. Allowed: the test's own static server,
+    # the mock backend when the page was given one, and data: / blob: URLs. (The real class backend is never contacted:
+    # see below.) This also covers tests/math.py and tests/mock.py, which open their pages here.
+    own = (f'http://127.0.0.1:{PORT}/', 'data:', 'blob:') + ((api,) if api else ())
+    pg.on('request', lambda r: errs.append('request to another host: ' + r.url) if not r.url.startswith(own) else None)
     # config.js in the repository carries the real class backend: a test page never talks to it (local mode = no backend at all)
     # (pinned from an init script, not by intercepting the file: interception switches the browser cache off for the page)
     if api:

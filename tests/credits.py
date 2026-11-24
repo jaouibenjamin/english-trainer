@@ -53,6 +53,15 @@ def build():
     for name, hero, pic in re.findall(r"\n (\w+):\{sky:.*?hero:M3D\+'([^']+)',pic:HPIC\+'([^']+)'", run, re.S):
         look[hero] = look[pic] = name
     words = re.findall(r"'([^']+)'", re.search(r'export const PIC=\[(.*?)\]', xdata, re.S).group(1))
+    sheet = open(os.path.join(ROOT, 'tools', 'sheet.html'), encoding='utf-8').read()
+    order = re.findall(r"'\.\./assets/(x/src/[^']+)'", sheet)       # the sheet's own order: picture i is word i
+    if len(look) != 4 or sorted(set(look.values())) != ['anime', 'lowpoly']:
+        raise SystemExit(f'js/run.js: expected a model and a picture for the looks anime and lowpoly, found {look}')
+
+    def look_of(rel):
+        if os.path.basename(rel) not in look:
+            raise SystemExit(f'{rel}: not used by any look in js/run.js')
+        return look[os.path.basename(rel)]
     sec = lambda name: [r for r in extra if r['section'] == name]
     f = lambda rel: '`' + rel + '`'
     o = []
@@ -85,20 +94,22 @@ def build():
     glb = [r for r in assets if r['kind'] == 'model-glb']
     add('## 3D runner models\n')
     add('The runners of Beach Run. Tool: Higgsfield, picture to rigged and animated 3D model; the model name is not recorded.\n')
-    add(table(['File', 'What', 'Made', 'Job id', 'Changed'], [[f('assets/' + r['file']), 'runner, ' + look.get(os.path.basename(r['file']), '?') + ' look', job(r['file'])[1], job(r['file'])[0], cell(r['note'])] for r in glb]))
+    add(table(['File', 'What', 'Made', 'Job id', 'Changed'], [[f('assets/' + r['file']), 'runner, ' + look_of(r['file']) + ' look', job(r['file'])[1], job(r['file'])[0], cell(r['note'])] for r in glb]))
 
     hero = [r for r in assets if r['kind'] == 'hero-pic']
     add('## Hero pictures\n')
     add('The runner\'s picture on the Beach Run menu. Tool: Higgsfield image generation; the model name is not recorded.\n')
-    add(table(['File', 'What', 'Made', 'Job id', 'Changed'], [[f('assets/' + r['file']), 'menu picture, ' + look.get(os.path.basename(r['file']), '?') + ' look', job(r['file'])[1], job(r['file'])[0], cell(r['note'])] for r in hero]))
+    add(table(['File', 'What', 'Made', 'Job id', 'Changed'], [[f('assets/' + r['file']), 'menu picture, ' + look_of(r['file']) + ' look', job(r['file'])[1], job(r['file'])[0], cell(r['note'])] for r in hero]))
 
     word = [r for r in assets if r['kind'] == 'word-pic']
-    if len(word) != len(words):
-        raise SystemExit(f'{len(word)} word-picture sources but {len(words)} names in js/xdata.js')
+    if len(order) != len(words) or len(set(order)) != len(order) or set(order) != {r['file'] for r in word}:
+        raise SystemExit(f'tools/sheet.html draws {len(order)} pictures, js/xdata.js names {len(words)} words, assets/sources.tsv lists {len(word)} sources: they must be the same pictures')
+    word_of = dict(zip(order, words))
+    word.sort(key=lambda r: order.index(r['file']))
     add('## Word pictures\n')
     add('One drawing per word, in the order of the sheet. Tool: Higgsfield image generation; the model name is not recorded.\n'
         'The game shows them from one sheet, drawn from these sources by `tools/sheet.html`.\n')
-    add(table(['File', 'Word', 'Made', 'Job id', 'Changed'], [[f('assets/' + r['file']), cell(w), job(r['file'])[1], job(r['file'])[0], cell(r['note'])] for r, w in zip(word, words)]))
+    add(table(['File', 'Word', 'Made', 'Job id', 'Changed'], [[f('assets/' + r['file']), cell(w), job(r['file'])[1], job(r['file'])[0], cell(r['note'])] for r in word for w in [word_of[r['file']]]]))
     add(table(['File', 'What'], [[f(r['file']), cell(r['what'])] for r in sec('sheet')]))
 
     add('## Older art: sprites, backgrounds, app icons\n')

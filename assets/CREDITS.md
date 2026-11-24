@@ -615,5 +615,5 @@ three.js, MIT licence, Copyright 2010-2024 three.js authors. The files are the o
 |---|---|
 | `assets/sources.tsv` | list of the 3D models and pictures: source, sha256, what was done |
 | `assets/voice/sources.tsv` | list of the voice clips: source, sha256, text |
-| `assets/credits_extra.tsv` | list of everything the two lists above do not cover (this file is built from the three) |
+| `assets/credits_extra.tsv` | list of everything the two lists above do not cover, written by hand |
 | `assets/CREDITS.md` | this file |
