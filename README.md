@@ -88,15 +88,24 @@ holds the words (start and end in milliseconds). The files themselves are not tr
 generator often starts a word at the very first sample, lets it run into the end of the file, or says it twice. So
 every file was measured (speech = above 5% of the peak, blips under 20 ms ignored), words and short phrases were
 recorded again as a repetition ("Piano. Piano. Piano.") and one clean repetition was chosen, the one with silence on
-both sides. `tests/voice_map.py` writes `js/voice.js` from the generation log, which carries those measurements.
+both sides. `tests/voice_map.py` writes those measurements from the generation log into `assets/voice/sources.tsv`.
+
+The files are ours and are served with the game (relative URLs, no other host): `tests/voice_local.py build --cache DIR`
+downloads each original once into DIR (outside the repo), mixes it to mono, keeps the measured stretch plus 150 ms on
+each side, encodes it as mono MP3 (64 kbps, 24 kHz; plays on old iPhones and cheap Androids) into `assets/voice/en/`,
+and writes `js/voice.js` with the stretch as offsets into the new file. The Hebrew narration of the mock exam is copied
+byte for byte into `assets/voice/he/`. `assets/voice/sources.tsv` lists every local file with its original URL and its
+text (for the credits). `tests/voice_local.py verify --cache DIR` decodes every local file and checks that the stretch
+the player plays sits exactly where the offsets say (waveform cross-correlation against the original).
 
 Playback (`say()` in `js/state.js`) is Web Audio: the clip is fetched and decoded once, the stretch is cut out with
 30 ms before and 80 ms after it, levelled, cached (60 clips), and scheduled 80 ms ahead with a 12 ms fade-in and a
 40 ms fade-out on the same audio context that plays the music, so the output is already awake and a phone does not
 swallow the start of a word. A level preloads its clips and opens when its first one is ready (or after 3 s). If a
 clip cannot be fetched or decoded within 3 s, the old `<audio>` element plays the same stretch, and after that the
-browser's own voice speaks. The tests answer the clip host with a small generated WAV, so this path runs for real
-in headless Chrome (`python3 tests/play.py --voice` runs only the speech checks).
+browser's own voice speaks. The tests fetch and decode the real clip files in headless Chrome, and check that no clip
+URL points to another host and that every file the game can ask for is on disk (`python3 tests/play.py --voice` runs
+only the speech checks).
 
 ## Fraction Bay (מפרץ השברים): math
 

@@ -39,25 +39,21 @@ SPEECH_NONE = """(()=>{window.__spoken=[];
  Object.defineProperty(window,'speechSynthesis',{configurable:true,get:()=>stub});
  window.SpeechSynthesisUtterance=function(t){this.text=t}})()"""
 
-# The recorded voice (js/voice.js) plays through an <audio> element from Higgsfield's storage, which the test machine
-# cannot reach. play() is replaced by a stand-in that records the requested URL and then behaves like a clip:
-# 'ok' fires playing + ended, 'error' fires error, 'mute' never starts (the game must give up after 2.5 s).
-# Real (trusted) load errors of the unreachable host are kept away from the game so only the stand-in decides what the clip does.
-CLIPS_HOST = 'cloudfront.net'
+# The recorded voice (js/voice.js) lives next to the game (assets/voice/en/, served by the test's own static server), so in
+# 'ok' mode the real MP3 files are fetched and decoded by Chrome. The stand-in only records what is requested and can make the
+# clips fail: 'error' (fetch and <audio> both fail), 'mute' (nothing ever answers: the game must give up), 'nofetch' (fetch
+# fails, <audio> works). <audio>.play() is always a stand-in that records the URL and fires playing + ended (or error), so the
+# tests do not sit through whole sentences. Load errors of the clip <audio> element are kept away from the game.
+CLIPS_HOST = 'assets/voice/'
 def clip_stub(mode='ok'):
     return """(()=>{const clips=[],plays=[];window.__clips=clips;window.__plays=plays;window.__fetched=[];window.__clipMode='%s';
- const HOST=/cloudfront\\.net/;
- /* Web Audio path: the clip host answers with a small real WAV (8 s, 8 kHz, a quiet tone), so fetch + decodeAudioData run for real.
-    modes: ok | error (fetch and <audio> both fail) | mute (nothing ever answers) | nofetch (fetch fails, <audio> works) */
- const wav=()=>{const sr=8000,n=sr*8,b=new ArrayBuffer(44+n),v=new DataView(b),w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
-  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);
-  for(let i=0;i<n;i++)v.setUint8(44+i,128+Math.round(40*Math.sin(i*.35)));return b};
+ const HOST=/(^|\\/)assets\\/voice\\//;
  const realFetch=window.fetch;
  window.fetch=function(u,o){const url=String(u&&u.url||u);if(!HOST.test(url))return realFetch.apply(this,arguments);
   window.__fetched.push(url);const m=window.__clipMode;
   if(m==='mute')return new Promise(()=>{});
   if(m!=='ok')return Promise.reject(new TypeError('offline'));
-  return Promise.resolve(new Response(wav(),{status:200,headers:{'Content-Type':'audio/wav'}}))};
+  return realFetch.apply(this,arguments)};
  /* a scheduled clip is logged with its stretch and cut short, so the tests do not sit through whole sentences */
  const S=AudioBufferSourceNode.prototype,start=S.start;
  S.start=function(when,off,dur){const c=this.buffer&&this.buffer.clip;
@@ -68,7 +64,7 @@ def clip_stub(mode='ok'):
  const add=P.addEventListener,rem=P.removeEventListener;   // the elements are not in the document, so their listeners are wrapped directly
  P.addEventListener=function(t,f,o){if(t!=='error')return add.call(this,t,f,o);f.__w=f.__w||(e=>{if(!e.isTrusted)f.call(this,e)});return add.call(this,t,f.__w,o)};
  P.removeEventListener=function(t,f,o){return rem.call(this,t,(t==='error'&&f.__w)||f,o)};
- P.play=function(){const src=this.getAttribute('src')||'',n=this.__n=(this.__n||0)+1,real=/^https?:/.test(src),m=window.__clipMode,mode=real?(m==='nofetch'?'ok':m):'ok',
+ P.play=function(){const src=this.getAttribute('src')||'',n=this.__n=(this.__n||0)+1,real=HOST.test(src),m=window.__clipMode,mode=real?(m==='nofetch'?'ok':m):'ok',
    fire=(t,ms)=>setTimeout(()=>{if(this.__n===n)this.dispatchEvent(new Event(t))},ms);
   if(real){clips.push(src.split('#')[0]);plays.push({via:'el',url:src.split('#')[0],frag:src.split('#')[1]||'',t:performance.now()})}
   if(mode==='error')fire('error',20);else if(mode==='ok'){fire('playing',20);fire('ended',160)}
@@ -95,6 +91,34 @@ def port_open(p):
         return False
     finally:
         s.close()
+
+
+def voice_files():
+    """The voice is ours: no clip URL may point to another host again, and every file the game can ask for is on disk."""
+    import json, re
+    vj = open(os.path.join(ROOT, 'js', 'voice.js'), encoding='utf-8').read()
+    mj = open(os.path.join(ROOT, 'js', 'mock.js'), encoding='utf-8').read()
+    audio_url = re.compile(r"(https?:)?//[^'\"`\s]*\.(mp3|wav|ogg|oga|m4a|aac|webm|opus|flac)\b|cloudfront\.net", re.I)
+    check('voice: js/voice.js names no remote host (no cloudfront, no http/https at all)', 'cloudfront' not in vj and not re.search(r'https?:|//[a-z0-9.-]+\.[a-z]{2,}/', vj, re.I))
+    check('voice: js/mock.js loads no remote audio (no cloudfront, no http(s) audio URL)', not audio_url.search(mj), (audio_url.search(mj) or [''])[0])
+    base = json.loads(re.search(r'const BASE=(".*?");', vj).group(1))
+    rows = json.loads('[' + re.search(r'const ROWS=\[\n(.*?)\];\n', vj, re.S).group(1) + ']')
+    vb = re.search(r"const VB='(.*?)';", mj).group(1)
+    narr = re.findall(r"\n (\w+):\['([^']+)','", mj)
+    check('voice: clip paths are relative to the page and inside assets/voice/', base.startswith('assets/voice/en/') and vb.startswith('assets/voice/he/'), [base, vb])
+    def ok(rel):
+        f = os.path.join(ROOT, rel)
+        if not os.path.isfile(f) or os.path.getsize(f) < 1000: return False
+        b = open(f, 'rb').read(3)
+        return b == b'ID3' or (b[0] == 0xFF and b[1] & 0xE0 == 0xE0)
+    en = {base + r[1] + '.mp3' for r in rows}
+    he = {vb + k + '.mp3' for _, k in narr}
+    miss = sorted(f for f in en | he if not ok(f))
+    check(f'voice: all {len(rows)} English rows ({len(en)} files) and {len(narr)} Hebrew lines point to a real, non-empty MP3 on disk', len(rows) > 300 and len(narr) == 7 and not miss, miss[:5])
+    disk = {f'assets/voice/{d}/{f}' for d in ('en', 'he') if os.path.isdir(os.path.join(ROOT, 'assets', 'voice', d)) for f in os.listdir(os.path.join(ROOT, 'assets', 'voice', d))}
+    check('voice: no stray files in assets/voice/en and he (every file is used)', disk == en | he, sorted(disk ^ (en | he))[:5])
+    rows_ok = all(isinstance(r[2], int) and isinstance(r[3], int) and 0 <= r[2] < r[3] for r in rows)
+    check('voice: every row has a stretch inside its file (start < end, in ms)', rows_ok)
 
 
 async def shot(pg, name):
@@ -284,8 +308,8 @@ async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     await pg.add_init_script(clip_stub(clips))
     pg.on('pageerror', lambda e: errs.append('pageerror: ' + str(e)))
     pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
-    pg.on('requestfailed', lambda r: errs.append('requestfailed: ' + r.url) if 'fonts.g' not in r.url and CLIPS_HOST not in r.url else None)   # the classic trainer uses Google Fonts and the voice clips live on a CDN; offline CI cannot reach either
-    pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 and CLIPS_HOST not in r.url else None)
+    pg.on('requestfailed', lambda r: errs.append('requestfailed: ' + r.url) if 'fonts.g' not in r.url and CLIPS_HOST not in r.url else None)   # the classic trainer uses Google Fonts (offline CI cannot reach it); an <audio> element aborts its clip download when the next clip replaces it
+    pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 else None)   # a missing voice file is an error
     # config.js in the repository carries the real class backend: a test page never talks to it (local mode = no backend at all)
     # (pinned from an init script, not by intercepting the file: interception switches the browser cache off for the page)
     if api:
@@ -462,12 +486,13 @@ async def voice_run(b, w, h, errs):
     await pg.wait_for_function("__clips.length>0", timeout=5000)
     ans = await pg.evaluate("__lv.answer()"); want = await pg.evaluate(CLIP_OF, ans)
     R = await pg.evaluate("({clips:[...__clips],spoken:[...__spoken],tts:__lv.g.tts})")
-    check(f'[{tag}] a word with a clip requests exactly its clip URL and the browser voice stays silent', bool(want) and want.startswith('https://') and R['clips'][-1] == want and ans not in R['spoken'] and R['tts'], {'want': want, **R})
+    check(f'[{tag}] a word with a clip requests exactly its clip URL and the browser voice stays silent', bool(want) and want.startswith('assets/voice/en/') and want.endswith('.mp3') and R['clips'][-1] == want and ans not in R['spoken'] and R['tts'], {'want': want, **R})
     await pg.wait_for_function("__lv.g.said>0", timeout=3000)
     # the new path: Web Audio, only the measured stretch of the file, scheduled a moment ahead on a running context
     P = await pg.evaluate("(async()=>{const c=(await import('/js/voice.js')).clipOf(__lv.answer()),p=__plays[__plays.length-1];return {c,p,n:__plays.length}})()")
     c0, p0 = P['c'], P['p']
-    span = (min(8, c0['e'] + .08) - max(0, c0['s'] - .03)) if c0['e'] > c0['s'] else 8
+    D = await pg.evaluate("(async u=>{const ab=await (await fetch(u)).arrayBuffer();return (await new OfflineAudioContext(1,1,24000).decodeAudioData(ab)).duration})", c0['url'])
+    span = (min(D, c0['e'] + .08) - max(0, c0['s'] - .03)) if c0['e'] > c0['s'] else D
     check(f'[{tag}] the word plays through Web Audio: its own stretch of the file (30 ms before, 80 ms after), about 80 ms ahead, on a running context',
           p0['via'] == 'buf' and p0['url'] == c0['url'] and c0['e'] > c0['s'] and abs(p0['dur'] - span) < .01 and .05 < p0['when'] < .12 and p0['state'] == 'running' and P['n'] == 1, P)
     check(f'[{tag}] the level waited for its first word and then a quarter of a second before speaking', await pg.evaluate("__plays[0].t-__lv.t") >= 240, await pg.evaluate("__plays[0].t-__lv.t"))
@@ -663,6 +688,7 @@ async def main():
         if port_open(PORT) and (not have_mock or port_open(API_PORT)): break
         time.sleep(.1)
     errs = []
+    voice_files()
     try:
         async with async_playwright() as p:
             b = await p.chromium.launch(executable_path=CHROME, args=['--no-sandbox', '--autoplay-policy=no-user-gesture-required'])
