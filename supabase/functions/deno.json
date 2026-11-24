@@ -1,0 +1,6 @@
+{
+  "lock": true,
+  "nodeModulesDir": "none",
+  "lint": { "rules": { "tags": ["recommended"] } },
+  "fmt": { "lineWidth": 160 }
+}

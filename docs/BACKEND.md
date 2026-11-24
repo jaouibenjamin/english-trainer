@@ -221,7 +221,7 @@ a picture.
   that one account fell; closed names stay closed until she reopens them.
 - A random 4-digit code from one phone on one network: 10 wrong a day, 0.1% a day. From many devices and networks:
   20 a day, 29 with a known shared device, about 6% to 9% a month for one targeted name. The weak-code rule removes
-  about 300 of the 10,000 codes, the ones a sprayer tries first; spraying one code over 35 names is stopped by the
+  about 400 of the 10,000 codes, the ones a sprayer tries first; spraying one code over 35 names is stopped by the
   30-a-day network cap and shown to the teacher.
 
 ## 4. How it works underneath
@@ -298,7 +298,7 @@ Honest strength (review S6):
   function would widen what a function bug can leak.
 
 **Weak codes** are refused at registration and whenever a new code is set: four equal digits, ascending or descending
-runs, `abab`, `aabb`, `19xx` and `20xx` (about 300 codes).
+runs, `abab`, `aabb`, `19xx` and `20xx` (about 400 codes).
 
 **Hashes from the Sheet** (`SHA-256(salt + ":" + code)`, fast, so dangerous alone):
 
