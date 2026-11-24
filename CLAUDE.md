@@ -51,6 +51,7 @@ python3 tests/math.py --quick   # Fraction Bay
 python3 tests/mock.py --quick   # mock exam
 python3 tests/run.py            # Beach Run, phone and laptop sizes (needs WebGL: swiftshader flags inside); also tests/remote_guard.py (no URL of another host) and tests/credits.py check (assets/CREDITS.md covers every file)
 node tests/mdata_check.mjs      # math content
+python3 tests/storage_check.py  # the asset build scripts against a made-up storage (no network): refusals, no address in messages
 python3 tests/worksheet.py     # the printable worksheet (worksheet.html), switch off and on
 ```
 
