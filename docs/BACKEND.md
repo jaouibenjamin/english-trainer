@@ -527,7 +527,9 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    Sheet-era code then opens a session **without** a new code or pictures, under our lockout, so the copy has
    something to write with. A shadow session can only receive copies (`save_progress`, `record_events`): recovery,
    pictures, one-time codes and registration are refused while the setting is on, and nothing it writes is shown to
-   a pupil. Turning the setting off replaces every pupil's auth user, which ends every shadow session at once.
+   a pupil. (Through the API such a session can also read what its pupil may read anyway: their own rows and the
+   board of their class, the same the Sheet shows them today.) Turning the setting off replaces every pupil's auth
+   user, which ends every shadow session at once (tested).
    A nightly, idempotent re-sync (`tools/migrate_sheet.py`) repairs anything a device missed.
 2. **Compare daily**, per pupil: number of answers, stars per level, equality of the blob; and points **per source**
    (answers, stars, daily bonus, reading, exam, Beach Run), so a gap names its cause. Not point totals alone.
