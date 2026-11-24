@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Builds our own copies of the 3D models and pictures, from the manifest assets/sources.tsv.
 
-    python3 tests/assets_local.py build  --cache DIR   # download (into DIR, outside the repo), shrink, write the files and their sha256
+    python3 tests/assets_local.py build  --cache DIR [--base URL]   # download (into DIR, outside the repo), shrink, write the files and their sha256
     python3 tests/assets_local.py verify --cache DIR   # compare every local file with its original again
     python3 tests/assets_local.py check                # no download: every file is on disk and matches its sha256
 
 The manifest is the source of truth. One row per local file, tab-separated, columns:
     kind     model-glb (a Beach Run runner), hero-pic (its picture on the menu), word-pic (the source of one word picture)
     file     the local file, relative to assets/
-    src_url  where the generator put the original (Higgsfield storage; used only by this script, never by the game)
+             The original has the same name with its own extension (.glb, .png) in the owner's storage; the address
+             of that storage is not kept in this repo (tests/storage.py: --base or WI_STORAGE_BASE)
     src_sha256  of the original (written by the first build; after that a download or a cached file that differs is refused)
     sha256   of the local file as it is served (written by build)
     note     what was done to the original
@@ -22,12 +23,14 @@ Downloaded files are untrusted: only the one storage host is fetched, a redirect
 capped, and a file is only ever parsed (JSON, Pillow), never run. Pictures are decoded and re-encoded, so no metadata of
 the original survives. build and verify need Pillow (free); check and the tests do not."""
 import hashlib, io, json, os, re, struct, sys, time, urllib.error, urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import storage
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, 'assets')
 MANIFEST = os.path.join(ASSETS, 'sources.tsv')
-COLS = ['kind', 'file', 'src_url', 'src_sha256', 'sha256', 'note']
-HOST = 'https://d8j0ntlcm91z4.cloudfront.net/'
+COLS = ['kind', 'file', 'src_sha256', 'sha256', 'note']
+BASE = None      # the storage folder's address, when one was given (tests/storage.py)
 NAME = r'hf_\d{8}_\d{6}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 KINDS = {'model-glb': (re.compile(f'3d/{NAME}\\.glb'), '.glb'),
          'hero-pic': (re.compile(f'x/{NAME}\\.webp'), '.png'),
@@ -61,10 +64,8 @@ def read_manifest():
     seen = set()
     for r in rows:
         need(len(r) == len(COLS), r)
-        # every command trusts these as paths below assets/ and as URLs to fetch, so they are checked wherever the manifest is read
+        # every command trusts these as paths below assets/ and as the names of the originals, so they are checked wherever the manifest is read
         need(r['kind'] in KINDS and KINDS[r['kind']][0].fullmatch(r['file']), r['file'])
-        stem = os.path.basename(r['file']).rsplit('.', 1)[0]
-        need(re.fullmatch(re.escape(HOST) + r'[A-Za-z0-9_]+/' + re.escape(stem) + re.escape(KINDS[r['kind']][1]), r['src_url']), r['src_url'])
         need(re.fullmatch(r'[0-9a-f]{64}|', r['sha256']) and re.fullmatch(r'[0-9a-f]{64}|', r['src_sha256']), (r['sha256'], r['src_sha256']))
         need(r['file'] not in seen, r['file'])
         seen.add(r['file'])
@@ -81,35 +82,54 @@ def write_manifest(rows):
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     """a redirect is an error: no request ever goes to a host the storage points us to"""
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, 'redirect refused: ' + str(newurl), headers, fp)
+        raise Redirected(code)      # neither the address asked for nor the one pointed to goes into the error
+
+
+class Redirected(Exception):
+    pass
+
+
+def download(url, name, cap, seconds):
+    """the bytes behind url, or SystemExit with a message that names the file and the kind of failure, never an address"""
+    end, parts, size = time.monotonic() + seconds, [], 0
+    try:
+        with OPENER.open(url, timeout=30) as resp:
+            if resp.status != 200 or resp.geturl() != url:
+                raise Refused(f'{name}: the storage answered with HTTP {resp.status}, not with the file')
+            while True:
+                chunk = resp.read(1 << 16)
+                if not chunk:
+                    break
+                parts.append(chunk); size += len(chunk)
+                if size > cap:
+                    raise Refused(f'{name}: larger than the cap of {cap} bytes')
+                if time.monotonic() > end:
+                    raise Refused(f'{name}: the download took longer than {seconds} s')
+    except Redirected as e:
+        raise Refused(f'{name}: the storage answered with a redirect (HTTP {e.args[0]}); redirects are refused') from None
+    except urllib.error.HTTPError as e:
+        raise Refused(f'{name}: the storage answered with HTTP {e.code}') from None
+    except (urllib.error.URLError, OSError) as e:
+        raise Refused(f'{name}: could not reach the storage ({type(e).__name__})') from None
+    return b''.join(parts)
 
 
 OPENER = urllib.request.build_opener(NoRedirect)
 
 
-def fetch(url, cache, want=''):
-    """the original's bytes, from the cache or downloaded into it (the URL was checked by read_manifest).
-    want: the sha256 the manifest expects; a download or a cached file that differs is refused."""
-    need(url.startswith(HOST), url)
-    path = os.path.join(cache, os.path.basename(url))
+def fetch(r, cache):
+    """the bytes of a row's original, from the cache or downloaded into it. Either way they must match the row's
+    src_sha256 when the list has one (the first build writes it)."""
+    name = os.path.basename(r['file']).rsplit('.', 1)[0] + KINDS[r['kind']][1]
+    want, path = r['src_sha256'], os.path.join(cache, name)
     if not os.path.exists(path):
-        end, parts, size = time.monotonic() + MAX_SECONDS, [], 0
-        with OPENER.open(url, timeout=30) as r:
-            need(r.status == 200 and r.geturl() == url, (url, r.status, r.geturl()))
-            while True:
-                chunk = r.read(1 << 16)
-                if not chunk:
-                    break
-                parts.append(chunk); size += len(chunk)
-                need(size <= MAX_BYTES, (url, 'larger than the cap'))
-                need(time.monotonic() < end, (url, 'the download took too long'))
-        data = b''.join(parts)
-        need(not want or sha256(data) == want, (url, 'the download differs from src_sha256 in the manifest'))
+        data = download(storage.url(BASE, name), name, MAX_BYTES, MAX_SECONDS)
+        need(not want or sha256(data) == want, (name, 'the download differs from src_sha256 in the manifest'))
         with open(path + '.part', 'wb') as f:
             f.write(data)
         os.replace(path + '.part', path)
     data = open(path, 'rb').read()
-    need(not want or sha256(data) == want, (path, 'the cached original differs from src_sha256 in the manifest'))
+    need(not want or sha256(data) == want, (name, 'the cached original differs from src_sha256 in the manifest'))
     return data
 
 
@@ -210,8 +230,10 @@ def make(kind, data):
 def build(cache):
     rows = read_manifest()
     for r in rows:
-        orig = fetch(r['src_url'], cache, r['src_sha256'])
-        r['src_sha256'] = sha256(orig)      # the first build pins the original
+        orig = fetch(r, cache)
+        if not r['src_sha256']:      # the first build pins the original, and says so: nothing vouched for these bytes before
+            print('notice: newly pinned original', os.path.basename(r['file']), sha256(orig))
+        r['src_sha256'] = sha256(orig)
         out, r['note'] = make(r['kind'], orig)
         path = os.path.join(ASSETS, r['file'])
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -244,7 +266,7 @@ def verify(cache):
     from PIL import Image
     bad = []
     for r in read_manifest():
-        local, orig = open(os.path.join(ASSETS, r['file']), 'rb').read(), fetch(r['src_url'], cache, r['src_sha256'])
+        local, orig = open(os.path.join(ASSETS, r['file']), 'rb').read(), fetch(r, cache)
         if sha256(local) != r['sha256']:
             bad.append((r['file'], 'sha256 differs from the manifest'))
         if r['kind'] == 'model-glb':
@@ -285,6 +307,7 @@ if __name__ == '__main__':
         if cmd == 'check':
             sys.exit(0 if check() else 1)
         cache = cache_dir(sys.argv)
+        BASE = storage.base(sys.argv)
         if cmd == 'build':
             build(cache)
         else:
