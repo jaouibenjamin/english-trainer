@@ -59,7 +59,7 @@ def self_test():
              ('css/game.css', "\n.x{background:url(https://example.org/a.png)}\n", 'https://example.org/a.png'),
              ('trainer.html', '\n<link href="https://fonts.googleapis.com/css2?family=Rubik" rel="stylesheet">\n', 'https://fonts.googleapis.com/css2?family=Rubik'),
              ('index.html', '\n<script src="https://script.google.com/macros/s/abc/exec"></script>\n', 'https://script.google.com/macros/s/abc/exec'),      # the backend URL is allowed in config.js only
-             ('js/main.js', "\n// abc123.Cloud" + "Front.net\n", None)]
+             ('js/main.js', ''.join(["\n// abc123.Cloud", "Front.net\n"]), None)]
     base, out = remote_urls(), []
     for target, extra, want in cases:
         if want and want.startswith(OLD) and want == PENDING.get(target) and not any(PENDING[target] in ln for ln in read(target).split('\n')):
@@ -97,7 +97,8 @@ def private_paths(read_bytes=None):
 
 def private_self_test():
     """the scan must catch both forms, in a list and in a test; [problem]"""
-    host, folder = b'abc123.cloud' + b'front.net', b'user_' + b'A1b2C3d4E5f6G7h8I9j0'
+    # joined at run time, so that not even Python's compiled copy of this file holds something that looks like an address
+    host, folder = b''.join([b'abc123.cloud', b'front.net']), b''.join([b'user', b'_A1b2C3d4E5f6G7h8I9j0'])
     real = lambda f: open(os.path.join(ROOT, f), 'rb').read()
     out = []
     for target, extra in (('assets/sources.tsv', b'https://' + host + b'/x.png\n'), ('tests/remote_guard.py', b'# ' + folder + b'\n'), ('README.md', folder + b'/' + b'\n')):
