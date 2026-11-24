@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:,">
 <title>מערכת עיצוב: לגונת הארקייד</title>
 <link rel="stylesheet" href="css/ds.css">
 <style>
@@ -74,7 +75,7 @@ body{margin:0;background:var(--wi-navy-900)}
 <!-- ================= COLOURS ================= -->
 <section id="colors" class="wi-stack">
  <h2 class="sec">צבעים וניגודיות</h2>
- <p class="note">הניגודיות מחושבת בדפדפן מהצבעים עצמם. 4.5 ומעלה עובר AA לטקסט, 3 ומעלה עובר לצורות ולמסגרות. "קישוט" הוא קו שלא צריך לעבור, כי הצורה מובנת גם בלעדיו.</p>
+ <p class="note">הניגודיות מחושבת בדפדפן מהצבעים עצמם. 4.5 ומעלה עובר AA לטקסט, 3 ומעלה עובר לצורות ולמסגרות. "קישוט" הוא קו שלא צריך לעבור, כי הצורה מובנת גם בלעדיו. "חייב לוחית" הוא זוג שנכשל בכוונה על תמונה חשופה.</p>
  <p class="note" id="swsum"></p>
  <div class="cols" id="sw"></div>
 </section>
@@ -316,7 +317,8 @@ body{margin:0;background:var(--wi-navy-900)}
  function v(n){return cs.getPropertyValue('--wi-'+n).trim()}
  function lum(h){h=h.replace('#','');var c=[0,2,4].map(function(i){var x=parseInt(h.substr(i,2),16)/255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]}
  function cr(a,b){var x=lum(a),y=lum(b);if(x<y){var t=x;x=y;y=t}return (x+.05)/(y+.05)}
- /* [foreground token, background token, where it is used, kind]. kind: t = text (4.5), s = shape or outline (3), d = decoration (no bar).
+ /* [foreground token, background token, where it is used, kind]. kind: t = text (4.5), s = shape or outline (3), d = decoration (no bar),
+    p = fails by design on bare art, so the component brings a plate or a keyline (counted on its own in the total).
     Every colour pair that css/ds.css or this page puts together is listed. */
  var P=[
  ['text','navy-900','טקסט ראשי על הרקע','t'],['text','navy-800','טקסט ראשי על כרטיס','t'],['text','navy-700','טקסט על כרטיס מורם, תגית','t'],
@@ -334,20 +336,20 @@ body{margin:0;background:var(--wi-navy-900)}
  ['line','navy-900','מסגרת על הרקע, מסילת הפס (צורה)','s'],['line','navy-800','מסגרת על כרטיס (צורה)','s'],['line','navy-700','מסגרת על כרטיס מורם (צורה)','s'],
  ['focus','navy-900','טבעת מיקוד על הרקע (צורה)','s'],['focus','navy-800','טבעת מיקוד על כרטיס (צורה)','s'],['focus','navy-700','טבעת מיקוד על מורם (צורה)','s'],
  ['text','sea-hi','ים בהיר (מקום שמור): טקסט לבן','t'],['text-dim','sea-hi','ים בהיר: טקסט משני','t'],['aqua','sea-hi','ים בהיר: קו המסלול (צורה)','s'],
- ['locked','sea-hi','ים בהיר: נעול בלי לוחית. לכן יש לוחית וקו מתאר','d'],['line','sea-hi','ים בהיר: מסגרת של רכיב עם מילוי משלו','d'],
+ ['locked','sea-hi','ים בהיר: נעול בלי לוחית','p'],['line','sea-hi','ים בהיר: מסגרת בלי מילוי מאחוריה','p'],
  ['ink','paper','נייר: טקסט','t'],['ink','paper-2','נייר 2: טקסט','t'],['ink-2','paper','נייר: טקסט משני','t'],['ink-2','paper-2','נייר 2: טקסט משני','t'],
  ['good-ink','paper','נייר: נכון','t'],['good-ink','paper-2','נייר 2: נכון','t'],['fix-ink','paper','נייר: לתיקון','t'],['fix-ink','paper-2','נייר 2: לתיקון','t'],
  ['paper','ink','נייר: כפתור','t'],['focus-paper','paper','נייר: טבעת מיקוד, כותרת','t'],['focus-paper','paper-2','נייר 2: טבעת מיקוד','t'],
  ['paper-line','paper','נייר: קו כרטיס','d'],['paper','navy-900','כרטיס נייר על הרקע הכהה (צורה)','s']];
  var o=document.getElementById('sw');if(!o)return;
- var bad=0,n=0;
+ var bad=0,n=0,plate=0;
  P.forEach(function(p){var f=v(p[0]),b=v(p[1]),r=cr(f,b),k=p[3];
-  var ok=k==='d'||(k==='s'?r>=3:r>=4.5);if(k!=='d'){n++;if(!ok)bad++}
-  var verdict=k==='d'?'קישוט':ok?(r>=7&&k==='t'?'AAA':'AA'):'לא עובר';
-  var d=el('div','sw');d.style.background=b;d.style.color=f;d.dataset.pair=p[0]+'/'+p[1];d.dataset.ok=ok?'1':'0';
+  var ok=k==='d'||k==='p'||(k==='s'?r>=3:r>=4.5);if(k==='p')plate++;else if(k!=='d'){n++;if(!ok)bad++}
+  var verdict=k==='d'?'קישוט':k==='p'?'לא עובר לבד: חייב לוחית':ok?(r>=7&&k==='t'?'AAA':'AA'):'לא עובר';
+  var d=el('div','sw');d.style.background=b;d.style.color=f;d.dataset.pair=p[0]+'/'+p[1];d.dataset.ok=ok?'1':'0';d.dataset.kind=k;
   d.appendChild(el('b',null,p[2]));d.appendChild(el('span','r',r.toFixed(2)+' : 1 '+verdict));d.appendChild(el('code',null,f+' on '+b));
   o.appendChild(d);});
- var sum=document.getElementById('swsum');if(sum)sum.textContent=bad?(bad+' זוגות לא עוברים מתוך '+n):('כל '+n+' הזוגות עוברים.');
+ var sum=document.getElementById('swsum');if(sum)sum.textContent=(bad?(bad+' זוגות לא עוברים מתוך '+n+'.'):('כל '+n+' הזוגות עוברים.'))+' ועוד '+plate+' זוגות שלא עוברים על תמונה חשופה, ולכן הרכיב מביא לוחית או קו מתאר.';
 })();
 </script>
 </body>
