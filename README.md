@@ -129,6 +129,24 @@ The report fills in the check-in card per skill; every skill under 80% gets a pr
 explanations and a second try). A new paper opens only after that practice, drawn mostly from items the pupil has not seen.
 
 - Content: `js/xdata.js` (about 200 items; `src:'ws'` marks items copied from the worksheets). Screens: `js/mock.js`, `css/mock.css`.
-- Pictures: `assets/x/pics.webp`, one sheet of 23 drawings in the game's style (made with Higgsfield, `tools/sheet.html` lays them out for capture).
+- Pictures: `assets/x/pics.webp`, one sheet of 23 drawings in the game's style (made with Higgsfield, `tools/sheet.html` lays them out for capture
+  from our own small copies in `assets/x/src/`).
 - Progress: `S.x` in the account record (papers, practice times, items seen). No backend change.
 - `python3 tests/mock.py` plays exam, report, practice and a second paper at two phone sizes and a laptop size.
+
+## 3D models and pictures: our own copies
+
+Nothing the game shows is loaded from another host. `assets/sources.tsv` lists every 3D model and generated picture
+kept in the repo: its kind, the local file, the original URL in the generator's storage, the sha256 of the original
+and of the local file, and what was done to it. Every file keeps the generator's job id in its name (for the credits).
+
+- `assets/3d/`: the two Beach Run runners (GLB). Only the texture inside each file was made smaller (2048 px to 1024 px
+  JPEG); mesh, rig and animation are the original bytes. Each file stays under 3 MB.
+- `assets/x/hf_*.webp`: the runners' pictures on the Beach Run menu (512 px).
+- `assets/x/src/`: the 23 word-picture sources as 512 px WebP, used only by `tools/sheet.html`.
+
+`python3 tests/assets_local.py build --cache DIR` downloads the originals once into DIR (outside the repo) and rebuilds
+the files and their sha256 (needs Pillow); `verify --cache DIR` compares every file with its original again (for a
+model: every byte range except the texture is identical); `check` needs no download. `python3 tests/remote_guard.py`
+(also run by `tests/run.py`) fails on any URL of another host in `js/`, `css/`, the pages and the tools. Allowed for
+now: the class backend in `config.js` and Google Fonts in `trainer.html`.

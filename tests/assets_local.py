@@ -1,0 +1,293 @@
+#!/usr/bin/env python3
+"""Builds our own copies of the 3D models and pictures, from the manifest assets/sources.tsv.
+
+    python3 tests/assets_local.py build  --cache DIR   # download (into DIR, outside the repo), shrink, write the files and their sha256
+    python3 tests/assets_local.py verify --cache DIR   # compare every local file with its original again
+    python3 tests/assets_local.py check                # no download: every file is on disk and matches its sha256
+
+The manifest is the source of truth. One row per local file, tab-separated, columns:
+    kind     model-glb (a Beach Run runner), hero-pic (its picture on the menu), word-pic (the source of one word picture)
+    file     the local file, relative to assets/
+    src_url  where the generator put the original (Higgsfield storage; used only by this script, never by the game)
+    src_sha256  of the original (written by the first build; after that a download or a cached file that differs is refused)
+    sha256   of the local file as it is served (written by build)
+    note     what was done to the original
+Every local file keeps the generator's job id (hf_<date>_<time>_<uuid>) in its name, for the credits.
+
+model-glb: only the one texture inside the file is made smaller (2048 px JPEG to TEX px JPEG). Every other byte range
+           of the file (mesh, skin, joints, animation keys) is copied as it is; verify proves that range by range.
+hero-pic:  PNG to WebP, HERO px.
+word-pic:  PNG to WebP, WORD px (small copies; tools/sheet.html draws them at 256 px).
+Downloaded files are untrusted: only the one storage host is fetched, a redirect is refused (never followed), the size is
+capped, and a file is only ever parsed (JSON, Pillow), never run. Pictures are decoded and re-encoded, so no metadata of
+the original survives. build and verify need Pillow (free); check and the tests do not."""
+import hashlib, io, json, os, re, struct, sys, time, urllib.error, urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS = os.path.join(ROOT, 'assets')
+MANIFEST = os.path.join(ASSETS, 'sources.tsv')
+COLS = ['kind', 'file', 'src_url', 'src_sha256', 'sha256', 'note']
+HOST = 'https://d8j0ntlcm91z4.cloudfront.net/'
+NAME = r'hf_\d{8}_\d{6}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+KINDS = {'model-glb': (re.compile(f'3d/{NAME}\\.glb'), '.glb'),
+         'hero-pic': (re.compile(f'x/{NAME}\\.webp'), '.png'),
+         'word-pic': (re.compile(f'x/src/{NAME}\\.webp'), '.png')}
+TEX, TEX_Q = 1024, 90      # the runner's texture: side in px, JPEG quality
+HERO, HERO_Q = 512, 90     # the menu picture
+WORD, WORD_Q = 512, 82     # a word-picture source
+MAX_BYTES = 30_000_000
+MAX_SECONDS = 180          # for one whole download, not per read
+GLB_LIMIT = 3_000_000      # a model must stay under this
+
+
+class Refused(Exception):
+    """a safety check failed (a real error, not an assert: it also holds under python -O)"""
+
+
+def need(ok, what):
+    if not ok:
+        raise Refused(what if isinstance(what, str) else repr(what))
+
+
+def sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def read_manifest():
+    """plain tab-separated text, no quoting"""
+    lines = open(MANIFEST, encoding='utf-8').read().split('\n')
+    need(lines[0].split('\t') == COLS and lines[-1] == '', 'bad manifest header')
+    rows = [dict(zip(COLS, ln.split('\t'))) for ln in lines[1:-1]]
+    seen = set()
+    for r in rows:
+        need(len(r) == len(COLS), r)
+        # every command trusts these as paths below assets/ and as URLs to fetch, so they are checked wherever the manifest is read
+        need(r['kind'] in KINDS and KINDS[r['kind']][0].fullmatch(r['file']), r['file'])
+        stem = os.path.basename(r['file']).rsplit('.', 1)[0]
+        need(re.fullmatch(re.escape(HOST) + r'[A-Za-z0-9_]+/' + re.escape(stem) + re.escape(KINDS[r['kind']][1]), r['src_url']), r['src_url'])
+        need(re.fullmatch(r'[0-9a-f]{64}|', r['sha256']) and re.fullmatch(r'[0-9a-f]{64}|', r['src_sha256']), (r['sha256'], r['src_sha256']))
+        need(r['file'] not in seen, r['file'])
+        seen.add(r['file'])
+    return rows
+
+
+def write_manifest(rows):
+    for r in rows:
+        need(not any(c in str(r[k]) for k in COLS for c in '\t\r\n'), r)
+    with open(MANIFEST, 'w', encoding='utf-8', newline='') as f:
+        f.write('\t'.join(COLS) + '\n' + ''.join('\t'.join(str(r[k]) for k in COLS) + '\n' for r in rows))
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """a redirect is an error: no request ever goes to a host the storage points us to"""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, 'redirect refused: ' + str(newurl), headers, fp)
+
+
+OPENER = urllib.request.build_opener(NoRedirect)
+
+
+def fetch(url, cache, want=''):
+    """the original's bytes, from the cache or downloaded into it (the URL was checked by read_manifest).
+    want: the sha256 the manifest expects; a download or a cached file that differs is refused."""
+    need(url.startswith(HOST), url)
+    path = os.path.join(cache, os.path.basename(url))
+    if not os.path.exists(path):
+        end, parts, size = time.monotonic() + MAX_SECONDS, [], 0
+        with OPENER.open(url, timeout=30) as r:
+            need(r.status == 200 and r.geturl() == url, (url, r.status, r.geturl()))
+            while True:
+                chunk = r.read(1 << 16)
+                if not chunk:
+                    break
+                parts.append(chunk); size += len(chunk)
+                need(size <= MAX_BYTES, (url, 'larger than the cap'))
+                need(time.monotonic() < end, (url, 'the download took too long'))
+        data = b''.join(parts)
+        need(not want or sha256(data) == want, (url, 'the download differs from src_sha256 in the manifest'))
+        with open(path + '.part', 'wb') as f:
+            f.write(data)
+        os.replace(path + '.part', path)
+    data = open(path, 'rb').read()
+    need(not want or sha256(data) == want, (path, 'the cached original differs from src_sha256 in the manifest'))
+    return data
+
+
+# ---------- GLB (binary glTF 2.0): a header, one JSON chunk, one binary chunk ----------
+def glb_read(data):
+    magic, ver, total = struct.unpack('<4sII', data[:12])
+    need(magic == b'glTF' and ver == 2 and total == len(data), 'not a GLB 2.0 file')
+    n, t = struct.unpack('<I4s', data[12:20])
+    need(t == b'JSON', "unexpected data: t == b'JSON'")
+    doc = json.loads(data[20:20 + n])
+    o = 20 + n
+    m, t = struct.unpack('<I4s', data[o:o + 8])
+    need(t == b'BIN\x00' and o + 8 + m == len(data), 'expected exactly one binary chunk')
+    bin_ = data[o + 8:o + 8 + m]
+    need(len(doc['buffers']) == 1 and 'uri' not in doc['buffers'][0], 'expected one embedded buffer')
+    need(not doc.get('extensionsRequired'), doc.get('extensionsRequired'))
+    return doc, bin_
+
+
+def glb_views(doc, bin_):
+    """the bytes of every bufferView, in order"""
+    return [bin_[v.get('byteOffset', 0):v.get('byteOffset', 0) + v['byteLength']] for v in doc['bufferViews']]
+
+
+def glb_write(doc, views):
+    out = bytearray()
+    for v, d in zip(doc['bufferViews'], views):
+        out += b'\0' * (-len(out) % 4)
+        v['byteOffset'], v['byteLength'] = len(out), len(d)
+        out += d
+    out += b'\0' * (-len(out) % 4)
+    doc['buffers'][0]['byteLength'] = len(out)
+    js = json.dumps(doc, separators=(',', ':'), ensure_ascii=True).encode()
+    js += b' ' * (-len(js) % 4)
+    body = struct.pack('<I4s', len(js), b'JSON') + js + struct.pack('<I4s', len(out), b'BIN\x00') + bytes(out)
+    return struct.pack('<4sII', b'glTF', 2, 12 + len(body)) + body
+
+
+def image_view(doc):
+    """the model carries exactly one picture, embedded: its bufferView index"""
+    need(len(doc.get('images', [])) == 1 and doc['images'][0].get('mimeType') == 'image/jpeg' and 'bufferView' in doc['images'][0], doc.get('images'))
+    return doc['images'][0]['bufferView']
+
+
+def open_image(data, formats):
+    from PIL import Image
+    im = Image.open(io.BytesIO(data), formats=formats)
+    need(im.width * im.height <= 4096 * 4096, im.size)
+    im.load()
+    return im.convert('RGB')
+
+
+def build_glb(data):
+    doc, bin_ = glb_read(data)
+    views, iv = glb_views(doc, bin_), image_view(doc)
+    from PIL import Image
+    im = open_image(views[iv], ['JPEG'])
+    need(im.size[0] == im.size[1] and im.size[0] >= TEX, im.size)
+    buf = io.BytesIO()
+    im.resize((TEX, TEX), Image.LANCZOS).save(buf, 'JPEG', quality=TEX_Q, optimize=True, subsampling='4:4:4')
+    views[iv] = buf.getvalue()
+    out = glb_write(doc, views)
+    need(len(out) < GLB_LIMIT, len(out))
+    return out, f'texture {im.size[0]} px JPEG to {TEX} px JPEG q{TEX_Q}; mesh, rig and animation bytes untouched'
+
+
+def same_glb(orig, local):
+    """True when local is orig with only the picture replaced: every other byte range and the whole scene description equal"""
+    d0, b0 = glb_read(orig)
+    d1, b1 = glb_read(local)
+    v0, v1, iv = glb_views(d0, b0), glb_views(d1, b1), image_view(d0)
+    if image_view(d1) != iv or len(v0) != len(v1) or any(a != b for i, (a, b) in enumerate(zip(v0, v1)) if i != iv):
+        return False
+    for d in (d0, d1):          # the only things allowed to differ: where each range sits, and the total length
+        for v in d['bufferViews']:
+            v.pop('byteOffset', None)
+        d['bufferViews'][iv].pop('byteLength')
+        d['buffers'][0].pop('byteLength')
+    im = open_image(v1[iv], ['JPEG'])
+    return d0 == d1 and im.size == (TEX, TEX)
+
+
+def build_pic(data, side, q):
+    from PIL import Image
+    im = open_image(data, ['PNG'])
+    need(im.size[0] == im.size[1] and im.size[0] >= side, im.size)
+    buf = io.BytesIO()
+    im.resize((side, side), Image.LANCZOS).save(buf, 'WEBP', quality=q, method=6)
+    return buf.getvalue(), f'PNG {im.size[0]} px to WebP {side} px q{q}'
+
+
+def make(kind, data):
+    if kind == 'model-glb':
+        return build_glb(data)
+    return build_pic(data, *((HERO, HERO_Q) if kind == 'hero-pic' else (WORD, WORD_Q)))
+
+
+def build(cache):
+    rows = read_manifest()
+    for r in rows:
+        orig = fetch(r['src_url'], cache, r['src_sha256'])
+        r['src_sha256'] = sha256(orig)      # the first build pins the original
+        out, r['note'] = make(r['kind'], orig)
+        path = os.path.join(ASSETS, r['file'])
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'wb') as f:
+            f.write(out)
+        r['sha256'] = sha256(out)
+    # nothing stale stays behind in the folders this script owns
+    keep = {r['file'] for r in rows}
+    for d, ext in (('3d', '.glb'), ('x/src', '.webp')):
+        for f in os.listdir(os.path.join(ASSETS, d)):
+            if f.endswith(ext) and f'{d}/{f}' not in keep:
+                os.remove(os.path.join(ASSETS, d, f))
+    write_manifest(rows)
+    print(len(rows), 'files,', sum(os.path.getsize(os.path.join(ASSETS, r['file'])) for r in rows), 'bytes')
+
+
+def check():
+    bad = []
+    for r in read_manifest():
+        path = os.path.join(ASSETS, r['file'])
+        if not os.path.isfile(path) or not r['sha256'] or sha256(open(path, 'rb').read()) != r['sha256']:
+            bad.append(r['file'])
+    print('files that are missing or differ from their sha256:', bad or 'none')
+    return not bad
+
+
+def verify(cache):
+    """every model is its original with only the picture replaced; every picture decodes to the size it should have
+    and looks like its original (mean absolute difference per channel, against the original scaled the same way)"""
+    from PIL import Image
+    bad = []
+    for r in read_manifest():
+        local, orig = open(os.path.join(ASSETS, r['file']), 'rb').read(), fetch(r['src_url'], cache, r['src_sha256'])
+        if sha256(local) != r['sha256']:
+            bad.append((r['file'], 'sha256 differs from the manifest'))
+        if r['kind'] == 'model-glb':
+            ok = same_glb(orig, local) and len(local) < GLB_LIMIT
+            print(r['file'], len(orig), '->', len(local), 'bytes; everything but the texture identical:', ok)
+            d0, b0 = glb_read(orig); d1, b1 = glb_read(local)
+            a, b = open_image(glb_views(d0, b0)[image_view(d0)], ['JPEG']).resize((TEX, TEX), Image.LANCZOS), open_image(glb_views(d1, b1)[image_view(d1)], ['JPEG'])
+        else:
+            side = HERO if r['kind'] == 'hero-pic' else WORD
+            b = open_image(local, ['WEBP'])
+            ok = b.size == (side, side)
+            a = open_image(orig, ['PNG']).resize((side, side), Image.LANCZOS)
+        diff = sum(abs(x - y) for x, y in zip(a.tobytes(), b.tobytes())) / len(a.tobytes())
+        if not ok or diff > 4:
+            bad.append((r['file'], round(diff, 2)))
+        if r['kind'] != 'model-glb':
+            print(r['file'], len(orig), '->', len(local), 'bytes; mean difference', round(diff, 2), 'of 255')
+        else:
+            print('   texture mean difference', round(diff, 2), 'of 255')
+    print('suspicious:', bad or 'none')
+    return not bad
+
+
+def cache_dir(argv):
+    """the folder after --cache: refused when it is missing or inside the repo, and only then created"""
+    need('--cache' in argv and argv.index('--cache') + 1 < len(argv), 'give a folder: --cache DIR')
+    cache, root = os.path.realpath(argv[argv.index('--cache') + 1]), os.path.realpath(ROOT)
+    need(os.path.commonpath([cache, root]) != root, 'keep the downloads outside the repo')
+    os.makedirs(cache, exist_ok=True)
+    return cache
+
+
+if __name__ == '__main__':
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ''
+    if cmd not in ('build', 'verify', 'check'):
+        sys.exit(__doc__)
+    try:
+        if cmd == 'check':
+            sys.exit(0 if check() else 1)
+        cache = cache_dir(sys.argv)
+        if cmd == 'build':
+            build(cache)
+        else:
+            sys.exit(0 if verify(cache) else 1)
+    except Refused as e:
+        sys.exit('refused: ' + str(e))
