@@ -315,10 +315,10 @@ async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     await pg.add_init_script(clip_stub(clips))
     pg.on('pageerror', lambda e: errs.append('pageerror: ' + str(e)))
     pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
-    # The classic trainer uses Google Fonts (offline CI cannot reach it). An <audio> element aborts the download of its clip
+    # An <audio> element aborts the download of its clip
     # when the next clip replaces it: only that (a media request under assets/voice/, net::ERR_ABORTED) is tolerated.
     aborted_clip = lambda r: CLIPS_HOST in r.url and r.resource_type == 'media' and r.failure == 'net::ERR_ABORTED'
-    pg.on('requestfailed', lambda r: errs.append(f'requestfailed: {r.url} ({r.resource_type}, {r.failure})') if 'fonts.g' not in r.url and not aborted_clip(r) else None)
+    pg.on('requestfailed', lambda r: errs.append(f'requestfailed: {r.url} ({r.resource_type}, {r.failure})') if not aborted_clip(r) else None)
     pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 else None)   # a missing voice file is an error
     # config.js in the repository carries the real class backend: a test page never talks to it (local mode = no backend at all)
     # (pinned from an init script, not by intercepting the file: interception switches the browser cache off for the page)
