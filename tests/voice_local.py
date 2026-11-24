@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Builds the voice files the game plays from our own site, from the manifest assets/voice/sources.tsv.
 
-    python3 tests/voice_local.py build  --cache DIR   # download (into DIR, outside the repo), trim, encode, write js/voice.js
+    python3 tests/voice_local.py build  --cache DIR [--base URL]   # download (into DIR, outside the repo), trim, encode, write js/voice.js
     python3 tests/voice_local.py verify --cache DIR   # decode every local file and check it holds the same stretch as the source
     python3 tests/voice_local.py pin                  # only rewrite the sha256 column from the files on disk (no download)
 
 The manifest is the source of truth. One row per spoken text, columns:
     kind     voice-en (an English clip) or narr-he (a Hebrew narration line of the mock exam)
     file     the local file, relative to assets/voice/
-    src_url  where the generator put the original (Higgsfield storage; used only by this script, never by the game)
+    src_sha256  of the original (written by the first build; after that a download or a cached file that differs is refused).
+             The original has the local file's name with .wav (English) or .mp3 (Hebrew), in the owner's storage;
+             the address of that storage is not kept in this repo (tests/storage.py: --base or WI_STORAGE_BASE)
     src_s, src_e  the measured clean stretch inside the original, in ms (0,0 = the whole file); written by tests/voice_map.py
     s, e     the same stretch inside the local file, in ms (written by build)
     sha256   of the local file as it is served (written by build; tests/play.py fails if a file on disk differs)
@@ -24,12 +26,14 @@ real WAV / MP3 data is accepted. Every local file is pinned by its sha256 in the
 Needs ffmpeg with libmp3lame (free) and numpy."""
 import hashlib, json, os, re, subprocess, sys, urllib.error, urllib.request, wave
 import numpy as np
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import storage
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VOICE = os.path.join(ROOT, 'assets', 'voice')
 MANIFEST = os.path.join(VOICE, 'sources.tsv')
-COLS = ['kind', 'file', 'src_url', 'src_s', 'src_e', 's', 'e', 'sha256', 'text']
-HOST = 'https://d8j0ntlcm91z4.cloudfront.net/'
+COLS = ['kind', 'file', 'src_sha256', 'src_s', 'src_e', 's', 'e', 'sha256', 'text']
+SRC_EXT = {'voice-en': '.wav', 'narr-he': '.mp3'}      # the original's extension
 PAD = 150           # ms of the original kept on each side of the stretch
 LEAD, TAIL = 30, 80  # what the player plays around the stretch (js/state.js)
 RATE, KBPS = 24000, 64
@@ -53,7 +57,7 @@ def read_manifest():
             r[k] = int(r[k] or 0)
         # every command trusts these names as paths below assets/voice/, so they are checked wherever the manifest is read
         assert r['kind'] in KINDS and FILE_RE.fullmatch(r['file']) and r['file'].startswith(KINDS[r['kind']]), r['file']
-        assert re.fullmatch(r'[0-9a-f]{64}|', r['sha256']), r['sha256']
+        assert re.fullmatch(r'[0-9a-f]{64}|', r['sha256']) and re.fullmatch(r'[0-9a-f]{64}|', r['src_sha256']), (r['sha256'], r['src_sha256'])
     return rows
 
 
@@ -73,16 +77,26 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 OPENER = urllib.request.build_opener(NoRedirect)
 
 
-def fetch(url, cache):
-    """the original, from the cache or downloaded into it"""
-    assert url.startswith(HOST) and '..' not in url and '?' not in url and '#' not in url, url
-    path = os.path.join(cache, os.path.basename(url))
+BASE = None      # the storage folder's address, when one was given (tests/storage.py)
+
+
+def fetch(r, cache):
+    """the path of a row's original: from the cache, or downloaded into it. Either way it must match the row's src_sha256
+    when the list has one (the first build writes it)."""
+    name = os.path.basename(r['file'])[:-4] + SRC_EXT[r['kind']]
+    path = os.path.join(cache, name)
     if not os.path.exists(path):
-        with OPENER.open(url, timeout=60) as r:
-            assert r.status == 200 and r.geturl() == url, (url, r.status, r.geturl())
-            data = r.read(50_000_000)
+        url = storage.url(BASE, name)
+        with OPENER.open(url, timeout=60) as resp:
+            if resp.status != 200 or resp.geturl() != url:
+                raise SystemExit(f'{name}: the storage did not answer with the file')
+            data = resp.read(50_000_001)
+        if len(data) > 50_000_000:
+            raise SystemExit(f'{name}: larger than the cap')
         open(path + '.part', 'wb').write(data)
         os.replace(path + '.part', path)
+    if r['src_sha256'] and sha256(path) != r['src_sha256']:
+        raise SystemExit(f'{name}: the original in the cache differs from src_sha256 in the list (delete it from the cache to download it again)')
     return path
 
 
@@ -126,9 +140,10 @@ def build(cache):
     for name, rs in groups.items():
         out = os.path.join(VOICE, name)
         keep.add(name)
-        urls = {r['src_url'] for r in rs}
-        assert len(urls) == 1, (name, urls)
-        src = fetch(urls.pop(), cache)
+        assert len({r['kind'] for r in rs}) == 1 and len({r['src_sha256'] for r in rs}) == 1, name
+        src = fetch(rs[0], cache)
+        for r in rs:
+            r['src_sha256'] = sha256(src)      # the first build pins the original
         if rs[0]['kind'] == 'narr-he':
             data = open(src, 'rb').read()
             assert is_mp3(data) and name.endswith('.mp3'), name
@@ -220,12 +235,12 @@ def verify(cache):
         if sha256(path) != r['sha256']:
             bad.append((r['file'], 'sha256 differs from the manifest'))
         if r['kind'] == 'narr-he':
-            same = open(path, 'rb').read() == open(fetch(r['src_url'], cache), 'rb').read()
+            same = open(path, 'rb').read() == open(fetch(r, cache), 'rb').read()
             print('he', r['file'], 'byte-identical' if same else 'DIFFERENT')
             if not same:
                 bad.append(r['file'])
             continue
-        x = read_wav(fetch(r['src_url'], cache))
+        x = read_wav(fetch(r, cache))
         y = dec.get(path)
         if y is None:
             y = dec[path] = decode(path)
@@ -266,6 +281,7 @@ if __name__ == '__main__':
         sys.exit(__doc__)
     os.makedirs(cache, exist_ok=True)
     assert not os.path.abspath(cache).startswith(ROOT + os.sep), 'keep the downloads outside the repo'
+    BASE = storage.base(sys.argv)
     if cmd == 'build':
         build(cache)
     else:

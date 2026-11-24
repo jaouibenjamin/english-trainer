@@ -27,6 +27,12 @@ jobs:
         run: |
           set -e
           ! grep -rInE "service_role|SUPABASE_SERVICE|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY" --exclude-dir=.git --exclude-dir=vendor --exclude-dir=.github . || (echo "possible server key in repo" && exit 1)
+      # The address of the owner's asset storage (its host, the account folder) stays out of the repo; the build scripts get
+      # it at run time. -a: binary files are searched too. -l: only the file names are printed, not the address.
+      - name: No storage address in the repo
+        run: |
+          set -e
+          ! grep -rlaiE "user_[A-Za-z0-9]{16,}|[a-z0-9-]+[.]cloudfront[.]net" --exclude-dir=.git . || (echo "the storage address is written in the files above" && exit 1)
   own-assets:
     runs-on: ubuntu-latest
     steps:
