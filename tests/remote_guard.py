@@ -2,15 +2,15 @@
 """The game's files are ours: nothing in js/, css/, the pages or the tools may point to another host.
     python3 tests/remote_guard.py
 Scans js/**, css/**, *.html, tools/*.html, config.js and manifest.webmanifest for any http(s) or protocol-relative URL and
-for the old storage host by name. Exactly two things are allowed for now: the class backend URL in config.js and Google
-Fonts in trainer.html (the old trainer; fonts move into the repo next). XML namespace names (w3.org) are names, not requests.
+for the old storage host by name. Exactly one thing is allowed: the class backend URL in config.js. XML namespace
+names (w3.org) are names, not requests.
 It is a static scan of the text: a URL built from pieces at run time is not seen (tests/run.py watches the real requests).
-Also checks that every asset path in js/run.js and tools/sheet.html exists and matches assets/sources.tsv (tests/assets_local.py check)."""
+Also checks that every asset path in js/run.js and tools/sheet.html exists and matches assets/sources.tsv (tests/assets_local.py check),
+and that assets/CREDITS.md is up to date and names every file under assets/ and vendor/ (tests/credits.py check)."""
 import glob, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 URL = re.compile(r"""(?:https?:)?//[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+[^\s"'`)<>]*""")
-ALLOWED = {'config.js': re.compile(r'https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec'),
-           'trainer.html': re.compile(r'https://fonts\.googleapis\.com(/css2\?[^\s"\']*)?')}
+ALLOWED = {'config.js': re.compile(r'https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec')}
 NAMESPACE = re.compile(r'http://www\.w3\.org/(2000/svg|1999/xlink|1999/xhtml|1998/Math/MathML)')
 # No file is excused. (While the voice clips were still on the old storage, one constant in js/voice.js and one in
 # js/mock.js were tolerated here; they are gone.) A new entry would be: file -> the one exact URL tolerated in it, once.
@@ -57,6 +57,8 @@ def self_test():
              ('js/mock.js', "\nconst VB2='" + OLD + "hf_20261121_';\n", OLD + 'hf_20261121_'),      # a second copy of the tolerated string, when one is still there
              ('js/run.js', "\nnew Image().src='//cdn.example.net/a.png';\n", '//cdn.example.net/a.png'),
              ('css/game.css', "\n.x{background:url(https://example.org/a.png)}\n", 'https://example.org/a.png'),
+             ('trainer.html', '\n<link href="https://fonts.googleapis.com/css2?family=Rubik" rel="stylesheet">\n', 'https://fonts.googleapis.com/css2?family=Rubik'),
+             ('index.html', '\n<script src="https://script.google.com/macros/s/abc/exec"></script>\n', 'https://script.google.com/macros/s/abc/exec'),      # the backend URL is allowed in config.js only
              ('js/main.js', "\n// d8j0ntlcm91z4.CloudFront.net\n", None)]
     base, out = remote_urls(), []
     for target, extra, want in cases:
@@ -90,11 +92,21 @@ def local_assets():
     return bad
 
 
+def credits():
+    """assets/CREDITS.md is up to date, names every file under assets/ and vendor/ and no other; [problem]"""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import credits as C
+    return C.problems()
+
+
 if __name__ == '__main__':
     r, a, t = remote_urls(), local_assets(), self_test()
+    c = credits()
     for x in r: print('FAIL remote URL', *x)
     for x in a: print('FAIL asset', *x)
     for x in t: print('FAIL self-test', x)
+    for x in c[:20]: print('FAIL credits', x)
+    t = t + c
     if PENDING: print('note: one known URL is still tolerated in each of:', sorted(PENDING))
     print('ALL PASSED' if not (r or a or t) else f'{len(r) + len(a) + len(t)} FAILED', f'({len(files())} files scanned)')
     sys.exit(1 if r or a or t else 0)

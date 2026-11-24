@@ -187,9 +187,11 @@ async def main():
     if proc.poll() is not None or not port_open(PORT):
         sys.exit(f'the test server did not start on port {PORT}')
     bad = remote_guard.remote_urls()
-    check(not bad, f'no URL of another host in js/, css/, the pages and the tools (allowed: the class backend in config.js, Google Fonts in trainer.html) {bad[:3]}')
+    check(not bad, f'no URL of another host in js/, css/, the pages and the tools (allowed: only the class backend in config.js) {bad[:3]}')
     bad = remote_guard.self_test()
-    check(not bad, f'the guard catches a planted remote URL in js/mock.js, js/voice.js, js/run.js and css/game.css {bad[:2]}')
+    check(not bad, f'the guard catches a planted remote URL in js/mock.js, js/voice.js, js/run.js, css/game.css, trainer.html and index.html {bad[:2]}')
+    bad = remote_guard.credits()
+    check(not bad, f'assets/CREDITS.md is up to date and names every file under assets/ and vendor/, and only those {bad[:2]}')
     bad = remote_guard.local_assets()
     check(not bad, f'every 3D model and picture is in assets/sources.tsv, on disk and matches its sha256; models under 3 MB {bad[:3]}')
     try:

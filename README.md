@@ -25,8 +25,9 @@ looping animations, confetti and shaking; the device's own "reduce motion" setti
   - `js/data.js` holds all content and tuning constants (words, stories, sentences, star thresholds, points).
   - `js/state.js` progress, class backend client, speech. `js/audio.js` generated soundtrack and effects.
   - `js/main.js` screens and routing. `js/sling.js`, `listen.js`, `read.js`, `bridge.js` the four level types.
-- `assets/`: illustrated backgrounds (`bg/`), sprites (`sp/`), app icons, and the Playpen Sans Hebrew font
-  (SIL Open Font License, see `assets/font/OFL.txt`).
+- `assets/`: illustrated backgrounds (`bg/`), sprites (`sp/`), app icons, voice, 3D models, pictures and the fonts
+  (Playpen Sans Hebrew, Fredoka, Rubik: SIL Open Font License, texts in `assets/font/`). `assets/CREDITS.md` lists
+  every file with its origin.
 - `trainer.html`: the earlier quiz-style trainer ("תרגול קלאסי" in the game's settings). It shares the same progress
   record and class login as the game.
 - `config.js`: the backend URL. `backend/Code.gs`: Google Apps Script that stores names, salted PIN hashes and scores
@@ -136,7 +137,9 @@ explanations and a second try). A new paper opens only after that practice, draw
 
 ## 3D models and pictures: our own copies
 
-Nothing the game shows is loaded from another host. `assets/sources.tsv` lists every 3D model and generated picture
+Nothing the game shows is loaded from another host. `assets/CREDITS.md` lists every file under `assets/`
+and `vendor/` with what it is, where it came from and its job id (`python3 tests/credits.py write` rebuilds it from the
+lists; the tests fail when it is out of date or a file is missing from it). `assets/sources.tsv` lists every 3D model and generated picture
 kept in the repo: its kind, the local file, the original URL in the generator's storage, the sha256 of the original
 and of the local file, and what was done to it. Every file keeps the generator's job id in its name (for the credits).
 
@@ -149,4 +152,4 @@ and of the local file, and what was done to it. Every file keeps the generator's
 the files and their sha256 (needs Pillow); `verify --cache DIR` compares every file with its original again (for a
 model: every byte range except the texture is identical); `check` needs no download. `python3 tests/remote_guard.py`
 (also run by `tests/run.py`) fails on any URL of another host in `js/`, `css/`, the pages and the tools, the voice files included: no file is
-excused. Allowed for now: the class backend in `config.js` and Google Fonts in `trainer.html`.
+excused. Exactly one thing is allowed: the class backend URL in `config.js`.

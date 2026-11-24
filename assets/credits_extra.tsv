@@ -1,0 +1,101 @@
+section	file	what	source	sha256
+art-sp	assets/sp/ball_0.webp	coconut		
+art-sp	assets/sp/ball_1.webp	beach ball		
+art-sp	assets/sp/ball_2.webp	spiral shell		
+art-sp	assets/sp/ball_3.webp	football		
+art-sp	assets/sp/ball_4.webp	orange		
+art-sp	assets/sp/ball_5.webp	gold ball with a star		
+art-sp	assets/sp/balloon_0.webp	balloon, coral		
+art-sp	assets/sp/balloon_1.webp	balloon, green		
+art-sp	assets/sp/balloon_2.webp	balloon, purple		
+art-sp	assets/sp/balloon_3.webp	balloon, yellow		
+art-sp	assets/sp/bell.webp	ship bell		
+art-sp	assets/sp/boat.webp	small sailing boat		
+art-sp	assets/sp/bottle.webp	bottle with a letter		
+art-sp	assets/sp/bubble_0.webp	answer bubble, blue		
+art-sp	assets/sp/bubble_1.webp	answer bubble, peach		
+art-sp	assets/sp/bubble_2.webp	answer bubble, green		
+art-sp	assets/sp/bubble_3.webp	answer bubble, lilac		
+art-sp	assets/sp/chest.webp	treasure chest		
+art-sp	assets/sp/compass.webp	compass		
+art-sp	assets/sp/conch.webp	conch shell		
+art-sp	assets/sp/crab_happy.webp	Pitzi the crab, happy		
+art-sp	assets/sp/crab_listen.webp	Pitzi the crab, listening		
+art-sp	assets/sp/crab_oops.webp	Pitzi the crab, oops		
+art-sp	assets/sp/crab_star.webp	Pitzi the crab holding a star		
+art-sp	assets/sp/crab_walk.webp	Pitzi the crab, walking		
+art-sp	assets/sp/crab_wave.webp	Pitzi the crab, waving		
+art-sp	assets/sp/fork.webp	slingshot fork		
+art-sp	assets/sp/ic_arrow.webp	icon: arrow		
+art-sp	assets/sp/ic_book.webp	icon: book		
+art-sp	assets/sp/ic_bridge.webp	icon: bridge		
+art-sp	assets/sp/ic_buoy.webp	icon: life buoy		
+art-sp	assets/sp/ic_check.webp	icon: check mark		
+art-sp	assets/sp/ic_door.webp	icon: door		
+art-sp	assets/sp/ic_gear.webp	icon: gear		
+art-sp	assets/sp/ic_note.webp	icon: music note		
+art-sp	assets/sp/ic_signpost.webp	icon: signpost		
+art-sp	assets/sp/ic_speaker.webp	icon: speaker		
+art-sp	assets/sp/ic_x.webp	icon: cross		
+art-sp	assets/sp/isl_1.webp	island 1 (hobbies)		
+art-sp	assets/sp/isl_2.webp	island 2 (school)		
+art-sp	assets/sp/isl_3.webp	island 3 (new home)		
+art-sp	assets/sp/isl_4.webp	island 4 (birthday)		
+art-sp	assets/sp/isl_5.webp	island 5 (presents)		
+art-sp	assets/sp/isl_6.webp	island 6 (treasure)		
+art-sp	assets/sp/label.webp	paper label		
+art-sp	assets/sp/lamp.webp	lantern		
+art-sp	assets/sp/lock.webp	padlock		
+art-sp	assets/sp/mapicon.webp	folded map		
+art-sp	assets/sp/pill.webp	button shape, yellow		
+art-sp	assets/sp/pill_blue.webp	button shape, blue		
+art-sp	assets/sp/pill_coral.webp	button shape, coral		
+art-sp	assets/sp/pill_cream.webp	button shape, cream		
+art-sp	assets/sp/pill_green.webp	button shape, green		
+art-sp	assets/sp/plank_0.webp	bridge plank, plain		
+art-sp	assets/sp/plank_1.webp	bridge plank, yellow		
+art-sp	assets/sp/plank_2.webp	bridge plank, green		
+art-sp	assets/sp/plank_3.webp	bridge plank, coral		
+art-sp	assets/sp/plank_4.webp	bridge plank, blue		
+art-sp	assets/sp/ribbon.webp	ribbon banner		
+art-sp	assets/sp/scroll.webp	paper scroll		
+art-sp	assets/sp/sign.webp	hanging wooden sign		
+art-sp	assets/sp/star.webp	star, gold		
+art-sp	assets/sp/star_off.webp	star, grey		
+art-sp	assets/sp/trophy.webp	trophy		
+art-sp	assets/sp/whale.webp	whale tail		
+art-bg	assets/bg/bridge.jpg	background: bridge level		
+art-bg	assets/bg/listen.jpg	background: listening level		
+art-bg	assets/bg/map.jpg	background: island map		
+art-bg	assets/bg/paper.jpg	background: paper texture		
+art-bg	assets/bg/read.jpg	background: reading level		
+art-bg	assets/bg/sling1.jpg	background: slingshot level, island 1		
+art-bg	assets/bg/sling2.jpg	background: slingshot level, island 2		
+art-bg	assets/bg/sling3.jpg	background: slingshot level, island 3		
+art-bg	assets/bg/sling4.jpg	background: slingshot level, island 4		
+art-bg	assets/bg/sling5.jpg	background: slingshot level, island 5		
+art-bg	assets/bg/title.jpg	background: title screen		
+art-icons	assets/icons/apple-touch-icon.png	app icon for iPhone home screens		
+art-icons	assets/icons/favicon-32.png	browser tab icon, 32 px		
+art-icons	assets/icons/icon-192.png	app icon, 192 px		
+art-icons	assets/icons/icon-512.png	app icon, 512 px		
+art-icons	assets/icons/icon-maskable-512.png	app icon, 512 px, maskable		
+sheet	assets/x/pics.webp	the 23 word pictures in one sheet (6 columns, 256 px each), as the mock exam and Beach Run show them		
+font	assets/font/fredoka-hebrew.woff2	Fredoka, Hebrew	@fontsource-variable/fredoka 5.3.0 (Google Fonts v17), files/fredoka-hebrew-wght-normal.woff2	ab46fdbead875af9c6e967705a149f398554e9bb0f2f50c19d13b54ea4fa3195
+font	assets/font/fredoka-latin.woff2	Fredoka, Latin	@fontsource-variable/fredoka 5.3.0 (Google Fonts v17), files/fredoka-latin-wght-normal.woff2	99d6c78e043710d4f83ed90716779798b7b04eb690f73e0ad0e8f32d1f0e98c2
+font	assets/font/rubik-hebrew.woff2	Rubik, Hebrew	@fontsource-variable/rubik 5.3.0 (Google Fonts v31), files/rubik-hebrew-wght-normal.woff2	197b6dbe5c6bec7276c59b02d70a16ee6acd44322fc2f8d0226c07f8d57976c2
+font	assets/font/rubik-latin.woff2	Rubik, Latin	@fontsource-variable/rubik 5.3.0 (Google Fonts v31), files/rubik-latin-wght-normal.woff2	691cd1d9b4c0cdf31a1dcf04259c86f92c85e69f6622abab7964d81e36890691
+font	assets/font/playpen-hebrew.woff2	Playpen Sans Hebrew, Hebrew	@fontsource-variable/playpen-sans-hebrew 5.3.0 (Google Fonts v8), files/playpen-sans-hebrew-hebrew-wght-normal.woff2	f22ac207574694f9f4eba2553a985ba57845848750d36eaaecb2983f600d758a
+font	assets/font/playpen-latin.woff2	Playpen Sans Hebrew, Latin	@fontsource-variable/playpen-sans-hebrew 5.3.0 (Google Fonts v8), files/playpen-sans-hebrew-latin-wght-normal.woff2	a3f43e8e621785ee31bd11a1f380bb14c73b4fc7ae9983e6b910f170b424f443
+font	assets/font/OFL-Fredoka.txt	licence of Fredoka (SIL Open Font License 1.1)	@fontsource-variable/fredoka 5.3.0, LICENSE	9bbd4f5f107895d5a213579b73821fadd05105241cf4360e86050199fcfd6034
+font	assets/font/OFL-Rubik.txt	licence of Rubik (SIL Open Font License 1.1)	@fontsource-variable/rubik 5.3.0, LICENSE	46a250495a963b0b84f2736c0185d0e3af8df9d23427bd425b92a8ece020283c
+font	assets/font/OFL.txt	licence of Playpen Sans (SIL Open Font License 1.1)	@fontsource-variable/playpen-sans-hebrew 5.3.0, LICENSE	2bdb9cec7a0cabe00cd884d70f0dca30569d3db2248ce2a027abaa1bb75956fa
+code	vendor/three.module.min.js	three.js, the 3D library	three 0.170.0 (r170), build/three.module.min.js	08fd7545d13d2c7fb65ab691530a802dafefd638596501854f267d0fb13c39e7
+code	vendor/jsm/loaders/GLTFLoader.js	three.js add-on: loads the runner models	three 0.170.0, examples/jsm/loaders/GLTFLoader.js	45139faddd5aaf48ed2d62203d976e5cbd703db1a592de40527f9f6cf58abd44
+code	vendor/jsm/utils/BufferGeometryUtils.js	three.js add-on used by the loader	three 0.170.0, examples/jsm/utils/BufferGeometryUtils.js	c25b7930e570e9ec56173cd3b866ec8d2e10016630db3937efb439daf1cedbf6
+code	vendor/jsm/utils/SkeletonUtils.js	three.js add-on for rigged models	three 0.170.0, examples/jsm/utils/SkeletonUtils.js	ee412be1aa05f3051c2bda8ea89612c1ba70c5c87de62b56040282120d5eb991
+code	vendor/LICENSE-three.txt	licence of three.js (MIT)	three 0.170.0, LICENSE	4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454
+list	assets/sources.tsv	list of the 3D models and pictures: source, sha256, what was done		
+list	assets/voice/sources.tsv	list of the voice clips: source, sha256, text		
+list	assets/credits_extra.tsv	list of everything the two lists above do not cover, written by hand		
+list	assets/CREDITS.md	this file		
