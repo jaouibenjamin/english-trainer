@@ -74,12 +74,12 @@ Only self-hosted files in `assets/font`, declared in `ds.css` as `WI Hebrew` and
 ## Strings (Hebrew)
 | Where | Text |
 |---|---|
-| Picker title | בחרו את הדמות שלכם |
+| Picker title | בוחרים דמות |
 | Picker subtitle | אפשר להחליף אותה מתי שרוצים. |
 | Picker confirm | זאת הדמות שלי |
 | Picker locked note | דמויות נוספות נפתחות כשמרוויחים אנרגיה. |
 | Energy, one sentence | מרוויחים אנרגיה כשלומדים, והיא אף פעם לא נגמרת. |
-| Energy dialog | מה זו אנרגיה? / מתקנים טעות, חוזרים למילה קשה או באים כל יום. משחק שכבר נפתח אפשר לשחק שוב בחינם. / הבנתי |
+| Energy dialog | מה זו אנרגיה? / מתקנים טעות, חוזרים למילה קשה או משחקים עוד קצת. כשעולים רמה נפתחים דברים חדשים. מה שכבר נפתח נשאר פתוח תמיד. / הבנתי. (Not "באים כל יום": it can read as pressure to keep a streak.) |
 | Locked stone hint | עוד נעולה. משחקים את משימה 4 והיא נפתחת. |
 | Today's focus | המיקוד להיום / יש 5 מילים שכדאי לחזק. זה ייקח כמה דקות. / מתחילים |
 | Stars | כוכב אחד: קל. שני כוכבים: בינוני. שלושה כוכבים: מאתגר. (legend: כל כוכב נוסף, משחק קשה יותר) |
@@ -131,7 +131,9 @@ Not in the data on purpose: other pupils (no ranking on these screens), any loss
 Two lists of 12, picked with arrows or the "הפתעה" button; 144 names. Words marked * and their translations are copied from the teacher's Unit 1 list in `js/data.js`. The rest are ours and need her OK, like any text we write.
 - First word: Special*, Sweet*, Ready*, Happy, Cool, New, Brave, Clever, Kind, Fast, Funny, Lucky.
 - Second word: Song*, Guitar*, Piano*, Flower*, Candy*, Goal*, Present*, Trip*, Shark, Fox, Star, Robot.
-- Hebrew under each word is the dictionary form (masculine singular), as in her list. Every pair was read for an unkind or silly meaning; none found. "Sweet Candy" and "Special Present" are fine.
+- Hebrew under each describing word shows both genders (מתוק/ה, אמיץ/ה, טוב/ת לב, בר/בת מזל). Her list gives the masculine form only, so the added ending is ours and needs her OK. Nouns are as in her list.
+- For her attention: "Special". It is her word (מיוחד) and is meant kindly here ("Special Star"), but she should decide whether it is comfortable as part of a pupil's name in her class.
+- Every one of the 144 pairs was read for an unkind or silly meaning; none found.
 - Also ours and to be checked: the maths mission names in the demo (placeholders, not from `js/mdata.js`).
 
 ### Strings added
@@ -148,4 +150,4 @@ Two lists of 12, picked with arrows or the "הפתעה" button; 144 names. Words
 | Island, stone hints | משימה 5 עוד נעולה. משחקים את משימה 4 והדרך נפתחת. / משימה 2: שני כוכבים. אפשר לשחק שוב ולאסוף עוד. / כאן אתם עכשיו. לוחצים על הכפתור למטה ומתחילים. |
 | Island, main button | משחקים: משימה 4 |
 | Settings | מצב רגוע: בלי תנועה ובלי מוזיקה / אפשר להפעיל ולכבות מתי שרוצים. |
-| Sound button | מוזיקה פועלת. לחיצה מכבה / מוזיקה כבויה. לחיצה מפעילה |
+| Sound button | מוזיקה (a toggle: pressed means on). In calm mode it is disabled and reads: מוזיקה כבויה במצב רגוע |

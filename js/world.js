@@ -20,12 +20,13 @@ const AVATARS=[
  {id:'penguin',he:'פינגווין',open:3},{id:'octopus',he:'תמנון',open:4},{id:'robot-bell',he:'רובוט ירוק',open:5},{id:'pilot',he:'דמות עם קסדה',open:6}];
 
 /* The two word lists of the name builder (no free text). `unit` marks a word and translation copied from the teacher's
-   Unit 1 list in js/data.js; the others are ours. Both lists are FLAGGED FOR THE TEACHER'S REVIEW before any pupil sees them. */
+   Unit 1 list in js/data.js; the others are ours. The describing words show both genders (her list has the masculine form
+   only; the added ending is ours). Both lists are FLAGGED FOR THE TEACHER'S REVIEW before any pupil sees them. */
 const NAME_A=[
- {en:'Special',he:'מיוחד',unit:1},{en:'Sweet',he:'מתוק',unit:1},{en:'Ready',he:'מוכן',unit:1},
- {en:'Happy',he:'שמח'},{en:'Cool',he:'מגניב'},{en:'New',he:'חדש'},
- {en:'Brave',he:'אמיץ'},{en:'Clever',he:'חכם'},{en:'Kind',he:'טוב לב'},
- {en:'Fast',he:'מהיר'},{en:'Funny',he:'מצחיק'},{en:'Lucky',he:'בר מזל'}];
+ {en:'Special',he:'מיוחד/ת',unit:1},{en:'Sweet',he:'מתוק/ה',unit:1},{en:'Ready',he:'מוכן/ה',unit:1},
+ {en:'Happy',he:'שמח/ה'},{en:'Cool',he:'מגניב/ה'},{en:'New',he:'חדש/ה'},
+ {en:'Brave',he:'אמיץ/ה'},{en:'Clever',he:'חכם/ה'},{en:'Kind',he:'טוב/ת לב'},
+ {en:'Fast',he:'מהיר/ה'},{en:'Funny',he:'מצחיק/ה'},{en:'Lucky',he:'בר/בת מזל'}];
 const NAME_B=[
  {en:'Song',he:'שיר',unit:1},{en:'Guitar',he:'גיטרה',unit:1},{en:'Piano',he:'פסנתר',unit:1},{en:'Flower',he:'פרח',unit:1},
  {en:'Candy',he:'ממתק',unit:1},{en:'Goal',he:'שער',unit:1},{en:'Present',he:'מתנה',unit:1},{en:'Trip',he:'מסע, טיול',unit:1},
@@ -145,7 +146,7 @@ function drawIsland(){
  const sub=$('is-sub');sub.replaceChildren(document.createTextNode(I.sub[0]));if(I.sub[1])sub.appendChild(ltr(I.sub[1]));
  $('is-bolt').src=ART['ui/bolt'];
  $('is-lv').textContent='רמה '+E.level;
- const pct=Math.round(100*(E.points-E.from)/(E.next-E.from));
+ const pct=Math.max(0,Math.min(100,Math.round(100*(E.points-E.from)/(E.next-E.from))))||0;
  $('is-fill').style.setProperty('--p',pct);
  const bar=$('is-bar');bar.setAttribute('aria-label','רמת אנרגיה '+E.level);bar.setAttribute('aria-valuemax',E.next-E.from);bar.setAttribute('aria-valuenow',E.points-E.from);
  bar.setAttribute('aria-valuetext','רמה '+E.level+', עוד '+(E.next-E.points)+' לרמה '+(E.level+1));
@@ -199,7 +200,8 @@ function drawMute(){
  const calm=document.documentElement.classList.contains('calm'),off=S.muted||calm;
  for(const b of document.querySelectorAll('.js-mute')){
   b.setAttribute('aria-pressed',off?'false':'true');
-  b.setAttribute('aria-label',off?'מוזיקה כבויה. לחיצה מפעילה':'מוזיקה פועלת. לחיצה מכבה');
+  if(calm){b.setAttribute('aria-disabled','true');b.setAttribute('aria-label','מוזיקה כבויה במצב רגוע');b.title='מוזיקה כבויה במצב רגוע'}
+  else{b.removeAttribute('aria-disabled');b.setAttribute('aria-label','מוזיקה');b.removeAttribute('title')}
   b.replaceChildren(icon(off?'i-mute':'i-sound'));
  }
 }
