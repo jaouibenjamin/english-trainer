@@ -478,9 +478,10 @@ The game shows them from one sheet, drawn from these sources by `tools/sheet.htm
 
 ## Arcade Lagoon art (new look, not used by the live game yet)
 
-Character portraits, Pitzi in the new look, the world map, islands, mission stones and HUD icons. Tool: Higgsfield
-image generation, model named per file. Each file was cut, resized and encoded as WebP from its original. Original
-art: no known characters, brands or real people. Two HUD icons can share one job (they were drawn in one picture).
+Character portraits, Pitzi in the new look, backgrounds, islands, mission stones, HUD icons, and instrumental music
+and sounds. Tool: Higgsfield, model named per file. Each picture was cut, resized and encoded as WebP from its
+original; each sound was cut, levelled and encoded as mono MP3. Original work: no known characters, brands, tunes
+or real people, no voices. Two HUD icons can share one job (they were drawn in one picture).
 
 ### Character portraits
 
@@ -504,8 +505,8 @@ art: no known characters, brands or real people. Two HUD icons can share one job
 | `assets/al/av/boy-curls.hf_20261124_204323_a05319fb-6024-40fa-83d0-004133d8b41f.webp` | character portrait: boy, curls and rain jacket | 2026-11-24 | a05319fb-6024-40fa-83d0-004133d8b41f | gpt_image_2_5 |
 | `assets/al/av/boy-blond.hf_20261124_204326_b8ec8cff-d393-4d2c-9f4d-a7148f64e7d4.webp` | character portrait: boy, glasses and vest | 2026-11-24 | b8ec8cff-d393-4d2c-9f4d-a7148f64e7d4 | gpt_image_2_5 |
 | `assets/al/av/boy-scarf.hf_20261124_204325_431de75e-e64b-46fa-a0df-33ddf428cc62.webp` | character portrait: boy, bandana | 2026-11-24 | 431de75e-e64b-46fa-a0df-33ddf428cc62 | gpt_image_2_5 |
-| `assets/al/av/robot-lantern.hf_20261124_204323_fb75c13b-cd6a-4301-8a9b-a58550679386.webp` | character portrait: robot, lantern | 2026-11-24 | fb75c13b-cd6a-4301-8a9b-a58550679386 | gpt_image_2_5 |
 | `assets/al/av/octopus.hf_20261124_204327_b1c753c1-abca-4c2e-9a73-d209ae4faad3.webp` | character portrait: octopus | 2026-11-24 | b1c753c1-abca-4c2e-9a73-d209ae4faad3 | gpt_image_2_5 |
+| `assets/al/av/robot-bell.hf_20261124_210015_6c7fc276-a450-4cc4-930d-e689225044d4.webp` | character portrait: robot, green diving bell | 2026-11-24 | 6c7fc276-a450-4cc4-930d-e689225044d4 | gpt_image_2_5 |
 
 ### Pitzi
 
@@ -513,7 +514,7 @@ art: no known characters, brands or real people. Two HUD icons can share one job
 |---|---|---|---|---|
 | `assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp` | Pitzi the crab, new look: wave | 2026-11-24 | c2effc24-9597-44ee-9eb7-204c981203c3 | gpt_image_2_5 |
 | `assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp` | Pitzi the crab, new look: happy | 2026-11-24 | ee012db4-af11-4b9d-8a51-33affdfa40f3 | gpt_image_2_5 |
-| `assets/al/pitzi/listen.hf_20261124_204534_b9e9501a-74ed-448a-9404-5c28e1127b78.webp` | Pitzi the crab, new look: listen | 2026-11-24 | b9e9501a-74ed-448a-9404-5c28e1127b78 | gpt_image_2_5 |
+| `assets/al/pitzi/listen.hf_20261124_210014_1f234b5a-9ec8-4fcc-b2e2-772bb152ee73.webp` | Pitzi the crab, new look: listen | 2026-11-24 | 1f234b5a-9ec8-4fcc-b2e2-772bb152ee73 | gpt_image_2_5 |
 | `assets/al/pitzi/oops.hf_20261124_204534_d2135263-e87c-4915-b5d2-2a1d5d9497e2.webp` | Pitzi the crab, new look: oops | 2026-11-24 | d2135263-e87c-4915-b5d2-2a1d5d9497e2 | gpt_image_2_5 |
 | `assets/al/pitzi/star.hf_20261124_204534_0bba02d5-095c-4463-82a0-a38d364fea44.webp` | Pitzi the crab, new look: star | 2026-11-24 | 0bba02d5-095c-4463-82a0-a38d364fea44 | gpt_image_2_5 |
 | `assets/al/pitzi/walk.hf_20261124_204533_6b05352f-cf3d-487b-b4dd-8f493652b3dd.webp` | Pitzi the crab, new look: walk | 2026-11-24 | 6b05352f-cf3d-487b-b4dd-8f493652b3dd | gpt_image_2_5 |
@@ -532,9 +533,10 @@ art: no known characters, brands or real people. Two HUD icons can share one job
 
 | File | What | Made | Job id | Model |
 |---|---|---|---|---|
-| `assets/al/bg/world.hf_20261124_204628_1e3550f7-2092-4fef-bb11-e3fd187d71bf.webp` | world map background, no islands | 2026-11-24 | 1e3550f7-2092-4fef-bb11-e3fd187d71bf | gpt_image_2_5 |
+| `assets/al/bg/world.hf_20261124_204628_1e3550f7-2092-4fef-bb11-e3fd187d71bf.webp` | night sea with a horizon and moon, for the title screen | 2026-11-24 | 1e3550f7-2092-4fef-bb11-e3fd187d71bf | gpt_image_2_5 |
 | `assets/al/bg/english.hf_20261124_204750_bfb9c336-44b5-4c94-bda9-e8cea4054138.webp` | English island path backdrop | 2026-11-24 | bfb9c336-44b5-4c94-bda9-e8cea4054138 | gpt_image_2_5 |
 | `assets/al/bg/math.hf_20261124_204751_6e57a9de-39a3-4daf-9575-b6c82d806521.webp` | maths island path backdrop | 2026-11-24 | 6e57a9de-39a3-4daf-9575-b6c82d806521 | gpt_image_2_5 |
+| `assets/al/bg/sea.hf_20261124_210013_f6e9010a-f742-47cc-a849-a034fbb86389.webp` | world map background, sea from above, no islands | 2026-11-24 | f6e9010a-f742-47cc-a849-a034fbb86389 | gpt_image_2_5 |
 
 ### Mission stones and HUD icons
 
@@ -550,6 +552,21 @@ art: no known characters, brands or real people. Two HUD icons can share one job
 | `assets/al/ui/gear.hf_20261124_204754_5c2c044b-27ad-4163-bd88-d7a7167def82.webp` | HUD icon: gear | 2026-11-24 | 5c2c044b-27ad-4163-bd88-d7a7167def82 | gpt_image_2_5 |
 | `assets/al/ui/sound-on.hf_20261124_204752_b82c7717-fa0a-4eef-b50e-de204f3e78e6.webp` | HUD icon: sound on | 2026-11-24 | b82c7717-fa0a-4eef-b50e-de204f3e78e6 | gpt_image_2_5 |
 | `assets/al/ui/sound-off.hf_20261124_204752_b82c7717-fa0a-4eef-b50e-de204f3e78e6.webp` | HUD icon: sound off | 2026-11-24 | b82c7717-fa0a-4eef-b50e-de204f3e78e6 | gpt_image_2_5 |
+
+### Island themes
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/snd/theme-english.hf_20261124_210017_0d3749f9-5b1f-41eb-9aad-ca3a2c664a3f.mp3` | island theme, English: 28 s loop | 2026-11-24 | 0d3749f9-5b1f-41eb-9aad-ca3a2c664a3f | elevenlabs_music_v2_5 |
+| `assets/al/snd/theme-math.hf_20261124_210102_df140166-4701-433a-91a8-79dfe8618c63.mp3` | island theme, maths: 28 s loop | 2026-11-24 | df140166-4701-433a-91a8-79dfe8618c63 | elevenlabs_music_v2_5 |
+
+### Signature sounds
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/snd/sig-animal.hf_20261124_210018_b7364c03-16fe-42a0-9ef0-b85483a79c8c.mp3` | signature sound, animal characters | 2026-11-24 | b7364c03-16fe-42a0-9ef0-b85483a79c8c | elevenlabs_music_v2_5 |
+| `assets/al/snd/sig-robot.hf_20261124_210017_32dd90d2-d557-408b-8a24-8f57e7e6ca18.mp3` | signature sound, robot and helmet characters | 2026-11-24 | 32dd90d2-d557-408b-8a24-8f57e7e6ca18 | elevenlabs_music_v2_5 |
+| `assets/al/snd/sig-kid.hf_20261124_210017_6517f4b3-2431-4fc7-9381-2508da43efb2.mp3` | signature sound, kid characters | 2026-11-24 | 6517f4b3-2431-4fc7-9381-2508da43efb2 | elevenlabs_music_v2_5 |
 
 ## Older art: sprites, backgrounds, app icons
 
@@ -691,5 +708,5 @@ three.js, MIT licence, Copyright 2010-2024 three.js authors. The files are the o
 | `assets/sources.tsv` | list of the 3D models and pictures: source, sha256, what was done |
 | `assets/voice/sources.tsv` | list of the voice clips: source, sha256, text |
 | `assets/al/sources.tsv` | list of the Arcade Lagoon art: what, job id, model, sha256 |
-| `assets/credits_extra.tsv` | list of everything the two lists above do not cover, written by hand |
+| `assets/credits_extra.tsv` | list of everything the three lists above do not cover, written by hand |
 | `assets/CREDITS.md` | this file |
