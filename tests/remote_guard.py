@@ -5,7 +5,8 @@ Scans js/**, css/**, *.html, tools/*.html, config.js and manifest.webmanifest fo
 for the old storage host by name. Exactly one thing is allowed: the class backend URL in config.js. XML namespace
 names (w3.org) are names, not requests.
 It is a static scan of the text: a URL built from pieces at run time is not seen (tests/run.py watches the real requests).
-Also checks that every asset path in js/run.js and tools/sheet.html exists and matches assets/sources.tsv (tests/assets_local.py check)."""
+Also checks that every asset path in js/run.js and tools/sheet.html exists and matches assets/sources.tsv (tests/assets_local.py check),
+and that assets/CREDITS.md is up to date and names every file under assets/ and vendor/ (tests/credits.py check)."""
 import glob, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 URL = re.compile(r"""(?:https?:)?//[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+[^\s"'`)<>]*""")
@@ -91,11 +92,21 @@ def local_assets():
     return bad
 
 
+def credits():
+    """assets/CREDITS.md is up to date, names every file under assets/ and vendor/ and no other; [problem]"""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import credits as C
+    return C.problems()
+
+
 if __name__ == '__main__':
     r, a, t = remote_urls(), local_assets(), self_test()
+    c = credits()
     for x in r: print('FAIL remote URL', *x)
     for x in a: print('FAIL asset', *x)
     for x in t: print('FAIL self-test', x)
+    for x in c[:20]: print('FAIL credits', x)
+    t = t + c
     if PENDING: print('note: one known URL is still tolerated in each of:', sorted(PENDING))
     print('ALL PASSED' if not (r or a or t) else f'{len(r) + len(a) + len(t)} FAILED', f'({len(files())} files scanned)')
     sys.exit(1 if r or a or t else 0)
