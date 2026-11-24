@@ -82,7 +82,36 @@ def write_manifest(rows):
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     """a redirect is an error: no request ever goes to a host the storage points us to"""
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, 'redirect refused: ' + str(newurl), headers, fp)
+        raise Redirected(code)      # neither the address asked for nor the one pointed to goes into the error
+
+
+class Redirected(Exception):
+    pass
+
+
+def download(url, name, cap, seconds):
+    """the bytes behind url, or SystemExit with a message that names the file and the kind of failure, never an address"""
+    end, parts, size = time.monotonic() + seconds, [], 0
+    try:
+        with OPENER.open(url, timeout=30) as resp:
+            if resp.status != 200 or resp.geturl() != url:
+                raise Refused(f'{name}: the storage answered with HTTP {resp.status}, not with the file')
+            while True:
+                chunk = resp.read(1 << 16)
+                if not chunk:
+                    break
+                parts.append(chunk); size += len(chunk)
+                if size > cap:
+                    raise Refused(f'{name}: larger than the cap of {cap} bytes')
+                if time.monotonic() > end:
+                    raise Refused(f'{name}: the download took longer than {seconds} s')
+    except Redirected as e:
+        raise Refused(f'{name}: the storage answered with a redirect (HTTP {e.args[0]}); redirects are refused') from None
+    except urllib.error.HTTPError as e:
+        raise Refused(f'{name}: the storage answered with HTTP {e.code}') from None
+    except (urllib.error.URLError, OSError) as e:
+        raise Refused(f'{name}: could not reach the storage ({type(e).__name__})') from None
+    return b''.join(parts)
 
 
 OPENER = urllib.request.build_opener(NoRedirect)
@@ -94,18 +123,7 @@ def fetch(r, cache):
     name = os.path.basename(r['file']).rsplit('.', 1)[0] + KINDS[r['kind']][1]
     want, path = r['src_sha256'], os.path.join(cache, name)
     if not os.path.exists(path):
-        url = storage.url(BASE, name)
-        end, parts, size = time.monotonic() + MAX_SECONDS, [], 0
-        with OPENER.open(url, timeout=30) as resp:
-            need(resp.status == 200 and resp.geturl() == url, (name, 'the storage did not answer with the file'))
-            while True:
-                chunk = resp.read(1 << 16)
-                if not chunk:
-                    break
-                parts.append(chunk); size += len(chunk)
-                need(size <= MAX_BYTES, (name, 'larger than the cap'))
-                need(time.monotonic() < end, (name, 'the download took too long'))
-        data = b''.join(parts)
+        data = download(storage.url(BASE, name), name, MAX_BYTES, MAX_SECONDS)
         need(not want or sha256(data) == want, (name, 'the download differs from src_sha256 in the manifest'))
         with open(path + '.part', 'wb') as f:
             f.write(data)
@@ -213,7 +231,9 @@ def build(cache):
     rows = read_manifest()
     for r in rows:
         orig = fetch(r, cache)
-        r['src_sha256'] = sha256(orig)      # the first build pins the original
+        if not r['src_sha256']:      # the first build pins the original, and says so: nothing vouched for these bytes before
+            print('notice: newly pinned original', os.path.basename(r['file']), sha256(orig))
+        r['src_sha256'] = sha256(orig)
         out, r['note'] = make(r['kind'], orig)
         path = os.path.join(ASSETS, r['file'])
         os.makedirs(os.path.dirname(path), exist_ok=True)

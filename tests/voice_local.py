@@ -24,7 +24,7 @@ Hebrew: the original MP3 is copied byte for byte.
 Downloaded files are untrusted: only the one storage host is fetched, a redirect is refused (never followed), and only
 real WAV / MP3 data is accepted. Every local file is pinned by its sha256 in the manifest.
 Needs ffmpeg with libmp3lame (free) and numpy."""
-import hashlib, json, os, re, subprocess, sys, urllib.error, urllib.request, wave
+import hashlib, json, os, re, subprocess, sys, urllib.error, urllib.request, wave, time
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import storage
@@ -71,7 +71,36 @@ def write_manifest(rows):
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     """a redirect is an error: no request ever goes to a host the storage points us to"""
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, 'redirect refused: ' + str(newurl), headers, fp)
+        raise Redirected(code)      # neither the address asked for nor the one pointed to goes into the error
+
+
+class Redirected(Exception):
+    pass
+
+
+def download(url, name, cap, seconds):
+    """the bytes behind url, or SystemExit with a message that names the file and the kind of failure, never an address"""
+    end, parts, size = time.monotonic() + seconds, [], 0
+    try:
+        with OPENER.open(url, timeout=30) as resp:
+            if resp.status != 200 or resp.geturl() != url:
+                raise SystemExit(f'{name}: the storage answered with HTTP {resp.status}, not with the file')
+            while True:
+                chunk = resp.read(1 << 16)
+                if not chunk:
+                    break
+                parts.append(chunk); size += len(chunk)
+                if size > cap:
+                    raise SystemExit(f'{name}: larger than the cap of {cap} bytes')
+                if time.monotonic() > end:
+                    raise SystemExit(f'{name}: the download took longer than {seconds} s')
+    except Redirected as e:
+        raise SystemExit(f'{name}: the storage answered with a redirect (HTTP {e.args[0]}); redirects are refused') from None
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f'{name}: the storage answered with HTTP {e.code}') from None
+    except (urllib.error.URLError, OSError) as e:
+        raise SystemExit(f'{name}: could not reach the storage ({type(e).__name__})') from None
+    return b''.join(parts)
 
 
 OPENER = urllib.request.build_opener(NoRedirect)
@@ -86,14 +115,12 @@ def fetch(r, cache):
     name = os.path.basename(r['file'])[:-4] + SRC_EXT[r['kind']]
     path = os.path.join(cache, name)
     if not os.path.exists(path):
-        url = storage.url(BASE, name)
-        with OPENER.open(url, timeout=60) as resp:
-            if resp.status != 200 or resp.geturl() != url:
-                raise SystemExit(f'{name}: the storage did not answer with the file')
-            data = resp.read(50_000_001)
-        if len(data) > 50_000_000:
-            raise SystemExit(f'{name}: larger than the cap')
-        open(path + '.part', 'wb').write(data)
+        data = download(storage.url(BASE, name), name, 50_000_000, 180)
+        # checked before it is kept: a wrong download never lands in the cache
+        if r['src_sha256'] and hashlib.sha256(data).hexdigest() != r['src_sha256']:
+            raise SystemExit(f'{name}: the download differs from src_sha256 in the list; nothing was kept')
+        with open(path + '.part', 'wb') as f:
+            f.write(data)
         os.replace(path + '.part', path)
     if r['src_sha256'] and sha256(path) != r['src_sha256']:
         raise SystemExit(f'{name}: the original in the cache differs from src_sha256 in the list (delete it from the cache to download it again)')
@@ -142,8 +169,10 @@ def build(cache):
         keep.add(name)
         assert len({r['kind'] for r in rs}) == 1 and len({r['src_sha256'] for r in rs}) == 1, name
         src = fetch(rs[0], cache)
+        if not rs[0]['src_sha256']:      # the first build pins the original, and says so: nothing vouched for these bytes before
+            print('notice: newly pinned original', os.path.basename(src), sha256(src))
         for r in rs:
-            r['src_sha256'] = sha256(src)      # the first build pins the original
+            r['src_sha256'] = sha256(src)
         if rs[0]['kind'] == 'narr-he':
             data = open(src, 'rb').read()
             assert is_mp3(data) and name.endswith('.mp3'), name
@@ -279,8 +308,10 @@ if __name__ == '__main__':
         sys.exit(0)
     if cmd not in ('build', 'verify') or not cache:
         sys.exit(__doc__)
+    cache, root = os.path.realpath(cache), os.path.realpath(ROOT)
+    if os.path.commonpath([cache, root]) == root:
+        sys.exit('keep the downloads outside the repo')
     os.makedirs(cache, exist_ok=True)
-    assert not os.path.abspath(cache).startswith(ROOT + os.sep), 'keep the downloads outside the repo'
     BASE = storage.base(sys.argv)
     if cmd == 'build':
         build(cache)

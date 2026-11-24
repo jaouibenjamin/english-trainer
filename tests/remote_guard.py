@@ -140,14 +140,14 @@ def credits():
 if __name__ == '__main__':
     r, a, t = remote_urls(), local_assets(), self_test()
     c = credits()
-    pv = private_paths()
-    for x in pv: print('FAIL the storage address is written in', *x)
-    c = c + [str(x) for x in pv] + private_self_test()
+    pv, ps = private_paths(), private_self_test()
     for x in r: print('FAIL remote URL', *x)
     for x in a: print('FAIL asset', *x)
     for x in t: print('FAIL self-test', x)
     for x in c[:20]: print('FAIL credits', x)
-    t = t + c
+    for x in pv: print('FAIL the storage address is written in', *x)
+    for x in ps: print('FAIL self-test of the storage-address check:', x)
+    t = t + c + pv + ps
     if PENDING: print('note: one known URL is still tolerated in each of:', sorted(PENDING))
     print('ALL PASSED' if not (r or a or t) else f'{len(r) + len(a) + len(t)} FAILED', f'({len(files())} files scanned)')
     sys.exit(1 if r or a or t else 0)
