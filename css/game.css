@@ -512,3 +512,22 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .treset{margin-inline-start:auto;font:inherit;font-size:12.500px;font-weight:700;color:#8a4a2e;background:#fff3d6;border:1.5px solid rgba(138,74,46,.45);border-radius:10px;padding:3px 9px;min-height:30px}
 .treset[data-arm]{background:#fde3d6;border-color:#b9503c;color:#7a2f22}
 .treset:disabled{opacity:.6}
+
+/* the progress card (js/card.js; only on a device that was given the switch) */
+.rcard{align-items:center;gap:10px}
+.rc{width:100%;max-width:372px;background:#fffaf0;border:2px solid rgba(90,69,52,.5);border-radius:18px;padding:12px 16px;display:flex;flex-direction:column;gap:8px;flex:none}
+.rch{margin:0;display:flex;align-items:center;gap:10px}.rch .rcc{width:58px;flex:none}
+.rch span{display:flex;flex-direction:column;line-height:1.2;min-width:0}.rch b{font-size:26px;font-weight:800;overflow-wrap:anywhere}.rch small{font-size:14px;color:var(--ink2)}
+.rct{margin:0;display:flex;align-items:center;gap:8px;border-top:2px dashed rgba(90,69,52,.22);padding-top:8px}.rct .rs{width:34px}.rct b{font-size:28px;font-weight:800}.rct small{font-size:15px;color:var(--ink2)}
+.rcl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.rcl li{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700}.rcl li bdi{min-width:58px;text-align:left;flex:none}.rcl li span{flex:1;min-width:0}
+.rcb{width:84px;height:10px;border-radius:5px;background:#eadfc8;overflow:hidden;flex:none;display:block}.rcb em{display:block;height:100%;background:#f2b632;border-radius:5px}
+.rcf{margin:0;display:flex;gap:10px;border-top:2px dashed rgba(90,69,52,.22);padding-top:8px}
+.rcf span{flex:1;display:flex;flex-direction:column;align-items:center;line-height:1.2}.rcf b{font-size:22px;font-weight:800}.rcf small{font-size:13px;color:var(--ink2)}
+.rcbtns{display:flex;gap:10px;justify-content:center;flex:none}
+.rcard .credit{margin:0;border:0;padding:0;text-align:center;font-size:13px;color:var(--ink2);max-width:340px}
+/* the settings screen has one more row on such a device: its rows are a little lower so the screen is as tall as before,
+   and on shorter screens the crab's note makes room */
+.settings.hascard .setrow{min-height:50px}
+@media (max-height:800px){.settings.hascard .guide{display:none}}
+@media (max-height:700px){.settings.hascard .credit{margin-top:2px;padding-top:3px}.settings.hascard .panel{gap:0}.settings.hascard,.settings.hascard .fill{gap:3px}.settings.hascard .setrow{min-height:44px}.settings.hascard .setrow .sl small{display:none}}
