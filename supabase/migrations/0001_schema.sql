@@ -7,6 +7,12 @@
 create schema if not exists app;
 create schema if not exists private;
 
+-- What a first name may never contain, whoever writes it (the functions check more: letters only, Hebrew or Latin):
+-- control characters, digits, ASCII punctuation other than space ' . - (no markup, no spreadsheet formula), and the
+-- invisible characters that make two names look the same or flip their direction (zero-width, bidi controls).
+create function app.name_ok(n text) returns boolean language sql immutable set search_path = '' as
+  $$ select char_length(n) between 2 and 20 and n !~ '[\u0001-\u001f!-&(-,/-@\[-`{-\u007f​-‏‪-‮⁦-⁩﻿]' $$;
+
 -- "Noa", " noa " and "NOA" are one pupil: trimmed, inner spaces squeezed, lower-cased
 create function app.name_key(n text) returns text language sql immutable
   set search_path = '' as
@@ -24,7 +30,7 @@ create table public.classes (
 create table public.roster (
   class_id     uuid not null references public.classes on delete cascade,
   name_key     text not null,
-  display_name text not null check (char_length(display_name) between 2 and 20),
+  display_name text not null check (app.name_ok(display_name)),
   primary key (class_id, name_key),
   check (name_key = app.name_key(display_name))
 );
@@ -35,14 +41,11 @@ create table public.teachers (
   primary key (user_id, class_id)
 );
 
--- First name or nickname only. The function checks the name with the game's own rule (letters, 2 to 20); the table
--- refuses what must never be stored whatever the caller: control characters, digits and ASCII punctuation other than
--- space ' . - (so no markup and no spreadsheet formula can live in a name).
+-- First name or nickname only.
 create table public.pupils (
   id           uuid primary key default gen_random_uuid(),
   class_id     uuid not null references public.classes on delete cascade,
-  display_name text not null check (char_length(display_name) between 2 and 20
-                                    and display_name !~ '[\u0001-\u001f!-&(-,/-@\[-`{-\u007f]'),
+  display_name text not null check (app.name_ok(display_name)),
   name_key     text not null generated always as (app.name_key(display_name)) stored,
   auth_user_id uuid unique references auth.users (id) on delete set null,   -- filled at the first sign-in
   created_at   timestamptz not null default now(),
@@ -253,11 +256,24 @@ create table private.pupil_days (
   day       date not null,
   pointed   int not null default 0,      -- answers with points whose own day (the client's clock, clamped) is this day
   arrived   int not null default 0,      -- answers with points that reached the server on this day, whatever they claim
+  stored    int not null default 0,      -- answer rows written on this day: the ceiling that protects the free 500 MB
+  calls     int not null default 0,      -- record_events calls on this day
   levels    int not null default 0,
   exams     int not null default 0,
   run_pts   int not null default 0,
   bonus     boolean not null default false,
   primary key (pupil_id, day)
+);
+
+-- who removed which pupil and when. No name is kept: the point of deleting is that the child is gone.
+create table private.deletions (
+  id       bigint generated always as identity primary key,
+  at       timestamptz not null default now(),
+  teacher  uuid,
+  class_id uuid,
+  pupil_id uuid not null,
+  answers  int not null default 0,
+  points   int not null default 0
 );
 
 -- one row: every limit of docs/BACKEND.md sections 4 and 5, tunable without a migration
@@ -272,6 +288,8 @@ create table private.settings (
   max_per_minute   int not null default 20,
   max_pointed_day  int not null default 600,
   max_item_day     int not null default 6,
+  max_rows_day     int not null default 1000,   -- answer rows one pupil may add in a day; beyond it only a counter moves
+  max_calls_day    int not null default 1500,
   max_levels_day   int not null default 20,
   unusual_answers  int not null default 300,
   unusual_levels   int not null default 12,
