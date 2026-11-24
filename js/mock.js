@@ -27,7 +27,7 @@ const top=(title,back)=>`<header class="top">${rb('nav',ico('back'),'חזרה',1
 /* ---------- the narrator: Pitzi the crab, in the gentle voice the pupils know from the English game ----------
    Short Hebrew lines at the start and the end, so a low first score reads as the start of practice, not as a failure.
    The words appear as she says them; the crab replays the line. Each line plays by itself once per visit. */
-const VB='https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/hf_20261121_';
+const VB='assets/voice/he/hf_20261121_';   // our own copies, served next to the game (sources: assets/voice/sources.tsv)
 const NARR={
  intro:['173415_4c4e2d50-9e11-4134-bee4-95c2e6957987','היי! ברוכים הבאים למבחן הדמו. המטרה שלנו פשוטה: שתגיעו מוכנים למבחן ביום רביעי. כל השאלות כאן מבוססות רק על הדפים שקיבלתם מהמורה בכיתה. זה לא מבחן אמיתי, והוא לא נכנס לשום ציון. עונים, רואים במה אתם כבר חזקים ובמה כדאי עוד להתאמן, מתאמנים, ומנסים שוב. טעות זה בסדר גמור, כי כל טעות מראה לנו מה ללמוד. בהצלחה!'],
  again:['171203_3790986f-c9d9-421d-b2fa-f6bebc6bee6b','ברוכים השבים! התאמנתם, ועכשיו זה הזמן לראות כמה השתפרתם. לאט ובנחת, אני כאן איתכם.'],
