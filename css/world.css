@@ -40,7 +40,7 @@ body{background:var(--wi-navy-900);overflow-x:hidden}
 .w-spin>button:last-of-type{grid-area:n}
 
 /* ---- map ---- */
-.w-map{background-color:var(--wi-navy-900);background-size:cover;background-position:center bottom}
+.w-map{background-color:var(--wi-navy-900);background-size:cover;background-position:center}
 .w-hud{flex-wrap:nowrap;gap:var(--wi-s1)}
 .w-hud .wi-chip{padding-inline:var(--wi-s2)}
 .w-me{padding:0!important}

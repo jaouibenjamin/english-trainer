@@ -17,7 +17,7 @@ const AVATARS=[
  {id:'girl-curls',he:'ילדה עם סרט צהוב',open:1},{id:'boy-cap',he:'ילד עם כובע',open:1},{id:'girl-braids',he:'ילדה עם צמות',open:1},{id:'boy-curls',he:'ילד עם מעיל צהוב',open:1},
  {id:'parrot',he:'תוכי',open:1},{id:'cat',he:'חתול',open:1},{id:'robot-box',he:'רובוט',open:1},{id:'diver',he:'צוללן',open:1},
  {id:'girl-glasses',he:'ילדה עם משקפיים',open:1},{id:'boy-blond',he:'ילד עם משקפיים',open:1},{id:'girl-ponytail',he:'ילדה עם קוקו',open:1},{id:'boy-scarf',he:'ילד עם צעיף',open:1},
- {id:'penguin',he:'פינגווין',open:3},{id:'octopus',he:'תמנון',open:4},{id:'robot-lantern',he:'רובוט פנס',open:5},{id:'pilot',he:'דמות עם קסדה',open:6}];
+ {id:'penguin',he:'פינגווין',open:3},{id:'octopus',he:'תמנון',open:4},{id:'robot-bell',he:'רובוט ירוק',open:5},{id:'pilot',he:'דמות עם קסדה',open:6}];
 
 /* The two word lists of the name builder (no free text). `unit` marks a word and translation copied from the teacher's
    Unit 1 list in js/data.js; the others are ours. Both lists are FLAGGED FOR THE TEACHER'S REVIEW before any pupil sees them. */
@@ -111,7 +111,7 @@ function pickerStep(b){$('pk-a').hidden=b;$('pk-b').hidden=!b;scrollTo(0,0);$(b?
 
 /* 2. map */
 function drawMap(){
- $('s-map').style.backgroundImage='url("'+ART['bg/world']+'")';
+ $('s-map').style.backgroundImage='url("'+ART['bg/sea']+'")';
  $('mp-pic').src=ART['av/'+DEMO.avatar];
  $('mp-name').textContent=nameOf();
  $('mp-lv').textContent=DEMO.energy.level;

@@ -33,7 +33,7 @@ Night sea, dark glass panels, aqua and gold accents. Files: `css/ds.css` (tokens
 | good-ink / fix-ink | #1A6B3D / #A8402B | right / fix on paper | 5.99 / 5.61 on paper, 5.15 / 4.82 on paper-2 |
 | focus | #FFFFFF (dark), #134B8A (paper) | focus-visible ring 3px, offset 3px | 14.11 / 8.02 |
 
-The ratios are also computed live in `ds.html` from the CSS variables, so the table cannot drift. The live table lists every pair `ds.css` and the preview put together (56 measured, plus rows marked decoration), and prints a one-line total. A new component adds its pairs there in the same change.
+The ratios are also computed live in `ds.html` from the CSS variables, so the table cannot drift. The live table lists every pair `ds.css` and the preview put together and prints a one-line total: 56 measured pairs, 2 pairs marked "fails by design, needs a plate" (locked and line on bare light sea, counted on their own), and 2 decoration rows. A new component adds its pairs there in the same change.
 Review fixes after v1: disabled button ring uses `locked` (was `locked-line`, 2.55 on navy-700); locked stones got the `locked` ring, a scrim keyline and plated labels (were 2.24 / 3.30 on the light sea); `good-ink` darkened from #1E7A46 (4.22 on paper-2); the energy "?" is a real 48px target (`wi-bar__help`).
 Adjusted from the starting palette: `line` (first try #3C6AA8 gave only 2.57 on cards), and added `dim`, `locked`, paper and ink sets. The five approved pairs are unchanged and pass.
 
