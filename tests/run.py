@@ -18,9 +18,16 @@ def port_open(p):
         return s.connect_ex(('127.0.0.1', p)) == 0
 
 async def shot(pg, name):
+    """A screenshot of the WebGL page takes long (seconds with software rendering), and the test runs the game six times
+    faster: a gate could pass unanswered meanwhile and count as a second miss. So the game stands still while the picture
+    is taken (the frame loop keeps drawing; only game time stops) and goes on at its speed afterwards."""
     if SHOTS:
         os.makedirs(SHOTS, exist_ok=True)
-        await pg.screenshot(path=os.path.join(SHOTS, name + '.png'))
+        fast = await pg.evaluate('(()=>{const f=window.__runFast;window.__runFast=1e-9;return f===undefined?null:f})()')
+        try:
+            await pg.screenshot(path=os.path.join(SHOTS, name + '.png'))
+        finally:
+            await pg.evaluate('f=>{if(f===null)delete window.__runFast;else window.__runFast=f}', fast)
 
 async def play(b, w, h, tag):
     errs = []
