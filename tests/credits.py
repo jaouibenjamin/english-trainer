@@ -114,18 +114,22 @@ def build():
     add(table(['File', 'What'], [[f(r['file']), cell(r['what'])] for r in sec('sheet')]))
 
     al = tsv('assets/al/sources.tsv')
+    for r in al:                                 # a row may only name a file inside assets/al/
+        if not re.fullmatch(r'al/[a-z]+/[a-z0-9-]+\.hf_[0-9a-f_-]+\.(webp|mp3)', r['file']) or '..' in r['file']:
+            raise SystemExit(f"assets/al/sources.tsv: {r['file']!r} is not a plain file under al/")
     add('## Arcade Lagoon art (new look, not used by the live game yet)\n')
-    add('Character portraits, Pitzi in the new look, the world map, islands, mission stones and HUD icons. Tool: Higgsfield\n'
-        'image generation, model named per file. Each file was cut, resized and encoded as WebP from its original. Original\n'
-        'art: no known characters, brands or real people. Two HUD icons can share one job (they were drawn in one picture).\n')
-    for name, title in (('al-avatar', 'Character portraits'), ('al-pitzi', 'Pitzi'), ('al-island', 'Islands on the world map'), ('al-bg', 'Backgrounds'), ('al-ui', 'Mission stones and HUD icons')):
+    add('Character portraits, Pitzi in the new look, backgrounds, islands, mission stones, HUD icons, and instrumental music\n'
+        'and sounds. Tool: Higgsfield, model named per file. Each picture was cut, resized and encoded as WebP from its\n'
+        'original; each sound was cut, levelled and encoded as mono MP3. Original work: no known characters, brands, tunes\n'
+        'or real people, no voices. Two HUD icons can share one job (they were drawn in one picture).\n')
+    for name, title in (('al-avatar', 'Character portraits'), ('al-pitzi', 'Pitzi'), ('al-island', 'Islands on the world map'), ('al-bg', 'Backgrounds'), ('al-ui', 'Mission stones and HUD icons'), ('al-music', 'Island themes'), ('al-sound', 'Signature sounds')):
         rows = [r for r in al if r['kind'] == name]
         for r in rows:
             if job(r['file'])[0] != r['job']:
                 raise SystemExit(f"{r['file']}: the job column does not match the job id in the file name")
         add(f'### {title}\n')
         add(table(['File', 'What', 'Made', 'Job id', 'Model'], [[f('assets/' + r['file']), cell(r['what']), job(r['file'])[1], r['job'], cell(r['model'])] for r in rows]))
-    if {r['kind'] for r in al} - {'al-avatar', 'al-pitzi', 'al-island', 'al-bg', 'al-ui'}:
+    if {r['kind'] for r in al} - {'al-avatar', 'al-pitzi', 'al-island', 'al-bg', 'al-ui', 'al-music', 'al-sound'}:
         raise SystemExit('assets/al/sources.tsv: unknown kind')
 
     add('## Older art: sprites, backgrounds, app icons\n')
@@ -175,6 +179,9 @@ def problems():
     if 'cloudfront' in al_raw or 'user_' in al_raw or re.search(r'https?://', al_raw):
         bad.append('assets/al/sources.tsv must not hold a storage path or a URL')
     for r in tsv('assets/al/sources.tsv'):
+        if not r['file'].startswith('al/') or '..' in r['file'] or '\\' in r['file']:
+            bad.append(f"assets/al/sources.tsv: {r['file']!r} is outside al/")
+            continue
         p = os.path.join(ROOT, 'assets', r['file'])
         if not os.path.isfile(p) or hashlib.sha256(open(p, 'rb').read()).hexdigest() != r['sha256']:
             bad.append(f"assets/{r['file']}: missing, or differs from its sha256 in assets/al/sources.tsv")
