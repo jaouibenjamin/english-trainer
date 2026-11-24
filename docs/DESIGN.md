@@ -100,3 +100,52 @@ Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"
 
 ## Not done here / needs art
 Real island, stone, character and sea images (glow is baked in). The 20 characters and their gender/skin variety. Sounds.
+
+## New-world screens: `world.html` (static preview)
+
+Three screens built from `css/ds.css` and the art in `assets/al/`: character picker (two steps: choose, then name), world map, island mission path. Files: `world.html`, `css/world.css`, `js/world.js`, `js/world_art.js` (label to file, written from `assets/al/sources.tsv`).
+- Not linked from the game, `noindex`. Shows only with `?ds=1` or when `localStorage.wi_ds` is `1` (read only); otherwise a short "still being built" card with a link back to the game.
+- Static: nothing is saved, no backend call, no speech, no music file. A reload starts over.
+- For review: `?ds=1&screen=name`, `screen=map`, `screen=island`, `screen=island&island=math`.
+- Layout: the world map background has no fixed features, so it covers the screen and islands sit in percent of the free area. An island backdrop has a painted path, so it keeps its 752:1344 shape, scales to the free height, and stones sit in percent of the picture (`PATHS` in `js/world.js`). A new backdrop needs its own eight points.
+
+### Data each screen needs (for the engineer who wires state)
+The demo values live in `DEMO` in `js/world.js`; this is the contract.
+
+| Field | Type | Used by | Notes |
+|---|---|---|---|
+| `avatar` | id string, or null | all three | One of the 20 ids in `AVATARS`. Null sends a pupil to the picker first. |
+| `name` | `[a, b]`, two indexes | name step, map greeting | Indexes into the two word lists, never text. No free text anywhere, so nothing a pupil types is stored or shown to the class. Store the lists' version if they ever change order. |
+| `energy.points` | integer, only goes up | island bar | Never shown as a cost and never spent. |
+| `energy.level`, `energy.from`, `energy.next` | integers | map chip, island bar, picker locks | Level and this level's two thresholds. The bar shows progress inside the level. Thresholds are a rule for the engineer; the demo uses 120 and 220 for level 2. |
+| `energy.opens` | short Hebrew text | island bar line | What the next level opens ("נפתחת דמות חדשה"). |
+| `AVATARS[].open` | level | picker | The level that opens a character. Human kids are open from the start, so no pupil is short of a girl or a boy to pick; only four non-human characters are level rewards. |
+| `stars` | integer | map chip | Sum of mission stars. |
+| `focus` | `{island, mission, count}` or null | map banner only | Today's focus. Null hides the banner. Shown on the map only. |
+| `islands[id].missions[].stars` | 0 to 3 | island path | Per mission. 0 on a played mission still counts as done. |
+| `islands[id].current` | index | island path, main button | The first mission not done yet. Everything before it is done, everything after it is locked. |
+
+Not in the data on purpose: other pupils (no ranking on these screens), any loss or spend of energy, and a reason a mission is locked other than "play the one before it".
+
+### Name word lists (flagged for the teacher's review)
+Two lists of 12, picked with arrows or the "הפתעה" button; 144 names. Words marked * and their translations are copied from the teacher's Unit 1 list in `js/data.js`. The rest are ours and need her OK, like any text we write.
+- First word: Special*, Sweet*, Ready*, Happy, Cool, New, Brave, Clever, Kind, Fast, Funny, Lucky.
+- Second word: Song*, Guitar*, Piano*, Flower*, Candy*, Goal*, Present*, Trip*, Shark, Fox, Star, Robot.
+- Hebrew under each word is the dictionary form (masculine singular), as in her list. Every pair was read for an unkind or silly meaning; none found. "Sweet Candy" and "Special Present" are fine.
+- Also ours and to be checked: the maths mission names in the demo (placeholders, not from `js/mdata.js`).
+
+### Strings added
+| Where | Text |
+|---|---|
+| Gate | המסך הזה עוד בבנייה / בינתיים משחקים במשחק הרגיל. / חזרה למשחק |
+| Picker, next | הלאה: בוחרים שם / קודם בוחרים דמות. |
+| Picker, locked character | (שם): נפתחת ברמת אנרגיה 3. עכשיו אתם ברמה 2. |
+| Name step | איך קוראים לדמות? / בוחרים מילה אחת מכל רשימה. השם באנגלית. / מילה ראשונה / מילה שנייה / הפתעה / זה השם שלי / חזרה לדמויות |
+| Map greeting | שלום, (name)! לאן מפליגים היום? |
+| Map, island not open | בקרוב / האי הזה עוד בבנייה. הוא ייפתח בהמשך השנה. |
+| Today's focus | המיקוד להיום / 5 מילים מ־(mission) שכדאי לחזק. כמה דקות וזהו. / מתחילים |
+| Island, energy line | רמה 2 / עוד 90 אנרגיה לרמה 3: נפתחת דמות חדשה. |
+| Island, stone hints | משימה 5 עוד נעולה. משחקים את משימה 4 והדרך נפתחת. / משימה 2: שני כוכבים. אפשר לשחק שוב ולאסוף עוד. / כאן אתם עכשיו. לוחצים על הכפתור למטה ומתחילים. |
+| Island, main button | משחקים: משימה 4 |
+| Settings | מצב רגוע: בלי תנועה ובלי מוזיקה / אפשר להפעיל ולכבות מתי שרוצים. |
+| Sound button | מוזיקה פועלת. לחיצה מכבה / מוזיקה כבויה. לחיצה מפעילה |
