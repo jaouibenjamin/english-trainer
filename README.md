@@ -94,8 +94,8 @@ The files are ours and are served with the game (relative URLs, no other host): 
 downloads each original once into DIR (outside the repo), mixes it to mono, keeps the measured stretch plus 150 ms on
 each side, encodes it as mono MP3 (64 kbps, 24 kHz; plays on old iPhones and cheap Androids) into `assets/voice/en/`,
 and writes `js/voice.js` with the stretch as offsets into the new file. The Hebrew narration of the mock exam is copied
-byte for byte into `assets/voice/he/`. `assets/voice/sources.tsv` lists every local file with its original URL and its
-text (for the credits). `tests/voice_local.py verify --cache DIR` decodes every local file and checks that the stretch
+byte for byte into `assets/voice/he/`. `assets/voice/sources.tsv` lists every local file with its original URL, its
+sha256 and its text (for the credits); `tests/play.py` fails when a file on disk differs from its sha256. `tests/voice_local.py verify --cache DIR` decodes every local file and checks that the stretch
 the player plays sits exactly where the offsets say (waveform cross-correlation against the original).
 
 Playback (`say()` in `js/state.js`) is Web Audio: the clip is fetched and decoded once, the stretch is cut out with

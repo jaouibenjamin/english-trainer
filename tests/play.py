@@ -119,6 +119,13 @@ def voice_files():
     check('voice: no stray files in assets/voice/en and he (every file is used)', disk == en | he, sorted(disk ^ (en | he))[:5])
     rows_ok = all(isinstance(r[2], int) and isinstance(r[3], int) and 0 <= r[2] < r[3] for r in rows)
     check('voice: every row has a stretch inside its file (start < end, in ms)', rows_ok)
+    # the manifest pins every served file: a clip that was swapped, re-encoded or damaged is caught here
+    import hashlib
+    lines = open(os.path.join(ROOT, 'assets', 'voice', 'sources.tsv'), encoding='utf-8').read().split('\n')
+    head, man = lines[0].split('\t'), [dict(zip(lines[0].split('\t'), ln.split('\t'))) for ln in lines[1:-1]]
+    pinned = {'assets/voice/' + r['file']: r['sha256'] for r in man}
+    wrong = sorted(f for f in en | he if not re.fullmatch(r'[0-9a-f]{64}', pinned.get(f, '')) or hashlib.sha256(open(os.path.join(ROOT, f), 'rb').read()).hexdigest() != pinned[f])
+    check(f'voice: every served file is listed in assets/voice/sources.tsv with its sha256, and the {len(pinned)} files on disk match', 'sha256' in head and set(pinned) == en | he and not wrong, (sorted(set(pinned) ^ (en | he)) + wrong)[:5])
 
 
 async def shot(pg, name):
@@ -308,7 +315,10 @@ async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     await pg.add_init_script(clip_stub(clips))
     pg.on('pageerror', lambda e: errs.append('pageerror: ' + str(e)))
     pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
-    pg.on('requestfailed', lambda r: errs.append('requestfailed: ' + r.url) if 'fonts.g' not in r.url and CLIPS_HOST not in r.url else None)   # the classic trainer uses Google Fonts (offline CI cannot reach it); an <audio> element aborts its clip download when the next clip replaces it
+    # The classic trainer uses Google Fonts (offline CI cannot reach it). An <audio> element aborts the download of its clip
+    # when the next clip replaces it: only that (a media request under assets/voice/, net::ERR_ABORTED) is tolerated.
+    aborted_clip = lambda r: CLIPS_HOST in r.url and r.resource_type == 'media' and r.failure == 'net::ERR_ABORTED'
+    pg.on('requestfailed', lambda r: errs.append(f'requestfailed: {r.url} ({r.resource_type}, {r.failure})') if 'fonts.g' not in r.url and not aborted_clip(r) else None)
     pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 else None)   # a missing voice file is an error
     # config.js in the repository carries the real class backend: a test page never talks to it (local mode = no backend at all)
     # (pinned from an init script, not by intercepting the file: interception switches the browser cache off for the page)

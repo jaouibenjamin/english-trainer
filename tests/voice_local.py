@@ -3,6 +3,7 @@
 
     python3 tests/voice_local.py build  --cache DIR   # download (into DIR, outside the repo), trim, encode, write js/voice.js
     python3 tests/voice_local.py verify --cache DIR   # decode every local file and check it holds the same stretch as the source
+    python3 tests/voice_local.py pin                  # only rewrite the sha256 column from the files on disk (no download)
 
 The manifest is the source of truth. One row per spoken text, columns:
     kind     voice-en (an English clip) or narr-he (a Hebrew narration line of the mock exam)
@@ -10,6 +11,7 @@ The manifest is the source of truth. One row per spoken text, columns:
     src_url  where the generator put the original (Higgsfield storage; used only by this script, never by the game)
     src_s, src_e  the measured clean stretch inside the original, in ms (0,0 = the whole file); written by tests/voice_map.py
     s, e     the same stretch inside the local file, in ms (written by build)
+    sha256   of the local file as it is served (written by build; tests/play.py fails if a file on disk differs)
     text     what the clip says
 English: the original (24 kHz stereo WAV) is mixed to mono the way the player mixes it (mean of the channels), cut to
 the stretch plus PAD ms on each side (clamped to the file) and encoded as mono MP3 (plays on old iPhones and cheap
@@ -17,20 +19,27 @@ Androids). The player cuts [s-30 ms, e+80 ms] out of the decoded file (js/state.
 it is 150 ms so a decoder that ignores the MP3 encoder delay (about 46 ms) still finds the whole stretch inside the file.
 Two texts that share one original (e.g. "their" / "Their") share one local file.
 Hebrew: the original MP3 is copied byte for byte.
-Downloaded files are untrusted: only the one storage host is fetched, and only real WAV / MP3 data is accepted.
+Downloaded files are untrusted: only the one storage host is fetched, a redirect is refused (never followed), and only
+real WAV / MP3 data is accepted. Every local file is pinned by its sha256 in the manifest.
 Needs ffmpeg with libmp3lame (free) and numpy."""
-import json, os, subprocess, sys, urllib.request, wave
+import hashlib, json, os, re, subprocess, sys, urllib.error, urllib.request, wave
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VOICE = os.path.join(ROOT, 'assets', 'voice')
 MANIFEST = os.path.join(VOICE, 'sources.tsv')
-COLS = ['kind', 'file', 'src_url', 'src_s', 'src_e', 's', 'e', 'text']
+COLS = ['kind', 'file', 'src_url', 'src_s', 'src_e', 's', 'e', 'sha256', 'text']
 HOST = 'https://d8j0ntlcm91z4.cloudfront.net/'
 PAD = 150           # ms of the original kept on each side of the stretch
 LEAD, TAIL = 30, 80  # what the player plays around the stretch (js/state.js)
 RATE, KBPS = 24000, 64
 FFMPEG = os.environ.get('FFMPEG', 'ffmpeg')
+FILE_RE = re.compile(r'(en|he)/[A-Za-z0-9_-]+\.mp3')   # a local file: one plain name inside en/ or he/, nothing else
+KINDS = {'voice-en': 'en/', 'narr-he': 'he/'}
+
+
+def sha256(path):
+    return hashlib.sha256(open(path, 'rb').read()).hexdigest()
 
 
 def read_manifest():
@@ -42,6 +51,9 @@ def read_manifest():
         assert len(r) == len(COLS), r
         for k in ('src_s', 'src_e', 's', 'e'):
             r[k] = int(r[k] or 0)
+        # every command trusts these names as paths below assets/voice/, so they are checked wherever the manifest is read
+        assert r['kind'] in KINDS and FILE_RE.fullmatch(r['file']) and r['file'].startswith(KINDS[r['kind']]), r['file']
+        assert re.fullmatch(r'[0-9a-f]{64}|', r['sha256']), r['sha256']
     return rows
 
 
@@ -52,13 +64,22 @@ def write_manifest(rows):
         f.write('\t'.join(COLS) + '\n' + ''.join('\t'.join(str(r[k]) for k in COLS) + '\n' for r in rows))
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """a redirect is an error: no request ever goes to a host the storage points us to"""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, 'redirect refused: ' + str(newurl), headers, fp)
+
+
+OPENER = urllib.request.build_opener(NoRedirect)
+
+
 def fetch(url, cache):
     """the original, from the cache or downloaded into it"""
     assert url.startswith(HOST) and '..' not in url and '?' not in url and '#' not in url, url
     path = os.path.join(cache, os.path.basename(url))
     if not os.path.exists(path):
-        with urllib.request.urlopen(url, timeout=60) as r:
-            assert r.status == 200 and r.geturl().startswith(HOST), (url, r.status, r.geturl())   # no redirect to another host
+        with OPENER.open(url, timeout=60) as r:
+            assert r.status == 200 and r.geturl() == url, (url, r.status, r.geturl())
             data = r.read(50_000_000)
         open(path + '.part', 'wb').write(data)
         os.replace(path + '.part', path)
@@ -101,7 +122,6 @@ def build(cache):
     keep = set()
     groups = {}
     for r in rows:
-        assert r['file'].startswith(('en/', 'he/')) and '/' not in r['file'][3:] and '..' not in r['file'], r['file']
         groups.setdefault(r['file'], []).append(r)
     for name, rs in groups.items():
         out = os.path.join(VOICE, name)
@@ -131,9 +151,18 @@ def build(cache):
         for f in os.listdir(os.path.join(VOICE, d)):
             if f'{d}/{f}' not in keep:
                 os.remove(os.path.join(VOICE, d, f))
-    write_manifest(rows)
+    pin(rows)
     write_js(rows)
     print(len(groups), 'files,', len(rows), 'texts')
+
+
+def pin(rows=None):
+    """the sha256 of every local file, as it is on disk now, into the manifest"""
+    rows = rows or read_manifest()
+    for r in rows:
+        r['sha256'] = sha256(os.path.join(VOICE, r['file']))
+    write_manifest(rows)
+    return rows
 
 
 def write_js(rows):
@@ -188,6 +217,8 @@ def verify(cache):
     dec = {}
     for r in rows:
         path = os.path.join(VOICE, r['file'])
+        if sha256(path) != r['sha256']:
+            bad.append((r['file'], 'sha256 differs from the manifest'))
         if r['kind'] == 'narr-he':
             same = open(path, 'rb').read() == open(fetch(r['src_url'], cache), 'rb').read()
             print('he', r['file'], 'byte-identical' if same else 'DIFFERENT')
@@ -228,6 +259,9 @@ def verify(cache):
 if __name__ == '__main__':
     cmd = sys.argv[1] if len(sys.argv) > 1 else ''
     cache = sys.argv[sys.argv.index('--cache') + 1] if '--cache' in sys.argv else None
+    if cmd == 'pin':
+        print(len(pin()), 'rows pinned')
+        sys.exit(0)
     if cmd not in ('build', 'verify') or not cache:
         sys.exit(__doc__)
     os.makedirs(cache, exist_ok=True)

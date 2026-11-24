@@ -16,7 +16,7 @@ urls = {t: log[t]['url'] for t in texts if log.get(t, {}).get('url')}
 assert all(u.endswith('.wav') and u.startswith(V.HOST) for u in urls.values())
 he = [r for r in V.read_manifest() if r['kind'] != 'voice-en'] if os.path.exists(V.MANIFEST) else []
 en = [{'kind': 'voice-en', 'file': 'en/' + os.path.basename(u)[:-4] + '.mp3', 'src_url': u,
-       'src_s': int(log[t].get('s', 0)), 'src_e': int(log[t].get('e', 0)), 's': 0, 'e': 0, 'text': t} for t, u in urls.items()]
+       'src_s': int(log[t].get('s', 0)), 'src_e': int(log[t].get('e', 0)), 's': 0, 'e': 0, 'sha256': '', 'text': t} for t, u in urls.items()]
 assert not any('\t' in r['text'] or '\n' in r['text'] for r in en)
 V.write_manifest(en + he)
 print(len(urls), 'clips,', len(texts) - len(urls), 'texts without a clip:', [t for t in texts if t not in urls][:20])
