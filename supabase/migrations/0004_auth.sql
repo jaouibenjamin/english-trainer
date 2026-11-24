@@ -5,7 +5,10 @@
 
 alter table private.settings
   add column kdf_iter int not null default 600000 check (kdf_iter >= 100000),
-  add column ip_hour  int not null default 120;            -- any calls from one address in an hour
+  add column ip_hour  int not null default 120,            -- any calls from one address in an hour
+  -- Phase 2 only (docs/BACKEND.md section 8): a right Sheet-era code opens a session without a new code or pictures,
+  -- so the dual-write copy has something to write with. Off by default; private.shadow_set() switches it.
+  add column shadow_mode boolean not null default false;
 create index auth_attempts_ip_at on private.auth_attempts (ip_bucket, at);
 create index auth_attempts_class on private.auth_attempts (class_id, kind, at);
 create index pupil_devices_hash on private.pupil_devices (device_hash);
@@ -119,6 +122,9 @@ begin
     insert into private.auth_attempts (at, kind, dev_bucket, ip_bucket, outcome) values (p_now, 'class', p_dev, p_ip, 'wrong');
     return jsonb_build_object('s', 'class');
   end if;
+
+  -- while the copy phase runs, this side only receives copies: no registration, no recovery
+  if s.shadow_mode and p_kind <> 'code' then return jsonb_build_object('s', 'locked', 'wait', -1); end if;
 
   if p_kind = 'register' then
     select count(*), min(at) into n_ip, v_oldest from private.auth_attempts
@@ -275,8 +281,10 @@ begin
     if sec.code_algo <> 'v1' or sec.pic_hash is null then
       -- came from the Sheet: the old code is right, but nothing opens until a new code and pictures are chosen
       update private.auth_attempts set outcome = 'ok' where id = a.id;
-      if p_new is null then return jsonb_build_object('ok', false, 'setup', true); end if;
-      perform private.set_secrets(p.id, p_new, false, p_now);
+      if s.shadow_mode then null;      -- copy phase: the Sheet-era code opens a session and nothing is changed
+      elsif p_new is null then return jsonb_build_object('ok', false, 'setup', true);
+      else perform private.set_secrets(p.id, p_new, false, p_now);
+      end if;
     else
       update private.auth_attempts set outcome = 'ok' where id = a.id;
     end if;
@@ -374,7 +382,7 @@ begin
   select * into s from private.settings;
   select pu.* into p from public.pupils pu join public.teachers t on t.class_id = pu.class_id
    where pu.id = p_pupil and t.user_id = p_teacher;
-  if p.id is null then return jsonb_build_object('ok', false); end if;
+  if p.id is null or s.shadow_mode then return jsonb_build_object('ok', false); end if;      -- during the copy phase resets happen on the Sheet
   perform private.name_lock(p.class_id, p.name_key);
   v_exp := p_now + make_interval(hours => s.otc_hours);
   insert into private.pupil_secrets (pupil_id) values (p.id) on conflict do nothing;
@@ -389,6 +397,68 @@ begin
      expires_at = excluded.expires_at, fails = 0, created_by = excluded.created_by, created_at = excluded.created_at;
   update public.pupils set auth_user_id = null where id = p.id;
   return jsonb_build_object('ok', true, 'old_auth_user', p.auth_user_id, 'expires_at', v_exp, 'name', p.display_name);
+end $$;
+
+/* The teacher clears the locks of one pupil of her class without touching the code or the pictures: wrong codes and
+   wrong pictures of that name are forgotten and recovery is reopened. For the pupil kept out by somebody's guesses. */
+create function private.teacher_unlock(p_teacher uuid, p_pupil uuid, p_now timestamptz) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare p public.pupils;
+begin
+  select pu.* into p from public.pupils pu join public.teachers t on t.class_id = pu.class_id
+   where pu.id = p_pupil and t.user_id = p_teacher;
+  if p.id is null or (select shadow_mode from private.settings) then return jsonb_build_object('ok', false); end if;
+  perform private.name_lock(p.class_id, p.name_key);
+  delete from private.auth_buckets  where class_id = p.class_id and name_key = p.name_key and kind in ('code', 'picture');
+  delete from private.auth_attempts where class_id = p.class_id and name_key = p.name_key and kind in ('code', 'picture') and outcome <> 'ok';
+  perform private.lock_event(p.class_id, p.name_key, 'unlock', p_now, null);
+  return jsonb_build_object('ok', true, 'name', p.display_name);
+end $$;
+
+/* The teacher lifts the class-wide pauses (wrong codes and wrong pictures from unknown devices in the last day), so
+   guesses made before school cannot cost a lesson. Per-name locks stay. */
+create function private.teacher_unlock_class(p_teacher uuid, p_class uuid, p_now timestamptz) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not exists (select 1 from public.teachers where user_id = p_teacher and class_id = p_class) or (select shadow_mode from private.settings) then
+    return jsonb_build_object('ok', false);
+  end if;
+  -- the tries are kept as history under another kind, so they stop counting but the day's story stays readable
+  update private.auth_attempts set kind = 'class', class_id = null, name_key = ''
+   where class_id = p_class and kind in ('code', 'picture') and outcome <> 'ok' and not trusted and at > p_now - interval '24 hours';
+  perform private.lock_event(p_class, '', 'unlock-class', p_now, null);
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- a class and its code; the lookup is made by the admin function, which holds the pepper
+create function private.class_create(p_name text, p_grade text, p_lookup text) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare v uuid;
+begin
+  insert into public.classes (name, grade) values (p_name, coalesce(p_grade, '')) returning id into v;
+  insert into private.class_codes (class_id, code_lookup) values (v, decode(p_lookup, 'hex'));
+  return v;
+end $$;
+create function private.class_rotate(p_class uuid, p_lookup text) returns boolean
+language plpgsql security definer set search_path = '' as $$
+begin
+  update private.class_codes set code_lookup = decode(p_lookup, 'hex') where class_id = p_class;
+  return found;
+end $$;
+
+/* The copy phase on or off. Turning it OFF cuts every pupil from their auth user, which ends every session opened
+   during the copy phase at once; the caller deletes the returned auth users. */
+create function private.shadow_set(p_on boolean) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare v jsonb := '[]'::jsonb;
+begin
+  if not p_on then
+    select coalesce(jsonb_agg(auth_user_id), '[]'::jsonb) into v from public.pupils where auth_user_id is not null;
+    update public.pupils set auth_user_id = null where auth_user_id is not null;
+    delete from private.pupil_devices;
+  end if;
+  update private.settings set shadow_mode = p_on;
+  return jsonb_build_object('ok', true, 'shadow_mode', p_on, 'old_auth_users', v);
 end $$;
 
 -- migration, once: the next Sheet hashes waiting to be wrapped, and storing one that the function wrapped

@@ -11,3 +11,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.admin-wrap-legacy]
 verify_jwt = false
+[functions.admin-class]
+verify_jwt = false

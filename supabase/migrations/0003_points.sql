@@ -57,14 +57,26 @@ declare
 begin
   if v_pupil is null then raise exception 'not a pupil' using errcode = '42501'; end if;
   select * into s from private.settings;
-  if p_batch is null or p_events is null or jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) > s.max_batch then
+  if p_batch is null or p_events is null or jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) > s.max_batch
+     or pg_column_size(p_events) > 65536 then
     raise exception 'bad input' using errcode = '22023';
   end if;
   -- one writer per pupil at a time: two devices, or a retry racing the first try, cannot lose or double an update
   select * into tot from public.pupil_totals where pupil_id = v_pupil for update;
+  v_today := (v_now at time zone s.tz)::date;
+  -- Storage is finite (500 MB for everybody). A pupil's device may call this so many times a day and add so many
+  -- answer rows a day; beyond that nothing is written but one counter, so a console loop cannot fill the database.
+  a := private.day_row(v_pupil, v_today);
+  update private.pupil_days set calls = calls + 1 where pupil_id = v_pupil and day = v_today;
+  if a.calls >= s.max_calls_day then
+    perform private.flag_add(v_pupil, 'daycap', v_today);
+    return jsonb_build_object('ok', true, 'capped', true, 'points', tot.points, 'added', 0, 'flagged', jsonb_array_length(p_events));
+  end if;
+  if jsonb_array_length(p_events) = 0 then      -- nothing to do, nothing to remember
+    return jsonb_build_object('ok', true, 'points', tot.points, 'added', 0, 'flagged', 0);
+  end if;
   insert into private.answer_batches (pupil_id, batch_id) values (v_pupil, p_batch) on conflict do nothing;
   if not found then return jsonb_build_object('ok', true, 'dup', true, 'points', tot.points, 'added', 0, 'flagged', 0); end if;
-  v_today := (v_now at time zone s.tz)::date;
 
   for r in select e.value from jsonb_array_elements(p_events) with ordinality e(value, i) order by e.i loop
     v_type := case when jsonb_typeof(r) = 'object' then r ->> 'type' end;
@@ -72,17 +84,22 @@ begin
     a := private.day_row(v_pupil, v_today);
 
     if v_type = 'answer' then
-      -- the time of the answer: the client's clock, but never in the future, never older than the back-fill window,
-      -- never before this pupil's previous answer
+      -- the time of the answer: the client's clock, but never in the future and never older than the back-fill
+      -- window. (It is not forced after the pupil's previous answer: a phone that was offline may deliver an hour
+      -- that lies before what the laptop sent since, and that is honest play.)
       v_ms := case when jsonb_typeof(r -> 't') = 'number' then (r ->> 't')::numeric end;
       v_at := case when v_ms between 0 and 1e14 then to_timestamp((v_ms / 1000.0)::double precision) else v_now end;
-      v_at := least(v_now, greatest(v_at, v_now - make_interval(hours => s.backfill_hours), coalesce(tot.last_at, '-infinity')));
+      v_at := least(v_now, greatest(v_at, v_now - make_interval(hours => s.backfill_hours)));
       v_day := (v_at at time zone s.tz)::date;
       d := private.day_row(v_pupil, v_day);
       select id into v_item from public.items where game = v_game and item_key = r ->> 'item';
       if v_item is null then      -- not in the catalogue: nothing is stored
         perform private.flag_add(v_pupil, 'items', v_today); flagged := flagged + 1; continue;
       end if;
+      if a.stored >= s.max_rows_day then      -- the day's rows are used up: count it, write nothing
+        perform private.flag_add(v_pupil, 'daycap', v_today); flagged := flagged + 1; continue;
+      end if;
+      update private.pupil_days set stored = stored + 1 where pupil_id = v_pupil and day = v_today;
       v_ok := (r -> 'correct') = 'true'::jsonb;
       v_first := (r -> 'first_try') = 'true'::jsonb;
       v_pts := case when v_ok and v_first then s.pts_first when v_ok then s.pts_later else 0 end;
@@ -107,12 +124,12 @@ begin
       added := added + 1; gained := gained + v_pts;
       tot.answers := tot.answers + 1;
       if v_ok and v_first then tot.first_try := tot.first_try + 1; else tot.wrong := tot.wrong + 1; end if;
-      tot.last_at := v_at;
+      tot.last_at := greatest(coalesce(tot.last_at, v_at), v_at);
       if v_pts > 0 then
         update private.pupil_days set pointed = pointed + 1 where pupil_id = v_pupil and day = v_day;
         update private.pupil_days set arrived = arrived + 1 where pupil_id = v_pupil and day = v_today;
         if a.arrived + 1 = s.unusual_answers then perform private.flag_add(v_pupil, 'unusual', v_today); end if;
-        gained := gained + private.day_bonus(v_pupil, v_day, v_at, s.pts_day);
+        gained := gained + private.day_bonus(v_pupil, v_today, v_now, s.pts_day);     -- by the day it arrived: back-dating collects no extra bonus
       end if;
 
     elsif v_type = 'level' then
@@ -176,6 +193,7 @@ begin
     end if;
   end loop;
 
+  if added = 0 then delete from private.answer_batches where pupil_id = v_pupil and batch_id = p_batch; end if;
   if added > 0 then
     select count(distinct date_trunc('hour', at)) into n from public.answers where pupil_id = v_pupil and at > v_now - interval '24 hours';
     if n >= s.marathon_hours then perform private.flag_add(v_pupil, 'marathon', v_today); end if;
@@ -218,6 +236,8 @@ begin
   delete from private.auth_attempts    where class_id = p.class_id and name_key = p.name_key;
   delete from private.auth_buckets     where class_id = p.class_id and name_key = p.name_key;
   delete from private.auth_lock_events where class_id = p.class_id and name_key = p.name_key;
+  insert into private.deletions (teacher, class_id, pupil_id, answers, points)
+    select auth.uid(), p.class_id, p.id, t.answers, t.points from public.pupil_totals t where t.pupil_id = p.id;
   delete from public.pupils where id = p.id;      -- cascades to every table keyed by the pupil, public and private (tested table by table)
   if p.auth_user_id is not null then delete from auth.users where id = p.auth_user_id; end if;
   return true;
@@ -238,11 +258,12 @@ language sql security definer set search_path = '' as $$
   where t.points <> c.pts or t.answers <> c.n
 $$;
 
-/* Housekeeping, also the keep-alive query (.github/workflows/keepalive.yml). Server role only.
+/* Housekeeping. Server role only; run every night by pg_cron inside the database (scheduled at the end of this file),
+   never from GitHub Actions, which has no server key. The keep-alive is ping(), with the public key.
    Rolls answers older than the raw window into answer_daily and deletes what has a short life by design. */
 create function public.maintenance() returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare s private.settings; v_cut timestamptz; rolled int; bad int;
+declare s private.settings; v_cut timestamptz; rolled int; bad int; purged boolean := true;
 begin
   select * into s from private.settings;
   v_cut := ((now() at time zone s.tz)::date - s.raw_days)::timestamp at time zone s.tz;
@@ -264,16 +285,17 @@ begin
   delete from private.auth_attempts    where at < now() - interval '30 days';
   delete from private.auth_lock_events where at < now() - interval '30 days';
   delete from private.auth_buckets     where coalesce(locked_until, last_fail_at, '-infinity') < now() - interval '30 days';
-  delete from private.answer_batches   where at < now() - interval '7 days';
+  delete from private.answer_batches   where at < now() - interval '30 days';
+  delete from private.deletions        where at < now() - interval '400 days';
   delete from private.pupil_days       where day < (now() at time zone s.tz)::date - 30;
   delete from private.ip_salts         where day < (now() at time zone 'utc')::date - 2;
   delete from private.reset_codes      where expires_at < now() - interval '7 days';
-  begin   -- Supabase Auth's own log holds addresses; keep 30 days. Skipped quietly where the platform does not allow it.
+  begin   -- Supabase Auth's own log holds addresses; keep 30 days. Where the platform does not allow it, say so.
     delete from auth.audit_log_entries where created_at < now() - interval '30 days';
-  exception when others then null;
+  exception when others then purged := false;
   end;
   select count(*) into bad from private.totals_check();
-  return jsonb_build_object('ok', bad = 0, 'rolled', rolled, 'totals_wrong', bad,
+  return jsonb_build_object('ok', bad = 0 and purged, 'rolled', rolled, 'totals_wrong', bad, 'audit_purged', purged,
                             'db_mb', (pg_database_size(current_database()) / 1048576)::int);
 end $$;
 
@@ -282,3 +304,10 @@ grant execute on function public.record_events(uuid, jsonb), public.save_progres
                           public.teacher_delete_pupil(uuid) to authenticated;
 grant execute on function public.ping() to anon, authenticated;
 grant execute on all functions in schema public, private to service_role;
+
+-- every night at 02:17 UTC, inside the database. Where pg_cron is missing (the local test database) this is skipped
+-- and said; on the project its presence is item 18 of "verify on a real project" (docs/BACKEND.md section 10).
+do $$ begin
+  create extension if not exists pg_cron;
+  perform cron.schedule('wi-maintenance', '17 2 * * *', 'select public.maintenance()');
+exception when others then raise notice 'maintenance is NOT scheduled: %', sqlerrm; end $$;

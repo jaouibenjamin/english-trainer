@@ -46,6 +46,7 @@ alter table private.ip_salts         enable row level security;
 alter table private.answer_batches   enable row level security;
 alter table private.pupil_days       enable row level security;
 alter table private.settings         enable row level security;
+alter table private.deletions        enable row level security;
 
 -- (select app.x()) is evaluated once per statement, not once per row
 create policy classes_read on public.classes for select to authenticated
@@ -155,7 +156,7 @@ grant execute on function public.ping() to anon, authenticated;
 
 grant usage on schema app to authenticated;
 grant execute on function app.pupil_id(), app.class_id(), app.teaches(uuid), app.teaches_pupil(uuid),
-                          app.safe_int(jsonb, int), app.obj(jsonb), app.name_key(text) to authenticated;
+                          app.safe_int(jsonb, int), app.obj(jsonb), app.name_key(text), app.name_ok(text) to authenticated;
 
 grant select on public.classes, public.teachers, public.pupils, public.answers, public.points,
                 public.pupil_totals, public.progress, public.flags, public.answer_daily, public.level_best,
