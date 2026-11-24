@@ -117,10 +117,8 @@ function drawMap(){
  $('mp-lv').textContent=DEMO.energy.level;
  $('mp-st').textContent=DEMO.stars;
  $('mp-focus-ico').src=ART['ui/focus'];
- const f=DEMO.focus,m=DEMO.islands[f.island].missions[f.mission-1];
- const t=$('mp-focus-t');t.replaceChildren(document.createTextNode(f.count+' מילים מ'));
- if(m.en){t.appendChild(document.createTextNode('־'));t.appendChild(ltr(m.en))}else t.appendChild(document.createTextNode(m.he));
- t.appendChild(document.createTextNode(' שכדאי לחזק. כמה דקות וזהו.'));
+ /* The preview shows a neutral sample line, marked as a sample. The real line names the mission and comes with the state. */
+ $('mp-focus-t').textContent='דוגמה: '+DEMO.focus.count+' מילים שכדאי לחזק. כמה דקות וזהו.';
  const sea=$('sea');sea.replaceChildren();
  for(const i of ISLES){
   const b=el('button','w-isle'+(i.soon?' w-isle--soon':i.cls));b.type='button';

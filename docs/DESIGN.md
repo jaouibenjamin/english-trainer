@@ -142,8 +142,8 @@ Two lists of 12, picked with arrows or the "הפתעה" button; 144 names. Words
 | Picker, locked character | (שם): נפתחת ברמת אנרגיה 3. עכשיו אתם ברמה 2. |
 | Name step | איך קוראים לדמות? / בוחרים מילה אחת מכל רשימה. השם באנגלית. / מילה ראשונה / מילה שנייה / הפתעה / זה השם שלי / חזרה לדמויות |
 | Map greeting | שלום, (name)! לאן מפליגים היום? |
-| Map, island not open | בקרוב / האי הזה עוד בבנייה. הוא ייפתח בהמשך השנה. |
-| Today's focus | המיקוד להיום / 5 מילים מ־(mission) שכדאי לחזק. כמה דקות וזהו. / מתחילים |
+| Map, island not open | בקרוב / האי הזה עוד בבנייה. הוא ייפתח בהמשך השנה. No subject is named on these islands until a teacher has given material for it. |
+| Today's focus | המיקוד להיום / (N) מילים מ־(mission) שכדאי לחזק. כמה דקות וזהו. / מתחילים. The preview shows "דוגמה: 5 מילים שכדאי לחזק" with no mission name, so it cannot be taken for real content. |
 | Island, energy line | רמה 2 / עוד 90 אנרגיה לרמה 3: נפתחת דמות חדשה. |
 | Island, stone hints | משימה 5 עוד נעולה. משחקים את משימה 4 והדרך נפתחת. / משימה 2: שני כוכבים. אפשר לשחק שוב ולאסוף עוד. / כאן אתם עכשיו. לוחצים על הכפתור למטה ומתחילים. |
 | Island, main button | משחקים: משימה 4 |
