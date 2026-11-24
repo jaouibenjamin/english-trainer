@@ -128,8 +128,8 @@ explanations and a second try). A new paper opens only after that practice, draw
 ## 3D models and pictures: our own copies
 
 Nothing the game shows is loaded from another host. `assets/sources.tsv` lists every 3D model and generated picture
-kept in the repo: its kind, the local file, the original URL in the generator's storage, the sha256 of the local file
-and what was done to it. Every file keeps the generator's job id in its name (for the credits).
+kept in the repo: its kind, the local file, the original URL in the generator's storage, the sha256 of the original
+and of the local file, and what was done to it. Every file keeps the generator's job id in its name (for the credits).
 
 - `assets/3d/`: the two Beach Run runners (GLB). Only the texture inside each file was made smaller (2048 px to 1024 px
   JPEG); mesh, rig and animation are the original bytes. Each file stays under 3 MB.

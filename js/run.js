@@ -20,7 +20,8 @@ const LOOKS={
   hero:M3D+'hf_20261122_113604_02d63541-4d63-4dff-a4b5-8682f1cdf94e.glb',pic:HPIC+'hf_20261122_091647_8388a3bd-9f46-4847-aab0-386dae7019a4.webp',cel:true},
  lowpoly:{sky:['#5d4fa3','#f6a77f','#ffd7a6'],fog:0xf3b08c,hemi:[0xffe6d0,0x6a5acd,1.35],sea:'#2bb3b1',sand:'#f4c99a',green:0x3fae7a,trunk:0xb07a4f,umb:[0xf2785c,0xf6c64a,0x8a6fd1,0xffffff],post:0x2bb3b1,beam:0x8a6fd1,
   hero:M3D+'hf_20261122_091919_b439053f-4747-4a22-8aa0-0a67974a1928.glb',pic:HPIC+'hf_20261122_091647_e1c4af42-4710-4261-b59c-e0dd1df63c87.webp',cel:false}};
-const LOOK=LOOKS[new URLSearchParams(location.search).get('style')]||LOOKS.anime;
+/* only a look we define: ?style=__proto__ or constructor must not reach an inherited property (hasOwnProperty.call: old iPhones have no Object.hasOwn) */
+const STYLE=new URLSearchParams(location.search).get('style'),LOOK=Object.prototype.hasOwnProperty.call(LOOKS,STYLE)?LOOKS[STYLE]:LOOKS.anime;
 document.documentElement.classList.add(LOOK.cel?'anime':'lowpoly');
 
 /* ---------------- questions ---------------- */

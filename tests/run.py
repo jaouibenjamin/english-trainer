@@ -8,7 +8,12 @@ import remote_guard
 from playwright.async_api import async_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8797
+def free_port():
+    """a port nobody listens on: the test always starts its own server on this checkout, never reuses one that is already running"""
+    with socket.socket() as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+PORT = free_port()
 BASE = f'http://127.0.0.1:{PORT}/run.html'
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else None
 fails = []
@@ -46,6 +51,24 @@ def watch(pg, errs, missing_ok=''):
 
 async def looks(b):
     """the low-poly look loads its own model; without the model file Pitzi the crab runs and the game still works"""
+    for name in ('__proto__', 'constructor', 'toString', 'nosuchlook'):
+        errs = []
+        c = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=1, has_touch=True)
+        pg = await c.new_page()
+        watch(pg, errs)
+        models = []
+        pg.on('response', lambda r: models.append(r.url.split('/')[-1]) if '/assets/3d/' in r.url else None)
+        await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
+        await pg.goto(BASE + '?style=' + name)
+        try:
+            await pg.wait_for_selector('[data-go="run"]', timeout=15000)
+            await pg.wait_for_function('window.__heroLoaded!==undefined', timeout=30000)
+            ok = await pg.evaluate("document.documentElement.classList.contains('anime')&&!document.documentElement.classList.contains('lowpoly')") and models == ['hf_20261122_113604_02d63541-4d63-4dff-a4b5-8682f1cdf94e.glb']
+        except Exception as e:
+            ok = False; errs.append(str(e)[:120])
+        real = [e for e in errs if 'WebGL' not in e and 'GPU stall' not in e]
+        check(ok and not real, f'?style={name}: an unknown look falls back to the anime look, no error {models} {real[:2]}')
+        await c.close()
     for tag, url, block in (('lowpoly', BASE + '?style=lowpoly', False), ('no model', BASE, True)):
         errs = []
         c = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True)
@@ -157,14 +180,16 @@ async def play(b, w, h, tag):
     await c.close()
 
 async def main():
-    proc = None
-    if not port_open(PORT):
-        proc = subprocess.Popen([sys.executable, '-m', 'http.server', str(PORT), '--bind', '127.0.0.1'], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(50):
-            if port_open(PORT): break
-            time.sleep(.1)
+    proc = subprocess.Popen([sys.executable, '-m', 'http.server', str(PORT), '--bind', '127.0.0.1'], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(100):
+        if port_open(PORT) or proc.poll() is not None: break
+        time.sleep(.1)
+    if proc.poll() is not None or not port_open(PORT):
+        sys.exit(f'the test server did not start on port {PORT}')
     bad = remote_guard.remote_urls()
     check(not bad, f'no URL of another host in js/, css/, the pages and the tools (allowed: the class backend in config.js, Google Fonts in trainer.html) {bad[:3]}')
+    bad = remote_guard.self_test()
+    check(not bad, f'the guard catches a planted remote URL in js/mock.js, js/voice.js, js/run.js and css/game.css {bad[:2]}')
     bad = remote_guard.local_assets()
     check(not bad, f'every 3D model and picture is in assets/sources.tsv, on disk and matches its sha256; models under 3 MB {bad[:3]}')
     try:
@@ -176,7 +201,7 @@ async def main():
                 await play(b, 1366, 640, 'r1366x640')
             await b.close()
     finally:
-        if proc: proc.terminate()
+        proc.terminate()
     print('\nALL PASSED' if not fails else f'\n{len(fails)} FAILED')
     sys.exit(1 if fails else 0)
 
