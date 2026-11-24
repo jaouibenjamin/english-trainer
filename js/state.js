@@ -1,6 +1,7 @@
 /* State, class backend client (same contract as the classic trainer) and speech. */
 import {WORDS,TEXTS,ISLANDS,T,levelKey} from './data.js';
 import {clipOf,HAS_CLIPS} from './voice.js';
+import {stretch} from './stretch.js';
 import {voiceCtx,voiceOut,duck} from './audio.js';
 
 export const KEY='aam-unit1-v1';          // shared with trainer.html so both keep one progress record
@@ -16,7 +17,7 @@ load();
 export const saveLocal=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 export const save=()=>{saveLocal();touch()};
 
-export const SET={music:true,sfx:true,calm:false};   // calm: the game's own "reduce motion" switch, for pupils who are sensitive to movement
+export const SET={music:true,sfx:true,calm:false};   // help (word help and the slowly button) is absent until a device is given it (js/help.js). calm: the game's own "reduce motion" switch, for pupils who are sensitive to movement
 try{Object.assign(SET,JSON.parse(localStorage.getItem(SET_KEY))||{})}catch(e){}
 export const saveSet=()=>{try{localStorage.setItem(SET_KEY,JSON.stringify(SET))}catch(e){}};
 
@@ -172,6 +173,11 @@ function loadClip(c,urgent){let p=BUF.get(c.url);if(p){BUF.delete(c.url);BUF.set
  p.jump=()=>{const i=queue.indexOf(go);if(i>=0){queue.splice(i,1);active++;go().then(()=>{active--;pump()})}};   // the word needed now does not wait in line
  BUF.set(c.url,p);for(const k of BUF.keys()){if(BUF.size<=CAP)break;BUF.delete(k)}
  if(urgent)p.jump();else pump();return p}
+/* the "slowly" button: the same recorded clip at SLOW of its pace and at its own pitch (js/stretch.js), made once per clip */
+export const SLOW=.75;
+const SLOWBUF=new WeakMap();
+function slowOf(buf){let b=SLOWBUF.get(buf);if(b)return b;
+ try{const ctx=voiceCtx(),y=stretch(buf.getChannelData(0),buf.sampleRate,SLOW);b=ctx.createBuffer(1,y.length,buf.sampleRate);b.getChannelData(0).set(y);b.clip=buf.clip;b.slow=SLOW;SLOWBUF.set(buf,b);return b}catch(e){return buf}}
 let stopClip=null,seq=0,misses=0,retryAt=0;
 /* 'end' = played to the end, 'stop' = hushed or replaced by newer speech, 'fail' = could not play */
 function playBuf(buf){return new Promise(res=>{
@@ -192,7 +198,7 @@ const SILENCE='data:audio/wav;base64,UklGRkQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAA
 const START_MS=2500;   // a clip that has not started by then is given up and the browser voice speaks instead
 let player=null,audioOpen=0;
 function getPlayer(){if(!player){player=new Audio();player.preload='auto';player.playsInline=true;player.setAttribute('playsinline','')}return player}
-function playEl(c){return new Promise(res=>{
+function playEl(c,rate=1){return new Promise(res=>{
  if(stopClip)stopClip();
  let a;try{a=getPlayer()}catch(e){return res('fail')}
  const from=Math.max(0,(c.s||0)-LEAD),to=c.e>c.s?c.e+TAIL:0;
@@ -201,12 +207,15 @@ function playEl(c){return new Promise(res=>{
    if(stopClip===stop)stopClip=null;if(v!=='end'||to)try{a.pause()}catch(e){}res(v)},
   onEnd=()=>fin('end'),onErr=()=>fin('fail'),stop=()=>fin('stop'),onTime=()=>{if(to&&a.currentTime>=to)fin('end')},
   /* once it plays, only a stalled stream can keep the end away: do not let a level wait for ever */
-  onPlay=()=>{audioOpen=1;clearTimeout(t);t=setTimeout(()=>fin('end'),((to?to-from:isFinite(a.duration)&&a.duration>0?a.duration:20)+4)*1000)};
+  onPlay=()=>{audioOpen=1;clearTimeout(t);t=setTimeout(()=>fin('end'),((to?to-from:isFinite(a.duration)&&a.duration>0?a.duration:20)/rate+4)*1000)};
  stopClip=stop;a.addEventListener('ended',onEnd);a.addEventListener('error',onErr);a.addEventListener('playing',onPlay);a.addEventListener('timeupdate',onTime);
  t=setTimeout(()=>fin('fail'),START_MS);
- try{a.src=c.url+(to?'#t='+from.toFixed(2)+','+to.toFixed(2):'');const p=a.play();if(p&&p.catch)p.catch(()=>fin('fail'))}catch(e){fin('fail')}})}
+ try{a.src=c.url+(to?'#t='+from.toFixed(2)+','+to.toFixed(2):'');
+  /* slowly: the element keeps the pitch by itself; the pace is set after the source (a new source resets it), and back to normal for the next clip */
+  if(rate!==1||a.playbackRate!==1){a.preservesPitch=a.webkitPreservesPitch=a.mozPreservesPitch=true;a.defaultPlaybackRate=rate;a.playbackRate=rate}
+  const p=a.play();if(p&&p.catch)p.catch(()=>fin('fail'))}catch(e){fin('fail')}})}
 /* Web Audio first; if the clip cannot be fetched or decoded within 3 s, or the context is not running, the <audio> element */
-async function playClip(c,my){
+async function playClip(c,my,slow){
  if(stopClip)stopClip();
  const ctx=voiceCtx();
  if(ctx){
@@ -214,27 +223,28 @@ async function playClip(c,my){
   if(my===seq&&ctx.state==='running'){
    const buf=await Promise.race([loadClip(c,true),wait(LOAD_MS).then(()=>null)]);
    if(my!==seq)return 'stop';
-   if(buf){const r=await playBuf(buf);if(r!=='fail')return r}}}
+   if(buf){const r=await playBuf(slow?slowOf(buf):buf);if(r!=='fail')return r}}}
  if(my!==seq)return 'stop';
- return playEl(c)}
+ return playEl(c,slow?SLOW:1)}
 /* after two clips in a row could not play (offline, storage gone) go straight to the browser voice for a while */
 const clipFor=text=>misses>=2&&Date.now()<retryAt?null:clipOf(text);
 const missed=()=>{misses++;retryAt=Date.now()+30000};
 /* speak one text. Resolves true when it was spoken (a clip: when it ended or was interrupted; browser voice: when it started),
    false if this device could not say it (used by the listening level). */
-export async function say(text,rate){const my=++seq;
+export async function say(text,rate,slow){const my=++seq;
  const c=clipFor(text);
- if(c){synthStop();const r=await playClip(c,my);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed()}
+ if(slow&&!c){if(stopClip)stopClip();return false}   // slowly is for recorded clips only, never the browser voice
+ if(c){synthStop();const r=await playClip(c,my,slow);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed()}
  else if(stopClip)stopClip();
  return synth(text,rate)}
 /* speak several texts in order with a short breath between them ("read to me"); hush() or any newer speech stops it.
    A part without a clip (or whose clip fails) is read by the browser voice, then the clips carry on. */
-export async function sayAll(parts,rate,gap=380){const my=++seq;if(stopClip)stopClip();synthStop();
+export async function sayAll(parts,rate,gap=380,slow){const my=++seq;if(stopClip)stopClip();synthStop();
  for(const part of parts){
-  const c=clipFor(part);let r=c?await playClip(c,my):'none';
+  const c=clipFor(part);let r=c?await playClip(c,my,slow):'none';
   if(my!==seq||r==='stop')return true;
   if(r==='fail')missed();else if(r==='end')misses=0;
-  if(r!=='end'){await synth(part,rate,true);if(my!==seq)return true}
+  if(r!=='end'&&!slow){await synth(part,rate,true);if(my!==seq)return true}
   await wait(gap);if(my!==seq)return true}
  return true}
 export function hush(){seq++;if(stopClip)stopClip();synthStop()}
@@ -257,3 +267,5 @@ export const weakest=(ws,n)=>shuffle(ws).sort((a,b)=>(S.w[a.en]||0)-(S.w[b.en]||
 export const reduced=()=>SET.calm||matchMedia('(prefers-reduced-motion:reduce)').matches;
 export const applyCalm=()=>document.documentElement.classList.toggle('calm',!!SET.calm);
 applyCalm();
+/* is there a recorded clip for this text? (the slowly button shows only then) */
+export const hasClip=text=>!!clipOf(text);

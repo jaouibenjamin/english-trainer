@@ -4,6 +4,7 @@ import {TEXTS,GL,TOKRE,glossKey,VOC,EVIDENCE,T,starsFor} from './data.js';
 import {S,award,save,say,sayAll,warm,hush,shuffle,esc} from './state.js';
 import {SND} from './audio.js';
 import {hud,confetti,ico,spr,btn,en,toast} from './ui.js';
+import {slowBtn,note} from './help.js';
 
 const tok=s=>s.replace(TOKRE,t=>{if(!/[A-Za-z]/.test(t))return esc(t);const k=glossKey(t);return k?`<span class="t${VOC.has(k)?' v':''}${t.length<4?' s':''}" data-k="${esc(k)}" data-t="${esc(t)}">${esc(t)}</span>`:esc(t)});
 /* a lone "I" never ends a line: it stays with the word after it */
@@ -22,7 +23,7 @@ export async function start(host,cfg,api){
    host.innerHTML=`<div class="lv read">${head()}
     <p class="tip" id="gl">${g.mark.length?'התשובה מתחבאת במשפט המסומן':'לחצו על מילה כדי לראות את הפירוש שלה'}</p>
     <div class="mid">${story()}</div>
-    <div class="row">${btn('readall',spr('ic_speaker','bi')+' הקריאו לי','cream')}${g.peek?btn('unpeek','חזרה לשאלה '+ico('next'),'green'):btn('toq','לשאלות '+ico('next'),'green')}</div></div>`;
+    <div class="row">${btn('readall',spr('ic_speaker','bi')+' הקריאו לי','cream')}${slowBtn('readslow')}${g.peek?btn('unpeek','חזרה לשאלה '+ico('next'),'green'):btn('toq','לשאלות '+ico('next'),'green')}</div></div>`;
    const tx=host.querySelector('.text'),more=()=>tx.classList.toggle('more',tx.scrollHeight-tx.scrollTop-tx.clientHeight>6);tx.addEventListener('scroll',more,{passive:true});more();setTimeout(more,400)}
   else{const q=t.qs[g.i];
    host.innerHTML=`<div class="lv read qs">${head()}
@@ -31,7 +32,7 @@ export async function start(host,cfg,api){
     <p class="fb" id="gl">${g.wrong.length?'לא נורא, נסו בקבוק אחר':'לחיצה על מילה בשאלה מראה את הפירוש שלה'}</p>
     <div class="row">${btn('peek',spr('ic_book','bi')+' הצצה בסיפור','cream')}</div></div>`}}
  function gloss(el){host.querySelectorAll('.t.sel').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');
-  const gl=host.querySelector('#gl');gl.innerHTML=`${en(el.dataset.t)} <span class="eq">=</span> ${esc(GL[el.dataset.k])}`;gl.classList.add('on');say(el.dataset.t)}
+  const gl=host.querySelector('#gl');gl.innerHTML=`${en(el.dataset.t)} <span class="eq">=</span> ${esc(GL[el.dataset.k])}`;gl.classList.add('on');say(el.dataset.t);note('read:'+t.id+(g.phase==='story'||g.peek?'':':q'+g.i),'word',el.dataset.k)}
  function answer(el){if(g.lock||el.classList.contains('bad'))return;const q=t.qs[g.i],o=+el.dataset.o;
   if(o===q[2]){g.lock=1;el.classList.add('ok');SND.pop();const ok1=!g.wrongNow;if(ok1)g.first++;award(ok1?T.ptsFirst:T.ptsLater);
    const gl=host.querySelector('#gl');gl.textContent='נכון!';gl.classList.add('on','good');
@@ -47,7 +48,8 @@ export async function start(host,cfg,api){
   if(k==='toq'){SND.tap();g.phase='q';render()}
   else if(k==='peek'){SND.tap();g.peek=1;render()}
   else if(k==='unpeek'){SND.tap();g.peek=0;render()}
-  else if(k==='readall'){SND.tap();sayAll([t.title,...sents],.78)}};   // title, then sentence by sentence
+  else if(k==='readall'){SND.tap();sayAll([t.title,...sents],.78)}
+  else if(k==='readslow'){SND.tap();note('read:'+t.id,'slow');sayAll([t.title,...sents],.78,380,true)}};   // title, then sentence by sentence
  host.addEventListener('click',onClick);
  warm([t.title,...sents,...t.qs.map(q=>q[1][q[2]])]);   // the story and the right answers; tapped words load when tapped
  render();

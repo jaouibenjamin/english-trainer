@@ -153,3 +153,33 @@ the files and their sha256 (needs Pillow); `verify --cache DIR` compares every f
 model: every byte range except the texture is identical); `check` needs no download. `python3 tests/remote_guard.py`
 (also run by `tests/run.py`) fails on any URL of another host in `js/`, `css/`, the pages and the tools, the voice files included: no file is
 excused. Exactly one thing is allowed: the class backend URL in `config.js`.
+
+## Word help and slow playback (behind a switch, off by default)
+
+Not part of the game the class sees unless a device is given it: open the game once with `?help=1` (`?help=0` takes it
+away again). That device then also has a fourth switch in the settings, "עזרה במילים". With the switch off, or on a
+device that never got it, every screen is drawn exactly as before.
+
+- **A tap on an English word** in a sentence or a question shows its Hebrew meaning in a small bubble (`js/help.js`).
+  It works by touch, mouse and keyboard (the words are buttons; Escape closes), is announced to screen readers, and
+  never lies over an answer or over the question. Where it works: the am / is / are sentence on the bridge and the
+  mock exam's practice. The story level keeps its own line of meanings. The mock exam's paper has no help: it is the
+  rehearsal of the real test. A word that is an answer button, or the answer itself, is never a help word.
+- **Where the meanings come from** (`js/helpdata.js`): only from data already in the game. First the teacher's Unit 1
+  word list, then the reading glossary the story level has always shown. No machine translation and nothing written
+  for this feature; a word in neither list is simply not a button. `GLOSSARY=false` in that file limits it to the
+  teacher's list. `docs/WORD_HELP_COVERAGE.md` (built by `node tests/help_coverage.mjs --write`) lists what is covered
+  and what is missing, for the teacher.
+- **"המשפט בעברית"** shows the Hebrew of a whole sentence only when the data already holds it, and only where it does
+  not give the answer away.
+- **The 🐢 button** next to "say it again" (listening) and "read to me" (story) plays the same recorded clip at 0.75 of
+  its pace with the pitch kept: through Web Audio with `js/stretch.js`, and through the `<audio>` element's own slow
+  playback when Web Audio is not available. Never the browser voice. `node tests/stretch_check.mjs` measures the
+  result on real clips (length, no clipping, loudness, pitch). The Hebrew narration of the mock exam has no slow
+  button: its words appear on screen in time with the voice, and it is not learning material.
+- **Help costs nothing.** No points, no star, no mistake. Each use is noted on the device only, in its own
+  `localStorage` entry (`wi-help-v1`: per question, which words were looked up, whether the sentence was shown, how
+  often it was heard slowly). It is not part of the progress that is saved to the class, so nothing new is sent to the
+  backend. Showing it to the teacher is a later step that needs the owner's approval.
+
+`python3 tests/help.py` checks all of this with the switch off and on.
