@@ -97,5 +97,6 @@ code	vendor/jsm/utils/SkeletonUtils.js	three.js add-on for rigged models	three 0
 code	vendor/LICENSE-three.txt	licence of three.js (MIT)	three 0.170.0, LICENSE	4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454
 list	assets/sources.tsv	list of the 3D models and pictures: source, sha256, what was done		
 list	assets/voice/sources.tsv	list of the voice clips: source, sha256, text		
-list	assets/credits_extra.tsv	list of everything the two lists above do not cover, written by hand		
+list	assets/al/sources.tsv	list of the Arcade Lagoon art: what, job id, model, sha256		
+list	assets/credits_extra.tsv	list of everything the three lists above do not cover, written by hand		
 list	assets/CREDITS.md	this file		
