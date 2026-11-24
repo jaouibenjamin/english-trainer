@@ -34,6 +34,7 @@ Read this file and `docs/PLAN.md` before changing anything.
   - `index.html` + `js/main.js`: the island game (English), Fraction Bay (math, `js/math.js`, `mdata.js`, `msling.js`, `mui.js`), and the mock exam (`js/mock.js`, `js/xdata.js`).
   - `run.html` + `js/run.js`: Beach Run, a three.js runner (vendored in `vendor/`). Looks: anime (default) and `?style=lowpoly`. The runner models are Higgsfield GLBs served from the repo (`assets/3d/`, built by `tests/assets_local.py` from `assets/sources.tsv`); the procedural crab Pitzi is the fallback.
   - `trainer.html`: the older quiz trainer.
+  - `worksheet.html` + `js/worksheet.js`: a printable worksheet of an island, light paper. Behind a device switch (`?sheet=1` once, `?sheet=0` to remove); off by default.
 - Voice: recorded clips (Higgsfield; English via seed_audio, Hebrew narration via ElevenLabs, preset voice Kaia). Never browser speech for content.
 
 ## Branches and deploy
@@ -50,6 +51,7 @@ python3 tests/math.py --quick   # Fraction Bay
 python3 tests/mock.py --quick   # mock exam
 python3 tests/run.py            # Beach Run, phone and laptop sizes (needs WebGL: swiftshader flags inside); also tests/remote_guard.py (no URL of another host) and tests/credits.py check (assets/CREDITS.md covers every file)
 node tests/mdata_check.mjs      # math content
+python3 tests/worksheet.py     # the printable worksheet (worksheet.html), switch off and on
 ```
 
 Playwright with Chrome. Look at the screenshots (`--shots DIR`), don't only trust green.
