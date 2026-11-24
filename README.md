@@ -148,5 +148,5 @@ and of the local file, and what was done to it. Every file keeps the generator's
 `python3 tests/assets_local.py build --cache DIR` downloads the originals once into DIR (outside the repo) and rebuilds
 the files and their sha256 (needs Pillow); `verify --cache DIR` compares every file with its original again (for a
 model: every byte range except the texture is identical); `check` needs no download. `python3 tests/remote_guard.py`
-(also run by `tests/run.py`) fails on any URL of another host in `js/`, `css/`, the pages and the tools. Allowed for
-now: the class backend in `config.js` and Google Fonts in `trainer.html`.
+(also run by `tests/run.py`) fails on any URL of another host in `js/`, `css/`, the pages and the tools, the voice files included: no file is
+excused. Allowed for now: the class backend in `config.js` and Google Fonts in `trainer.html`.

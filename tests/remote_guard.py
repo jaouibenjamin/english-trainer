@@ -12,11 +12,10 @@ URL = re.compile(r"""(?:https?:)?//[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+[^\s"'`)<>]*
 ALLOWED = {'config.js': re.compile(r'https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec'),
            'trainer.html': re.compile(r'https://fonts\.googleapis\.com(/css2\?[^\s"\']*)?')}
 NAMESPACE = re.compile(r'http://www\.w3\.org/(2000/svg|1999/xlink|1999/xhtml|1998/Math/MathML)')
-# The voice clips move into the repo in their own pull request (branch assets/voice-local, guarded there by tests/play.py).
-# Until it is merged, each of these two files still holds one constant with the old storage prefix: exactly that string
-# is tolerated there, and nothing else. When that pull request is in, make this:  PENDING = {}
-OLD = 'https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/'
-PENDING = {'js/voice.js': OLD + 'hf_20261115_1', 'js/mock.js': OLD + 'hf_20261121_'}
+# No file is excused. (While the voice clips were still on the old storage, one constant in js/voice.js and one in
+# js/mock.js were tolerated here; they are gone.) A new entry would be: file -> the one exact URL tolerated in it, once.
+OLD = 'https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/'      # the old storage, used by the self-test
+PENDING = {}
 
 
 def files():
@@ -62,7 +61,7 @@ def self_test():
     base, out = remote_urls(), []
     for target, extra, want in cases:
         if want and want.startswith(OLD) and want == PENDING.get(target) and not any(PENDING[target] in ln for ln in read(target).split('\n')):
-            continue      # after the voice pull request the constant is gone, so one copy would be tolerated: PENDING should be {} by then
+            continue      # a tolerated constant that is no longer in its file: its entry in PENDING is stale and should go
         got = [b for b in remote_urls(planted(target, extra)) if b not in base]
         if not got or got[0][0] != target or (want and got[0][2] != want[:90]):
             out.append(f'not caught: {extra.strip()} planted in {target} {got[:1]}')
@@ -96,6 +95,6 @@ if __name__ == '__main__':
     for x in r: print('FAIL remote URL', *x)
     for x in a: print('FAIL asset', *x)
     for x in t: print('FAIL self-test', x)
-    if PENDING: print('note: one old storage constant is still tolerated in each of (voice pull request pending):', sorted(PENDING))
+    if PENDING: print('note: one known URL is still tolerated in each of:', sorted(PENDING))
     print('ALL PASSED' if not (r or a or t) else f'{len(r) + len(a) + len(t)} FAILED', f'({len(files())} files scanned)')
     sys.exit(1 if r or a or t else 0)
