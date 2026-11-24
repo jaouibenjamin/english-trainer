@@ -23,10 +23,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0, pinned by commit
         with:
           persist-credentials: false
-      - name: No pupil data or server keys in the repo
-        run: |
-          set -e
-          ! grep -rInE "service_role|SUPABASE_SERVICE|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY" --exclude-dir=.git --exclude-dir=vendor --exclude-dir=.github . || (echo "possible server key in repo" && exit 1)
+      # Looks for key material, not for the name of Supabase's server role (the migrations must name that role in
+      # their grants): a JWT that is not the anon key, a Supabase secret key, a value assigned to a server-key, pepper
+      # or database-URL variable, a private key, a database URL with a password. The script tests itself on every run.
+      - name: No server keys in the repo
+        run: python3 tests/secret_guard.py
   own-assets:
     runs-on: ubuntu-latest
     steps:

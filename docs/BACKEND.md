@@ -71,11 +71,16 @@ What changed from the first cut in `PLAN.md`: `class_codes` and all secrets move
 
 Rules that hold everywhere:
 
-- RLS is enabled **and forced** on every table in `public`. With no matching policy, nothing is returned.
+- RLS is enabled on every table in `public` and `private`. With no matching policy, nothing is returned. It is not
+  *forced* on the owner: the owner-rights views and functions below are the deliberate, narrow exceptions, and no
+  browser role is ever the owner.
+- Supabase gives the browser roles every right on new objects in `public` by default and relies on RLS alone. The
+  migrations revoke all of that first and grant back only what is listed here.
 - `anon` (a visitor who is not signed in) has no right on any table, view or function. It can only call the four
   functions over HTTPS.
-- `authenticated` (a signed-in pupil or teacher) gets `select` where listed below, plus `insert`/`update` on its own
-  `progress` row. Every other write goes through a database function that checks the caller itself.
+- `authenticated` (a signed-in pupil or teacher) gets `select` where listed below and nothing else (the teacher's
+  class list is the one table with a direct write). Every other write goes through a database function that checks
+  the caller itself.
 - `private` has no grant for `anon` or `authenticated`, and the schema is not in the API's exposed list. So "nobody
   reads code hashes from the client" holds twice: no grant, and no route.
 - Helper functions (`security definer`, fixed `search_path`):
@@ -95,13 +100,13 @@ create function app.teaches(c uuid) returns boolean language sql stable security
 | `roster` | The teacher of the class reads, adds and removes names. Pupils: nothing. | `create policy roster_teacher on roster for all to authenticated using (app.teaches(class_id)) with check (app.teaches(class_id));` |
 | `teachers` | A teacher reads her own rows. No client writes (the owner adds a teacher by hand). | `create policy teachers_self on teachers for select to authenticated using (user_id = auth.uid());` |
 | `pupils` | A pupil reads only their own row. A teacher reads her class. No client writes. Classmates' names are reachable only through `class_board`. | `create policy pupils_read on pupils for select to authenticated using (auth_user_id = auth.uid() or app.teaches(class_id));` |
-| `items` | Any signed-in user reads (it is the public content catalogue). No client writes. | `create policy items_read on items for select to authenticated using (true);` |
-| `answers` | A pupil reads their own; a teacher reads her class. **No insert, update or delete grant for any browser role.** Rows are written only by `record_answers()`. | `create policy answers_read on answers for select to authenticated using (pupil_id = app.pupil_id() or app.teaches((select class_id from pupils p where p.id = pupil_id)));` |
+| `items` | Nobody from a browser, read or write. Item keys are text a pupil's device sends, so a readable catalogue would be a notice board between children. The teacher sees her class's keys through `teacher_items`. | no policy, no grant |
+| `answers` | A pupil reads their own; a teacher reads her class. **No insert, update or delete grant for any browser role.** Rows are written only by `record_answers()`. | `create policy answers_read on answers for select to authenticated using (pupil_id = (select app.pupil_id()) or app.teaches_pupil(pupil_id));` |
 | `points` | Same as `answers`: read own or own class (teacher). No client writes at all. | same shape as `answers_read` |
 | `pupil_totals` | Read own, or own class as teacher. No client writes. Classmates' totals only through `class_board`. | same shape as `answers_read` |
 | `answer_daily` | Same as `answers`. | same shape as `answers_read` |
-| `progress` | A pupil reads and writes only their own row; a teacher reads her class. | `create policy progress_own on progress for all to authenticated using (pupil_id = app.pupil_id()) with check (pupil_id = app.pupil_id());` plus `progress_teacher` for select with `app.teaches(...)` |
-| `flags` | Only the teacher of the class reads. A pupil cannot see or clear their own flags. | `create policy flags_teacher on flags for select to authenticated using (app.teaches((select class_id from pupils p where p.id = pupil_id)));` |
+| `progress` | A pupil reads only their own row; a teacher reads her class. Written only by `save_progress()`, which takes no pupil id. | same shape as `answers_read` |
+| `flags` | Only the teacher of the class reads. A pupil cannot see or clear their own flags. | `create policy flags_teacher on flags for select to authenticated using (app.teaches_pupil(pupil_id));` |
 | `class_board` (view) | A pupil sees name and points of every pupil **of their own class only**; a teacher sees her classes. | The view must show classmates, whom the `pupils` policy hides. So it runs with its owner's rights and carries the rule itself: `create view class_board with (security_barrier) as select … from pupils p join pupil_totals t … where p.class_id = app.class_id() or app.teaches(p.class_id);` It exposes four columns and no ids. |
 | `teacher_view`, `teacher_items` (views) | Only a teacher, only her class. A pupil gets zero rows. | Same technique: `… where app.teaches(p.class_id)`. They also read the lock tables in `private`, which is why they are owner-rights views; only the listed columns leave. |
 
@@ -109,15 +114,20 @@ Database functions a signed-in pupil may call (each derives the pupil from `auth
 
 - `record_answers(batch_id uuid, rows jsonb)`: section 5.
 - `record_level(game text, level_key text, stars int)`: section 5.
-- `save_progress(state jsonb)`: upsert of the caller's own `progress` row with the size check (the direct table write
-  under the policy above does the same; the function is what the client uses).
+- `save_progress(state jsonb)`: upsert of the caller's own `progress` row with the size check.
 
 A teacher may call `teacher_delete_pupil(pupil uuid)` (her class only): deletes the pupil, their answers, points,
 progress, secrets and their auth user. This is the "data a teacher or parent can ask to delete" path.
 
-Tests in PR B run every policy as written, on a local PostgreSQL with stand-ins for the `auth` schema: pupil A against
-pupil B's rows and against another class, the secret tables, direct inserts into `answers`/`points`/`pupil_totals`,
-the board, a teacher against another class, and `anon` against everything.
+`maintenance()` (the roll-up, the deletions with a short life, a totals check; also the keep-alive query) runs for the
+server role only.
+
+Tests: `python3 tests/db.py` runs every policy as written on a throw-away local PostgreSQL with a stand-in for what
+Supabase provides (`tests/db/stub.sql`: the `auth` schema, the three API roles, `auth.uid()` from the JWT claims, and
+Supabase's open default grants): pupil A against pupil B's rows and against another class, the secret tables, direct
+writes to `answers`/`points`/`pupil_totals`, the board, a teacher against another class, `anon` against everything,
+whole-catalogue checks that catch a table or function added later without its lock, and the load test (35 pupils,
+three rounds, plus one pupil from two devices at once).
 
 ## 3. The pupil's login, step by step (for the owner's approval)
 
