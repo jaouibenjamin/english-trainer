@@ -70,7 +70,7 @@ async def run(b, w, h, errs, tag, do_print):
     await pg.goto(ROOT_URL + 'worksheet.html?i=1')
     await pg.wait_for_selector('#off:not([hidden])')
     check(f'{tag} off: the page says it is not open here and draws no sheet',
-          await pg.evaluate("document.getElementById('sheet').children.length===0&&document.getElementById('bar').hidden"))
+          await pg.evaluate("document.getElementById('sheet').children.length===0&&getComputedStyle(document.getElementById('bar')).display==='none'&&document.getElementById('bar').getBoundingClientRect().height===0&&getComputedStyle(document.getElementById('off')).display!=='none'"))
     back = await pg.get_attribute('#off a', 'href')
     check(f'{tag} off: it links back to the game', back == 'index.html#island/1', back)
 
@@ -110,6 +110,15 @@ async def run(b, w, h, errs, tag, do_print):
         lay = await pg.evaluate(LAYOUT)
         check(f'{tag} island {i}: on screen nothing is cut off or outside the paper', lay['over'] <= 0 and lay['out'] == 0, lay)
         check(f'{tag} island {i}: light paper, dark text, no pictures', lay['dark'] == 0 and lay['pics'] == 0 and lay['pale'] == 0, lay)
+        if i < 6:
+            g = await pg.evaluate("""(()=>{const bad=[];for(const gp of document.querySelectorAll('.fill .gap')){const t=gp.previousSibling,r=document.createRange();
+              if(!t||!t.textContent.trim())continue;const n=t.textContent.replace(/\\s+$/,'').length;r.setStart(t,n-1);r.setEnd(t,n);const a=r.getBoundingClientRect(),b=gp.getBoundingClientRect();
+              if(b.bottom<a.top||b.bottom>a.bottom+2)bad.push(gp.parentElement.textContent)}
+             const o=[...document.querySelectorAll('.ord>li')],nums=o.map(l=>getComputedStyle(l.querySelector('.he'),'::before').content);
+             const r0=o[0].getBoundingClientRect(),r1=o[1].getBoundingClientRect();
+             return {bad,numbered:nums.every(c=>/counter\\(o\\)|\\d/.test(c)),rtl:r0.top!==r1.top||r0.left>r1.left,n:document.querySelectorAll('.fill .gap').length}})()""")
+            check(f'{tag} island {i}: every gap sits on the line of the words before it, also when the sentence wraps', g['n'] >= 4 and not g['bad'], g)
+            check(f'{tag} island {i}: the sentences to order are numbered and run from the right', g['numbered'] and g['rtl'], g)
         text = await pg.inner_text('body')
         check(f'{tag} island {i}: nothing of the pupil is on the page', PUPIL not in text and PUPIL not in await pg.content())
         check(f'{tag} island {i}: no answer page unless asked', await pg.locator('#key').count() == 0)
@@ -163,7 +172,7 @@ async def run(b, w, h, errs, tag, do_print):
     check(f'{tag} ?sheet=0 takes the switch away', await pg.locator('.wsl').count() == 0 and await pg.evaluate(f"JSON.parse(localStorage.getItem('{SET_KEY}')).sheet===false"))
     await pg.goto(ROOT_URL + 'worksheet.html?i=1')
     await pg.wait_for_selector('#off:not([hidden])')
-    check(f'{tag} and the page is closed again', await pg.evaluate("document.getElementById('sheet').children.length===0"))
+    check(f'{tag} and the page is closed again, with no bar', await pg.evaluate("document.getElementById('sheet').children.length===0&&getComputedStyle(document.getElementById('bar')).display==='none'"))
     await c.close()
 
 

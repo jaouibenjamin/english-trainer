@@ -8,6 +8,7 @@ body{margin:0;background:#eceef0;color:#111;font-family:'WS',Arial,sans-serif;fo
 .en,[lang=en]{direction:ltr;unicode-bidi:isolate}
 h1,h2,h3,p,ol,ul{margin:0;padding:0}
 ol,ul{list-style:none}
+[hidden]{display:none!important}   /* the bar and the note are flex and block boxes: hidden must still win */
 
 /* the bar on screen: never printed */
 .bar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 14px;padding:8px 12px;background:#fff;border-bottom:1px solid #c9ced3;font-size:16px}
@@ -58,14 +59,16 @@ ol,ul{list-style:none}
 .bank{display:flex;gap:5mm;justify-content:flex-start;margin-bottom:3px}
 .bank b{border:1.2px solid #111;border-radius:5px;padding:0 4mm;font-size:12.5pt;font-weight:600}
 .fill{display:grid;grid-template-columns:1fr 1fr;gap:0 8mm;text-align:left;counter-reset:f}
-.fill li{counter-increment:f;font-size:13pt;min-height:9mm;display:flex;align-items:flex-end;flex-wrap:wrap;gap:0 4px;white-space:pre-wrap;break-inside:avoid}
-.fill li::before{content:counter(f) ".";margin-right:3px}
-.gap{display:inline-block;width:20mm;border-bottom:1.2px solid #111;height:6mm}
+/* plain inline text, so a sentence that wraps keeps its gap on the line of its words */
+.fill li{counter-increment:f;font-size:13pt;line-height:9mm;break-inside:avoid}
+.fill li::before{content:counter(f) ". "}
+.gap{display:inline-block;width:20mm;height:0;border-bottom:1.2px solid #111;vertical-align:baseline;margin:0 1mm}
 
-.ord{display:grid;grid-template-columns:1fr 1fr;gap:2px 8mm;direction:ltr}
-.ord li{break-inside:avoid;padding-top:3px}
+.ord{display:grid;grid-template-columns:1fr 1fr;gap:2px 8mm;direction:rtl;counter-reset:o}   /* numbered, first item on the right */
+.ord li{break-inside:avoid;padding-top:3px;counter-increment:o}
+.ord .he::before{content:counter(o) ". ";font-weight:700;color:#111}
 .ord .he{direction:rtl;text-align:right;font-size:11pt;color:#222}
-.tiles{display:flex;flex-wrap:wrap;gap:3px 4px;text-align:left}
+.tiles{display:flex;flex-wrap:wrap;gap:3px 4px;text-align:left;direction:ltr}
 .tiles b{border:1.2px solid #111;border-radius:4px;padding:0 6px;font-size:12pt;font-weight:500}
 .tiles .end{border-style:dashed}
 .line{height:8mm;border-bottom:1.2px solid #111}
