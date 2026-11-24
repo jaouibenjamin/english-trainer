@@ -1,0 +1,40 @@
+/* Extra practice games (js/extra.js; only on a device that was given the switch) */
+/* the row of buttons on an island */
+.xtr{margin:0;width:100%;max-width:380px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 8px;flex:none}
+.xtr small{font-size:13.5px;font-weight:600;color:var(--ink2)}
+.xtb{min-height:44px;padding:0 16px;font-size:16px;font-weight:700;color:var(--ink);background:#fffaf0;border:2px solid rgba(90,69,52,.6);border-radius:14px 17px 13px 16px/16px 13px 17px 14px}
+.xtb:focus-visible,.tf button:focus-visible{outline:3px solid #2d6f8e;outline-offset:2px}
+
+/* true or not? */
+.tf{gap:10px}
+.tfc{margin:0;font-size:15px;font-weight:700;color:var(--ink2);min-height:22px;flex:none}
+.tfa{flex:1;min-height:0;width:100%;max-width:380px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.tfk{position:relative;width:min(100%,330px);min-height:230px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:18px 16px;background:#fffaf0;border:2.5px solid var(--ink);border-radius:22px 26px 21px 25px/25px 21px 26px 22px;box-shadow:0 4px 0 rgba(90,69,52,.25);touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab;transition:transform .16s,opacity .3s,background .15s}
+.tfk.to-y,.tfk.ok{background:#e6f2dc}.tfk.to-n{background:#f9e4dc}.tfk.no{background:#fdf0e2}
+.tfk.fly-y{transform:translateX(120%) rotate(14deg)!important;opacity:0}.tfk.fly-n{transform:translateX(-120%) rotate(-14deg)!important;opacity:0}
+.tfs{position:absolute;top:8px;inset-inline-start:8px;width:48px;height:48px;padding:6px;background:none;border:0}
+.tfs img{width:100%;height:100%;object-fit:contain}
+.tfw{font-size:38px;font-weight:800;line-height:1.15;text-align:center}
+.tfh{font-size:30px;font-weight:800;line-height:1.2;text-align:center;color:#2d6f8e}
+.tfq{font-size:16px;font-weight:600;color:var(--ink2)}
+.tfb{width:100%;display:flex;gap:12px;justify-content:center;min-height:64px}
+.tfy,.tfx{flex:1;max-width:160px;min-height:60px;font-size:20px;font-weight:800;color:var(--ink);border:2.5px solid var(--ink);border-radius:18px 21px 17px 20px/20px 17px 21px 18px;box-shadow:0 3px 0 rgba(90,69,52,.25)}
+.tfy{background:#cfe6bd}.tfx{background:#f6cfc2}
+.tfy i,.tfx i{font-style:normal}
+.tft{margin:0;font-size:13.5px;font-weight:500;color:var(--ink2);text-align:center;min-height:19px}
+.tfe{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+.tfr{margin:0;font-size:22px;font-weight:800;text-align:center}.tfr span{color:var(--ink2);font-weight:600}
+.tfr.ok{color:var(--good)}.tfr.two{font-size:17px;font-weight:700;color:var(--ink2)}
+.tfm{margin:0;font-size:14.5px;font-weight:600;color:var(--ink2)}
+.tfn{margin:0;font-size:13px;font-weight:500;color:var(--ink2);flex:none;text-align:center}
+.tfend{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.tfend img{width:110px}.tfend h3{margin:0;font-size:26px;font-weight:800}.tfend p{margin:0;font-size:18px;font-weight:700}
+.tfrev{display:flex;flex-direction:column;align-items:center;gap:3px}.tfrev small{font-size:14px;color:var(--ink2)}.tfrev span{font-size:17px;font-weight:700}
+.tfeb{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+html.calm .tfk{transition:none}
+@media (prefers-reduced-motion:reduce){.tfk{transition:none}}
+@media (max-height:700px){.tfk{min-height:180px}.tfw{font-size:32px}.tfh{font-size:26px}}
+/* an island with the extra row: on shorter screens the crab's note makes room for it, and the picture is smaller */
+@media (max-height:780px){.island.hasx .guide{display:none}}
+@media (max-height:700px){.island.hasx .ihero .pic{width:32%}.island.hasx{gap:8px}}
+.tfhq{display:inline-flex;align-items:baseline;gap:4px}

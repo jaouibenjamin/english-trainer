@@ -159,3 +159,15 @@ the files and their sha256 (needs Pillow); `verify --cache DIR` compares every f
 model: every byte range except the texture is identical); `check` needs no download. `python3 tests/remote_guard.py`
 (also run by `tests/run.py`) fails on any URL of another host in `js/`, `css/`, the pages and the tools, the voice files included: no file is
 excused. Exactly one thing is allowed: the class backend URL in `config.js`.
+
+## Extra practice games (behind a switch, off by default)
+
+`js/extra.js` lists extra games over the same words as the islands; an island shows one button for each. They are
+practice only: no stars, no points, nothing added to the saved progress, nothing sent. A wrong answer explains and
+the word comes back. A device gets the switch by opening the game once with `?games=1` (`?games=0` takes it away).
+
+- **נכון או לא?** (`js/tf.js`): a card shows an English word and a Hebrew meaning from the teacher's list; the pupil
+  says whether they belong together, by swiping the card, by two buttons or by the arrow keys.
+
+`python3 tests/extra.py` plays it at phone and laptop sizes and for a signed-in pupil, and checks the cards against
+the word list, the three ways to answer, the voice, the layout and that nothing is saved or sent.
