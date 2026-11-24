@@ -90,7 +90,7 @@ Mission names and "5 words" are placeholders. Plural address is used so it works
 
 ## Rollout (each behind a flag, default off; the class keeps the current look)
 Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"` and loading `css/ds.css`. Teacher turns the class on later by config. Ship one screen at a time, test with `tests/*.py` in both modes.
-1. **Title / login** (low risk, first impression, no learning state). Needs the character picker.
+1. **Title / login** (low risk, first impression, no learning state). Needs the character picker. *Built behind the flag: see "Rollout step 1" below.*
 2. **Island map** (world map + island path, with energy and today's focus). The new structure; needs the engineer for energy rules and the weak-item recommender.
 3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered.
 4. **Fraction Bay** (math). Same shell; island of the world map.
@@ -100,3 +100,13 @@ Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"
 
 ## Not done here / needs art
 Real island, stone, character and sea images (glow is baked in). The 20 characters and their gender/skin variety. Sounds.
+
+## Rollout step 1: title, login and settings of the live game, behind the flag
+Files: `js/dsflag.js` (the flag), `css/ds-game.css` (the skin), one `<script>` line in `index.html`. Default off.
+- `index.html?ds=1` turns the new look on for that device and remembers it (`localStorage.wi_ds`); `?ds=0` turns it off. With the flag off, `dsflag.js` adds nothing and writes nothing, and the two stylesheets are not requested.
+- With it on, `<html>` gets the class `ds` and every rule in `ds-game.css` sits under `html.ds #stage[data-scr=title|login|settings]` or the matching screen class. All other screens keep today's look.
+- Styling only. No element is added, removed or reordered; the login form keeps its fields, ids, labels, validation, messages and requests. Pitzi's new picture is drawn as the background of the existing `<img>` (its own picture is squeezed to zero height), so no script or markup changes.
+- Backdrop: `bg/world` (night sea with the moon). Title: the three subjects are three tiles of equal weight; the mock exam tile is paper, because the exam stays light. Login: one dark card with a keyline; fields are navy-900 with a line border and white text; the main button is the only gold one. Settings: dark cards, aqua switches.
+- Targets: the two login tabs and the three fields are 48px tall with the flag on (44 to 47px today).
+- Known seams, on purpose for step 1: the map, help, class table and teacher screens are still in the old look, so moving from the title to the map changes style. The old painted icons in settings are kept.
+- Checked: `tests/play.py --quick` gives the same 171 checks on `game`, on this branch with the flag off, and with the flag on (class login against the mock backend included).
