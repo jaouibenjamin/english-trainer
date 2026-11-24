@@ -13,12 +13,13 @@ const $=s=>document.querySelector(s);
 const cv=$('#gl'),stageEl=$('#rstage'),hud=$('#hud'),pad=$('#pad'),menu=$('#menu'),banner=$('#banner'),flashEl=$('#flash');
 if(SET.calm)document.documentElement.classList.add('calm');
 /* two looks: anime cel-shading (default) and low-poly (?style=lowpoly) */
-const CF='https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/';
+/* the runner models and their menu pictures are ours, served next to the game (relative URLs; sources: assets/sources.tsv) */
+const M3D='assets/3d/',HPIC='assets/x/';
 const LOOKS={
  anime:{sky:['#3d9be9','#bfe6ff','#fff6e0'],fog:0xd6efff,hemi:[0xffffff,0x9cc7e8,1.3],sea:'#3aa7e0',sand:'#f7e2b0',green:0x55c46a,trunk:0xa0703e,umb:[0xf25c54,0xf6c64a,0x3d8be0,0xffffff],post:0x3d8be0,beam:0xf25c54,
-  hero:CF+'hf_20261122_113604_02d63541-4d63-4dff-a4b5-8682f1cdf94e.glb',pic:CF+'hf_20261122_091647_8388a3bd-9f46-4847-aab0-386dae7019a4.png',cel:true},
+  hero:M3D+'hf_20261122_113604_02d63541-4d63-4dff-a4b5-8682f1cdf94e.glb',pic:HPIC+'hf_20261122_091647_8388a3bd-9f46-4847-aab0-386dae7019a4.webp',cel:true},
  lowpoly:{sky:['#5d4fa3','#f6a77f','#ffd7a6'],fog:0xf3b08c,hemi:[0xffe6d0,0x6a5acd,1.35],sea:'#2bb3b1',sand:'#f4c99a',green:0x3fae7a,trunk:0xb07a4f,umb:[0xf2785c,0xf6c64a,0x8a6fd1,0xffffff],post:0x2bb3b1,beam:0x8a6fd1,
-  hero:CF+'hf_20261122_091919_b439053f-4747-4a22-8aa0-0a67974a1928.glb',pic:CF+'hf_20261122_091647_e1c4af42-4710-4261-b59c-e0dd1df63c87.png',cel:false}};
+  hero:M3D+'hf_20261122_091919_b439053f-4747-4a22-8aa0-0a67974a1928.glb',pic:HPIC+'hf_20261122_091647_e1c4af42-4710-4261-b59c-e0dd1df63c87.webp',cel:false}};
 const LOOK=LOOKS[new URLSearchParams(location.search).get('style')]||LOOKS.anime;
 document.documentElement.classList.add(LOOK.cel?'anime':'lowpoly');
 
@@ -95,7 +96,7 @@ const crab=makeCrab();scene.add(crab.root);scene.add(crab.shadow);
 const HERO_PIC=LOOK.pic;
 const HERO_URL=LOOK.hero.includes('__')?'':LOOK.hero;
 let hero=null;
-if(HERO_URL.startsWith('https://'))new GLTFLoader().load(HERO_URL,g=>{const m=g.scene;
+if(HERO_URL)new GLTFLoader().load(HERO_URL,g=>{const m=g.scene;
   const b=new THREE.Box3().setFromObject(m),sz=b.getSize(new THREE.Vector3()),k=1.95/(sz.y||1);m.scale.setScalar(k);
   const b2=new THREE.Box3().setFromObject(m),c=b2.getCenter(new THREE.Vector3());m.position.set(-c.x,-b2.min.y,-c.z);
   const inks=[];m.traverse(o=>{if(o.isMesh){o.frustumCulled=false;const mt=o.material;if(mt&&mt.map)mt.map.colorSpace=THREE.SRGBColorSpace;
@@ -333,7 +334,7 @@ menu.addEventListener('click',e=>{const pb=e.target.closest('[data-pace]');if(pb
 
 /* test hooks */
 window.__run={G:()=>G,act,begin,lanes:()=>G&&G.gate?G.gate.lanes:null,answer:()=>G&&G.gate?G.gate.it.a:null,
- goLane:i=>{if(G)G.lane=i},noHit:v=>{window.__runNoHit=v}};
+ goLane:i=>{if(G)G.lane=i},noHit:v=>{window.__runNoHit=v},runner:()=>({hero:!!hero&&hero.root.visible,crab:crab.root.visible,clip:hero&&hero.act?hero.act.getClip().name:''})};
 /* fonts first, so the signs are drawn in the game's own hand */
 Promise.race([Promise.all([document.fonts.load('800 40px "Playpen Sans Hebrew"','אבג'),document.fonts.load('800 40px "Playpen Sans Hebrew"','Abc')]),new Promise(r=>setTimeout(r,2500))])
  .finally(()=>{start();requestAnimationFrame(frame)});
