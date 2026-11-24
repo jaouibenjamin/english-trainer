@@ -1,0 +1,96 @@
+# Design system v1: Arcade Lagoon
+
+Night sea, dark glass panels, aqua and gold accents. Files: `css/ds.css` (tokens + components, all classes prefixed `wi-`), `ds.html` (live preview, noindex, not linked). Nothing in the live game loads either file yet.
+
+## Principles
+- One main action per screen, targets at least 48px, text never below 16px (14px only for tags).
+- Mistakes explain and come back. Warm coral "fix" colour, never alarm red. Nobody shown last.
+- Energy is earn-only: never drains, never blocks, replaying anything open is free. No copy may say "lost", "not enough", "out of".
+- Glow lives in image assets. CSS uses solid edges and flat rings only: no blur, no backdrop-filter, no animated shadow.
+- Exam and anything printed use the light "paper" card inside the dark shell.
+
+## Tokens (contrast measured, WCAG 2.x)
+| Token | Hex | Use | Pair and ratio |
+|---|---|---|---|
+| navy-900 | #0B1E3F | page background | white 16.51, dim 8.56, aqua 10.41, gold 11.44 |
+| navy-800 | #11295A | card, panel | white 14.11, dim 7.31, aqua 8.89, gold 9.77, good 8.40, fix 6.16, locked 4.53 |
+| navy-700 | #18376B | raised, disabled button | white 11.68, dim 6.05 |
+| text / dim | #FFFFFF / #A9BCD9 | text on dark | see above |
+| aqua | #2EE6C5 | energy, current stone, links | navy-900 on aqua 10.41 (aqua-press #25C9AD: 7.89) |
+| gold | #FFD23F | main button, stars, done | navy-900 on gold 11.44 (gold-press #E8B91F: 8.96) |
+| azure | #134B8A | secondary button | white 8.75 (press #0F3B6E: 11.22) |
+| magenta | #C7367A | special, rare only | white 4.96, fine for 18px bold; press #A22660: 7.04 |
+| good / fix | #5BE08F / #FF8A7A | right / let's fix it, on dark | 8.40 / 6.16 on navy-800 |
+| locked | #7F93B5 | lock icon, locked label | 4.53 on navy-800. Not for text on navy-700 (3.75) |
+| line | #5C8AC6 | borders, control outlines | 4.64 / 3.97 / 3.29 on 900 / 800 / 700 (needs 3) |
+| locked-line | #5F76A0 | locked stone ring | 3.08 on navy-800 |
+| paper / paper-2 | #FFF4DE / #F3E3C0 | exam, print | ink #1B2A41: 13.24 / 11.39 |
+| ink-2 | #4A5568 | secondary on paper | 6.90 on paper, 5.93 on paper-2 |
+| good-ink / fix-ink | #1E7A46 / #A8402B | right / fix on paper | 4.90 / 5.61 |
+| focus | #FFFFFF (dark), #134B8A (paper) | focus-visible ring 3px, offset 3px | 14.11 / 8.02 |
+
+The ratios are also computed live in `ds.html` from the CSS variables, so the table cannot drift.
+Adjusted from the starting palette: `line` (first try #3C6AA8 gave only 2.57 on cards), and added `dim`, `locked`, paper and ink sets. The five approved pairs are unchanged and pass.
+
+Type scale: 14, 16, 18 (body), 22, 28, 36. Line height 1.45 (1.2 for titles). Spacing 4, 8, 12, 16, 24, 32, 48. Radii 8, 12, 16, 24, pill. Elevation: e1/e2/e3 are solid 2/4/6px edges in #050E22; "ring" is a 3px flat translucent ring. Motion: 120 / 200 / 360ms, one easing, only transform and opacity.
+
+## Fonts
+Only the self-hosted files in `assets/font`: Fredoka (Hebrew glyphs, file `fredoka-hebrew.woff2`) and Playpen Sans (Latin, `playpen-latin.woff2`). `ds.css` declares them as `WI Hebrew` and `WI Latin` (same files, no new request).
+- Hebrew in Fredoka: round, friendly, clear. OK for 10 to 11 year olds, not cursive. Keep.
+- English in Playpen Sans: handwritten, reads childish and slightly toy-like in this arcade look, and mismatches Fredoka's geometry. It is also the thing kids must read most carefully (spelling). Verdict: too handwritten for the new direction.
+- Recommendation (not added): **Rubik** (SIL OFL 1.1, Hebrew + Latin in one family, lightly rounded corners, weights 300 to 900). It would replace both fonts with one file set and match Fredoka's friendliness. Alternative: **Heebo** (OFL 1.1, neutral, very readable). Swapping is one change: `--wi-font-ui` and `--wi-font-en`. Needs the owner's OK because it adds a font file to the repo.
+
+## Components (all `wi-` prefixed)
+| Component | Do | Don't |
+|---|---|---|
+| `btn` primary (gold), `--secondary` (azure+aqua ring), `--quiet`, `--special` (magenta) | One primary per screen. Verb first: "משחקים". Pressed sinks 3px. Disabled shows a lock or reason nearby. | Two gold buttons. Red buttons. Disabled without saying why. |
+| `card` dark / `--paper` | Dark for game, paper for exam and print. | Paper card inside the game flow for decoration. |
+| `chip` (HUD), `--btn` | Energy, stars, avatar, settings. Tappable chips use `--btn` (48px). | Numbers without icon. Chips over the road or the question. |
+| `bar` (energy, progress) | Fills from the inline-start side. Has `role=progressbar`. | Showing it empty as a warning. It only goes up. |
+| `stone` done / current / locked + `stars` | 1 to 3 stars under done stones. Current stone has aqua ring. Locked shows lock and a hint on tap. | Hiding locked stones. Showing a grey star row on a stone never played. |
+| `av` avatar tile | Default, selected (gold ring + check badge), locked (dimmed + lock). `aria-pressed`. | Locking by name or gender. |
+| `tag` | Short status. `--btn` for filters (48px). | Tags as the only way to tap. |
+| `banner` (today's focus, fix, good) | In the layout flow, with one action button. | Floating over the answers. Auto-hiding the only explanation. |
+| `dialog` in `scrim` | Title, one sentence, one button. Esc and button close. | Two destructive-looking choices. |
+
+## RTL rules
+- Logical properties only in the system (`margin-inline`, `inline-size`, `inset-inline-end`, `border-inline-start`). The one exception is map art in mocks, which is a picture and is not mirrored.
+- Page is `dir=rtl lang=he`. Every English word or phrase sits in `<bdi dir="ltr">` (or `.wi-en`). Never put English at the start of a Hebrew string without it.
+- Icons drawn pointing right. In Hebrew, right means "back" (unmirrored) and "next/forward" needs `wi-icon--mirror`. Never mirrored: star, bolt, lock, check, gear, person, focus, close, question mark, play, speaker, clock, bar fill icon.
+- Star rows are always left to right (1-2-3), also in RTL. Numbers stay LTR.
+- Bars fill from the inline-start edge (right in Hebrew).
+
+## Motion
+- Allowed: stone press, bar fill, banner entrance (8px fade), character bob on the current stone.
+- Not allowed: shaking, flashing, red pulses, spinning on mistakes. Wrong answers get a soft fade and the explanation.
+- `html.calm` and `prefers-reduced-motion` turn off every animation and transition inside `.wi-root`.
+
+## Strings (Hebrew)
+| Where | Text |
+|---|---|
+| Picker title | בחרו את הדמות שלכם |
+| Picker subtitle | אפשר להחליף אותה מתי שרוצים. |
+| Picker confirm | זאת הדמות שלי |
+| Picker locked note | דמויות נוספות נפתחות כשמרוויחים אנרגיה. |
+| Energy, one sentence | מרוויחים אנרגיה כשלומדים, והיא אף פעם לא נגמרת. |
+| Energy dialog | מה זו אנרגיה? / מתקנים טעות, חוזרים למילה קשה או באים כל יום. משחק שכבר נפתח אפשר לשחק שוב בחינם. / הבנתי |
+| Locked stone hint | עוד נעולה. משחקים את משימה 4 והיא נפתחת. |
+| Today's focus | המיקוד להיום / יש 5 מילים שכדאי לחזק. זה ייקח כמה דקות. / מתחילים |
+| Stars | כוכב אחד: קל. שני כוכבים: בינוני. שלושה כוכבים: מאתגר. (legend: כל כוכב נוסף, משחק קשה יותר) |
+| Coming soon | בקרוב |
+| Fix toast | כמעט! המילה X תחזור עוד מעט, ושם תצליחו. / תיקנתם טעות, קיבלתם אנרגיה |
+
+Mission names and "5 words" are placeholders. Plural address is used so it works for boys and girls.
+
+## Rollout (each behind a flag, default off; the class keeps the current look)
+Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"` and loading `css/ds.css`. Teacher turns the class on later by config. Ship one screen at a time, test with `tests/*.py` in both modes.
+1. **Title / login** (low risk, first impression, no learning state). Needs the character picker.
+2. **Island map** (world map + island path, with energy and today's focus). The new structure; needs the engineer for energy rules and the weak-item recommender.
+3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered.
+4. **Fraction Bay** (math). Same shell; island of the world map.
+5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep.
+6. **Beach Run HUD**. Chips and bar over the WebGL canvas; check phone performance (no blur).
+7. **Teacher screen**. Dark or paper; it is data-heavy. Last, lowest kid impact.
+
+## Not done here / needs art
+Real island, stone, character and sea images (glow is baked in). The 20 characters and their gender/skin variety. Sounds.

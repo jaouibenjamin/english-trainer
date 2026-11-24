@@ -1,0 +1,187 @@
+/* Word Islands design system v1 "Arcade Lagoon". Additive: nothing loads this yet except ds.html.
+   Rules: logical properties only (RTL first), no blur/backdrop filters, no animated shadows,
+   only transform/opacity animate, calm setting (html.calm) and prefers-reduced-motion stop all motion.
+   Every class is prefixed wi- so it can sit next to game.css without clashes. */
+
+/* ---- fonts: self-hosted only, same files the game already ships ---- */
+@font-face{font-family:'WI Hebrew';font-style:normal;font-weight:300 800;font-display:swap;src:url(../assets/font/fredoka-hebrew.woff2) format('woff2');unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:'WI Latin';font-style:normal;font-weight:300 800;font-display:swap;src:url(../assets/font/playpen-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+:root{
+ /* ---- colour: surfaces (dark shell) ---- */
+ --wi-navy-900:#0B1E3F;   /* page background */
+ --wi-navy-800:#11295A;   /* card / panel */
+ --wi-navy-700:#18376B;   /* raised, tiles, disabled button */
+ --wi-line:#5C8AC6;       /* borders and control outlines: 3.3 to 4.6 on all navy surfaces (3:1 non-text) */
+ --wi-scrim:#050E22;      /* behind dialogs, solid edge shadows */
+ /* ---- colour: text on dark ---- */
+ --wi-text:#FFFFFF;       /* on navy 900/800/700 */
+ --wi-text-dim:#A9BCD9;   /* secondary text, on navy 900/800/700 */
+ /* ---- colour: accents ---- */
+ --wi-aqua:#2EE6C5;       /* energy, current, links. text on navy */
+ --wi-aqua-press:#25C9AD;
+ --wi-gold:#FFD23F;       /* stars, main action, done. text on navy */
+ --wi-gold-press:#E8B91F;
+ --wi-azure:#134B8A;      /* secondary button: white text */
+ --wi-azure-press:#0F3B6E;
+ --wi-magenta:#C7367A;    /* special / rare: white text */
+ --wi-magenta-press:#A22660;
+ --wi-good:#5BE08F;       /* "right" on dark */
+ --wi-fix:#FF8A7A;        /* "let's fix it" on dark: warm, never an alarm red */
+ --wi-locked:#7F93B5;     /* lock icon and locked label on navy-800 */
+ --wi-locked-line:#5F76A0;
+ /* ---- colour: light "paper" (mock exam, printable) ---- */
+ --wi-paper:#FFF4DE;
+ --wi-paper-2:#F3E3C0;
+ --wi-paper-line:#D9C393;
+ --wi-ink:#1B2A41;        /* text on paper */
+ --wi-ink-2:#4A5568;      /* secondary text on paper */
+ --wi-good-ink:#1E7A46;
+ --wi-fix-ink:#A8402B;
+ /* ---- focus ---- */
+ --wi-focus:#FFFFFF;       /* on dark */
+ --wi-focus-paper:#134B8A; /* on paper */
+ /* ---- type ---- */
+ --wi-font-ui:'WI Hebrew','Rubik','Heebo','Arial Hebrew','Noto Sans Hebrew',system-ui,sans-serif;
+ --wi-font-en:'WI Latin','Segoe UI',system-ui,sans-serif;  /* English runs. See docs/DESIGN.md: swap candidate */
+ --wi-fs-xs:14px;--wi-fs-sm:16px;--wi-fs-md:18px;--wi-fs-lg:22px;--wi-fs-xl:28px;--wi-fs-2xl:36px;
+ --wi-lh:1.45;--wi-lh-tight:1.2;
+ /* ---- space, radius ---- */
+ --wi-s1:4px;--wi-s2:8px;--wi-s3:12px;--wi-s4:16px;--wi-s5:24px;--wi-s6:32px;--wi-s7:48px;
+ --wi-r-sm:8px;--wi-r-md:12px;--wi-r-lg:16px;--wi-r-xl:24px;--wi-r-pill:999px;
+ --wi-tap:48px;            /* minimum touch target (brief says 44, we use 48) */
+ /* ---- elevation: solid edges, no blur ---- */
+ --wi-e0:none;
+ --wi-e1:0 2px 0 var(--wi-scrim);
+ --wi-e2:0 4px 0 var(--wi-scrim);
+ --wi-e3:0 6px 0 var(--wi-scrim);
+ --wi-ring-aqua:0 0 0 3px rgba(46,230,197,.35);   /* "glow" stand-in: a flat ring */
+ --wi-ring-gold:0 0 0 3px rgba(255,210,63,.4);
+ /* ---- motion ---- */
+ --wi-dur-fast:120ms;--wi-dur:200ms;--wi-dur-slow:360ms;
+ --wi-ease:cubic-bezier(.2,.8,.2,1);
+}
+
+/* ---- base ---- */
+.wi-root{background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);font-size:var(--wi-fs-md);line-height:var(--wi-lh);-webkit-font-smoothing:antialiased}
+.wi-root *,.wi-root *::before,.wi-root *::after{box-sizing:border-box}
+.wi-root bdi[dir=ltr],.wi-en{font-family:var(--wi-font-en);unicode-bidi:isolate;direction:ltr}
+.wi-h1{font-size:var(--wi-fs-xl);line-height:var(--wi-lh-tight);font-weight:700;margin:0}
+.wi-h2{font-size:var(--wi-fs-lg);line-height:var(--wi-lh-tight);font-weight:700;margin:0}
+.wi-body{font-size:var(--wi-fs-md);margin:0}
+.wi-small{font-size:var(--wi-fs-sm);color:var(--wi-text-dim);margin:0}
+.wi-icon{inline-size:1.25em;block-size:1.25em;flex:none;fill:currentColor;vertical-align:middle}
+.wi-icon--mirror{transform:scaleX(-1)}                     /* only arrows / back / next */
+.wi-ltr .wi-icon--mirror{transform:none}
+:where(.wi-root) :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px;border-radius:var(--wi-r-sm)}
+.wi-paper :focus-visible,.wi-card--paper :focus-visible{outline-color:var(--wi-focus-paper)}
+
+/* ---- buttons ---- */
+.wi-btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--wi-s2);min-block-size:var(--wi-tap);min-inline-size:var(--wi-tap);padding-block:var(--wi-s3);padding-inline:var(--wi-s5);
+ border:0;border-radius:var(--wi-r-lg);font:700 var(--wi-fs-md)/var(--wi-lh-tight) var(--wi-font-ui);cursor:pointer;text-decoration:none;
+ background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:var(--wi-e2);
+ transition:transform var(--wi-dur-fast) var(--wi-ease);-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.wi-btn:active,.wi-btn.is-pressed{transform:translateY(3px);box-shadow:0 1px 0 var(--wi-scrim);background:var(--wi-gold-press)}
+.wi-btn--block{display:flex;inline-size:100%}
+.wi-btn--secondary{background:var(--wi-azure);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e2)}
+.wi-btn--secondary:active,.wi-btn--secondary.is-pressed{background:var(--wi-azure-press);box-shadow:inset 0 0 0 2px var(--wi-aqua),0 1px 0 var(--wi-scrim)}
+.wi-btn--quiet{background:transparent;color:var(--wi-aqua);box-shadow:none;padding-inline:var(--wi-s4)}
+.wi-btn--quiet:active,.wi-btn--quiet.is-pressed{background:var(--wi-navy-700);transform:none;box-shadow:none}
+.wi-btn--special{background:var(--wi-magenta);color:var(--wi-text)}
+.wi-btn--special:active,.wi-btn--special.is-pressed{background:var(--wi-magenta-press)}
+.wi-btn[disabled],.wi-btn[aria-disabled=true]{background:var(--wi-navy-700);color:var(--wi-text-dim);box-shadow:inset 0 0 0 2px var(--wi-locked-line);cursor:not-allowed;transform:none}
+.wi-btn--quiet[disabled]{background:transparent;box-shadow:none}
+.wi-btn--paper{background:var(--wi-ink);color:var(--wi-paper);box-shadow:none}
+.wi-btn--paper:active{background:#000;transform:none}
+
+/* ---- cards ---- */
+.wi-card{background:var(--wi-navy-800);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-xl);padding:var(--wi-s4);box-shadow:var(--wi-e1)}
+.wi-card--raised{background:var(--wi-navy-700)}
+.wi-card--paper{background:var(--wi-paper);color:var(--wi-ink);border-color:var(--wi-paper-line);border-radius:var(--wi-r-lg);box-shadow:none}
+.wi-card--paper .wi-small{color:var(--wi-ink-2)}
+
+/* ---- HUD chip (display only, 40px; tappable ones add .wi-chip--btn for 48px) ---- */
+.wi-chip{display:inline-flex;align-items:center;gap:var(--wi-s2);min-block-size:40px;padding-inline:var(--wi-s3);background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);font:700 var(--wi-fs-sm)/1 var(--wi-font-ui);color:var(--wi-text)}
+.wi-chip--btn{min-block-size:var(--wi-tap);min-inline-size:var(--wi-tap);justify-content:center;cursor:pointer}
+.wi-chip--energy .wi-chip__ico{color:var(--wi-aqua)}
+.wi-chip--star .wi-chip__ico{color:var(--wi-gold)}
+.wi-hud{display:flex;align-items:center;gap:var(--wi-s2);flex-wrap:wrap}
+.wi-hud__grow{flex:1}
+
+/* ---- progress / energy bar (fills from the inline-start side: right-to-left in Hebrew. The bolt icon is not mirrored) ---- */
+.wi-bar{display:flex;align-items:center;gap:var(--wi-s3);padding-inline:var(--wi-s3);min-block-size:44px;background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill)}
+.wi-bar__ico{color:var(--wi-aqua)}
+.wi-bar__track{flex:1;block-size:14px;background:var(--wi-navy-900);border-radius:var(--wi-r-pill);overflow:hidden;box-shadow:inset 0 0 0 1px var(--wi-line)}
+.wi-bar__fill{display:block;block-size:100%;inline-size:calc(var(--p,50) * 1%);background:var(--wi-aqua);border-radius:var(--wi-r-pill);transition:inline-size var(--wi-dur-slow) var(--wi-ease)}
+.wi-bar--gold .wi-bar__fill{background:var(--wi-gold)}
+.wi-bar--gold .wi-bar__ico{color:var(--wi-gold)}
+.wi-bar__txt{font-size:var(--wi-fs-sm);font-weight:700;color:var(--wi-text);min-inline-size:3ch;text-align:end}
+
+/* ---- stars (display) ---- */
+.wi-stars{display:inline-flex;gap:2px;direction:ltr}         /* star rows read 1-2-3 left to right in both directions */
+.wi-star{inline-size:20px;block-size:20px;fill:var(--wi-gold)}
+.wi-star--off{fill:none;stroke:var(--wi-locked-line);stroke-width:1.5}
+
+/* ---- mission stone: a button, 72px disc, label under it ---- */
+.wi-stone{display:flex;flex-direction:column;align-items:center;gap:var(--wi-s2);background:none;border:0;padding:0;color:var(--wi-text);font-family:var(--wi-font-ui);cursor:pointer;min-inline-size:88px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.wi-stone__disc{display:grid;place-items:center;inline-size:72px;block-size:72px;border-radius:50%;background:var(--wi-navy-800);border:3px solid var(--wi-locked-line);color:var(--wi-locked);box-shadow:var(--wi-e2);transition:transform var(--wi-dur-fast) var(--wi-ease)}
+.wi-stone:active .wi-stone__disc{transform:translateY(3px) scale(.97)}
+.wi-stone__num{font:700 var(--wi-fs-lg)/1 var(--wi-font-ui)}
+.wi-stone__label{font-size:var(--wi-fs-sm);font-weight:600;line-height:1.2;text-align:center;max-inline-size:120px}
+.wi-stone--done .wi-stone__disc{background:#5A4300;border-color:var(--wi-gold);color:var(--wi-gold)}
+.wi-stone--current .wi-stone__disc{background:var(--wi-navy-700);border-color:var(--wi-aqua);color:var(--wi-aqua);box-shadow:var(--wi-ring-aqua),var(--wi-e2)}
+.wi-stone--current .wi-stone__label{color:var(--wi-aqua)}
+.wi-stone--locked .wi-stone__label{color:var(--wi-locked)}
+.wi-stone--locked{cursor:help}
+@keyframes wi-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.wi-bob{animation:wi-bob 2s ease-in-out infinite}            /* the pupil's character on the current stone */
+
+/* ---- avatar tile: round, at least 48px, normally 76-96px ---- */
+.wi-av{position:relative;display:grid;place-items:center;inline-size:100%;aspect-ratio:1;min-inline-size:var(--wi-tap);max-inline-size:96px;margin-inline:auto;padding:0;border-radius:50%;background:var(--wi-navy-800);border:2px solid var(--wi-line);color:var(--wi-text);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.wi-av[aria-pressed=true],.wi-av.is-selected{border:4px solid var(--wi-gold);box-shadow:var(--wi-ring-gold)}
+.wi-av__badge{position:absolute;inset-block-end:-2px;inset-inline-end:-2px;display:grid;place-items:center;inline-size:26px;block-size:26px;border-radius:50%;background:var(--wi-gold);color:var(--wi-navy-900)}
+.wi-av--locked{border-color:var(--wi-locked-line);color:var(--wi-locked);cursor:help}
+.wi-av--locked .wi-av__art{opacity:.35}
+.wi-av__lock{position:absolute;inset:0;display:grid;place-items:center}
+.wi-av__art{display:block;inline-size:100%;block-size:100%;border-radius:50%}
+
+/* ---- chip / tag ---- */
+.wi-tag{display:inline-flex;align-items:center;gap:var(--wi-s1);min-block-size:28px;padding-inline:var(--wi-s3);border-radius:var(--wi-r-pill);background:var(--wi-navy-700);color:var(--wi-text);font:600 var(--wi-fs-xs)/1 var(--wi-font-ui)}
+.wi-tag--aqua{background:var(--wi-aqua);color:var(--wi-navy-900)}
+.wi-tag--gold{background:var(--wi-gold);color:var(--wi-navy-900)}
+.wi-tag--azure{background:var(--wi-azure);color:var(--wi-text)}
+.wi-tag--special{background:var(--wi-magenta);color:var(--wi-text);font-weight:700}
+.wi-tag--btn{min-block-size:var(--wi-tap);padding-inline:var(--wi-s4);font-size:var(--wi-fs-sm);cursor:pointer;border:1px solid var(--wi-line)}
+.wi-tag--btn[aria-pressed=true]{background:var(--wi-aqua);color:var(--wi-navy-900);border-color:var(--wi-aqua)}
+
+/* ---- toast / today's focus banner. Sits in the layout flow, never over the question or the road ---- */
+.wi-banner{display:flex;align-items:center;gap:var(--wi-s3);padding:var(--wi-s3) var(--wi-s4);background:var(--wi-navy-800);border:1px solid var(--wi-line);border-inline-start:6px solid var(--wi-gold);border-radius:var(--wi-r-lg);color:var(--wi-text)}
+.wi-banner__ico{color:var(--wi-gold)}
+.wi-banner{flex-wrap:wrap}
+.wi-banner__txt{flex:1 1 180px;min-inline-size:0}
+.wi-banner__title{font-weight:700;font-size:var(--wi-fs-md);margin:0}
+.wi-banner__body{font-size:var(--wi-fs-sm);color:var(--wi-text-dim);margin:0}
+.wi-banner--fix{border-inline-start-color:var(--wi-fix)}
+.wi-banner--fix .wi-banner__ico{color:var(--wi-fix)}
+.wi-banner--good{border-inline-start-color:var(--wi-good)}
+.wi-banner--good .wi-banner__ico{color:var(--wi-good)}
+.wi-toast{animation:wi-in var(--wi-dur-slow) var(--wi-ease) both}
+@keyframes wi-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---- dialog (div role=dialog aria-modal inside .wi-scrim; Esc and the close button both close) ---- */
+.wi-scrim{position:fixed;inset:0;display:grid;place-items:end center;padding:var(--wi-s4);background:rgba(5,14,34,.88);z-index:50}
+.wi-scrim--static{position:relative;inset:auto;min-block-size:320px;border-radius:var(--wi-r-xl);place-items:center}   /* preview page only */
+.wi-dialog{inline-size:100%;max-inline-size:420px;background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:var(--wi-r-xl);padding:var(--wi-s5);display:flex;flex-direction:column;gap:var(--wi-s4);box-shadow:var(--wi-e3)}
+.wi-dialog__actions{display:flex;flex-direction:column;gap:var(--wi-s2)}
+
+/* ---- layout helpers ---- */
+.wi-stack{display:flex;flex-direction:column;gap:var(--wi-s4)}
+.wi-row{display:flex;align-items:center;gap:var(--wi-s3)}
+.wi-grid-av{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--wi-s3)}
+.wi-sr{position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* ---- motion: the calm setting and reduced motion stop every loop and entrance ---- */
+@media (prefers-reduced-motion:reduce){
+ .wi-root *,.wi-root *::before,.wi-root *::after{animation:none!important;transition-duration:.01ms!important}
+}
+html.calm .wi-root *,html.calm .wi-root *::before,html.calm .wi-root *::after{animation:none!important;transition-duration:.01ms!important}
