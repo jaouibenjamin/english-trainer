@@ -25,6 +25,8 @@ alter table public.roster       enable row level security;
 alter table public.teachers     enable row level security;
 alter table public.pupils       enable row level security;
 alter table public.items        enable row level security;
+alter table public.levels       enable row level security;
+alter table public.level_best   enable row level security;
 alter table public.answers      enable row level security;
 alter table public.points       enable row level security;
 alter table public.pupil_totals enable row level security;
@@ -36,6 +38,7 @@ alter table private.class_codes      enable row level security;
 alter table private.pupil_secrets    enable row level security;
 alter table private.reset_codes      enable row level security;
 alter table private.pupil_devices    enable row level security;
+alter table private.legacy_import    enable row level security;
 alter table private.auth_attempts    enable row level security;
 alter table private.auth_buckets     enable row level security;
 alter table private.auth_lock_events enable row level security;
@@ -57,8 +60,7 @@ create policy teachers_self on public.teachers for select to authenticated
 create policy pupils_read on public.pupils for select to authenticated
   using (auth_user_id = (select auth.uid()) or app.teaches(class_id));
 
--- items: no policy and no grant. Item keys are text a pupil's device sends; if pupils could read the catalogue it
--- would be a notice board between children. The teacher sees the keys of her own class through teacher_items.
+-- items, levels: no policy and no grant. The server reads them to price events; no browser needs them.
 
 create policy answers_read on public.answers for select to authenticated
   using (pupil_id = (select app.pupil_id()) or app.teaches_pupil(pupil_id));
@@ -67,6 +69,8 @@ create policy points_read on public.points for select to authenticated
 create policy totals_read on public.pupil_totals for select to authenticated
   using (pupil_id = (select app.pupil_id()) or app.teaches_pupil(pupil_id));
 create policy daily_read on public.answer_daily for select to authenticated
+  using (pupil_id = (select app.pupil_id()) or app.teaches_pupil(pupil_id));
+create policy best_read on public.level_best for select to authenticated
   using (pupil_id = (select app.pupil_id()) or app.teaches_pupil(pupil_id));
 create policy progress_read on public.progress for select to authenticated
   using (pupil_id = (select app.pupil_id()) or app.teaches_pupil(pupil_id));
@@ -115,9 +119,8 @@ create view public.teacher_view with (security_barrier = true) as
   left join private.pupil_secrets s on s.pupil_id = p.id
   left join private.auth_buckets b on b.class_id = p.class_id and b.name_key = p.name_key and b.kind = 'picture' and b.bucket = '*'
   cross join lateral (
-    select coalesce(sum(least(3, app.safe_int(e.value, 3))), 0)::int as stars,
-           count(*) filter (where app.safe_int(e.value, 3) > 0)::int as levels
-    from jsonb_each(app.obj(app.obj(g.state -> 'g') -> 'st')) e
+    select coalesce(sum(lb.stars), 0)::int as stars, count(*) filter (where lb.stars > 0)::int as levels
+    from public.level_best lb where lb.pupil_id = p.id
   ) lv
   where app.teaches(p.class_id);
 
@@ -146,12 +149,16 @@ alter default privileges in schema public, private, app revoke all on sequences 
 alter default privileges in schema public, private, app revoke execute on functions from public, anon, authenticated;
 alter default privileges revoke execute on functions from public;
 
+-- the keep-alive: the one thing a visitor without a session may run. It reads nothing.
+create function public.ping() returns boolean language sql immutable set search_path = '' as $$ select true $$;
+grant execute on function public.ping() to anon, authenticated;
+
 grant usage on schema app to authenticated;
 grant execute on function app.pupil_id(), app.class_id(), app.teaches(uuid), app.teaches_pupil(uuid),
                           app.safe_int(jsonb, int), app.obj(jsonb), app.name_key(text) to authenticated;
 
 grant select on public.classes, public.teachers, public.pupils, public.answers, public.points,
-                public.pupil_totals, public.progress, public.flags, public.answer_daily,
+                public.pupil_totals, public.progress, public.flags, public.answer_daily, public.level_best,
                 public.class_board, public.teacher_view, public.teacher_items to authenticated;
 grant select, insert, delete on public.roster to authenticated;
 

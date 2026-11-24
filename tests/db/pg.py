@@ -46,6 +46,48 @@ class Db:
         pre = f"begin;\nselect set_config('request.jwt.claims', '{claims}', true) \\gset _c\nset local role {role};\n"
         return self.psql(pre + sql.rstrip().rstrip(';') + ';\ncommit;\n')
 
+    # ---- the API surface. The suites use only these five calls to act as a visitor, pupil or teacher, so the same
+    # ---- assertions can later run against a real project: a second driver would send them to the REST API with
+    # ---- that user's token instead of setting the role and the JWT claims in a transaction, as done here.
+    @staticmethod
+    def lit(v):
+        if v is None:
+            return 'null'
+        if isinstance(v, bool):
+            return 'true' if v else 'false'
+        if isinstance(v, (int, float)):
+            return repr(v)
+        if isinstance(v, (dict, list)):
+            return "'" + json.dumps(v, ensure_ascii=False).replace("'", "''") + "'::jsonb"
+        return "'" + str(v).replace("'", "''") + "'"
+
+    def _where(self, where):
+        return (' where ' + ' and '.join(f'{k} = {self.lit(v)}' for k, v in where.items())) if where else ''
+
+    def _json(self, who, sql):
+        rows, err = self.as_(who[0], who[1], sql)
+        if err:
+            return None, err
+        return json.loads(rows[0][0]), None
+
+    def select(self, who, table, cols='*', where=None):
+        return self._json(who, f"select coalesce(jsonb_agg(to_jsonb(t)), '[]') from (select {cols} from public.{table}{self._where(where)}) t")
+
+    def rpc(self, who, fn, args=None):
+        a = ', '.join(f'{k} => {self.lit(v)}' for k, v in (args or {}).items())
+        return self._json(who, f'select to_jsonb(public.{fn}({a}))')
+
+    def insert(self, who, table, values):
+        cols, vals = ', '.join(values), ', '.join(self.lit(v) for v in values.values())
+        return self._json(who, f"with x as (insert into public.{table} ({cols}) values ({vals}) returning *) select coalesce(jsonb_agg(to_jsonb(x)), '[]') from x")
+
+    def update(self, who, table, values, where=None):
+        sets = ', '.join(f'{k} = {self.lit(v)}' for k, v in values.items())
+        return self._json(who, f"with x as (update public.{table} set {sets}{self._where(where)} returning *) select coalesce(jsonb_agg(to_jsonb(x)), '[]') from x")
+
+    def delete(self, who, table, where=None):
+        return self._json(who, f"with x as (delete from public.{table}{self._where(where)} returning *) select coalesce(jsonb_agg(to_jsonb(x)), '[]') from x")
+
     def admin(self, sql):
         rows, err = self.psql(sql)
         if err:

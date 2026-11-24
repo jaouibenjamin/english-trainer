@@ -49,13 +49,22 @@ create table public.pupils (
   unique (class_id, name_key)
 );
 
--- what can be answered; rows are added by record_answers() the first time an item is seen
+-- what can be answered. Seeded from the repo's content files; an event with an unknown key earns nothing and is
+-- not stored, so a pupil's device cannot write free text here.
 create table public.items (
   id       int generated always as identity primary key,
   game     text not null check (game ~ '^[a-z0-9_]{1,16}$'),
   item_key text not null check (char_length(item_key) between 1 and 64 and item_key !~ '[\u0001-\u001f]'),
   skill    text not null default '' check (skill ~ '^[a-z0-9_-]{0,24}$'),
   unique (game, item_key)
+);
+
+-- levels, reading texts (game 'read') and exam papers (game 'exam', size = number of questions); seeded like items
+create table public.levels (
+  game      text not null check (game ~ '^[a-z0-9_]{1,16}$'),
+  level_key text not null check (char_length(level_key) between 1 and 60 and level_key !~ '[\u0001-\u001f]'),
+  size      int not null default 0 check (size between 0 and 500),
+  primary key (game, level_key)
 );
 
 -- append only, one row per item answered. pts and flag are decided by the server (0003), never by the client.
@@ -78,7 +87,7 @@ create table public.points (
   at       timestamptz not null default now(),
   pupil_id uuid not null references public.pupils on delete cascade,
   delta    int not null check (delta between -1000000 and 1000000),
-  reason   text not null check (reason in ('day', 'stars', 'migrated', 'fix')),
+  reason   text not null check (reason in ('day', 'stars', 'read', 'exam', 'run', 'migrated', 'fix')),
   ref      text not null default '' check (char_length(ref) <= 80)
 );
 create index points_pupil on public.points (pupil_id);
@@ -104,10 +113,20 @@ create table public.progress (
 create table public.flags (
   id       bigint generated always as identity primary key,
   pupil_id uuid not null references public.pupils on delete cascade,
-  kind     text not null check (kind in ('rate', 'daycap', 'repeat', 'items', 'levels', 'marathon')),
+  kind     text not null check (kind in ('rate', 'daycap', 'repeat', 'items', 'levels', 'marathon', 'unusual', 'bonus')),
   day      date not null,
   n        int not null default 1,
   unique (pupil_id, kind, day)
+);
+
+-- the best stars a pupil reached on each level, kept by record_events(); the teacher's stars come from here
+create table public.level_best (
+  pupil_id  uuid not null references public.pupils on delete cascade,
+  game      text not null,
+  level_key text not null,
+  stars     smallint not null check (stars between 0 and 3),
+  at        timestamptz not null default now(),
+  primary key (pupil_id, game, level_key)
 );
 
 -- roll-up of answers older than the raw window (maintenance() in 0003)
@@ -150,6 +169,7 @@ create table private.pupil_secrets (
   pic_salt    bytea,
   pic_hash    bytea check (pic_hash is null or octet_length(pic_hash) = 32),
   pic_iter    int not null default 600000 check (pic_iter >= 100000),
+  pic_recovered_at timestamptz,                       -- last recovery by pictures: once in 30 days
   pepper_id   smallint not null default 1
 );
 
@@ -162,6 +182,13 @@ create table private.reset_codes (
   fails      smallint not null default 0,
   created_by uuid,
   created_at timestamptz not null default now()
+);
+
+-- staging for the Sheet's fast hashes during migration; emptied by the one-off admin function that wraps them
+create table private.legacy_import (
+  pupil_id uuid primary key references public.pupils on delete cascade,
+  salt     text not null,
+  hash     text not null check (hash ~ '^[0-9a-f]{64}$')
 );
 
 create table private.pupil_devices (
@@ -224,9 +251,11 @@ create table private.answer_batches (
 create table private.pupil_days (
   pupil_id  uuid not null references public.pupils on delete cascade,
   day       date not null,
-  pointed   int not null default 0,
-  new_items int not null default 0,
+  pointed   int not null default 0,      -- answers with points whose own day (the client's clock, clamped) is this day
+  arrived   int not null default 0,      -- answers with points that reached the server on this day, whatever they claim
   levels    int not null default 0,
+  exams     int not null default 0,
+  run_pts   int not null default 0,
   bonus     boolean not null default false,
   primary key (pupil_id, day)
 );
@@ -243,8 +272,14 @@ create table private.settings (
   max_per_minute   int not null default 20,
   max_pointed_day  int not null default 600,
   max_item_day     int not null default 6,
-  max_new_items    int not null default 50,
   max_levels_day   int not null default 20,
+  unusual_answers  int not null default 300,
+  unusual_levels   int not null default 12,
+  pts_read         int not null default 50,
+  pts_exam_right   int not null default 5,
+  max_exams_day    int not null default 3,
+  max_run_day      int not null default 60,
+  migrated_cap     int not null default 50000,
   marathon_hours   int not null default 18,
   backfill_hours   int not null default 48,
   raw_days         int not null default 90,
@@ -253,10 +288,18 @@ create table private.settings (
   code_bucket_day  int not null default 10,
   code_name_day    int not null default 20,
   code_ceiling_day int not null default 29,
-  pic_round        int not null default 3,
-  pic_lock_hours   int not null default 24,
+  code_ip_class_day int not null default 30,
+  code_class_alarm int not null default 60,
+  code_class_brake int not null default 100,
+  device_days      int not null default 30,
+  pic_tries        int not null default 3,
+  pic_count        int not null default 2,
   pic_choices      int not null default 20,
-  otc_tries        int not null default 5,
+  pic_ip_day       int not null default 5,
+  pic_class_day    int not null default 10,
+  pic_again_days   int not null default 30,
+  otc_ip_tries     int not null default 5,
+  otc_tries        int not null default 30,
   otc_hours        int not null default 48,
   class_ip_hour    int not null default 30,
   register_ip_hour int not null default 60
