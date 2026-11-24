@@ -476,6 +476,81 @@ The game shows them from one sheet, drawn from these sources by `tools/sheet.htm
 |---|---|
 | `assets/x/pics.webp` | the 23 word pictures in one sheet (6 columns, 256 px each), as the mock exam and Beach Run show them |
 
+## Arcade Lagoon art (new look, not used by the live game yet)
+
+Character portraits, Pitzi in the new look, the world map, islands, mission stones and HUD icons. Tool: Higgsfield
+image generation, model named per file. Each file was cut, resized and encoded as WebP from its original. Original
+art: no known characters, brands or real people. Two HUD icons can share one job (they were drawn in one picture).
+
+### Character portraits
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/av/fox.hf_20261124_193400_13666c83-348b-431b-b04d-d074564ab9fd.webp` | character portrait: fox | 2026-11-24 | 13666c83-348b-431b-b04d-d074564ab9fd | gpt_image_2_5 |
+| `assets/al/av/owl.hf_20261124_193404_dc061f6f-695e-4b6c-a996-d0b4e74350d8.webp` | character portrait: owl | 2026-11-24 | dc061f6f-695e-4b6c-a996-d0b4e74350d8 | gpt_image_2_5 |
+| `assets/al/av/turtle.hf_20261124_193402_bd14c2df-0a0c-4503-913a-c618ad758171.webp` | character portrait: sea turtle | 2026-11-24 | bd14c2df-0a0c-4503-913a-c618ad758171 | gpt_image_2_5 |
+| `assets/al/av/shark.hf_20261124_193402_ebdc7601-0e4f-4db6-b376-84e91dd84f87.webp` | character portrait: shark | 2026-11-24 | ebdc7601-0e4f-4db6-b376-84e91dd84f87 | gpt_image_2_5 |
+| `assets/al/av/parrot.hf_20261124_193401_8182976b-36b2-49bf-9bb6-8e79477af20e.webp` | character portrait: parrot | 2026-11-24 | 8182976b-36b2-49bf-9bb6-8e79477af20e | gpt_image_2_5 |
+| `assets/al/av/cat.hf_20261124_193404_98c66024-7444-4d43-b85c-e32596bc0a82.webp` | character portrait: cat | 2026-11-24 | 98c66024-7444-4d43-b85c-e32596bc0a82 | gpt_image_2_5 |
+| `assets/al/av/penguin.hf_20261124_193404_b06fade6-d121-4d46-ba6d-dd434c30f3bc.webp` | character portrait: penguin | 2026-11-24 | b06fade6-d121-4d46-ba6d-dd434c30f3bc | gpt_image_2_5 |
+| `assets/al/av/robot-box.hf_20261124_193358_8e9be566-a832-4ec2-bc0a-46cbbed67678.webp` | character portrait: robot, box head | 2026-11-24 | 8e9be566-a832-4ec2-bc0a-46cbbed67678 | gpt_image_2_5 |
+| `assets/al/av/diver.hf_20261124_193400_9ef9220a-3ee3-43b5-b9b8-1dc8cd3e07c3.webp` | character portrait: diver, brass helmet | 2026-11-24 | 9ef9220a-3ee3-43b5-b9b8-1dc8cd3e07c3 | gpt_image_2_5 |
+| `assets/al/av/pilot.hf_20261124_193359_947a73dd-7a75-4153-af79-eed8ba753557.webp` | character portrait: explorer, closed helmet | 2026-11-24 | 947a73dd-7a75-4153-af79-eed8ba753557 | gpt_image_2_5 |
+| `assets/al/av/girl-curls.hf_20261124_204323_038b25bc-891b-4454-8816-30bc402e16d8.webp` | character portrait: girl, curls and headband | 2026-11-24 | 038b25bc-891b-4454-8816-30bc402e16d8 | gpt_image_2_5 |
+| `assets/al/av/girl-braids.hf_20261124_204325_e3e65a4e-765d-4e6c-a55e-bd82ecfed64a.webp` | character portrait: girl, braids | 2026-11-24 | e3e65a4e-765d-4e6c-a55e-bd82ecfed64a | gpt_image_2_5 |
+| `assets/al/av/girl-glasses.hf_20261124_204324_29e62949-8a89-4238-b6b5-82767b20433f.webp` | character portrait: girl, glasses and headphones | 2026-11-24 | 29e62949-8a89-4238-b6b5-82767b20433f | gpt_image_2_5 |
+| `assets/al/av/girl-ponytail.hf_20261124_204326_28c64740-7668-4b38-98e4-c4a154e32e30.webp` | character portrait: girl, ponytail and goggles | 2026-11-24 | 28c64740-7668-4b38-98e4-c4a154e32e30 | gpt_image_2_5 |
+| `assets/al/av/boy-cap.hf_20261124_204325_8963b8c9-566d-48e1-af0b-6821ec7db0f8.webp` | character portrait: boy, cap | 2026-11-24 | 8963b8c9-566d-48e1-af0b-6821ec7db0f8 | gpt_image_2_5 |
+| `assets/al/av/boy-curls.hf_20261124_204323_a05319fb-6024-40fa-83d0-004133d8b41f.webp` | character portrait: boy, curls and rain jacket | 2026-11-24 | a05319fb-6024-40fa-83d0-004133d8b41f | gpt_image_2_5 |
+| `assets/al/av/boy-blond.hf_20261124_204326_b8ec8cff-d393-4d2c-9f4d-a7148f64e7d4.webp` | character portrait: boy, glasses and vest | 2026-11-24 | b8ec8cff-d393-4d2c-9f4d-a7148f64e7d4 | gpt_image_2_5 |
+| `assets/al/av/boy-scarf.hf_20261124_204325_431de75e-e64b-46fa-a0df-33ddf428cc62.webp` | character portrait: boy, bandana | 2026-11-24 | 431de75e-e64b-46fa-a0df-33ddf428cc62 | gpt_image_2_5 |
+| `assets/al/av/robot-lantern.hf_20261124_204323_fb75c13b-cd6a-4301-8a9b-a58550679386.webp` | character portrait: robot, lantern | 2026-11-24 | fb75c13b-cd6a-4301-8a9b-a58550679386 | gpt_image_2_5 |
+| `assets/al/av/octopus.hf_20261124_204327_b1c753c1-abca-4c2e-9a73-d209ae4faad3.webp` | character portrait: octopus | 2026-11-24 | b1c753c1-abca-4c2e-9a73-d209ae4faad3 | gpt_image_2_5 |
+
+### Pitzi
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp` | Pitzi the crab, new look: wave | 2026-11-24 | c2effc24-9597-44ee-9eb7-204c981203c3 | gpt_image_2_5 |
+| `assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp` | Pitzi the crab, new look: happy | 2026-11-24 | ee012db4-af11-4b9d-8a51-33affdfa40f3 | gpt_image_2_5 |
+| `assets/al/pitzi/listen.hf_20261124_204534_b9e9501a-74ed-448a-9404-5c28e1127b78.webp` | Pitzi the crab, new look: listen | 2026-11-24 | b9e9501a-74ed-448a-9404-5c28e1127b78 | gpt_image_2_5 |
+| `assets/al/pitzi/oops.hf_20261124_204534_d2135263-e87c-4915-b5d2-2a1d5d9497e2.webp` | Pitzi the crab, new look: oops | 2026-11-24 | d2135263-e87c-4915-b5d2-2a1d5d9497e2 | gpt_image_2_5 |
+| `assets/al/pitzi/star.hf_20261124_204534_0bba02d5-095c-4463-82a0-a38d364fea44.webp` | Pitzi the crab, new look: star | 2026-11-24 | 0bba02d5-095c-4463-82a0-a38d364fea44 | gpt_image_2_5 |
+| `assets/al/pitzi/walk.hf_20261124_204533_6b05352f-cf3d-487b-b4dd-8f493652b3dd.webp` | Pitzi the crab, new look: walk | 2026-11-24 | 6b05352f-cf3d-487b-b4dd-8f493652b3dd | gpt_image_2_5 |
+
+### Islands on the world map
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/map/island-english.hf_20261124_204630_98804c09-ff9f-4866-a58b-74965b1b6486.webp` | world map: island of English | 2026-11-24 | 98804c09-ff9f-4866-a58b-74965b1b6486 | gpt_image_2_5 |
+| `assets/al/map/island-math.hf_20261124_204628_e048bc28-1511-4e08-9368-35d100bbc03d.webp` | world map: island of maths | 2026-11-24 | e048bc28-1511-4e08-9368-35d100bbc03d | gpt_image_2_5 |
+| `assets/al/map/island-soon1.hf_20261124_204629_e5ab673e-c11b-4d70-acfa-4d87a746a26b.webp` | world map: island not open yet, mountain | 2026-11-24 | e5ab673e-c11b-4d70-acfa-4d87a746a26b | gpt_image_2_5 |
+| `assets/al/map/island-soon2.hf_20261124_204628_f79d5c21-6119-4d00-9fbd-ce7aa4f434c4.webp` | world map: island not open yet, jungle | 2026-11-24 | f79d5c21-6119-4d00-9fbd-ce7aa4f434c4 | gpt_image_2_5 |
+| `assets/al/map/island-soon3.hf_20261124_204627_8c02e0f6-60dd-4619-9d13-3ea2c5b45fe3.webp` | world map: island not open yet, crystal arches | 2026-11-24 | 8c02e0f6-60dd-4619-9d13-3ea2c5b45fe3 | gpt_image_2_5 |
+
+### Backgrounds
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/bg/world.hf_20261124_204628_1e3550f7-2092-4fef-bb11-e3fd187d71bf.webp` | world map background, no islands | 2026-11-24 | 1e3550f7-2092-4fef-bb11-e3fd187d71bf | gpt_image_2_5 |
+| `assets/al/bg/english.hf_20261124_204750_bfb9c336-44b5-4c94-bda9-e8cea4054138.webp` | English island path backdrop | 2026-11-24 | bfb9c336-44b5-4c94-bda9-e8cea4054138 | gpt_image_2_5 |
+| `assets/al/bg/math.hf_20261124_204751_6e57a9de-39a3-4daf-9575-b6c82d806521.webp` | maths island path backdrop | 2026-11-24 | 6e57a9de-39a3-4daf-9575-b6c82d806521 | gpt_image_2_5 |
+
+### Mission stones and HUD icons
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/ui/stone-done.hf_20261124_204753_0e9ab838-cdd2-4e1d-b650-1d7808350fa9.webp` | mission stone: done | 2026-11-24 | 0e9ab838-cdd2-4e1d-b650-1d7808350fa9 | gpt_image_2_5 |
+| `assets/al/ui/stone-current.hf_20261124_204753_1e496472-455f-4553-a993-ffa517fd2be9.webp` | mission stone: current | 2026-11-24 | 1e496472-455f-4553-a993-ffa517fd2be9 | gpt_image_2_5 |
+| `assets/al/ui/stone-locked.hf_20261124_204751_964ad2a3-c358-447c-8a06-f326f9844e96.webp` | mission stone: locked | 2026-11-24 | 964ad2a3-c358-447c-8a06-f326f9844e96 | gpt_image_2_5 |
+| `assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp` | HUD icon: star | 2026-11-24 | 16b19e69-f69a-402a-afa5-c5d057da9e7b | gpt_image_2_5 |
+| `assets/al/ui/bolt.hf_20261124_204753_81064ec7-491c-4adf-a877-ca6732370d26.webp` | HUD icon: bolt | 2026-11-24 | 81064ec7-491c-4adf-a877-ca6732370d26 | gpt_image_2_5 |
+| `assets/al/ui/lock.hf_20261124_204751_addbed5a-f8d3-44ba-a8a6-199048276867.webp` | HUD icon: lock | 2026-11-24 | addbed5a-f8d3-44ba-a8a6-199048276867 | gpt_image_2_5 |
+| `assets/al/ui/focus.hf_20261124_204755_7df8bccf-8dfa-4e80-854d-35fa68f2c0af.webp` | HUD icon: focus | 2026-11-24 | 7df8bccf-8dfa-4e80-854d-35fa68f2c0af | gpt_image_2_5 |
+| `assets/al/ui/gear.hf_20261124_204754_5c2c044b-27ad-4163-bd88-d7a7167def82.webp` | HUD icon: gear | 2026-11-24 | 5c2c044b-27ad-4163-bd88-d7a7167def82 | gpt_image_2_5 |
+| `assets/al/ui/sound-on.hf_20261124_204752_b82c7717-fa0a-4eef-b50e-de204f3e78e6.webp` | HUD icon: sound on | 2026-11-24 | b82c7717-fa0a-4eef-b50e-de204f3e78e6 | gpt_image_2_5 |
+| `assets/al/ui/sound-off.hf_20261124_204752_b82c7717-fa0a-4eef-b50e-de204f3e78e6.webp` | HUD icon: sound off | 2026-11-24 | b82c7717-fa0a-4eef-b50e-de204f3e78e6 | gpt_image_2_5 |
+
 ## Older art: sprites, backgrounds, app icons
 
 Made for this game and in the repo since its first version (2026-11-15). They are understood to have been
@@ -615,5 +690,6 @@ three.js, MIT licence, Copyright 2010-2024 three.js authors. The files are the o
 |---|---|
 | `assets/sources.tsv` | list of the 3D models and pictures: source, sha256, what was done |
 | `assets/voice/sources.tsv` | list of the voice clips: source, sha256, text |
+| `assets/al/sources.tsv` | list of the Arcade Lagoon art: what, job id, model, sha256 |
 | `assets/credits_extra.tsv` | list of everything the two lists above do not cover, written by hand |
 | `assets/CREDITS.md` | this file |

@@ -4,13 +4,14 @@
     python3 tests/credits.py write    # rebuild assets/CREDITS.md
     python3 tests/credits.py check    # fail if it is out of date, misses a file, or names a file that is not there
 
-Built from three lists, so it cannot drift from them:
+Built from four lists, so it cannot drift from them:
     assets/voice/sources.tsv    the voice clips (tests/voice_local.py)
     assets/sources.tsv          the 3D models and pictures (tests/assets_local.py)
+    assets/al/sources.tsv       the "Arcade Lagoon" art: kind, file, what, job, model, sha256 (no URL in it at all)
     assets/credits_extra.tsv    everything else, written by hand: section, file, what, source, sha256 (fonts and code only)
 A generated file's job id is the uuid in its name: hf_<date>_<time>_<job id>. Nothing here is guessed: where an id or a
 model name is not recorded, the text says so. The storage path of the account and full storage URLs are never printed.
-check also verifies the sha256 of the fonts and the vendored code. Needs only python3."""
+check also verifies the sha256 of the fonts, the vendored code and the Arcade Lagoon art. Needs only python3."""
 import hashlib, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -112,6 +113,21 @@ def build():
     add(table(['File', 'Word', 'Made', 'Job id', 'Changed'], [[f('assets/' + r['file']), cell(w), job(r['file'])[1], job(r['file'])[0], cell(r['note'])] for r in word for w in [word_of[r['file']]]]))
     add(table(['File', 'What'], [[f(r['file']), cell(r['what'])] for r in sec('sheet')]))
 
+    al = tsv('assets/al/sources.tsv')
+    add('## Arcade Lagoon art (new look, not used by the live game yet)\n')
+    add('Character portraits, Pitzi in the new look, the world map, islands, mission stones and HUD icons. Tool: Higgsfield\n'
+        'image generation, model named per file. Each file was cut, resized and encoded as WebP from its original. Original\n'
+        'art: no known characters, brands or real people. Two HUD icons can share one job (they were drawn in one picture).\n')
+    for name, title in (('al-avatar', 'Character portraits'), ('al-pitzi', 'Pitzi'), ('al-island', 'Islands on the world map'), ('al-bg', 'Backgrounds'), ('al-ui', 'Mission stones and HUD icons')):
+        rows = [r for r in al if r['kind'] == name]
+        for r in rows:
+            if job(r['file'])[0] != r['job']:
+                raise SystemExit(f"{r['file']}: the job column does not match the job id in the file name")
+        add(f'### {title}\n')
+        add(table(['File', 'What', 'Made', 'Job id', 'Model'], [[f('assets/' + r['file']), cell(r['what']), job(r['file'])[1], r['job'], cell(r['model'])] for r in rows]))
+    if {r['kind'] for r in al} - {'al-avatar', 'al-pitzi', 'al-island', 'al-bg', 'al-ui'}:
+        raise SystemExit('assets/al/sources.tsv: unknown kind')
+
     add('## Older art: sprites, backgrounds, app icons\n')
     add('Made for this game and in the repo since its first version (2026-11-15). They are understood to have been\n'
         'generated with the owner\'s Higgsfield account and then cut and resized; the repo itself cannot confirm that. Their\n'
@@ -155,6 +171,13 @@ def problems():
         p = os.path.join(ROOT, r['file'])
         if r['section'] in ('font', 'code') and (not os.path.isfile(p) or hashlib.sha256(open(p, 'rb').read()).hexdigest() != r['sha256']):
             bad.append(f"{r['file']}: missing, or differs from its sha256 in assets/credits_extra.tsv")
+    al_raw = open(os.path.join(ROOT, 'assets', 'al', 'sources.tsv'), encoding='utf-8').read().lower()
+    if 'cloudfront' in al_raw or 'user_' in al_raw or re.search(r'https?://', al_raw):
+        bad.append('assets/al/sources.tsv must not hold a storage path or a URL')
+    for r in tsv('assets/al/sources.tsv'):
+        p = os.path.join(ROOT, 'assets', r['file'])
+        if not os.path.isfile(p) or hashlib.sha256(open(p, 'rb').read()).hexdigest() != r['sha256']:
+            bad.append(f"assets/{r['file']}: missing, or differs from its sha256 in assets/al/sources.tsv")
     return bad
 
 
