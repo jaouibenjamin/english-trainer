@@ -190,6 +190,8 @@ async def main():
     check(not bad, f'no URL of another host in js/, css/, the pages and the tools (allowed: only the class backend in config.js) {bad[:3]}')
     bad = remote_guard.self_test()
     check(not bad, f'the guard catches a planted remote URL in js/mock.js, js/voice.js, js/run.js, css/game.css, trainer.html and index.html {bad[:2]}')
+    bad = remote_guard.private_paths() + remote_guard.private_self_test()
+    check(not bad, f'the storage address (host or account folder) is written nowhere in the repo, and the scan catches a planted one {bad[:3]}')
     bad = remote_guard.credits()
     check(not bad, f'assets/CREDITS.md is up to date and names every file under assets/ and vendor/, and only those {bad[:2]}')
     bad = remote_guard.local_assets()

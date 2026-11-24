@@ -26,10 +26,10 @@ body{margin:0;background:var(--wi-navy-900)}
 .mock{inline-size:min(390px,100%);min-block-size:760px;border:2px solid var(--wi-line);border-radius:32px;padding:var(--wi-s4);display:flex;flex-direction:column;gap:var(--wi-s4);background:var(--wi-navy-900);position:relative}
 .cap{text-align:center;color:var(--wi-text-dim);font-size:var(--wi-fs-sm);margin:0 0 var(--wi-s2)}
 /* placeholders for art */
-.sea{background:radial-gradient(circle at 30% 20%,#14407a 0,transparent 55%),radial-gradient(circle at 80% 70%,#0f3a6d 0,transparent 50%),#0B1E3F}
+.sea{background:radial-gradient(circle at 30% 20%,var(--wi-sea-hi) 0,transparent 55%),radial-gradient(circle at 80% 70%,#0f3a6d 0,transparent 50%),#0B1E3F}
 .isl{position:absolute;inline-size:132px;block-size:104px;border-radius:50% 42% 56% 44%/46% 54% 46% 54%;display:grid;place-items:center;text-align:center;border:3px solid var(--wi-aqua);background:#1d6b5b;color:var(--wi-text);font-weight:700;padding:var(--wi-s2);line-height:1.15;cursor:pointer;font-family:var(--wi-font-ui);font-size:var(--wi-fs-md)}
 .isl.m{background:#7a5a12;border-color:var(--wi-gold)}
-.isl.soon{background:var(--wi-navy-800);border:3px dashed var(--wi-locked-line);color:var(--wi-locked);cursor:help}
+.isl.soon{background:var(--wi-navy-800);border:3px dashed var(--wi-locked);box-shadow:0 0 0 2px var(--wi-scrim);color:var(--wi-locked);cursor:help}
 .isl small{display:block;font-size:var(--wi-fs-xs);font-weight:600}
 .isl .wi-icon{display:block;margin-inline:auto;margin-block-end:2px}
 .map{position:relative;flex:1;min-block-size:520px;border-radius:var(--wi-r-xl)}
@@ -38,7 +38,7 @@ body{margin:0;background:var(--wi-navy-900)}
 .path>li{list-style:none;position:relative}
 .path{margin:0;padding-inline:0}
 .who{position:absolute;inset-inline-end:calc(100% + 4px);inset-block-start:8px;inline-size:56px;block-size:56px;border-radius:50%;border:3px solid var(--wi-aqua);background:hsl(24 85% 55%);display:grid;place-items:center;font-size:var(--wi-fs-xs);color:var(--wi-navy-900);font-weight:700}
-.door{inline-size:96px;block-size:56px;border-radius:48px 48px 8px 8px;border:3px solid var(--wi-locked-line);display:grid;place-items:center;color:var(--wi-locked);background:var(--wi-navy-800)}
+.door{inline-size:96px;block-size:56px;border-radius:48px 48px 8px 8px;border:3px solid var(--wi-locked);box-shadow:0 0 0 2px var(--wi-scrim);display:grid;place-items:center;color:var(--wi-locked);background:var(--wi-navy-800)}
 .tile{block-size:100%;inline-size:100%;display:block;border-radius:50%}
 .legend{display:flex;gap:var(--wi-s2);flex-wrap:wrap}
 .note{font-size:var(--wi-fs-sm);color:var(--wi-text-dim);margin:0}
@@ -74,7 +74,8 @@ body{margin:0;background:var(--wi-navy-900)}
 <!-- ================= COLOURS ================= -->
 <section id="colors" class="wi-stack">
  <h2 class="sec">צבעים וניגודיות</h2>
- <p class="note">הניגודיות מחושבת בדפדפן מהצבעים עצמם. 4.5 ומעלה עובר AA לטקסט, 3 ומעלה עובר לצורות ולמסגרות.</p>
+ <p class="note">הניגודיות מחושבת בדפדפן מהצבעים עצמם. 4.5 ומעלה עובר AA לטקסט, 3 ומעלה עובר לצורות ולמסגרות. "קישוט" הוא קו שלא צריך לעבור, כי הצורה מובנת גם בלעדיו.</p>
+ <p class="note" id="swsum"></p>
  <div class="cols" id="sw"></div>
 </section>
 
@@ -91,12 +92,12 @@ body{margin:0;background:var(--wi-navy-900)}
    <p style="font-size:var(--wi-fs-xs);margin:0;color:var(--wi-text-dim)">תווית, 14. רק לתגיות.</p>
   </div>
   <div class="wi-card wi-stack">
-   <h3>כתב אנגלי: Playpen Sans (ברירת מחדל)</h3>
+   <h3>כתב אנגלי: Rubik</h3>
    <p class="wi-en" style="font-size:var(--wi-fs-2xl);font-weight:700;margin:0;line-height:1.2">Hello, I am Dan</p>
    <p class="wi-en" style="font-size:var(--wi-fs-lg);font-weight:600;margin:0">My family is big.</p>
    <p style="margin:0">במשפט עברי: <bdi dir="ltr">What's your name?</bdi> נשארת שורה אחת משמאל לימין.</p>
-   <p class="wi-small">בדף הזה רואים שהאנגלית בכתב היד נראית ילדותית יותר מהעברית. ראו docs/DESIGN.md.</p>
-   <p style="margin:0;font-family:system-ui,sans-serif" class="wi-en"><bdi dir="ltr">Same line in system-ui: What's your name?</bdi></p>
+   <p class="wi-en" style="margin:0"><bdi dir="ltr">brother, sister, grandmother, favourite, 11 years old</bdi></p>
+   <p class="wi-small">אותיות ברורות לאיות: a ו-g פשוטות, I ו-l נראות שונה. קובץ אחד שכבר נמצא אצלנו.</p>
   </div>
   <div class="wi-card wi-stack">
    <h3>מרווחים (s1 עד s7)</h3>
@@ -263,12 +264,12 @@ body{margin:0;background:var(--wi-navy-900)}
   <div>
    <p class="cap">שביל האי</p>
    <div class="mock sea" id="s-path">
-    <div class="wi-row">
+    <div class="wi-row wi-plate">
      <button class="wi-chip wi-chip--btn" type="button" aria-label="חזרה למפה"><svg class="wi-icon"><use href="#i-arrow"/></svg></button>
      <div style="flex:1;min-inline-size:0"><h1 class="wi-h1">אנגלית</h1><p class="wi-small">יחידה 1: <bdi dir="ltr">All About Me</bdi></p></div>
     </div>
-    <div class="wi-bar" role="progressbar" aria-label="אנרגיה" aria-valuemin="0" aria-valuemax="100" aria-valuenow="65"><svg class="wi-icon wi-bar__ico"><use href="#i-bolt"/></svg><span class="wi-bar__track"><span class="wi-bar__fill" style="--p:65"></span></span><button class="wi-chip wi-chip--btn" type="button" aria-label="מה זו אנרגיה?" style="min-inline-size:44px;min-block-size:44px;padding:0;border-color:transparent"><svg class="wi-icon"><use href="#i-q"/></svg></button></div>
-    <p class="wi-small" style="margin-block-start:calc(-1 * var(--wi-s2))">מרוויחים אנרגיה כשלומדים, והיא אף פעם לא נגמרת.</p>
+    <div class="wi-bar" role="progressbar" aria-label="אנרגיה" aria-valuemin="0" aria-valuemax="100" aria-valuenow="65"><svg class="wi-icon wi-bar__ico"><use href="#i-bolt"/></svg><span class="wi-bar__track"><span class="wi-bar__fill" style="--p:65"></span></span><button class="wi-bar__help" type="button" aria-label="מה זו אנרגיה?"><svg class="wi-icon" style="inline-size:28px;block-size:28px"><use href="#i-q"/></svg></button></div>
+    <p class="wi-small wi-plate" style="margin-block-start:calc(-1 * var(--wi-s2))">מרוויחים אנרגיה כשלומדים, והיא אף פעם לא נגמרת.</p>
     <div class="legend" aria-label="מה אומרים הכוכבים">
      <span class="wi-tag"><span class="wi-stars"><svg class="wi-star" style="inline-size:14px;block-size:14px"><use href="#i-star"/></svg></span>קל</span>
      <span class="wi-tag"><span class="wi-stars"><svg class="wi-star" style="inline-size:14px;block-size:14px"><use href="#i-star"/></svg><svg class="wi-star" style="inline-size:14px;block-size:14px"><use href="#i-star"/></svg></span>בינוני</span>
@@ -294,37 +295,59 @@ body{margin:0;background:var(--wi-navy-900)}
 </main>
 
 <script>
-/* preview only: build the avatar grid and the contrast table from the live CSS tokens */
+/* preview only: build the avatar grid and the contrast table from the live CSS tokens. DOM nodes and textContent only. */
 (function(){
+ var SVG='http://www.w3.org/2000/svg';
+ function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+ function icon(id,px){var s=document.createElementNS(SVG,'svg');s.setAttribute('class','wi-icon');
+  if(px){s.style.inlineSize=px+'px';s.style.blockSize=px+'px'}
+  var u=document.createElementNS(SVG,'use');u.setAttribute('href','#'+id);s.appendChild(u);return s}
  var g=document.getElementById('avgrid');
  if(g){for(var i=0;i<20;i++){
   var locked=i>=16,sel=i===10,hue=(i*37+10)%360;
-  var b=document.createElement('button');b.type='button';
-  b.className='wi-av'+(locked?' wi-av--locked':'')+(sel?' is-selected':'');
+  var b=el('button','wi-av'+(locked?' wi-av--locked':'')+(sel?' is-selected':''));b.type='button';
   if(!locked)b.setAttribute('aria-pressed',sel?'true':'false');
   b.setAttribute('aria-label','דמות '+(i+1)+(locked?', נעולה':sel?', נבחרה':''));
-  b.innerHTML='<span class="wi-av__art tile" style="background:hsl('+hue+' 55% 42%)"></span>'+
-   (sel?'<span class="wi-av__badge"><svg class="wi-icon"><use href="#i-check"/></svg></span>':'')+
-   (locked?'<span class="wi-av__lock"><svg class="wi-icon" style="inline-size:26px;block-size:26px"><use href="#i-lock"/></svg></span>':'');
-  var w=document.createElement('div');w.appendChild(b);g.appendChild(w);}}
+  var art=el('span','wi-av__art tile');art.style.background='hsl('+hue+' 55% 42%)';b.appendChild(art);
+  if(sel){var bd=el('span','wi-av__badge');bd.appendChild(icon('i-check'));b.appendChild(bd)}
+  if(locked){var lk=el('span','wi-av__lock');lk.appendChild(icon('i-lock',26));b.appendChild(lk)}
+  var w=el('div');w.appendChild(b);g.appendChild(w);}}
  var cs=getComputedStyle(document.documentElement);
  function v(n){return cs.getPropertyValue('--wi-'+n).trim()}
  function lum(h){h=h.replace('#','');var c=[0,2,4].map(function(i){var x=parseInt(h.substr(i,2),16)/255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]}
  function cr(a,b){var x=lum(a),y=lum(b);if(x<y){var t=x;x=y;y=t}return (x+.05)/(y+.05)}
- var P=[['text','navy-900','טקסט ראשי על הרקע'],['text','navy-800','טקסט ראשי על כרטיס'],['text','navy-700','טקסט על כרטיס מורם'],
- ['text-dim','navy-900','טקסט משני על הרקע'],['text-dim','navy-800','טקסט משני על כרטיס'],['text-dim','navy-700','טקסט משני על כרטיס מורם'],
- ['aqua','navy-900','אקווה על הרקע'],['aqua','navy-800','אקווה על כרטיס'],['gold','navy-900','זהב על הרקע'],['gold','navy-800','זהב על כרטיס'],
- ['navy-900','gold','כפתור ראשי'],['navy-900','gold-press','כפתור ראשי לחוץ'],['navy-900','aqua','תגית אקווה'],['navy-900','aqua-press','אקווה לחוץ'],
- ['text','azure','כפתור משני'],['text','azure-press','כפתור משני לחוץ'],['text','magenta','כפתור מיוחד'],['text','magenta-press','כפתור מיוחד לחוץ'],
- ['good','navy-800','נכון, על כהה'],['fix','navy-800','בוא נתקן, על כהה'],['locked','navy-800','טקסט נעול'],
- ['line','navy-900','מסגרת על הרקע (צורה)'],['line','navy-800','מסגרת על כרטיס (צורה)'],['line','navy-700','מסגרת על כרטיס מורם (צורה)'],['locked-line','navy-800','טבעת אבן נעולה (צורה)'],
- ['ink','paper','נייר: טקסט'],['ink-2','paper','נייר: טקסט משני'],['ink-2','paper-2','נייר 2: טקסט משני'],['good-ink','paper','נייר: נכון'],['fix-ink','paper','נייר: לתיקון'],['focus-paper','paper','נייר: טבעת מיקוד (צורה)']];
+ /* [foreground token, background token, where it is used, kind]. kind: t = text (4.5), s = shape or outline (3), d = decoration (no bar).
+    Every colour pair that css/ds.css or this page puts together is listed. */
+ var P=[
+ ['text','navy-900','טקסט ראשי על הרקע','t'],['text','navy-800','טקסט ראשי על כרטיס','t'],['text','navy-700','טקסט על כרטיס מורם, תגית','t'],
+ ['text-dim','navy-900','טקסט משני על הרקע, על לוחית','t'],['text-dim','navy-800','טקסט משני על כרטיס','t'],['text-dim','navy-700','טקסט משני על מורם, כפתור כבוי','t'],
+ ['aqua','navy-900','אקווה על הרקע: תווית "כאן עכשיו" על לוחית, מילוי פס','t'],['aqua','navy-800','אקווה על כרטיס: כותרת, סמל','t'],['aqua','navy-700','אקווה על מורם: אבן נוכחית, כפתור שקט לחוץ','t'],
+ ['gold','navy-900','זהב על הרקע: כוכבים על לוחית','t'],['gold','navy-800','זהב על כרטיס','t'],['gold','navy-700','זהב על מורם','t'],['gold','gold-deep','אבן שהושלמה: סימן וטבעת','t'],
+ ['navy-900','gold','כפתור ראשי, תגית זהב, תג נבחר','t'],['navy-900','gold-press','כפתור ראשי לחוץ','t'],['navy-900','aqua','תגית אקווה, מסנן פעיל','t'],['navy-900','aqua-press','אקווה לחוץ','t'],
+ ['text','azure','כפתור משני, תגית "בקרוב"','t'],['text','azure-press','כפתור משני לחוץ','t'],['aqua','azure','טבעת כפתור משני (צורה)','s'],['aqua','azure-press','טבעת כפתור משני לחוץ (צורה)','s'],
+ ['text','magenta','כפתור מיוחד, תגית נדירה','t'],['text','magenta-press','כפתור מיוחד לחוץ','t'],
+ ['good','navy-800','נכון, על כרטיס','t'],['good','navy-900','נכון, על הרקע','t'],['fix','navy-800','בוא נתקן, על כרטיס','t'],['fix','navy-900','בוא נתקן, על הרקע','t'],
+ ['locked','navy-800','נעול: מנעול וטקסט על כרטיס ועל אבן','t'],['locked','navy-900','נעול: תווית על לוחית','t'],
+ ['locked','navy-700','טבעת כפתור כבוי (צורה). לא לטקסט','s'],['locked','scrim','טבעת אבן נעולה מול קו המתאר הכהה שסביבה (צורה)','s'],
+ ['locked-line','navy-800','קו שקט בתוך כרטיס: כוכב ריק, דמות נעולה (צורה)','s'],['locked-line','navy-900','קו שקט על לוחית: כוכב ריק (צורה)','s'],
+ ['gold','scrim','טבעת אבן שהושלמה מול קו המתאר (צורה)','s'],['aqua','scrim','טבעת אבן נוכחית מול קו המתאר (צורה)','s'],
+ ['line','navy-900','מסגרת על הרקע, מסילת הפס (צורה)','s'],['line','navy-800','מסגרת על כרטיס (צורה)','s'],['line','navy-700','מסגרת על כרטיס מורם (צורה)','s'],
+ ['focus','navy-900','טבעת מיקוד על הרקע (צורה)','s'],['focus','navy-800','טבעת מיקוד על כרטיס (צורה)','s'],['focus','navy-700','טבעת מיקוד על מורם (צורה)','s'],
+ ['text','sea-hi','ים בהיר (מקום שמור): טקסט לבן','t'],['text-dim','sea-hi','ים בהיר: טקסט משני','t'],['aqua','sea-hi','ים בהיר: קו המסלול (צורה)','s'],
+ ['locked','sea-hi','ים בהיר: נעול בלי לוחית. לכן יש לוחית וקו מתאר','d'],['line','sea-hi','ים בהיר: מסגרת של רכיב עם מילוי משלו','d'],
+ ['ink','paper','נייר: טקסט','t'],['ink','paper-2','נייר 2: טקסט','t'],['ink-2','paper','נייר: טקסט משני','t'],['ink-2','paper-2','נייר 2: טקסט משני','t'],
+ ['good-ink','paper','נייר: נכון','t'],['good-ink','paper-2','נייר 2: נכון','t'],['fix-ink','paper','נייר: לתיקון','t'],['fix-ink','paper-2','נייר 2: לתיקון','t'],
+ ['paper','ink','נייר: כפתור','t'],['focus-paper','paper','נייר: טבעת מיקוד, כותרת','t'],['focus-paper','paper-2','נייר 2: טבעת מיקוד','t'],
+ ['paper-line','paper','נייר: קו כרטיס','d'],['paper','navy-900','כרטיס נייר על הרקע הכהה (צורה)','s']];
  var o=document.getElementById('sw');if(!o)return;
- P.forEach(function(p){var f=v(p[0]),b=v(p[1]),r=cr(f,b),shape=/צורה/.test(p[2]);
-  var ok=shape?r>=3:r>=4.5;
-  var d=document.createElement('div');d.className='sw';d.style.background=b;d.style.color=f;
-  d.innerHTML='<b>'+p[2]+'</b><span class="r">'+r.toFixed(2)+' : 1 '+(ok?(r>=7&&!shape?'AAA':'AA'):'לא עובר')+'</span><code>'+f+' on '+b+'</code>';
+ var bad=0,n=0;
+ P.forEach(function(p){var f=v(p[0]),b=v(p[1]),r=cr(f,b),k=p[3];
+  var ok=k==='d'||(k==='s'?r>=3:r>=4.5);if(k!=='d'){n++;if(!ok)bad++}
+  var verdict=k==='d'?'קישוט':ok?(r>=7&&k==='t'?'AAA':'AA'):'לא עובר';
+  var d=el('div','sw');d.style.background=b;d.style.color=f;d.dataset.pair=p[0]+'/'+p[1];d.dataset.ok=ok?'1':'0';
+  d.appendChild(el('b',null,p[2]));d.appendChild(el('span','r',r.toFixed(2)+' : 1 '+verdict));d.appendChild(el('code',null,f+' on '+b));
   o.appendChild(d);});
+ var sum=document.getElementById('swsum');if(sum)sum.textContent=bad?(bad+' זוגות לא עוברים מתוך '+n):('כל '+n+' הזוגות עוברים.');
 })();
 </script>
 </body>
