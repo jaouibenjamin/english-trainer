@@ -144,10 +144,12 @@ def run(api, a):
             tok, ref = r['session']['access_token'], r['session']['refresh_token']
         report(4, 'MANUAL', MANUAL[4])
         # 5
-        tries = [api.call('POST', '/auth/v1/signup', {'email': f'x{secrets.token_hex(4)}@example.invalid', 'password': secrets.token_urlsafe(24)}),
-                 api.call('POST', '/auth/v1/signup', {}),
-                 api.call('POST', '/auth/v1/otp', {'phone': '+15555550100'})]
-        report(5, 'PASS' if not any(ok2xx(t[0]) for t in tries) else 'FAIL', f'statuses {[t[0] for t in tries]}')
+        # anonymous and phone sign-in are read from the settings, not tried: a try could create a user or send a text
+        off, detail = signup_probe(api)
+        _, st5 = api.call('GET', '/auth/v1/settings')
+        ext5 = (st5 or {}).get('external') or {}
+        report(5, 'PASS' if off and ext5.get('anonymous_users') in (False, None) and ext5.get('phone') is False else 'FAIL',
+               f'sign-up: {detail}; anonymous: {ext5.get("anonymous_users")}; phone: {ext5.get("phone")}')
         # 8, 9 as a pupil
         s1, board = api.call('GET', '/rest/v1/class_board?select=display_name', token=tok)
         s2, tv = api.call('GET', '/rest/v1/teacher_view?select=pupil_id', token=tok)
@@ -255,6 +257,17 @@ def run(api, a):
             print('cleaned up: the test class, its pupils and their auth users')
 
 
+def signup_probe(api):
+    """Review S-e: a sign-up that could not create a user even if sign-up were on (an empty password is refused by
+    Auth's own validation), and that passes only on the answer for "sign-up is off". Returns (refused_as_off, detail)."""
+    addr = f'wi-livecheck-{secrets.token_hex(4)}@example.com'          # RFC 2606: a domain reserved for examples
+    s, j = api.call('POST', '/auth/v1/signup', {'email': addr, 'password': ''})
+    code = (j or {}).get('error_code') or ''
+    if 200 <= s < 300:
+        print('STOP: the sign-up was ACCEPTED, so a user may now exist. Tell the lead at once; sign-up must be switched off.')
+    return code == 'signup_disabled', f'{s} {code or (j or {}).get("msg") or ""}'.strip()
+
+
 def stage1(api):
     """Settings probes against a project that may still be empty. Read-only, except ONE sign-up attempt with a made-up
     address under a reserved domain, which must be refused (sign-up is off). Creates nothing when the project is right."""
@@ -278,12 +291,8 @@ def stage1(api):
     on = sorted(k for k, v in ext.items() if v is True and k not in ('email', 'google'))
     rep('every other provider: OFF (Google is switched on at the teacher step)', not on, on)
     print(f"       google: {'on' if ext.get('google') else 'off'}")
-    addr = f'wi-livecheck-{secrets.token_hex(4)}@example.com'          # RFC 2606: a domain reserved for examples
-    s, j = api.call('POST', '/auth/v1/signup', {'email': addr, 'password': secrets.token_urlsafe(24)})
-    created = 200 <= s < 300
-    rep('a sign-up with the public key is refused', not created, f'{s} {(j or {}).get("error_code") or (j or {}).get("msg") or ""}'.strip())
-    if created:
-        print('STOP: the sign-up was ACCEPTED, so a user may now exist. Tell the lead at once; sign-up must be switched off.')
+    off, detail = signup_probe(api)
+    rep('a sign-up with the public key is refused because sign-up is off (signup_disabled)', off, detail)
     s, root = api.call('GET', '/rest/v1/')
     paths = sorted((root or {}).get('paths', {}).keys()) if isinstance(root, dict) else []
     print(f"       REST root: HTTP {s}; {len(paths)} paths exposed{' (empty project: migrations not deployed yet)' if len(paths) <= 1 else ''}")

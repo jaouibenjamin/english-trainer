@@ -16,9 +16,10 @@ only the server role can read; wrap them at once with the admin function (needs 
 
     SUPABASE_URL=https://<project>.supabase.co SUPABASE_SERVICE_KEY=... python3 tools/migrate_sheet.py --wrap
 
-Output: counts, and the names whose points are above three times the class median (for the teacher to look at).
-No code, salt, hash or blob is ever printed."""
-import argparse, csv, json, os, re, sys, urllib.request
+Output: counts, and the CSV row numbers of the pupils whose points are above three times the class median (for the
+teacher to look at). No name, code, salt, hash or blob is ever printed, and none goes into a statement the database
+could write to its log: the rows travel as COPY data."""
+import argparse, csv, json, os, re, sys, unicodedata, urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pgurl
@@ -58,17 +59,17 @@ def read_csv(path):
 
 
 def import_rows(url, class_id, rows, apply):
-    sql = (f"select private.sheet_import({pgurl.literal(class_id)}::uuid, {pgurl.literal(json.dumps(rows, ensure_ascii=False))}::jsonb, "
-           f"{'false' if apply else 'true'});\n")
-    out, err, rc = pgurl.run(url, sql)
-    if not apply:
-        m = re.search(r'DETAIL:\s+(\{.*\})', err)
-        if rc and m and 'dry run' in err:
-            return json.loads(m.group(1))
-        raise SystemExit('the dry run failed: ' + (err.strip().splitlines() or ['?'])[0])
+    """The rows go as COPY data, never inside a statement (review B3: a failing statement is written whole into the
+    server's log, which on Supabase is the dashboard). A dry run is the same work, rolled back."""
+    script = ("begin;\n"
+              "create temp table wi_rows (n int, r jsonb) on commit drop;\n"
+              "\\copy wi_rows (n, r) from pstdin\n"
+              f"select private.sheet_import('{class_id}'::uuid, (select coalesce(jsonb_agg(r order by n), '[]') from wi_rows), {'false' if apply else 'true'});\n"
+              + ("commit;\n" if apply else "rollback;\n"))
+    out, err, rc = pgurl.run_with_rows(url, script, [(i, json.dumps(r, ensure_ascii=False)) for i, r in enumerate(rows)])
     if rc:
-        raise SystemExit('the import failed, nothing was written: ' + (err.strip().splitlines() or ['?'])[0])
-    return json.loads(out.strip())
+        raise SystemExit(('the import failed, nothing was written: ' if apply else 'the dry run failed: ') + (err.strip().splitlines() or ['?'])[0])
+    return json.loads(out.strip().splitlines()[-1])
 
 
 def wrap():
@@ -114,7 +115,10 @@ def main(argv=None):
           f": {len(rows)} rows read, {rep['new']} new pupils, {rep['existing']} already there, {rep['blobs']} blobs written, "
           f"{rep['hashes_staged']} codes staged, {rep['refused_names']} names refused, {broken} broken blobs")
     if rep['look_at']:
-        print(f"points above 3 x the class median ({rep['median']}): " + ', '.join(rep['look_at']))
+        # row numbers of the CSV, not names (review S-f): the owner looks them up in the Sheet
+        key = lambda n: re.sub(r'\s+', ' ', unicodedata.normalize('NFC', n).strip()).lower()
+        where = {key(r['name']): i + 2 for i, r in enumerate(rows)}      # +2: the header is row 1
+        print(f"points above 3 x the class median ({rep['median']}): CSV rows " + ', '.join(str(where.get(key(n), '?')) for n in rep['look_at']))
     if a.apply and rep['hashes_staged']:
         print('next: wrap the staged codes now (python3 tools/migrate_sheet.py --wrap), then delete the CSV')
     return 0

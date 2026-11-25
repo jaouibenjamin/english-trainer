@@ -6,7 +6,8 @@ by the owner by hand. Needs only the PUBLIC key and the export token, never the 
 
 Writes OUT_DIR/manifest.json (tables, chunks, row counts: no data) and one OUT_DIR/NNN-<table>-<offset>.asc per chunk,
 each encrypted by the database to the owner's public key. Only the owner's private key opens them (tools/restore.py).
-Exit 0 and a note when the project is not set up yet (no address or key), so the scheduled job stays green until then."""
+Exit 0 and a note when none of the three is set (the project is not set up yet), so the scheduled job stays green
+until then; exit 1 when only some are set or the address is not a Supabase project, so a mistake shows red."""
 import json, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 
 
@@ -40,10 +41,14 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if len(argv) != 1:
         raise SystemExit('usage: backup_fetch.py OUT_DIR')
-    base, key, token = base_url(), os.environ.get('SUPABASE_ANON_KEY', '').strip(), os.environ.get('BACKUP_TOKEN', '').strip()
-    if not base or not key or not token:
+    raw = {k: os.environ.get(k, '').strip() for k in ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'BACKUP_TOKEN')}
+    if not any(raw.values()):
         print('backup: not set up yet (SUPABASE_URL, SUPABASE_ANON_KEY, BACKUP_TOKEN); nothing fetched')
         return 0
+    base, key, token = base_url(), raw['SUPABASE_ANON_KEY'], raw['BACKUP_TOKEN']
+    if not base or not key or not token:      # half set up is a mistake, not "not yet" (review S-g): fail, contact nothing
+        missing = [k for k, v in raw.items() if not v] + ([] if base or not raw['SUPABASE_URL'] else ['SUPABASE_URL (not https://<project>.supabase.co)'])
+        raise SystemExit('backup: set up only in part, nothing fetched. Missing or wrong: ' + ', '.join(missing))
     out = argv[0]
     os.makedirs(out, exist_ok=True)
     start = rpc(base, key, 'backup_export', {'p_token': token})

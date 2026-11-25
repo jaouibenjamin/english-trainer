@@ -12,13 +12,23 @@ alter table private.settings
   add column backup_every_h    int not null default 6,
   add column backup_chunk      int not null default 2000 check (backup_chunk between 1 and 20000);
 
--- every table, in the order a restore needs them (tools/restore.py)
+-- every table that is backed up, in the order a restore needs them (tools/restore.py)
 create function private.backup_tables() returns text[] language sql immutable set search_path = '' as $$
   select array['public.classes', 'public.roster', 'public.teachers', 'public.pupils', 'public.items', 'public.levels',
     'public.answers', 'public.points', 'public.pupil_totals', 'public.progress', 'public.flags', 'public.level_best',
-    'public.answer_daily', 'private.class_codes', 'private.pupil_secrets', 'private.reset_codes', 'private.legacy_import',
-    'private.pupil_devices', 'private.auth_attempts', 'private.auth_buckets', 'private.auth_lock_events', 'private.ip_salts',
-    'private.answer_batches', 'private.pupil_days', 'private.deletions', 'private.maintenance_log', 'private.settings'] $$;
+    'public.answer_daily', 'private.class_codes', 'private.pupil_secrets', 'private.reset_codes',
+    'private.pupil_devices', 'private.answer_batches', 'private.pupil_days', 'private.deletions', 'private.maintenance_log',
+    'private.settings'] $$;
+-- and every table that is NOT, on purpose (review S-d). tests/ops.py checks that the two lists cover every table.
+--   ip_salts, auth_buckets, class_misses: with the day's salt, address hashes could be reversed for every address
+--   auth_attempts, auth_lock_events: names typed at sign-in, kept 30 days in the database and never longer in a backup
+--   legacy_import: the Sheet's bare fast hashes, for minutes during the migration
+-- A restore therefore starts with every lock open and every counter at zero; a picture recovery that was closed
+-- after 3 wrong tries is open again (the teacher's screen shows nothing locked).
+create function private.backup_excluded() returns text[] language sql immutable set search_path = '' as $$
+  select array['private.ip_salts', 'private.auth_buckets', 'private.class_misses', 'private.auth_attempts',
+    'private.auth_lock_events', 'private.legacy_import'] $$;
+revoke all on function private.backup_excluded() from public, anon, authenticated;
 
 /* Callable with the public key, so the twice-weekly workflow needs no server key. The caller proves it holds the
    export token (only its sha256 is stored here). What comes back is ciphertext for the owner's key only.
@@ -73,7 +83,7 @@ revoke all on function private.backup_tables() from public, anon, authenticated;
      (capped at settings.migrated_cap);
    - a name already here: its blob is replaced by the Sheet's (the Sheet is the truth until the switch); a code
      already set or wrapped is never touched; points are never given twice.
-   Returns counts and the names above three times the class median of points, for the teacher. */
+   Returns counts and the names above three times the class median of points (the tool prints their CSV rows). */
 create function private.sheet_import(p_class uuid, p_rows jsonb, p_dry boolean default true) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare s private.settings; r jsonb; v_id uuid; v_name text; v_pts int; v_state jsonb;
@@ -118,10 +128,8 @@ begin
                                where p.class_id = p_class and v_med > 0 and t.points > 3 * v_med), '[]'::jsonb),
            'dry_run', p_dry)
     into v_out;
-  if p_dry then
-    -- the whole import ran and was checked; nothing is kept
-    raise exception using errcode = 'P0001', message = 'dry run', detail = v_out::text;
-  end if;
+  -- a dry run is the caller's ROLLBACK (tools/migrate_sheet.py); this function never raises with pupil data in the
+  -- message, because an error and its statement end up in the server's log (review B3)
   return v_out;
 end $$;
 revoke all on function private.sheet_import(uuid, jsonb, boolean) from public, anon, authenticated;

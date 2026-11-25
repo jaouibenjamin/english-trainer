@@ -58,9 +58,12 @@ try:
         db.admin(seed)
     n_items, n_levels = db.one('select count(*) from public.items'), db.one('select count(*) from public.levels')
     check('the seed loads, twice, without doubles', int(n_items) > 50 and int(n_levels) > 20, (n_items, n_levels))
-    eq('the backup list names every table in public and private (a new table cannot be left out)',
-       sorted(r[0] for r in db.admin("select table_schema || '.' || table_name from information_schema.tables where table_schema in ('public', 'private') and table_type = 'BASE TABLE'")),
-       sorted(r[0] for r in db.admin('select unnest(private.backup_tables())')))
+    alltab = sorted(r[0] for r in db.admin("select table_schema || '.' || table_name from information_schema.tables where table_schema in ('public', 'private') and table_type = 'BASE TABLE'"))
+    inc = [r[0] for r in db.admin('select unnest(private.backup_tables())')]
+    exc = [r[0] for r in db.admin('select unnest(private.backup_excluded())')]
+    eq('every table is either backed up or left out on purpose (a new table must be put in one list)', sorted(inc + exc), alltab)
+    eq('the left-out ones: address salts and buckets, typed names, the bare Sheet hashes (review S-d)', sorted(exc),
+       ['private.auth_attempts', 'private.auth_buckets', 'private.auth_lock_events', 'private.class_misses', 'private.ip_salts', 'private.legacy_import'])
     eq('the mock exam paper has its size', db.one("select size from public.levels where game = 'exam' and level_key = 'mock'"), '20')
 
     # ---------------------------------------------------------------- migrate_sheet
@@ -88,7 +91,8 @@ try:
     check('apply: pupils in, codes staged', r.returncode == 0 and '6 new pupils' in r.stdout and '5 codes staged' in r.stdout and '1 names refused' in r.stdout, out)
     salts_and_hashes = [ln.split(',')[i] for ln in text.splitlines()[1:] for i in (1, 2)]
     check('no salt or hash is ever printed', not any(s and s in out for s in salts_and_hashes))
-    check('the outlier is named for the teacher', 'Fixty' in r.stdout and 'Dummy' in r.stdout, r.stdout)
+    check('the outliers are shown as CSV row numbers, not names (review S-f)', 'CSV rows 8, 5' in r.stdout, r.stdout)
+    check('no name is printed at all', not any(n in out for n in ('Testa', 'Probe', 'Sample Two', 'Dummy', 'Mocky', 'Fixty')), out)
     eq('points enter as one migrated row each, capped at 50,000',
        db.admin("select p.display_name, t.points from public.pupil_totals t join public.pupils p on p.id = t.pupil_id where p.display_name in ('Testa', 'Fixty', 'Mocky') order by 1"),
        [['Fixty', '50000'], ['Mocky', '0'], ['Testa', '1200']])
@@ -179,7 +183,9 @@ try:
     r = tool(['tools/backup_fetch.py', out_dir], {'SUPABASE_URL': '', 'SUPABASE_ANON_KEY': '', 'BACKUP_TOKEN': ''})
     check('the scheduled job before the project exists: a note, exit 0, nothing contacted', r.returncode == 0 and 'not set up' in r.stdout and not os.path.exists(out_dir), r.stdout + r.stderr)
     r = tool(['tools/backup_fetch.py', out_dir], {'SUPABASE_URL': f'http://127.0.0.1:{srv.server_port}', 'SUPABASE_ANON_KEY': 'made-up-public-key', 'BACKUP_TOKEN': token})
-    check('an address that is not a Supabase project is not contacted', r.returncode == 0 and 'not set up' in r.stdout, r.stdout + r.stderr)
+    check('an address that is not a Supabase project: not contacted, and the job goes red (review S-g)', r.returncode != 0 and 'in part' in r.stderr and not os.path.exists(out_dir), r.stdout + r.stderr)
+    r = tool(['tools/backup_fetch.py', out_dir], {'SUPABASE_URL': 'https://abcdefgh.supabase.co', 'SUPABASE_ANON_KEY': '', 'BACKUP_TOKEN': ''})
+    check('only the address set: red, nothing contacted', r.returncode != 0 and 'SUPABASE_ANON_KEY' in r.stderr and not os.path.exists(out_dir), r.stdout + r.stderr)
     fenv = {'SUPABASE_URL': f'http://127.0.0.1:{srv.server_port}', 'SUPABASE_ANON_KEY': 'made-up-public-key', 'BACKUP_TOKEN': token, 'WI_LOCAL_TEST': '1'}
     r = tool(['tools/backup_fetch.py', out_dir], fenv)
     check('backup_fetch.py: every table, in chunks', r.returncode == 0 and 'encrypted chunks' in r.stdout, r.stdout + r.stderr)
@@ -213,7 +219,8 @@ try:
                                       capture_output=True, text=True).stdout.strip()
     tot = 'select string_agg(p.display_name || \':\' || t.points || \':\' || t.answers, \',\' order by p.display_name) from public.pupil_totals t join public.pupils p on p.id = t.pupil_id'
     eq('the board is the same in the drill database', q('wi_drill', tot), q(pg.DB, tot))
-    eq('the hashes came back (they still need the pepper)', q('wi_drill', 'select count(*) from private.legacy_import'), q(pg.DB, 'select count(*) from private.legacy_import'))
+    eq('the code hashes came back (they still need the pepper); the bare Sheet hashes were never in the backup',
+       (q('wi_drill', 'select count(*) from private.pupil_secrets'), q('wi_drill', 'select count(*) from private.legacy_import')), (q(pg.DB, 'select count(*) from private.pupil_secrets'), '0'))
     eq('nobody is signed in there, and teachers are added by hand', q('wi_drill', 'select count(*) filter (where auth_user_id is not null), (select count(*) from public.teachers) from public.pupils'), '0|0')
     res = q('wi_drill', "insert into public.answers (pupil_id, item_id, pts, flag, correct, first_try) select id, (select min(id) from public.items), 0, 0, true, true from public.pupils limit 1 returning id > 0")
     eq('new rows there get new ids (sequences moved on)', res.splitlines()[0] if res else '', 't')
@@ -224,6 +231,13 @@ try:
     json.dump(bad, open(os.path.join(out_dir, 'manifest.json'), 'w'))
     r = tool(['tools/restore.py', out_dir], renv)
     check('a manifest naming a table it should not: refused', r.returncode != 0 and 'refused' in r.stderr, r.stderr)
+    # ---------------------------------------------------------------- review B3: nothing of a pupil in the server's log
+    r = tool(['tools/migrate_sheet.py', csv_path, '--class', '00000000-0000-4000-8000-0000000000ff'], env)
+    check('a run that fails (no such class) fails without data in its message', r.returncode != 0 and 'no such class' in r.stderr, r.stderr)
+    log = open(os.path.join(db.sock, 'log'), encoding='utf-8', errors='replace').read()
+    check('the server log has the failed statement', 'no such class' in log)
+    leaks = [x for x in salts_and_hashes + ['Testa', 'Probe', 'Sample Two', 'Dummy', 'Mocky', 'Fixty', 'made-up-salt'] if x and x in log]
+    check('and no name, salt or hash anywhere in it, after dry runs, imports, a failed import and a restore', not leaks, leaks[:3])
 finally:
     if srv:
         srv.shutdown()
