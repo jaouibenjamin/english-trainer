@@ -1,6 +1,6 @@
 // The four functions against a local PostgreSQL. Run with: python3 tests/functions.py (from the repo root).
 // Every name, code and address here is made up.
-import { clock, DAY, deps, e, eq, freshIp, HOUR, log, MIN, newClass, ok, pepper, pupilId, recOtc, recPic, reg, reset, saves, SCHOOL, settings, sql, user } from "./helpers.ts";
+import { asUser, clock, DAY, deps, e, eq, freshIp, HOUR, log, MIN, newClass, ok, pepper, pupilId, recOtc, recPic, reg, reset, saves, SCHOOL, settings, sql, user } from "./helpers.ts";
 import { kdf, legacySheetHash, stats, tag } from "../_shared/crypto.ts";
 import { adminClass, type Body, type Reply, teacherReset, wrapLegacy } from "../_shared/core.ts";
 import { handler } from "../_shared/http.ts";
@@ -374,17 +374,38 @@ T("copy phase (shadow_mode): a Sheet-era code opens a session that can only rece
   const s1 = await log(c, "Shadow", "8353", { ip: freshIp() });
   eq(e(s1), "ok", "the right Sheet-era code opens a session");
   ok(await saves(user(s1)), "which can receive the copy of the progress");
+  eq([(s1 as Body).s, (s1 as Body).updated_at], [{}, null], "the sign-in answer carries nothing back");
+  const u1 = user(s1);
+  ok(await saves(u1) && await saves(u1), "a copy is written over the last one (the Sheet already merged the devices)");
+  const ev = await asUser(u1, (tx) => tx`select public.record_events(${crypto.randomUUID()}::uuid, '[]'::jsonb) as v`);
+  ok(ev[0].v.ok === true && !("points" in ev[0].v), "events are taken, the total is not shown: " + JSON.stringify(ev[0].v));
+  const sv = await asUser(u1, (tx) => tx`select public.save_progress('{"a":1}'::jsonb, '2000-01-01'::timestamptz) as v`);
+  eq(Object.keys(sv[0].v).sort(), ["ok"], "a save answers ok and nothing else, even against a stale version");
+  const seen = await asUser(u1, async (tx) => {
+    const out: Record<string, number> = {};
+    for (const t of ["classes", "pupils", "answers", "points", "pupil_totals", "answer_daily", "level_best", "progress", "class_board", "teacher_view", "teacher_items", "flags"]) {
+      out[t] = (await tx.unsafe(`select count(*)::int as n from public.${t}`))[0].n;
+    }
+    return out;
+  });
+  eq(Object.values(seen).reduce((a, b) => a + b, 0), 0, "and reads nothing at all: " + JSON.stringify(seen));
+  const direct = await asUser(u1, (tx) => tx`select app.record_events(${crypto.randomUUID()}::uuid, '[]'::jsonb)`).then(() => "ran", () => "refused");
+  eq(direct, "refused", "the full functions behind the wrappers cannot be called by a session");
   const sec = (await sql`select code_algo, pic_hash from private.pupil_secrets where pupil_id = ${pid}`)[0];
   eq([sec.code_algo, sec.pic_hash], ["legacy-sha256", null], "and nothing about the pupil's code or pictures was changed");
   eq([e(await recPic(c, "Shadow", [3, 11], "5839", [7, 2], freshIp())), e(await recOtc(c, "Shadow", "123456", "6149", [9, 4], freshIp())), e(await reg(c, "Newkid", "4827")),
     e(await log(c, "Shadow", "8353", { ip: freshIp(), new_code: "4827", pictures: [3, 11] })) === "ok" ? (await sql`select code_algo from private.pupil_secrets where pupil_id = ${pid}`)[0].code_algo : "x",
-    e(await reset("t:" + teacher, pid)), e(await teacherReset(deps, { action: "unlock", pupil_id: pid }, { ip: SCHOOL, token: "t:" + teacher }))],
-    ["locked", "locked", "locked", "legacy-sha256", "forbidden", "forbidden"], "no recovery, no one-time code, no registration, no new code or pictures, no teacher reset or unlock while it is on");
+    e(await reset("t:" + teacher, pid)), e(await teacherReset(deps, { action: "unlock", pupil_id: pid }, { ip: SCHOOL, token: "t:" + teacher })),
+    e(await teacherReset(deps, { action: "unlock_class", class_id: c.id }, { ip: SCHOOL, token: "t:" + teacher }))],
+    ["locked", "locked", "locked", "legacy-sha256", "forbidden", "forbidden", "forbidden"], "no recovery, no one-time code, no registration, no new code or pictures, no teacher reset, unlock or brake lift while it is on");
   const off = await A("shadow_off") as Body;
   ok(off.signed_out >= 1 && off.shadow_mode === false, "copy phase off");
   ok(!(await saves(user(s1))), "the session opened during the copy phase is dead at once");
   eq((await sql`select count(*)::int as n from auth.users where id = ${user(s1)}`)[0].n, 0, "its auth user is deleted");
   eq(e(await log(c, "Shadow", "8353", { ip: freshIp() })), "setup", "from now on the pupil must choose a new code and pictures");
+  const back = await reg(c, "Afterkid", "4827");
+  eq(e(back), "ok", "registration is open again");
+  ok((await asUser(user(back), (tx) => tx`select count(*)::int as n from public.class_board`))[0].n >= 1, "and a normal session reads its board again");
   clock.ms += 2 * DAY;
 });
 
