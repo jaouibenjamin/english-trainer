@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: quick=--quick   # picked up by tests/all.py
 """Play-through of the mock exam (מבחן דמו): exam with one try per question, the check-in report, practice for the
 weak skill, the locked and then unlocked retake, and a clean second paper.
 

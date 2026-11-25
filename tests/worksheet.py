@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
 """The printable worksheet (worksheet.html), behind its switch.
 
     python3 tests/worksheet.py              # phone, laptop

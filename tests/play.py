@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: quick=--quick   # picked up by tests/all.py
 """End-to-end play-through for Word Islands (headless Chrome via Playwright).
 
     python3 tests/play.py            # full: every level of every island (local mode), island 1 at a second
@@ -10,7 +11,7 @@
 It starts its own static server for the repo and, for class mode, the mock Apps Script backend
 (tests/mock.js, a small Node stand-in for the Apps Script runtime that runs backend/Code.gs unchanged). Exits non-zero on any failed check or page error.
 """
-import asyncio, math, os, subprocess, sys, time, socket
+import asyncio, math, os, subprocess, sys, time, socket, urllib.parse
 from playwright.async_api import async_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -326,8 +327,12 @@ async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
     # An <audio> element aborts the download of its clip
     # when the next clip replaces it: only that (a media request under assets/voice/, net::ERR_ABORTED) is tolerated.
+    # Likewise a picture of our own (assets/) whose screen was replaced before it finished loading: the browser stops
+    # that download (net::ERR_ABORTED). It happens on a busy machine (tests/all.py --jobs). A missing picture is still
+    # an error: it answers 404, which the response check below catches.
     aborted_clip = lambda r: CLIPS_HOST in r.url and r.resource_type == 'media' and r.failure == 'net::ERR_ABORTED'
-    pg.on('requestfailed', lambda r: errs.append(f'requestfailed: {r.url} ({r.resource_type}, {r.failure})') if not aborted_clip(r) else None)
+    aborted_pic = lambda r: r.resource_type == 'image' and r.failure == 'net::ERR_ABORTED' and urllib.parse.urlsplit(r.url).hostname == '127.0.0.1' and urllib.parse.urlsplit(r.url).path.startswith('/assets/')
+    pg.on('requestfailed', lambda r: errs.append(f'requestfailed: {r.url} ({r.resource_type}, {r.failure})') if not (aborted_clip(r) or aborted_pic(r)) else None)
     pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 else None)   # a missing voice file is an error
     # Everything the pages load is ours: a request to any other host is an error. Allowed: the test's own static server,
     # the mock backend when the page was given one, and data: / blob: URLs. (The real class backend is never contacted:

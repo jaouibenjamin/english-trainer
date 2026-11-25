@@ -69,6 +69,9 @@ With `config.js` empty the game still works, without login, and progress stays o
 
 Needs Python Playwright and Chrome, plus Node for the mock backend.
 
+`python3 tests/all.py --quick` runs every suite (one line each; `--list` shows them, `--jobs 3` runs three at a time,
+each with its own servers). The commands below run the main play-through on its own.
+
 ```
 python3 tests/play.py            # every level of every island, two phone sizes, class mode, audio levels (about 10 minutes)
 python3 tests/play.py --quick    # island 1 only in each mode (about 3 minutes)
@@ -160,11 +163,8 @@ model: every byte range except the texture is identical); `check` needs no downl
 (also run by `tests/run.py`) fails on any URL of another host in `js/`, `css/`, the pages and the tools, the voice files included: no file is
 excused. Exactly one thing is allowed: the class backend URL in `config.js`.
 
-## Printable worksheet (behind a switch, off by default)
+## Features behind a switch
 
-`worksheet.html?i=<island>` draws one island as a worksheet on light paper: match the words to their meanings, the
-story with its questions, am / is / are, and sentences to put in order. An answer page can be added. It holds only
-what is in `js/data.js`, shows nothing of the pupil (the name line is filled in by hand), saves nothing and sends
-nothing. A device gets the switch by opening the game once with `?sheet=1` (`?sheet=0` takes it away); the island
-screen then shows a link to its sheet. `python3 tests/worksheet.py` checks the content against `js/data.js`, the
-answers, the printed pages and the privacy of the page.
+Each feature that is off by default (a device gets it with a parameter in the address) is described in its own file
+in [`docs/features/`](docs/features/): what it does, how a device gets the switch, and which test checks it. A new
+feature adds a new file there, not a section here.

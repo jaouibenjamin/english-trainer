@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: needs=psql,deno   # picked up by tests/all.py
 """Edge Function tests (docs/BACKEND.md sections 3 and 4). One command from the repo root:
 
     python3 tests/functions.py
