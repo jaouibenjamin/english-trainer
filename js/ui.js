@@ -8,6 +8,14 @@ export const SP=n=>`assets/sp/${n}.webp`;
 export const BG=n=>`assets/bg/${n}.jpg`;
 export const BGW=752,BGH=1344,BRIDGE_H=1800;   // the bridge art is taller: its sky continues above the sign on every phone
 
+/* the old pictures the new look draws over, with their own size: a stand-in of that size (an empty SVG), used only with the
+   design flag (js/main.js, js/avatar.js), so a box sized from the picture stays as it was. tests/weight.py checks the
+   sizes against the files. A picture not listed has no stand-in and is downloaded as before. */
+const NAT={isl_1:[560,388],isl_2:[560,461],isl_3:[560,448],isl_4:[560,394],isl_5:[560,407],isl_6:[560,422],star:[200,183],star_off:[200,183],
+ lock:[288,379],ic_gear:[200,199],crab_wave:[326,296],crab_star:[322,342],crab_happy:[340,351]};
+const SVGNS='http://www.w3.org/2000/svg';   // an XML namespace name, never fetched
+export const standIn=n=>NAT[n]?'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="${SVGNS}" width="${NAT[n][0]}" height="${NAT[n][1]}"/>`)+' 1x':'';
+
 /* ---------- image cache / preload ---------- */
 const cache=new Map();
 export function img(src){let p=cache.get(src);if(!p){p=new Promise(res=>{const i=new Image();i.decoding='async';i.onload=()=>res(i);i.onerror=()=>res(null);i.src=src});cache.set(src,p)}return p}

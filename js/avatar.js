@@ -219,9 +219,6 @@ function line(pts,here){const s=document.createElementNS(SVGNS,'svg');s.setAttri
  const part=(a,b,c)=>{if(b<=a)return;const p=document.createElementNS(SVGNS,'polyline');p.setAttribute('class','w-line__'+c);
   p.setAttribute('points',pts.slice(a,b+1).map(q=>q[0]+','+q[1]).join(' '));s.appendChild(p)};
  part(0,here,'lit');part(here,pts.length-1,'dim');return s}
-/* the star row's old pictures are drawn over by the new look (css/ds-game.css .island img.st): a stand-in instead, so
-   the old file is not downloaded (an empty picture of the old one's size) (as js/main.js dsSkip does for the screens; this row is built before it is on the page) */
-const BLANK='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="${SVGNS}" width="200" height="183"/>`)+' 1x';   // the size of assets/sp/star.webp
 const STARS_HE=['עוד לא שיחקתם','כוכב אחד','שני כוכבים','שלושה כוכבים'];
 const WALK_MS=450;
 /* the backdrop, loaded before the path replaces the list: if it fails (or takes longer than ART_WAIT), the list stays */
@@ -256,7 +253,7 @@ export async function islandPath(view,i,go,live=()=>true){
   const b=stone(state,'שלב '+(k+1)+': '+x.L.name+', '+STARS_HE[x.s]+(k===next?', כאן אתם עכשיו':''),state==='open'?'current':state);
   b.dataset.to='play/'+i.id+'/'+x.t;
   b.appendChild(el('span','w-st__mark',String(k+1)));
-  if(x.s){const st=el('span','w-st__stars');st.insertAdjacentHTML('beforeend',starRow(x.s));for(const im of st.querySelectorAll('img'))im.srcset=BLANK;b.appendChild(st)}   // the game's own star row (ui.js), no outside text
+  if(x.s){const st=el('span','w-st__stars');st.insertAdjacentHTML('beforeend',starRow(x.s));b.appendChild(st)}   // the game's own star row (ui.js), no outside text
   /* the label: the level's name and sub-line exactly as in the list, toward the middle, never off the picture; it is
      inside the button, so stone and label are one target */
   const lab=el('span','w-st__name '+(pts[k][0]<50?'w-st__name--r':'w-st__name--l'));

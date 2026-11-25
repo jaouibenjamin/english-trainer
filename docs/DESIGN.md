@@ -45,6 +45,12 @@ Only self-hosted files in `assets/font`, declared in `ds.css` as `WI Hebrew` and
 - English: **Rubik** (`rubik-latin.woff2`, variable weight, SIL OFL 1.1), owner's decision. It replaced Playpen Sans in the new look: the handwriting read childish next to Fredoka, and English is what pupils must read most carefully for spelling. Rubik's a, g, I and l are plain and distinct.
 - The live game (`css/game.css`) still uses Playpen Sans. It changes only when a screen moves to the new system.
 
+- **Within 1 px.** With the flag on, the title's text may sit a fraction of a pixel apart between builds: after the
+  lighter first load (#77) every text box on the title is within 0.05 CSS px of before (the first card's title: top
+  229.85 to 229.81 px, height 26.45 to 26.50 px, at 320x568), which antialiasing shows as changed pixels (about 2% at
+  320x568). No element moves by a whole pixel. It comes from which font files are in when the screen is first laid out;
+  not a layout change.
+
 ### Open questions (decide before the flag flips)
 - **English words in levels: Playpen today; Rubik in the new look's chrome.** With the flag on, the listen, read and
   bridge levels still draw their English in Playpen (DOM), and the sling level's bubbles, Fraction Bay's digits, Beach
