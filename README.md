@@ -159,3 +159,17 @@ the files and their sha256 (needs Pillow); `verify --cache DIR` compares every f
 model: every byte range except the texture is identical); `check` needs no download. `python3 tests/remote_guard.py`
 (also run by `tests/run.py`) fails on any URL of another host in `js/`, `css/`, the pages and the tools, the voice files included: no file is
 excused. Exactly one thing is allowed: the class backend URL in `config.js`.
+
+## Mock exam results on the teacher screen (behind a switch; needs a backend deploy)
+
+The pupil's saved record already holds the mock exam papers. `teacherView` in `backend/Code.gs` now also returns, for
+each pupil, how many papers were taken, the first and the last total and the last paper by skill (`mockOf`). It only
+reads; nothing new is saved and the sheet is not written. What a pupil typed in the exam is not sent to the screen.
+
+**The owner has to deploy a new version of the Apps Script for this to reach the class.** Until then the backend
+sends no such field, and the teacher screen is drawn as before. Do not ship this part to `main` as "done" before the
+deploy.
+
+The rows on the pupil cards are behind a switch on the teacher's device: open the game once with `?tmock=1`
+(`?tmock=0` takes it away). `node tests/mock.js unit` checks the backend part; `python3 tests/teacher_mock.py` checks
+the screen, an older backend, rubbish from a backend and that looking changes nothing.

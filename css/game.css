@@ -512,3 +512,7 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .treset{margin-inline-start:auto;font:inherit;font-size:12.500px;font-weight:700;color:#8a4a2e;background:#fff3d6;border:1.5px solid rgba(138,74,46,.45);border-radius:10px;padding:3px 9px;min-height:30px}
 .treset[data-arm]{background:#fde3d6;border-color:#b9503c;color:#7a2f22}
 .treset:disabled{opacity:.6}
+
+/* the mock exam rows on a pupil's card of the teacher screen (only with the switch, and only when the backend sends them) */
+.kid .km{border-top:2px dashed rgba(90,69,52,.22);padding-top:5px;justify-content:flex-start;gap:4px 14px}
+.kid .km.sk{border-top:0;padding-top:0;margin-top:2px}

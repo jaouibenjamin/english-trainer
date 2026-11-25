@@ -9,6 +9,7 @@ import * as read from './read.js';
 import * as bridge from './bridge.js';
 import * as M from './math.js';
 import * as X from './mock.js';
+import {XSKILL,XORDER} from './xdata.js';
 
 const LEVELS={sling,listen,read,bridge};
 const BGFIT={sling:'bottom',listen:'bottom',read:'bottom',bridge:'bridge'};
@@ -201,6 +202,15 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
  const tag=d=>{const n=idle(d);if(n===null)return['r','עוד לא התחיל/ה'];
   if(!hasStars(d))return d.words<10?['r','צריך חיזוק']:n>=3?['r',`לא תרגל/ה ${n} ימים`]:d.words>=40?['g','מוכן/ה']:['n','בדרך'];
   return d.tries>=15&&d.miss/d.tries>=.3?['r','צריך חיזוק']:n>=3?['r',`לא תרגל/ה ${n} ימים`]:d.stars>=MAX_STARS*.8?['g','מוכן/ה']:['n','בדרך']};
+ /* The mock exam on a pupil's card: behind a switch (?tmock=1 on the teacher's device), and only when the backend
+    sends it. An older deployment sends no "mock" field at all: then the card is drawn exactly as before.
+    Every number is checked before it is shown; nothing from the backend is drawn as text. */
+ const pr=p=>Array.isArray(p)&&p.length===2&&p.every(v=>Number.isInteger(v)&&v>=0&&v<1000)&&p[1]>0&&p[0]<=p[1]?p:null,frac=p=>num(p[0]+' / '+p[1]);
+ const mockRow=d=>{if(SET.tmock!==true||!('mock' in d))return'';const m=d.mock,last=m&&pr(m.last);
+  if(!last)return`<p class="ks km"><span>מבחן דמו: עוד לא ניסה/תה</span></p>`;
+  const n=Number.isInteger(m.n)&&m.n>0&&m.n<100?m.n:1,first=pr(m.first),sc=XORDER.map(k=>[k,pr(m.sc&&m.sc[k])]).filter(x=>x[1]);
+  return`<p class="ks km"><span><b>מבחן דמו</b> ${n===1?'ניסיון אחד':num(n)+' ניסיונות'}</span><span>אחרון ${frac(last)}</span>${n>1&&first?`<span>ראשון ${frac(first)}</span>`:''}</p>
+   ${sc.length?`<p class="ks km sk">${sc.map(([k,p])=>`<span>${XSKILL[k].he} ${frac(p)}</span>`).join('')}</p>`:''}`};
  view.innerHTML=`<section class="scr teacher wide">${top('מסך המורה',back)}
   <div class="panel label"><h3>המילים הקשות לכיתה</h3>${D.hard.length?`<div class="hard">${D.hard.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]]||'')}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
   ${D.kids.length?`<div class="kids">${D.kids.map(d=>{const s=tag(d),dd=String(d.day||'').split('-');
@@ -209,7 +219,7 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
     <p class="ks"><span>שלבים ${num(d.levels+' / '+NL)}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span></p>
     <p class="ks"><span>מילים שנלמדו ${num(d.words+' / 59')}</span><span>קטעי קריאה בלי טעות ${num(d.reads+' / 5')}</span>${d.tries?`<span>${num(Math.round(d.miss/d.tries*100)+'%')} טעויות</span>`:''}`
     :`<p class="kw"><span>מילים שנלמדו</span>${num(d.words+' / 59')}</p><div class="pbar"><i style="width:${Math.min(100,d.words/59*100)}%"></i></div>
-    <p class="ks"><span>קטעי קריאה ${num(d.reads+' / 5')}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span>`}</p></div>`}).join('')}</div>`:'<p class="panel label msg">עדיין אף תלמיד לא נרשם.</p>'}
+    <p class="ks"><span>קטעי קריאה ${num(d.reads+' / 5')}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span>`}</p>${mockRow(d)}</div>`}).join('')}</div>`:'<p class="panel label msg">עדיין אף תלמיד לא נרשם.</p>'}
   <p class="credit">כוכבים: עד ${num(3)} בכל שלב, ${num(MAX_STARS)} בסך הכול · מילה נחשבת "נלמדה" אחרי שתי תשובות נכונות ברצף, לכן המספר נמוך גם אצל מי שסיים · "צריך חיזוק": ${num('30%')} טעויות ומעלה · תגית אדומה גם אחרי ${num(3)} ימים בלי תרגול</p></section>`}
 
 /* ---------- actions ---------- */
@@ -266,6 +276,8 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
   case'math':M.map();break;case'misland':M.island(a,go);break;case'mplay':{const my=navId;loader();M.play(a,b,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
   case'mock':X.hub();break;case'mockrun':{const my=navId;X.run({go,live:()=>my===navId,setLevel:l=>{level=l}});break}case'mockprac':{const my=navId;X.prac(a,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
   case'help':help();break;case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
+/* the teacher screen's mock exam rows are behind a switch a device gets with ?tmock=1 and loses with ?tmock=0 */
+try{const v=new URLSearchParams(location.search).get('tmock');if(v==='1'||v==='0'){SET.tmock=v==='1';saveSet()}}catch(e){}
 addEventListener('hashchange',route);
 /* a pupil who also plays on another device: bring that progress in when the game opens or comes back to the front.
    Only the calm screens are drawn again; a level in play just keeps the better record underneath. */

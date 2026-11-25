@@ -134,6 +134,21 @@ function handle(d) {
   return { ok: false, e: 'action' };
 }
 
+/* The mock exam for the teacher screen, read from what the pupil's record already holds (x.tries; nothing new is
+   saved and the sheet is not written): how many papers, the first and the last total, and the last paper by skill.
+   null = no paper yet. A damaged record gives null, never an error. */
+function mockOf(x) {
+  const pair = function (p) { return [Math.max(0, Math.floor(Number(p[0]) || 0)), Math.max(0, Math.floor(Number(p[1]) || 0))]; };
+  const t = x && Array.isArray(x.tries) ? x.tries.filter(function (r) { return r && Array.isArray(r.total) && Number(r.total[1]) > 0; }) : [];
+  if (!t.length) return null;
+  const last = t[t.length - 1], sc = {};
+  ['words', 'grammar', 'reading', 'writing'].forEach(function (k) {
+    const p = last.sc && last.sc[k];
+    if (Array.isArray(p) && Number(p[1]) > 0) sc[k] = pair(p);
+  });
+  return { n: t.length, first: pair(t[0].total), last: pair(last.total), sc: sc, at: Number(last.at) || 0 };
+}
+
 function teacherView(rows) {
   const agg = {};
   const kids = rows.map(function (x) {
@@ -146,7 +161,7 @@ function teacherView(rows) {
     });
     Object.keys(lv).forEach(function (k) { const v = Math.min(3, Math.floor(Number(lv[k]) || 0)); if (v > 0) { stars += v; levels++; } });
     return { n: String(x[0]), pts: Number(x[3]) || 0, words: Number(x[4]) || 0, reads: Number(x[5]) || 0, streak: Number(x[6]) || 0, day: dayStr(x[7]),
-      stars: stars, levels: levels, tries: tries, miss: miss };
+      stars: stars, levels: levels, tries: tries, miss: miss, mock: mockOf(state.x) };
   }).sort(function (a, b) { return b.stars - a.stars || b.words - a.words; });
   const hard = Object.keys(agg).filter(function (w) { return agg[w][0] >= 3 && agg[w][1] > 0; })
     .map(function (w) { return [w, Math.round(agg[w][1] / agg[w][0] * 100), agg[w][0]]; })
