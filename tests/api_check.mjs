@@ -16,8 +16,10 @@ const SHEET = 'https://script.example/macros/s/TEST/exec', SB = 'https://abcdefg
 let n = 0;
 /** a fresh copy of the module under a given config, with fetch and localStorage replaced */
 async function load(backend, route) {
-  const calls = [], store = new Map();
+  const calls = [], store = new Map(), listeners = [];
   globalThis.window = globalThis;
+  globalThis.addEventListener = (t, f) => listeners.push([t, f]);
+  globalThis.document = { visibilityState: 'visible', addEventListener: (t, f) => listeners.push([t, f]) };
   globalThis.API_URL = '  ' + SHEET + ' ';
   if (backend === undefined) delete globalThis.BACKEND; else globalThis.BACKEND = backend;
   globalThis.localStorage = { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
@@ -29,7 +31,7 @@ async function load(backend, route) {
     return { ok: (r.status || 200) < 400, status: r.status || 200, json: async () => { if (r.badJson) throw new SyntaxError('Unexpected token <'); return r.json; } };
   };
   const m = await import(pathToFileURL(path.join(ROOT, 'js/api.js')).href + '?v=' + (++n));
-  return { m, calls, store };
+  return { m, calls, store, listeners, hide: () => { globalThis.document.visibilityState = 'hidden'; for (const [t, f] of listeners) if (t === 'visibilitychange') f(); } };
 }
 const sheetOk = c => c.url === SHEET ? { json: { ok: true, s: { pts: 5 } } } : null;
 
@@ -59,7 +61,8 @@ const sheetOk = c => c.url === SHEET ? { json: { ok: true, s: { pts: 5 } } } : n
   let threw = false; try { await m2.api('save', {}); } catch (e) { threw = true; }
   check('default config: a network failure is thrown to the caller as before (the game turns it into "no connection")', threw);
   const src = fs.readFileSync(path.join(ROOT, 'js/state.js'), 'utf8');
-  check('js/state.js gets api() from the adapter and still exports it', /import \{api\} from '\.\/api\.js';export \{api\};/.test(src) && !/fetch\(API,/.test(src));
+  check('js/state.js gets api() from the adapter and still exports it', /import \{api,forget\} from '\.\/api\.js';export \{api\};/.test(src) && !/fetch\(API,/.test(src));
+  check('and tells it at logout and at relogin (B1)', /export function relogin\(\)\{const u=S\.u;if\(!u\)return null;forget\(false\);/.test(src) && /return false;\n forget\(true\);/.test(src));
 }
 
 // ---- 2. dual write
@@ -70,7 +73,9 @@ function supabase(state) {   // a tiny stand-in for the project: sign-in, save_p
     if (c.url === SHEET) return { json: state.sheet ?? { ok: true } };
     state.seen.push(c.url.replace(SB, ''));
     if (state.down) return state.down === 'throw' ? new Error('down') : { status: 500, json: null };
-    if (c.url.endsWith('/functions/v1/pupil-login')) { state.logins.push(c.body); return { json: state.login ?? ses('t0') }; }
+    if (c.url.endsWith('/functions/v1/pupil-login')) { state.logins.push(c.body); return { json: typeof state.login === 'function' ? state.login(c.body) : state.login ?? ses('t0') }; }
+    if (c.url.includes('/auth/v1/token?grant_type=refresh_token')) return { json: { access_token: 'acc-r', refresh_token: 'ref-r', expires_in: 3600 } };
+    if (c.url.includes('/auth/v1/logout')) { (state.logouts ??= []).push(c.init.headers.authorization); return { status: 204, json: null }; }
     if (c.url.endsWith('/rpc/save_progress')) { state.saves.push(c.body); if (state.conflict-- > 0) return { json: { ok: false, conflict: true, state: {}, updated_at: 't9' } }; return { json: { ok: true, updated_at: 't' + state.saves.length } }; }
     if (c.url.endsWith('/rpc/record_events')) { state.batches.push(c.body); if (state.loseAnswer-- > 0) return new Error('answer lost'); return { json: { ok: true, points: 30, flagged: 0 } }; }
     return { status: 404, json: null };
@@ -79,7 +84,7 @@ function supabase(state) {   // a tiny stand-in for the project: sign-in, save_p
 const fresh = o => ({ seen: [], logins: [], saves: [], batches: [], conflict: 0, loseAnswer: 0, ...o });
 {
   const st = fresh();
-  const { m, calls, store } = await load({ mode: 'dual', url: SB, key: KEY }, supabase(st));
+  const { m, calls, store } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
   eq('dual: mode', m.MODE, 'dual');
   st.sheet = { ok: true, s: { pts: 1 } };
   const r = await m.api('login', CRED); await tick();
@@ -94,14 +99,14 @@ const fresh = o => ({ seen: [], logins: [], saves: [], batches: [], conflict: 0,
   check('saves go with the session, never with the code', calls.filter(c => c.url.includes('/rest/')).every(c => c.init.headers.authorization === 'Bearer acc1' && !JSON.stringify(c.body).includes('4827')));
   const all = [...store.entries()].map(([k, v]) => k + v).join('|');
   check('nothing kept on the device by the adapter holds the code or the name', !all.includes('4827') && !all.includes('נועה'), all.slice(0, 200));
-  check('the shadow log has numbers only', m.shadowLog().length >= 3 && !JSON.stringify(m.shadowLog()).includes('נועה') && m.shadowLog().some(l => l.k === 'save' && l.sheet === 34 && l.server === 30), JSON.stringify(m.shadowLog()));
+  check('the shadow log has numbers only', m.shadowLog().length >= 3 && !JSON.stringify(m.shadowLog()).includes('נועה') && m.shadowLog().some(l => l.k === 'save' && l.server === 30) && m.shadowLog().some(l => l.k === 'sheet' && l.pts === 34), JSON.stringify(m.shadowLog()));
   for (const a of ['board', 'teacher', 'reset']) { const before = st.seen.length; await m.api(a, CRED); await tick(); eq(`dual ${a}: the Sheet only`, st.seen.length, before); }
   m.signOut();
   check('sign out: the session is removed from this device, the device token stays', !store.get('wi-sb-session').includes('ref1') && store.get('wi-sb-session').includes('ddd'));
 }
 for (const down of ['throw', 500]) {
   const st = fresh({ down, sheet: { ok: true, s: { pts: 3 } } });
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
   const t0 = Date.now();
   const r1 = await m.api('login', CRED), r2 = await m.api('save', { ...CRED, s: { pts: 3 } });
   eq(`dual, Supabase ${down === 'throw' ? 'unreachable' : 'answering 500'}: the pupil gets the Sheet's answers`, [r1, r2], [{ ok: true, s: { pts: 3 } }, { ok: true, s: { pts: 3 } }]);
@@ -110,17 +115,17 @@ for (const down of ['throw', 500]) {
 }
 {
   const st = fresh({ sheet: { ok: false, e: 'pin' } });
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
   const r = await m.api('save', { ...CRED, s: { pts: 3 } }); await tick();
   eq('dual: a save the Sheet refuses is not copied', [r, st.seen], [{ ok: false, e: 'pin' }, []]);
   st.sheet = new Error('offline');
-  const x = await load({ mode: 'dual', url: SB, key: KEY }, c => c.url === SHEET ? new Error('offline') : supabase(st)(c));
+  const x = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => c.url === SHEET ? new Error('offline') : supabase(st)(c));
   let threw = false; try { await x.m.api('save', CRED); } catch (e) { threw = true; }
   check('dual: a Sheet network failure is thrown exactly as in sheet mode, and nothing is copied', threw && st.seen.length === 0);
 }
 {
   const st = fresh({ loseAnswer: 1 });
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
   await m.api('login', CRED); await tick();
   await m.api('save', { ...CRED, s: { st: { cat: [1, 0] } } }); await tick();
   await m.api('save', { ...CRED, s: { st: { cat: [3, 0] } } }); await tick();    // the server takes it, the answer is lost
@@ -134,14 +139,166 @@ for (const down of ['throw', 500]) {
 }
 {
   const st = fresh({ conflict: 1 });
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
   await m.api('login', CRED); await tick();
   await m.api('save', { ...CRED, s: { pts: 1 } }); await tick();
   eq('shadow: when another device saved first the copy is written again over the version the server named (the Sheet is the truth)', st.saves.map(s => s.p_base), ['t0', 't9']);
   const st2 = fresh({ login: { ok: false, e: 'pin' } });
-  const y = await load({ mode: 'dual', url: SB, key: KEY }, supabase(st2));
+  const y = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st2));
   for (let i = 0; i < 5; i++) { await y.m.api('save', { ...CRED, s: { pts: i } }); await tick(); }
   eq('a pupil the shadow side does not know yet: one sign-in try, not one per save', st2.logins.length, 1);
+}
+
+// ---- 2b. pacing (review S8): the newest state, at most every saveEveryS, at once when the page is hidden; "wait" and
+// "daycap" keep it and try again
+{
+  const { m, listeners, calls } = await load(undefined, sheetOk);
+  eq('sheet mode registers nothing on the page', listeners.length, 0);
+  m.forget(true); m.forget(false); await tick();
+  eq('and logout or relogin in sheet mode contacts nobody', calls.length, 0);
+}
+{
+  const st = fresh();
+  const { m, hide, calls } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0.3 }, supabase(st));
+  await m.api('login', CRED); await tick();
+  for (let i = 1; i <= 6; i++) { await m.api('save', { ...CRED, s: { pts: i, st: { cat: [i, 0] } } }); await tick(20); }
+  eq('6 saves of the game inside 0.3 s: one copy now', st.saves.length, 1);
+  await tick(400);
+  eq('and one more when the time is up, with the newest state only', [st.saves.length, st.saves[1].p_state.pts], [2, 6]);
+  eq('every answer still went in a batch exactly once', st.batches.reduce((a, b) => a + b.p_events.length, 0), 5);
+  await m.api('save', { ...CRED, s: { pts: 7, st: { cat: [7, 0] } } }); await tick();
+  eq('a save right after a copy waits', st.saves.length, 2);
+  hide(); await tick();
+  eq('until the page is hidden: then it goes at once', [st.saves.length, st.saves[2].p_state.pts], [3, 7]);
+  check('with keepalive, so it survives the page', calls.filter(c => c.url.endsWith('/rpc/save_progress')).pop().init.keepalive === true);
+  check('the public key that is not a JWT is never sent as a bearer', calls.filter(c => c.url.startsWith(SB)).every(c => c.init.headers.authorization !== 'Bearer ' + KEY));
+}
+{
+  const st = fresh();
+  let answer = { ok: false, e: 'wait', retry_after: 1 };
+  const base = supabase(st);
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => {
+    if (c.url.endsWith('/rpc/save_progress') && answer) { st.saves.push(c.body); const a = answer; answer = null; return { json: a }; }
+    return base(c);
+  });
+  await m.api('login', CRED); await tick();
+  await m.api('save', { ...CRED, s: { pts: 1 } }); await tick();
+  eq('the server says wait 1 s: nothing more is sent before that', st.saves.length, 1);
+  await m.api('save', { ...CRED, s: { pts: 2 } }); await tick();
+  eq('not even for a newer save', st.saves.length, 1);
+  await tick(1100);
+  eq('after it, the newest state goes', [st.saves.length, st.saves[1].p_state.pts], [2, 2]);
+  answer = { ok: false, e: 'daycap', retry_after: 3600 };
+  await m.api('save', { ...CRED, s: { pts: 3 } }); await tick();
+  await m.api('save', { ...CRED, s: { pts: 4 } }); await tick(200);
+  eq('the day\'s saves are used up: kept on the device, not sent again today', st.saves.length, 3);
+  check('and noted as such, not as an error', m.shadowLog().some(l => l.k === 'save' && l.e === 'daycap'));
+}
+{
+  const st = fresh();
+  let brake = true;
+  const base = supabase(st);
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => {
+    if (c.url.endsWith('/rpc/record_events') && brake) { st.batches.push(c.body); return { json: { ok: false, e: 'brake', points: 0 } }; }
+    return base(c);
+  });
+  await m.api('login', CRED); await tick();
+  await m.api('save', { ...CRED, s: { st: { cat: [1, 0] } } }); await tick();
+  await m.api('save', { ...CRED, s: { st: { cat: [2, 0] } } }); await tick();
+  eq('the storage brake: the batch is refused and kept on the device', [st.batches.length, m.shadowLog().some(l => l.k === 'brake')], [1, true]);
+}
+{
+  const st = fresh();
+  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, saveEveryS: 0.3, unfinished: true }, supabase(st));
+  await m.api('login', CRED); await tick();
+  const r1 = await m.api('save', { ...CRED, s: { pts: 1 } });
+  const r2 = await m.api('save', { ...CRED, s: { pts: 2 } });
+  eq("'supabase': the first save goes, the next one inside 0.3 s is kept and the game hears ok", [r1, r2, st.saves.length], [{ ok: true }, { ok: true }, 1]);
+  st.conflict = 1;
+  await tick(400);
+  eq('the kept save meets another device\'s version', st.saves.length, 2);
+  const r3 = await m.api('save', { ...CRED, s: { pts: 3 } });
+  eq('the next save of the game is told to join (stale, with the server\'s state)', [r3.ok, r3.e], [false, 'stale']);
+}
+
+// ---- 2c. the reviews of #21 and #35: shared devices, sign-in once, events even when a save waits, 2 hours of play
+{
+  const { m } = await load({ mode: 'supabase', url: SB, key: KEY }, sheetOk);
+  eq("'supabase' without the second key (unfinished: true) stays on the Sheet (S-b)", m.MODE, 'sheet');
+}
+{
+  const A = { c: 'EN-0000', n: 'Testa', p: '4827' }, Bp = { c: 'EN-0000', n: 'Probe', p: '5839' };
+  const st = fresh({ login: b => b.name === 'Testa' ? { ...ses('t0'), session: { access_token: 'tok-A', refresh_token: 'ref-A', expires_at: Math.floor(Date.now() / 1000) + 3600 } } : { ok: false, e: 'pin' } });
+  const { m, calls, store } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  await m.api('login', A); await tick();
+  await m.api('save', { ...A, s: { pts: 1 } }); await tick();
+  await m.api('login', Bp); await tick();
+  for (let i = 0; i < 3; i++) { await m.api('save', { ...Bp, s: { pts: 100 + i } }); await tick(); }
+  const restAfterB = calls.filter(c => c.url.includes('/rest/') && c.body && c.body.p_state && c.body.p_state.pts >= 100);
+  eq('two pupils on one device: B\'s progress is never sent with A\'s session (B1)', restAfterB.length, 0);
+  eq('A\'s session was revoked on the server when B came', st.logouts, ['Bearer tok-A']);
+  check('and is gone from the device', !(store.get('wi-sb-session') || '').includes('tok-A'));
+  check('the device keeps no name: only a hash of class code and name', !(store.get('wi-sb-owner') || '').includes('Probe') && /^"[0-9a-f]{24}"$/.test(store.get('wi-sb-owner') || ''), store.get('wi-sb-owner'));
+  eq('B (unknown to Supabase) was tried once, then not again today (S-a)', st.logins.filter(b => b.name === 'Probe').length, 1);
+  await m.api('login', Bp); await tick();
+  eq('not even at the next Sheet sign-in', st.logins.filter(b => b.name === 'Probe').length, 1);
+  await m.api('login', A); await tick();
+  await m.api('login', A); await tick();
+  eq('A again: signed in once, and the second sign-in on the Sheet does not open another session (S-a)', st.logins.filter(b => b.name === 'Testa').length, 2);
+  const before = (st.logouts || []).length;
+  m.forget(true); await tick();
+  check('logout: the session is revoked on the server and nothing of the pupil stays on the device (B1)', (st.logouts || []).length === before + 1
+    && !store.get('wi-sb-base') && !store.get('wi-sb-pending') && !(store.get('wi-sb-session') || '').includes('access'), [st.logouts, [...store.keys()]]);
+}
+{
+  const st = fresh();
+  const base = supabase(st);
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => {
+    if (c.url.endsWith('/rpc/save_progress') && st.saves.length >= 1) { st.saves.push(c.body); return { json: { ok: false, e: 'wait', retry_after: 30 } }; }
+    return base(c);
+  });
+  await m.api('login', CRED); await tick();
+  await m.api('save', { ...CRED, s: { st: { cat: [1, 0] } } }); await tick();
+  await m.api('save', { ...CRED, s: { st: { cat: [3, 0] } } }); await tick();
+  eq('a save the server asks to wait: its events still go now, not tomorrow (B2)', [st.saves.length, st.batches.length, st.batches[0] && st.batches[0].p_events.length], [2, 1, 2]);
+}
+{
+  // two hours of steady play on a virtual clock: an answer every 4 s, the game saving after each one (B2)
+  const real = { now: Date.now, st: globalThis.setTimeout, ct: globalThis.clearTimeout };
+  let now = Date.UTC(2027, 0, 11, 7, 0, 0), seq = 0, timers = [];
+  Date.now = () => now;
+  globalThis.setTimeout = (f, ms) => { const id = ++seq; timers.push({ id, at: now + (ms || 0), f }); return id; };
+  globalThis.clearTimeout = id => { timers = timers.filter(t => t.id !== id); };
+  const flushMicro = () => new Promise(r => real.st(r, 0));
+  const advance = async ms => {
+    const end = now + ms;
+    for (;;) {
+      timers.sort((a, b) => a.at - b.at);
+      const t = timers[0];
+      if (!t || t.at > end) break;
+      timers.shift(); now = Math.max(now, t.at); t.f(); await flushMicro(); await flushMicro();
+    }
+    now = end; await flushMicro();
+  };
+  try {
+    const st = fresh(); let lastOk = 0, writes = 0, refused = 0;
+    const base = supabase(st);
+    const { m, hide } = await load({ mode: 'dual', url: SB, key: KEY }, c => {     // the real pacing: 30 s
+      if (c.url.endsWith('/rpc/save_progress')) {
+        st.saves.push(c.body);
+        if (now - lastOk < 5000 || writes >= 300) { refused++; return { json: { ok: false, e: writes >= 300 ? 'daycap' : 'wait', retry_after: 5 } }; }
+        lastOk = now; writes++; return { json: { ok: true, updated_at: 't' + writes } };
+      }
+      return base(c);
+    });
+    await m.api('login', CRED); await advance(1000);
+    const answers = 1800;
+    for (let i = 1; i <= answers; i++) { await m.api('save', { ...CRED, s: { pts: i * 10, st: { cat: [i, 0] } } }); await advance(4000); }
+    hide(); await advance(60000);
+    const sent = st.batches.reduce((a, b) => a + b.p_events.length, 0);
+    eq('every answer reached the server in a batch exactly once (the first save sets the base)', sent, answers - 1);
+    eq('and the last state the game saved is the one stored', st.saves[st.saves.length - 1].p_state.pts, answers * 10);
+  } finally { Date.now = real.now; globalThis.setTimeout = real.st; globalThis.clearTimeout = real.ct; }
 }
 
 // ---- 3. events from two saves

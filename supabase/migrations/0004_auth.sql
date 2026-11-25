@@ -87,7 +87,9 @@ end $$;
 
 -- ---------------------------------------------------------------- helpers
 create function private.name_lock(p_class uuid, p_key text) returns void language sql set search_path = '' as
-  $$ select pg_advisory_xact_lock(hashtextextended(p_class::text || '/' || p_key, 42)) $$;
+  $$ select pg_advisory_xact_lock(hashtextextended('name/' || p_class::text || '/' || p_key, 42)) $$;
+-- Every advisory lock key has its own namespace (name/, kind/, ip/): a pupil called "Code" must never share the lock
+-- of the class's wrong-code count (review of #35: 697 deadlocks in 960 calls before the namespaces).
 
 create function private.lock_event(p_class uuid, p_key text, p_kind text, p_now timestamptz, p_until timestamptz) returns void
 language sql security definer set search_path = '' as
@@ -174,14 +176,14 @@ begin
   select class_id into v_class from private.class_codes where code_lookup = decode(p_class_lookup, 'hex');
   if v_class is null then
     perform pg_advisory_xact_lock(hashtextextended('class-misses', 42));
-    if (select coalesce(sum(n), 0) from private.class_misses where hour = v_hour) >= s.class_miss_hour then
+    if (select coalesce(sum(n), 0) from private.class_misses where hour = v_hour and bucket <> 'unreadable') >= s.class_miss_hour then
       return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_hour + interval '1 hour', p_now));      -- everyone, this hour
     end if;
     insert into private.class_misses (bucket, hour, n) values (p_ip, v_hour, 1)
       on conflict (bucket, hour) do update set n = private.class_misses.n + 1;
     return jsonb_build_object('s', 'class');
   end if;
-  perform pg_advisory_xact_lock(hashtextextended(v_class::text || '/' || p_kind, 42));
+  perform pg_advisory_xact_lock(hashtextextended('kind/' || v_class::text || '/' || p_kind, 42));
 
   -- while the copy phase runs, this side only receives copies: no registration, no recovery
   if s.shadow_mode and p_kind <> 'code' then return jsonb_build_object('s', 'locked', 'wait', -1); end if;
@@ -315,11 +317,15 @@ declare
 begin
   select * into s from private.settings;
   begin v_hash := decode(p_hash, 'hex'); exception when others then v_hash := null; end;
+  -- the name lock first, then the attempt row: the same order as teacher_reset and teacher_unlock, so the two can
+  -- never wait on each other (review of #35: 70 deadlocks in 300 rounds of guesses during a reset)
+  select * into a from private.auth_attempts where id = p_attempt;
+  if a.id is null then return jsonb_build_object('ok', false); end if;
+  perform private.name_lock(a.class_id, a.name_key);
   select * into a from private.auth_attempts where id = p_attempt for update;
   if a.id is null or a.outcome <> 'pending' or a.kind not in ('code', 'picture', 'otc') or a.at < p_now - interval '2 minutes' then
     return jsonb_build_object('ok', false);
   end if;
-  perform private.name_lock(a.class_id, a.name_key);
   select * into p from public.pupils where class_id = a.class_id and name_key = a.name_key;
   select * into sec from private.pupil_secrets where pupil_id = p.id;
   v_dev := coalesce(nullif(p_dev_new, ''), nullif(a.dev_bucket, ''));
@@ -502,7 +508,7 @@ begin
   if not exists (select 1 from public.teachers where user_id = p_teacher and class_id = p_class) or (select shadow_mode from private.settings) then
     return jsonb_build_object('ok', false);
   end if;
-  perform pg_advisory_xact_lock(hashtextextended(p_class::text || '/code', 42));
+  perform pg_advisory_xact_lock(hashtextextended('kind/' || p_class::text || '/code', 42));
   if (select count(*) from private.auth_lock_events where class_id = p_class and name_key = '' and kind = 'unlock-class'
         and at > p_now - interval '24 hours') >= (select class_lift_day from private.settings) then
     return jsonb_build_object('ok', false, 'e', 'limit');      -- twice a day at most (review S7)
@@ -628,6 +634,27 @@ begin
 end $$;
 revoke all on function public.record_events(uuid, jsonb), public.save_progress(jsonb, timestamptz) from public, anon;
 grant execute on function public.record_events(uuid, jsonb), public.save_progress(jsonb, timestamptz) to authenticated, service_role;
+
+-- ---------------------------------------------------------------- unreadable addresses (review of #35)
+-- A request whose address cannot be read gets a bucket of its own (review S5). If that happens to every request, the
+-- per-address limits are quietly off (a wrong CLIENT_IP_FROM): counted per hour, shown to the teacher and the owner.
+create function private.note_unreadable(p_now timestamptz) returns void language sql security definer set search_path = '' as
+  $$ insert into private.class_misses (bucket, hour, n) values ('unreadable', date_trunc('hour', p_now), 1)
+     on conflict (bucket, hour) do update set n = private.class_misses.n + 1 $$;
+create or replace view public.backend_health with (security_barrier = true) as
+  select l.at as last_run_at,
+         coalesce((l.result ->> 'ok')::boolean, false) as ok,
+         coalesce((l.result ->> 'db_mb')::int, 0) as db_mb,
+         coalesce((l.result ->> 'storage_brake')::boolean, false) as storage_brake,
+         (l.at is null or l.at < now() - interval '36 hours' or not coalesce((l.result ->> 'ok')::boolean, false)
+          or coalesce((l.result ->> 'db_mb')::int, 0) >= (select storage_brake_mb from private.settings)
+          or u.n > 0) as warn,
+         u.n as unreadable_day
+  from (select 1) one
+  left join lateral (select at, result from private.maintenance_log order by at desc limit 1) l on true
+  cross join lateral (select coalesce(sum(m.n), 0)::int as n from private.class_misses m
+                       where m.bucket = 'unreadable' and m.hour > now() - interval '24 hours') u
+  where exists (select 1 from public.teachers t where t.user_id = auth.uid());
 
 revoke all on all functions in schema private from public, anon, authenticated;
 grant execute on all functions in schema private to service_role;
