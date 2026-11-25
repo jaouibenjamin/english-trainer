@@ -22,7 +22,7 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   `tests/world.py` checks all of this, including against the mock backend in class mode, a damaged or edited record,
   and the class code typed in another case.
 - **A browser without `crypto.subtle`** (an insecure page) cannot make the key: a signed-in pupil reads in the dock
-  "בטלפון הזה אין דמויות. משחקים כרגיל!" (our words, flagged for the teacher's review), and nothing is stored. A write keeps only well-formed keys (`local`,
+  "במכשיר הזה אין דמויות. משחקים כרגיל!" (our words, flagged for the teacher's review), and nothing is stored. A write keeps only well-formed keys (`local`,
   `h:` + 64 hex) and drops any other.
 - **The map with the flag:** the islands are sized so that a picture and its label fit between two islands of one
   column, with the dock's 76 px kept free (`worldIw` in `js/main.js`); without the flag the map is unchanged.

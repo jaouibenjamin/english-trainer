@@ -18,7 +18,7 @@ from play import check, new_page, fails
 
 CLASS = 'EN-1234'      # the mock backend's own test class
 POST = "async ([api,d])=>(await fetch(api,{method:'POST',body:JSON.stringify(d)})).json()"
-WORLD_FILES = ('js/avatar.js', 'css/avatar.css', 'js/world_data.js', 'js/world_art.js')
+WORLD_FILES = ('js/avatar.js', 'css/avatar.css', 'js/world_data.js', 'js/world_art.js', 'js/avanim.js')
 LS = "Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)]))"
 # 11 stars on islands 1-2, one word known, one story read, and four words got wrong on island 1 (parts 1)
 SEED = {'g': {'st': {'1-sling': 3, '1-listen': 2, '1-read': 3, '1-bridge': 2, '2-sling': 1}}, 'w': {'song': 3, 'kick': 0, 'far': 0, 'play': 1},
@@ -192,7 +192,7 @@ async def no_digest(b, errs):
     await pg.add_init_script("try{Object.defineProperty(window.crypto,'subtle',{get:()=>undefined,configurable:true})}catch(e){}")
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     t = await pg.inner_text('.wd')
-    check('no digest: the dock says, kindly, that there are no characters on this phone; no picker, no "?" ring', 'אין דמויות' in t and 'משחקים כרגיל' in t and await pg.locator('button.wd__me').count() == 0 and await pg.locator('.wd__pic').count() == 0, t)
+    check('no digest: the dock says, kindly, that there are no characters on this phone; no picker, no "?" ring', 'במכשיר הזה אין דמויות' in t and 'משחקים כרגיל' in t and await pg.locator('button.wd__me').count() == 0 and await pg.locator('.wd__pic').count() == 0, t)
     await pg.evaluate("location.hash='avatar'"); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(200)
     check('no digest: #avatar goes back to the map', await pg.locator('.wpick').count() == 0)
     check('no digest: nothing is stored', 'wi_world' not in await pg.evaluate(LS))
@@ -218,6 +218,29 @@ async def name_with_focus(b, errs):
             keys = list(json.loads((await pg.evaluate(LS))['wi_world'])['p'])
             check('a write keeps only well-formed record keys (local, h:...), the stray ones are dropped', keys == ['local'], keys)
         await c.close()
+
+
+async def anim(b, errs):
+    """the picker plays a character's short animation when it is tapped (js/avanim.js): the file is requested only then,
+    never with reduced motion, and never without the flag"""
+    for reduce in (False, True):
+        c, pg, reqs = await page(b, 390, 844, errs)
+        if reduce:
+            await pg.emulate_media(reduced_motion='reduce')
+        await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid'); await pg.wait_for_timeout(500)
+        before = [u for u, _ in reqs if '/avanim/' in u]
+        await pg.click('.wpick__av[data-id=fox]'); await pg.wait_for_timeout(600)
+        after = [u for u, _ in reqs if '/avanim/' in u]
+        if reduce:
+            check('reduced motion: tapping a character requests no animation', not before and not after, after)
+        else:
+            check('no animation file is requested before a tap', not before, before)
+            check('tapping a character plays its animation (one file, that character\'s)', len(after) == 1 and 'fox' in after[0], after)
+        await c.close()
+    c, pg, reqs = await page(b, 390, 844, errs, SEED)
+    await pg.goto(P.BASE + '#map'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(400)
+    check('flag off: nothing of the animations is fetched', not [u for u, _ in reqs if 'avanim' in u], [u for u, _ in reqs if 'avanim' in u])
+    await c.close()
 
 
 async def brand(b, errs):
@@ -253,6 +276,10 @@ async def finished(b, errs):
         r = await pg.evaluate("(()=>{const f=document.querySelector('.fin'),d=document.querySelector('.wd'),s=document.getElementById('stage').getBoundingClientRect();if(!f)return null;const a=f.getBoundingClientRect(),b=d.getBoundingClientRect();return {clear:a.bottom<=b.top+1,inside:a.top>=s.top&&b.bottom<=s.bottom+1}})()")
         if (w, h) == (320, 568):      # too short for the banner, the dock and six islands: the banner is left out (worldFits in js/main.js)
             check(f'[finished {w}x{h}] the all-played banner is left out on a phone this short; the islands keep their rings', r is None and await pg.locator('.isl.todo').count() > 0, r)
+            t = await pg.evaluate("document.getElementById('toast').classList.contains('on')?document.getElementById('toast').textContent:''")
+            check(f'[finished {w}x{h}] instead, its line is said once as a toast', 'עברתם בכל האיים' in t and 'חסרים לכם עוד 22 כוכבים' in t, t)
+            await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings'); await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+            check(f'[finished {w}x{h}] and only once in a visit', not await pg.evaluate("document.getElementById('toast').classList.contains('on')"))
         else:
             check(f'[finished {w}x{h}] the all-played banner shows above the dock, both on the screen', r and r['clear'] and r['inside'], r)
         # a tap anywhere on an island's picture lands on that island (centre, top quarter, bottom quarter), and labels do not lie over another island's picture
@@ -282,6 +309,7 @@ async def main():
             await name_with_focus(b, errs)
             await finished(b, errs)
             await brand(b, errs)
+            await anim(b, errs)
             await b.close()
     finally:
         for p in procs: p.terminate()
