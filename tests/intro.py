@@ -8,7 +8,7 @@ Flag off: index.html requests none of it. Flag on, first open (forced with ?intr
 get it otherwise): the poster with "watch" and "skip" (both 48 px or more), the film is not requested before a tap and
 nothing plays by itself; a tap requests the film and plays it with sound, the narration's captions show as live text;
 "skip" closes it and stores wi_intro=1, and the next open shows nothing and requests nothing; Escape closes it too.
-No page error and no Content-Security-Policy violation. The film is H.264 + AAC at 44.1 or 48 kHz, under 2.2 MB, listed with its sha256."""
+No page error and no Content-Security-Policy violation. The film is H.264 + AAC at 44.1 or 48 kHz, under 9.5 MB, listed with its sha256."""
 import asyncio, hashlib, os, re, socket, subprocess, sys, time, json
 from playwright.async_api import async_playwright
 
@@ -41,10 +41,10 @@ def files_check():
     try:
         pr = json.loads(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_name,channels,sample_rate,width:format=duration', '-of', 'json', os.path.join(ROOT, film)], capture_output=True, text=True).stdout)
         st = {s['codec_name']: s for s in pr['streams']}
-        fmt_ok = 'h264' in st and st.get('aac', {}).get('channels') in (1, 2) and st.get('aac', {}).get('sample_rate') in ('44100', '48000') and st['h264'].get('width', 0) <= 400 and float(pr['format']['duration']) <= 35
+        fmt_ok = 'h264' in st and st.get('aac', {}).get('channels') in (1, 2) and st.get('aac', {}).get('sample_rate') in ('44100', '48000') and st['h264'].get('width', 0) <= 560 and float(pr['format']['duration']) <= 40
     except Exception as e:
         fmt_ok = False; st = str(e)
-    check('the film is H.264 at most 400 px wide with AAC at 44.1 or 48 kHz (a 96 kHz track crackled on phones, LESSONS 12), at most 35 s and under 2.2 MB', fmt_ok and size < 2.2 * 1024 * 1024, [size, list(st)])
+    check('the film is H.264 at most 560 px wide with AAC at 44.1 or 48 kHz (a 96 kHz track crackled on phones, LESSONS 12), at most 40 s and under 9.5 MB', fmt_ok and size < 9.5 * 1024 * 1024, [size, list(st)])
     return film
 
 

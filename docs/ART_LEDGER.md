@@ -22,8 +22,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | k | Welcome film v2 (the owner's story, one continuous camera): 4 key images; 4 shots from them (gate used; path, grass, flight unused once he asked for no cuts); 5 chained shots (side, grass, faces, zoom-out, flight); narration and 2 voices for Pitzi's line (one used). Intro cap raised by the owner to 115 | gpt_image_2_5 high 9:16 (4 x 1.25); grok_video 5 s 9:16 (9 x 7.5); text2speech_v2 elevenlabs (3 x 0.75) | 16 | 74.75 | 74.75 | 230.94 | 219.06 |
 | k2 | Welcome film v3 (the owner's notes): the island rising from the sea, Pitzi's key image, Pitzi's shot x 2 (the first showed pointed teeth: unused), a closing zoom-out (a second crab appeared: unused; a digital pull-back of Pitzi's last frame instead), one narration line. Intro cap raised by the owner to 140 | grok_video 5 s (4 x 7.5); gpt_image_2_5 high (1.25); text2speech_v2 (0.75) | 6 | 32.00 | 32.00 | 262.94 | 187.06 |
 | k3 | Welcome film v4 (the owner's notes): the turn and the island rising in one camera move, Pitzi's key image in the same frame, Pitzi's lip-synced shot x 2 (the first made him a giant: unused). Intro cap raised by the owner to 160 | grok_video 5 s (3 x 7.5); gpt_image_2_5 high (1.25) | 4 | 23.75 | 23.75 | 286.69 | 163.31 |
+| k4 | Welcome film v5 (the owner's notes): the laughs (each character its own, no words), the slow rise, Pitzi's leap out of the sea (key image and 6 s shot), the kids' answer and run. Intro cap raised by the owner to 200 | grok_video (5 s x 3 = 22.5, 6 s = 9); gpt_image_2_5 high (1.25) | 5 | 32.75 | 32.75 | 319.44 | 130.56 |
 
-Total charged so far: **286.69** of 450. Left: 163.31. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k3: 158.86 of its 160. Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
+Total charged so far: **319.44** of 450. Left: 130.56. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k4: 191.61 of its 200. Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
 
 ## Jobs
 
@@ -163,6 +164,11 @@ Batch k3 jobs: turn and rise a13d3fa0-7c64-4219-83d8-77f472592e21 (from the face
 dd2336d6-710e-4e93-a793-498bfcef58c1 (reference: Pitzi's wave pose), Pitzi speaking fdd4513c-1a7a-407c-83fc-f335f5abeb53 (used; his line
 is the shot's own generated voice, not a clone), unused 197e8c49 (he grew to giant size). v3's shots 43b94f4e, 89744b75 and f7ce2658
 and the narration line's v3 timing are no longer used.
+
+Batch k4 jobs: laughs e2d71bef-ca94-46a4-b59f-64b44bf67b92, slow rise 70bf74cf-6116-46b1-b3a5-6e4bbdcaa93f, Pitzi leaping key image
+e3e5f8d1-9338-4b86-93f6-3ce2ed9c2afe, Pitzi's leap and line 91f4e24c-8574-40a6-a385-e4d435b1f5c0, "Yeah, let's go!" and the run
+30220de2-7942-4db5-bb82-9f99b71a615f. All used. v4's shots e1b88c79 (its fox said "break the ice"), a13d3fa0, dd2336d6, fdd4513c are
+no longer used.
 
 ## Review notes
 

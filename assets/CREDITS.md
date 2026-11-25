@@ -536,8 +536,8 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 
 | File | What | Made | Job id | Model |
 |---|---|---|---|---|
-| `assets/al/intro/intro.hf_20261125_155705_fdd4513c-1a7a-407c-83fc-f335f5abeb53.mp4` | welcome film v4, 30 s, 390 x 710, stereo: the four leave school, walk, sit and laugh; at 'suddenly' they turn as the island rises from the sea; Pitzi, beside them, says his line (his voice generated with the shot, in sync); the kids cheer. Grok Video shots d69a525d, 95ba6021, 33b2a7ea, e1b88c79, a13d3fa0, fdd4513c (with their own generated sound; no words except Pitzi's line); key images 5f2c23a8, 14f86136, c3ab51b6, 5195d0a8, dd2336d6 (gpt_image_2_5); narration Kaia dd64b78b and 9e3d099a, music c9f440f8 | 2026-11-25 | fdd4513c-1a7a-407c-83fc-f335f5abeb53 | grok_video + gpt_image_2_5 + text2speech_v2 |
-| `assets/al/intro/poster.hf_20261125_155705_fdd4513c-1a7a-407c-83fc-f335f5abeb53.webp` | welcome film v4: poster (the four leaving school at sunset, the gate key image) | 2026-11-25 | fdd4513c-1a7a-407c-83fc-f335f5abeb53 | gpt_image_2_5 |
+| `assets/al/intro/intro.hf_20261125_160942_30220de2-7942-4db5-bb82-9f99b71a615f.mp4` | welcome film v5, 38 s, 540 x 982, stereo: the four leave school, walk, sit and laugh (each their own laugh); the island rises slowly from the sea; Pitzi leaps out of the water, lands by them and says his line; 'Yeah, let's go!', they run to the beach; the title flies in. Grok Video shots d69a525d, 95ba6021, 33b2a7ea, e2d71bef, 70bf74cf, 91f4e24c, 30220de2 (with their own generated sound and voices, not clones); key images 5f2c23a8, 14f86136, c3ab51b6, e3e5f8d1 (gpt_image_2_5); narration Kaia dd64b78b and 9e3d099a, music c9f440f8 | 2026-11-25 | 30220de2-7942-4db5-bb82-9f99b71a615f | grok_video + gpt_image_2_5 + text2speech_v2 |
+| `assets/al/intro/poster.hf_20261125_160942_30220de2-7942-4db5-bb82-9f99b71a615f.webp` | welcome film v5: poster (the four leaving school at sunset, the gate key image) | 2026-11-25 | 30220de2-7942-4db5-bb82-9f99b71a615f | gpt_image_2_5 |
 
 ### Pitzi
 
