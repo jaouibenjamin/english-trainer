@@ -611,10 +611,18 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    `supabase` mode unless `config.js` also says `unfinished: true` (S-b). On a shared device the adapter keeps only a
    hash of class code and name; a different pupil's request first revokes and forgets the previous pupil's session
    (B1), and a pupil Supabase does not know is tried once a day, not at every sign-in (S-a).
-   A save in flight belongs to the session it started with: if the device changes pupil meanwhile, it stops without
-   touching the next pupil's session, base or queue (review of #39). Logout first sends what was played since the last
-   copy (within 8 s), then revokes the session with a fresh token; answers that built up during a long wait go in
-   parts of 200 under ids derived from the pending batch, so none is cut and none is counted twice.
+   One guard for every late answer (reviews of #39 and #41): the device's session has an id (`sid`, random, kept by a
+   token refresh, seen by every tab) and the page a generation counter; every operation takes an `op()` when it starts,
+   and every token read, every call with a token and every write of the session, base, pending batch, stale record,
+   owner marks or queue goes through it and is refused once either changed. So a late answer of one pupil (a save, a
+   token refresh, a sign-in, a logout) can never write into, send with, or end the next pupil's session, in this tab or
+   another one. Logout first sends what was played since the last copy, including the copy still on its way and the
+   save waiting behind it (within 8 s), then revokes the session with a fresh token and forgets everything of the
+   pupil, owner marks included; another pupil who signs in meanwhile waits for it, and a logout that comes late leaves
+   the new session alone. Answers that built up during a long wait go in parts of 200 under ids derived from the
+   pending batch (the part size is kept with it), so none is cut and none is counted twice. One pupil with two devices:
+   a Sheet sign-in brings the record joined from both, and what it holds beyond what this device itself sent is added
+   to this device's base, so each answer is counted by the device it was played on (S3).
 4. **The switch** (the point of no return for sign-in): new class code (8 characters) handed out; the client's config
    points at Supabase; the Sheet backend starts answering every request with an error the old client already treats
    as "sign in again", so a stale tab cannot keep writing to the Sheet. Pupils sign in once with their old code and
