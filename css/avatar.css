@@ -20,7 +20,7 @@
 /* the finished-map banner sits above the dock (html.ds: it must outrank css/ds-game.css's own .fin rule) */
 html.ds .map.hasdock .fin{bottom:calc(76px + var(--sb,0px))}
 /* the "not saved" bar of main.js sits above the dock too */
-html.ds #stage[data-scr=map]:has(.wd) #syncbar{bottom:calc(84px + var(--sb,0px))}
+html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: set by js/avatar.js with the dock, taken off by main.js route() */
 /* the compass (a picture by the lowest island) moves up with the reserved room, so the dock never covers it */
 .map.hasdock .compass{transform:translateY(-76px)}
 .map .wd :focus-visible{outline:3px solid var(--wi-focus);outline-offset:2px}
@@ -56,3 +56,6 @@ html.ds #stage[data-scr=map]:has(.wd) #syncbar{bottom:calc(84px + var(--sb,0px))
 .wpick__w bdi{font-family:var(--wi-font-en)}
 .wpick__w small{color:var(--wi-text-dim);font-weight:500}
 .wpick :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+/* a narrow phone: the focus button leaves room for the character's name */
+@media (max-width:379px){.map .wd__focus{max-width:40%}.map .wd__lvw{display:none}}
+.map .wd__me--off{flex:1 1 auto;display:flex;align-items:center;gap:6px;padding:2px 4px;min-width:0}

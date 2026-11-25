@@ -185,6 +185,41 @@ async def damaged(b, errs):
         await c.close()
 
 
+async def no_digest(b, errs):
+    """a browser without crypto.subtle: signed in, no character can be kept, and the dock says so instead of offering one"""
+    api = f'http://127.0.0.1:{P.API_PORT}/'
+    c, pg, reqs = await page(b, 390, 844, errs, SEED, api=api, user={'c': CLASS, 'n': 'נועה', 'p': '1357'})
+    await pg.add_init_script("try{Object.defineProperty(window.crypto,'subtle',{get:()=>undefined,configurable:true})}catch(e){}")
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+    t = await pg.inner_text('.wd')
+    check('no digest: the dock says this device cannot keep a character, and offers no picker', 'אי אפשר לשמור דמות' in t and await pg.locator('button.wd__me').count() == 0, t)
+    await pg.evaluate("location.hash='avatar'"); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(200)
+    check('no digest: #avatar goes back to the map', await pg.locator('.wpick').count() == 0)
+    check('no digest: nothing is stored', 'wi_world' not in await pg.evaluate(LS))
+    await c.close()
+
+
+async def name_with_focus(b, errs):
+    """the longest name next to today's focus on a narrow phone; a stray record key is dropped on the next write;
+    the sync bar's class comes and goes with the dock"""
+    rec = {'v': 1, 'p': {'local': {'av': 'fox', 'nm': [1, 6], 'en': 0}, 'c:EN-1234|נועה': {'av': 'owl'}, 'junk': 1}}
+    for w, h in ((360, 740), (390, 844)):
+        c, pg, reqs = await page(b, w, h, errs, SEED)
+        await pg.add_init_script("if(!sessionStorage.getItem('w')){sessionStorage.setItem('w','1');localStorage.setItem('wi_world',%s)}" % json.dumps(json.dumps(rec, ensure_ascii=False)))
+        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd__focus'); await pg.wait_for_timeout(300)
+        clip = await pg.evaluate("[...document.querySelectorAll('.wd__hi bdi')].map(e=>[e.textContent,e.scrollWidth>e.clientWidth+1])")
+        check(f'[{w}x{h}] with the focus showing, "Sweet Present" is whole', [x[0] for x in clip] == ['Sweet', 'Present'] and not any(x[1] for x in clip), clip)
+        check(f'[{w}x{h}] the dock marks #stage for the sync bar', await pg.evaluate("document.getElementById('stage').classList.contains('wdock')"))
+        await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings')
+        check(f'[{w}x{h}] and the mark is gone on the next screen', not await pg.evaluate("document.getElementById('stage').classList.contains('wdock')"))
+        if w == 360:
+            await pg.evaluate("location.hash='avatar'"); await pg.wait_for_selector('.wpick__grid'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+            await pg.click('.wpick__ok'); await pg.wait_for_selector('.map .wd')
+            keys = list(json.loads((await pg.evaluate(LS))['wi_world'])['p'])
+            check('a write keeps only well-formed record keys (local, h:...), the stray ones are dropped', keys == ['local'], keys)
+        await c.close()
+
+
 async def finished(b, errs):
     """every level played: the all-played banner sits above the dock, both whole on the screen"""
     st = {f'{i}-{t}': 2 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge'), (6, 'sling listen')) for t in ts.split()}
@@ -193,6 +228,13 @@ async def finished(b, errs):
         await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(400)
         r = await pg.evaluate("(()=>{const f=document.querySelector('.fin'),d=document.querySelector('.wd'),s=document.getElementById('stage').getBoundingClientRect();if(!f)return null;const a=f.getBoundingClientRect(),b=d.getBoundingClientRect();return {clear:a.bottom<=b.top+1,inside:a.top>=s.top&&b.bottom<=s.bottom+1}})()")
         check(f'[finished {w}x{h}] the all-played banner shows above the dock, both on the screen', r and r['clear'] and r['inside'], r)
+        # a tap anywhere on an island's picture lands on that island (centre, top quarter, bottom quarter), and labels do not lie over another island's picture
+        taps = await pg.evaluate("""(()=>[...document.querySelectorAll('.isl')].map(b=>{const id=[...b.classList].find(c=>/^i\\d$/.test(c)),r=b.querySelector('.pic').getBoundingClientRect(),x=r.left+r.width/2;
+          return [r.top+r.height*.5,r.top+r.height*.25+2,r.top+r.height*.75].map(y=>{const e=document.elementFromPoint(x,y),hit=e&&e.closest('.isl');return hit&&hit.classList.contains(id)?null:id+'@'+Math.round(y)+'->'+(hit?[...hit.classList].find(c=>/^i\\d$/.test(c)):e&&e.className)})}).flat().filter(Boolean))()""")
+        check(f'[finished {w}x{h}] a tap on each island\'s picture opens that island', not taps, taps)
+        over = await pg.evaluate("""(()=>{const tags=[...document.querySelectorAll('.isl .tag')],pics=[...document.querySelectorAll('.isl .pic')],out=[];
+          for(const t of tags){const a=t.getBoundingClientRect(),own=t.closest('.isl');for(const p of pics){if(p.closest('.isl')===own)continue;const b=p.getBoundingClientRect(),dy=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top),dx=Math.min(a.right,b.right)-Math.max(a.left,b.left);if(dy>2&&dx>2)out.push([...own.classList].find(c=>/^i\\d$/.test(c))+' over '+[...p.closest('.isl').classList].find(c=>/^i\\d$/.test(c))+' by '+Math.round(dy))}}return out})()""")
+        check(f'[finished {w}x{h}] no island label lies over another island\'s picture', not over, over)
         await P.shot(pg, f'world-finished-{w}x{h}')
         await c.close()
 
@@ -209,6 +251,8 @@ async def main():
                 await all_switches(b, w, h, errs)
             await class_mode(b, errs)
             await damaged(b, errs)
+            await no_digest(b, errs)
+            await name_with_focus(b, errs)
             await finished(b, errs)
             await b.close()
     finally:
