@@ -220,3 +220,68 @@ html.ds .settings .panel.label{border-width:14px;border-image-width:14px}
    go down to 44 px like the game's look, so the sign-out button stays on the screen with room to spare
    (tests/settings_fit.py) */
 @media (max-height:700px){html.ds .settings.more.signed .panel.label{border-width:9px;border-image-width:9px}html.ds .settings.more.signed .setrow{min-height:44px}html.ds .settings.more.signed,html.ds .settings.more.signed .fill{gap:8px}}
+
+/* ======== Rollout step 3: the level screens (#play/N/type: sling, listen, read, bridge) and the result card ========
+   The painted scenes stay (the slingshot, the bubbles' beach and the bridge cliffs are part of each picture and the
+   levels place things on them), under a night tint. The game pieces (balloons, bubbles, the scroll, bottle notes,
+   planks) keep their own painted backing and dark ink. Only the chrome around them changes: HUD, sign, tips,
+   feedback lines, buttons and the result card. The result card is shared with Fraction Bay. */
+html.ds #stage:is([data-scr=play],[data-scr=result]){background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage:is([data-scr=play],[data-scr=result]) #bg::after{content:"";position:absolute;inset:0;background:#2a4a8c;mix-blend-mode:multiply;opacity:.9;pointer-events:none}
+html.ds:has(#stage[data-scr=play]),html.ds:has(#stage[data-scr=result]),html.ds:has(#stage[data-scr=play]) body,html.ds:has(#stage[data-scr=result]) body{background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=play]) #backdrop,html.ds:has(#stage[data-scr=result]) #backdrop{display:none}
+html.ds #stage:is([data-scr=play],[data-scr=result]) :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+html.ds #stage:is([data-scr=play],[data-scr=result]) .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);font-family:var(--wi-font-ui)}
+
+/* HUD: glass buttons with plates, the level's stars, progress dots */
+html.ds .lv .hud .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds .lv .hud .rb .ico{stroke:var(--wi-text)}
+html.ds .lv .hud .mb small,html.ds .lv .hst small{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);margin-top:2px;padding:0 var(--wi-s2);font-family:var(--wi-font-ui)}
+html.ds .lv .hst .stars{background:var(--wi-navy-900);border:2px solid var(--wi-gold);border-radius:var(--wi-r-pill);padding:0 var(--wi-s2);height:40px;margin-top:5px}
+html.ds .lv .hud img.st[src$="/star.webp"],html.ds .result img[src$="/star.webp"]{object-position:-9999px 0;background:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp) center/contain no-repeat}
+html.ds .lv .hud img.st[src$="/star_off.webp"],html.ds .result img[src$="/star_off.webp"]{object-position:-9999px 0;background:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp) center/contain no-repeat;opacity:.5;filter:grayscale(1)}
+html.ds .lv .pips i{border:2px solid var(--wi-line);border-radius:50%;background:var(--wi-navy-900)}
+html.ds .lv .pips i.d{background:var(--wi-aqua);border-color:var(--wi-aqua)}
+html.ds .lv .pips i.c{background:var(--wi-gold);border-color:var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim)}
+html.ds .lv .pips .pb{background:var(--wi-navy-900)}
+html.ds .lv .pips .pb.c{background:var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim)}
+
+/* the hanging wooden sign becomes a dark panel; same box, so every level places things exactly as before */
+html.ds .lv .sign.prompt{background:none;border:18px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 18px / 2px round;padding:2% 5%;color:var(--wi-text);font-family:var(--wi-font-ui)}
+html.ds .lv .sign.prompt small{color:var(--wi-text-dim)}
+html.ds .lv .sign.prompt b{color:var(--wi-text)}
+html.ds .lv .sign.prompt .en,html.ds .lv .sign.prompt b.en,html.ds .lv #lw{font-family:var(--wi-font-en)}
+
+/* one-line notes, rules and feedback: dark plates; right is green, a slip is coral, both on the dark */
+html.ds .lv :is(.tip,.rule,.fb,.ctip){background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);font-family:var(--wi-font-ui)}
+html.ds .lv :is(.tip,.fb).on{border-color:var(--wi-gold)}
+html.ds .lv :is(.tip,.rule,.fb).good{background:var(--wi-navy-900);color:var(--wi-good);border-color:var(--wi-good)}
+html.ds .lv .rule.bad{color:var(--wi-fix);border-color:var(--wi-fix)}
+html.ds .lv .cap{color:var(--wi-text);-webkit-text-stroke:5px var(--wi-scrim);paint-order:stroke fill}
+html.ds .lv .cap.bad{color:var(--wi-fix)}
+/* the bridge's empty slots read on the tinted sea */
+html.ds .lv .slot:not(.f){border-color:var(--wi-line);background:rgba(11,30,63,.55)}
+html.ds .lv .slot.gap{border-color:var(--wi-gold)}
+html.ds .lv .slot.gap i{color:var(--wi-gold)}
+
+/* buttons in a level: the main one gold, the others navy with an aqua edge */
+html.ds .lv .btn.green,html.ds .result .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),var(--wi-e2);padding:0 var(--wi-s5);font-family:var(--wi-font-ui)}
+html.ds .lv .btn.cream,html.ds .result .btn.cream{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e1);padding:0 var(--wi-s4);font-family:var(--wi-font-ui)}
+html.ds .lv .btn .ico,html.ds .result .btn .ico{stroke:currentColor}
+html.ds .lv .spk{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua);padding:0 var(--wi-s4);min-block-size:var(--wi-tap);font-family:var(--wi-font-ui)}
+html.ds .lv .spk .eqz i{background:var(--wi-aqua)}
+html.ds .result .btn.sm{min-block-size:var(--wi-tap)}
+
+/* the result card: a dark panel; the review words and the next-island note keep a light backing with dark text */
+html.ds .result{background:none}
+html.ds .result .card{background:none;border:22px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 22px / 4px round;color:var(--wi-text);font-family:var(--wi-font-ui);padding-block:var(--wi-s4) var(--wi-s4);padding-inline:var(--wi-s4)}
+html.ds .result .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-gold);border-radius:var(--wi-r-pill);inline-size:auto;block-size:auto;padding:var(--wi-s1) var(--wi-s5);color:var(--wi-gold);font-size:var(--wi-fs-xl)}
+html.ds .result .ribbon span{padding:0}
+html.ds .result :is(.line,.gain){color:var(--wi-text)}
+html.ds .result .note,html.ds .result .review small{color:var(--wi-text-dim)}
+html.ds .result .rv{background:var(--wi-gold);color:var(--wi-navy-900)}
+html.ds .result .unlock{color:var(--wi-navy-900)}
+html.ds .result .rcrab[src$="/crab_star.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/star.hf_20261124_204534_0bba02d5-095c-4463-82a0-a38d364fea44.webp) center/contain no-repeat}
+html.ds .result .rcrab[src$="/crab_happy.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
+html.ds .result .rcrab[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat}
+@media (prefers-reduced-motion:reduce){html.ds .lv .btn,html.ds .result .btn{transition:none}}
