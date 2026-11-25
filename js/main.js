@@ -1,6 +1,7 @@
 /* Word Islands: router and all non-level screens. */
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
 import {S,SET,saveSet,save,API,ERR,api,cred,auth,takeNewPin,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
+import {initHelp,helpKnown,setHelp,clearNotes} from './help.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
 import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 import * as sling from './sling.js';
@@ -9,6 +10,8 @@ import * as read from './read.js';
 import * as bridge from './bridge.js';
 import * as M from './math.js';
 import * as X from './mock.js';
+import {XSKILL,XORDER} from './xdata.js';
+import {cardOn,initCard,cardScreen,cardSave,cardShare} from './card.js';
 import {extraGame,extraOn,initExtra,extraRow,partsOf} from './extra.js';
 
 const LEVELS={sling,listen,read,bridge};
@@ -122,11 +125,11 @@ function collection(){setBg('paper','center');const tot=totalStars(),nxt=BALLS.f
 function settings(){setBg('paper','center');
  const tog=(k,label,icon)=>`<button class="setrow" data-a="toggle" data-k="${k}" role="switch" aria-checked="${SET[k]}">${spr(icon,'si')}<span class="sl">${label}</span><i class="sw${SET[k]?' on':''}"><em>${SET[k]?ico('check'):''}</em><b>${SET[k]?'פועל':'כבוי'}</b></i></button>`;
  const lnk=(inner,icon,t,d)=>`<${inner} class="setrow link">${spr(icon,'si')}<span class="sl">${t}<small>${d}</small></span>${ico('next','go')}</${inner.split(' ')[0]}>`;
- view.innerHTML=`<section class="scr settings">${top('הגדרות')}
+ view.innerHTML=`<section class="scr settings${cardOn()?' hascard':''}">${top('הגדרות')}
   <div class="fill">
-  <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}${tog('calm','תצוגה רגועה<small>בלי תנועה וקונפטי</small>','ic_check')}</div>
+  <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}${tog('calm','תצוגה רגועה<small>בלי תנועה וקונפטי</small>','ic_check')}${helpKnown()?tog('help','עזרה במילים<small>לחיצה על מילה מראה פירוש, ו־🐢 משמיע לאט</small>','ic_book'):''}</div>
   <div class="panel label">${lnk('button data-a="nav" data-to="help"','ic_buoy','איך משחקים?','הסבר קצר על ארבעת השלבים')}
-   ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}</div>
+   ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}${cardOn()?lnk('button data-a="nav" data-to="card"','trophy','הכרטיס שלי','להראות או לשמור כתמונה'):''}</div>
   <div class="panel label"><div class="prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter(v=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
    <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p></div>
   ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br>${num(wordsKnown())} מילים שנלמדו<br>${syncLine()}</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
@@ -202,6 +205,15 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
  const tag=d=>{const n=idle(d);if(n===null)return['r','עוד לא התחיל/ה'];
   if(!hasStars(d))return d.words<10?['r','צריך חיזוק']:n>=3?['r',`לא תרגל/ה ${n} ימים`]:d.words>=40?['g','מוכן/ה']:['n','בדרך'];
   return d.tries>=15&&d.miss/d.tries>=.3?['r','צריך חיזוק']:n>=3?['r',`לא תרגל/ה ${n} ימים`]:d.stars>=MAX_STARS*.8?['g','מוכן/ה']:['n','בדרך']};
+ /* The mock exam on a pupil's card: behind a switch (?tmock=1 on the teacher's device), and only when the backend
+    sends it. An older deployment sends no "mock" field at all: then the card is drawn exactly as before.
+    Every number is checked before it is shown; nothing from the backend is drawn as text. */
+ const pr=p=>Array.isArray(p)&&p.length===2&&p.every(v=>Number.isInteger(v)&&v>=0&&v<1000)&&p[1]>0&&p[0]<=p[1]?p:null,frac=p=>num(p[0]+' / '+p[1]);
+ const mockRow=d=>{if(SET.tmock!==true||!d||typeof d!=='object'||!('mock' in d))return'';const m=d.mock,last=m&&pr(m.last);
+  if(!last)return`<p class="ks km"><span>מבחן דמו: עוד לא ניסה/תה</span></p>`;
+  const n=Number.isInteger(m.n)&&m.n>0&&m.n<100?m.n:1,first=pr(m.first),sc=XORDER.map(k=>[k,pr(m.sc&&m.sc[k])]).filter(x=>x[1]);
+  return`<p class="ks km"><span><b>מבחן דמו</b> ${n===1?'ניסיון אחד':num(n)+' ניסיונות'}</span><span>אחרון ${frac(last)}</span>${n>1&&first?`<span>${n>=20?'הוותיק מ־20 האחרונים':'ראשון'} ${frac(first)}</span>`:''}</p>
+   ${sc.length?`<p class="ks km sk">${sc.map(([k,p])=>`<span>${XSKILL[k].he} ${frac(p)}</span>`).join('')}</p>`:''}`};
  view.innerHTML=`<section class="scr teacher wide">${top('מסך המורה',back)}
   <div class="panel label"><h3>המילים הקשות לכיתה</h3>${D.hard.length?`<div class="hard">${D.hard.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]]||'')}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
   ${D.kids.length?`<div class="kids">${D.kids.map(d=>{const s=tag(d),dd=String(d.day||'').split('-');
@@ -210,11 +222,12 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
     <p class="ks"><span>שלבים ${num(d.levels+' / '+NL)}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span></p>
     <p class="ks"><span>מילים שנלמדו ${num(d.words+' / 59')}</span><span>קטעי קריאה בלי טעות ${num(d.reads+' / 5')}</span>${d.tries?`<span>${num(Math.round(d.miss/d.tries*100)+'%')} טעויות</span>`:''}`
     :`<p class="kw"><span>מילים שנלמדו</span>${num(d.words+' / 59')}</p><div class="pbar"><i style="width:${Math.min(100,d.words/59*100)}%"></i></div>
-    <p class="ks"><span>קטעי קריאה ${num(d.reads+' / 5')}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span>`}</p></div>`}).join('')}</div>`:'<p class="panel label msg">עדיין אף תלמיד לא נרשם.</p>'}
+    <p class="ks"><span>קטעי קריאה ${num(d.reads+' / 5')}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span>`}</p>${mockRow(d)}</div>`}).join('')}</div>`:'<p class="panel label msg">עדיין אף תלמיד לא נרשם.</p>'}
   <p class="credit">כוכבים: עד ${num(3)} בכל שלב, ${num(MAX_STARS)} בסך הכול · מילה נחשבת "נלמדה" אחרי שתי תשובות נכונות ברצף, לכן המספר נמוך גם אצל מי שסיים · "צריך חיזוק": ${num('30%')} טעויות ומעלה · תגית אדומה גם אחרי ${num(3)} ימים בלי תרגול</p></section>`}
 
 /* ---------- actions ---------- */
 const A={
+ cardsave(){SND.tap();cardSave()},cardshare(){SND.tap();cardShare()},
  nav(d){SND.tap();if(d.force&&location.hash==='#'+d.to)route();else go(d.to)},
  quit(){SND.tap();const m=location.hash.match(/(m?)play\/(\d+)/);go(m?(m[1]?'misland/':'island/')+m[2]:'map')},
  hint(){if(level&&level.hint){SND.tap();if(level.hint()===true)toast(HINT_NOTE,2800)}},   // the first hint in a level says what it costs
@@ -230,7 +243,7 @@ const A={
  mpzok(){if(level&&level.ok)level.ok()},
  mmerge(){if(level&&level.merge)level.merge()},
  ball(d){S.g.ball=+d.i;save();SND.pop();collection()},
- toggle(d){SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);if(d.k==='calm')applyCalm();SND.tap();settings()},
+ toggle(d){if(d.k==='help'){setHelp(!SET.help);SND.tap();return settings()}SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);if(d.k==='calm')applyCalm();SND.tap();settings()},
  lmode(d){SND.tap();V={name:'login',m:d.m,c:$('#lc').value.trim(),n:$('#ln').value,p:$('#lp').value};login()},
  async auth(d){const m=d.m,c=$('#lc').value.trim(),n=$('#ln').value.trim().replace(/\s+/g,' '),p=$('#lp').value;
   if(!c||n.length<2||!/^\d{4}$/.test(p)){V={name:'login',m,c,n,p,err:ERR.input};return login()}
@@ -245,7 +258,7 @@ const A={
   else{el.disabled=false;delete el.dataset.arm;el.textContent='איפוס קוד';toast(esc(ERR[r.e]||ERR.net),3500)}},
  relogin(){SND.tap();const o=relogin();if(!o)return go('login');
   V={name:'login',m:'login',c:o.c,n:o.n,p:'',err:(RELOG_MSG[o.e]||RELOG_MSG.nouser)+'\nההתקדמות מהמכשיר הזה שמורה, והיא תעבור לחשבון כשתתחברו.'};login();syncBar()},
- async logout(){if(await logout())go('login');else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
+ async logout(){if(await logout()){clearNotes();go('login')}else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r,c,t}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};   // the teacher code is kept on this screen only, for resetting a pupil's code
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el,e)}});
@@ -266,10 +279,13 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
  switch(V.name){case'map':map();break;case'island':island(a);break;case'play':play(a,b);break;case'collection':collection();break;case'settings':settings();break;
   case'math':M.map();break;case'misland':M.island(a,go);break;case'mplay':{const my=navId;loader();M.play(a,b,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
   case'mock':X.hub();break;case'mockrun':{const my=navId;X.run({go,live:()=>my===navId,setLevel:l=>{level=l}});break}case'mockprac':{const my=navId;X.prac(a,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
-  case'help':help();break;
+  case'help':help();break;case'card':if(!cardOn())return go('settings');setBg('paper','center');cardScreen(top);break;
   /* extra practice games (js/extra.js): only on a device that was given the switch, only for an open island */
   case'extra':{const i=isl(a),G=extraGame(b);if(!extraOn()||!i||!isOpen(i)||!G)return go('map');const my=navId;setBg('paper','center');loader();
    G.load().then(m=>my===navId?m.start(view,{island:i,parts:partsOf(i)},{}):null).then(l=>{if(!l)return;if(my!==navId)l.destroy();else level=l}).catch(()=>{if(my===navId)go('island/'+i.id)});break}case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
+initCard();   // the progress card (js/card.js) is behind a switch a device gets with ?card=1
+initHelp();   // word help and the slowly button: only on a device that was given them (?help=1), see js/help.js
+try{const v=new URLSearchParams(location.search).get('tmock');if(v==='1'||v==='0'){SET.tmock=v==='1';saveSet()}}catch(e){}
 initExtra();   // extra practice games are behind a switch a device gets with ?games=1
 addEventListener('hashchange',route);
 /* a pupil who also plays on another device: bring that progress in when the game opens or comes back to the front.

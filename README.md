@@ -160,6 +160,15 @@ model: every byte range except the texture is identical); `check` needs no downl
 (also run by `tests/run.py`) fails on any URL of another host in `js/`, `css/`, the pages and the tools, the voice files included: no file is
 excused. Exactly one thing is allowed: the class backend URL in `config.js`.
 
+## Progress card (behind a switch, off by default)
+
+`js/card.js` adds a screen, "הכרטיס שלי", that a pupil can show: stars by island, words learned, stories read and
+today's date, and a button that saves the same card as a picture (and a share button where the device can share a
+file). The only personal detail is the first name of a pupil who is signed in to the class; without a sign-in there
+is no name. The picture is drawn on the device; the game sends it nowhere and saves nothing new. A device gets the
+switch by opening the game once with `?card=1` (`?card=0` takes it away); settings then has a row for it.
+`python3 tests/card.py` checks the numbers, the picture, the screens at four sizes and that nothing is sent or saved.
+
 ## Printable worksheet (behind a switch, off by default)
 
 `worksheet.html?i=<island>` draws one island as a worksheet on light paper: match the words to their meanings, the
@@ -168,6 +177,61 @@ what is in `js/data.js`, shows nothing of the pupil (the name line is filled in 
 nothing. A device gets the switch by opening the game once with `?sheet=1` (`?sheet=0` takes it away); the island
 screen then shows a link to its sheet. `python3 tests/worksheet.py` checks the content against `js/data.js`, the
 answers, the printed pages and the privacy of the page.
+
+## Mock exam results on the teacher screen (behind a switch; needs a backend deploy)
+
+The pupil's saved record already holds the mock exam papers. `teacherView` in `backend/Code.gs` now also returns, for
+each pupil, how many papers were taken (of the last 20 the device keeps), the oldest and the last total among them,
+and the last paper by skill (`mockOf`). It only reads; nothing new is saved and the sheet is not written. What a pupil
+typed in the exam is not sent to the screen. A pupil's record is written by their own browser, so every value is read
+as a plain number and clamped (`nv()`), and a damaged record gives nothing rather than an error. The same `nv()` now
+also guards the word and star counts the teacher view already read: before, one crafted record could make the whole
+teacher screen fail. The scores themselves come from the pupil's browser and could be made up.
+
+**The owner has to deploy a new version of the Apps Script for this to reach the class.** Until then the backend
+sends no such field, and the teacher screen is drawn as before. Do not ship this part to `main` as "done" before the
+deploy.
+
+The rows on the pupil cards are behind a switch on the teacher's device: open the game once with `?tmock=1`
+(`?tmock=0` takes it away). `node tests/mock.js unit` checks the backend part; `python3 tests/teacher_mock.py` checks
+the screen, an older backend, rubbish from a backend and that looking changes nothing.
+
+## Word help and slow playback (behind a switch, off by default)
+
+Not part of the game the class sees unless a device is given it: open the game once with `?help=1` (`?help=0` takes it
+away again). That device then also has a fourth switch in the settings, "עזרה במילים". With the switch off, or on a
+device that never got it, every screen is drawn exactly as before.
+
+- **A tap on an English word** in a sentence or a question shows its Hebrew meaning in a small bubble (`js/help.js`).
+  It works by touch, mouse and keyboard (the words are buttons; Escape closes), is announced to screen readers, and
+  never lies over an answer, the question's picture or the line it explains. It sits next to its word with a small
+  pointer. The help words of a line are one stop for the Tab key; the arrow keys move along the line. Where it works: the am / is / are sentence on the bridge and the
+  mock exam's practice. The story level keeps its own line of meanings. The mock exam's paper has no help: it is the
+  rehearsal of the real test. A word that is an answer button, or the answer itself, is never a help word; inside the
+  text it is drawn like the other help words but is not a button, so it does not stand out. In "who is it?" the number
+  words are treated the same way, because they would give the age on the card away.
+- **Where the meanings come from** (`js/helpdata.js`): only from the teacher's Unit 1 word list. No machine translation
+  and nothing written for this feature; a word that is not in her list is simply not a button. The reading glossary
+  that the story level shows is not used (`GLOSSARY=false`): it was written for the game's own stories and several of
+  its meanings are wrong outside them. `docs/WORD_HELP_COVERAGE.md` (built by `node tests/help_coverage.mjs --write`)
+  lists every glossary entry with the sentences it would appear in, and what has no meaning at all, for the teacher.
+- **"המשפט בעברית"** shows the Hebrew of a whole sentence only when the data already holds it, and only where it does
+  not give the answer away.
+- **The 🐢 button** next to "say it again" (listening) and "read to me" (story) plays the same recorded clip at 0.75 of
+  its pace with the pitch kept: through Web Audio with `js/stretch.js`, and through the `<audio>` element's own slow
+  playback when Web Audio is not available. A slow replay is the recorded voice or nothing: if the recording cannot be
+  played it stays silent, and while the recordings are out of reach the button is hidden. `node tests/stretch_check.mjs` measures the
+  result on real clips (length, no clipping, loudness, pitch). The Hebrew narration of the mock exam has no slow
+  button: its words appear on screen in time with the voice, and it is not learning material.
+- **Help costs nothing.** No points, no star, no mistake. Each use is noted on the device only, in its own
+  `localStorage` entry (`wi-help-v1`: per question, which words were looked up, whether the sentence was shown, how
+  often it was heard slowly). It is not part of the progress that is saved to the class, so nothing new is sent to the
+  backend. Signing out clears it, so the next pupil on a shared device starts empty. Showing it to the teacher is a
+  later step that needs the owner's approval.
+- **The switch in the address** (`?help=1`, `?help=0`) is taken out of the address once it was read, so a copied link
+  does not carry it to another device. `?help=0` on a device that never had the switch changes nothing.
+
+`python3 tests/help.py` checks all of this with the switch off and on.
 
 ## Extra practice games (behind a switch, off by default)
 
