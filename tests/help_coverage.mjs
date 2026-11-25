@@ -1,3 +1,4 @@
+// suite: full=--check   // picked up by tests/all.py
 /* What word help can and cannot translate, counted from the game's own data.
      node tests/help_coverage.mjs            # print the numbers
      node tests/help_coverage.mjs --write    # also write docs/WORD_HELP_COVERAGE.md (the lists, for the teacher)

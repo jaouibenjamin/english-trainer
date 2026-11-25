@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
 """The suites start their own servers on free ports and never use one that is already listening.
 
     python3 tests/ports_check.py

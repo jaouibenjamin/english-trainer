@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
 """The game's files are ours: nothing in js/, css/, the pages or the tools may point to another host.
     python3 tests/remote_guard.py
 Scans js/**, css/**, *.html, tools/*.html, config.js and manifest.webmanifest for any http(s) or protocol-relative URL and

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
 """The settings screen on short phones: everything on the screen, nothing over anything else.
 
     python3 tests/settings_fit.py              # six window sizes, not signed in and signed in

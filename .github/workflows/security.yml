@@ -23,12 +23,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0, pinned by commit
         with:
           persist-credentials: false
-      - name: No pupil data or server keys in the repo
-        run: |
-          # grep: 0 = found (fail), 1 = nothing found (pass), anything else = grep itself broke (fail, never a silent pass)
-          rc=0; grep -rInE "service_role|SUPABASE_SERVICE|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY" --exclude-dir=.git --exclude-dir=vendor --exclude-dir=.github . || rc=$?
-          if [ "$rc" -eq 0 ]; then echo "possible server key in repo"; exit 1; fi
-          if [ "$rc" -ne 1 ]; then echo "the search itself failed (grep exit $rc)"; exit 1; fi
+      # Looks for key material, not for the name of Supabase's server role (the migrations must name that role in
+      # their grants): a JWT that is not the anon key, a Supabase secret key, a value assigned to a server-key, pepper
+      # or database-URL variable, a private key, a database URL with a password. The script tests itself on every run.
+      - name: No server keys in the repo
+        run: python3 tests/secret_guard.py
       # The address of the owner's asset storage (its host, the account folder) stays out of the repo; the build scripts get
       # it at run time. -a: binary files are searched too. -l: only the file names are printed, not the address.
       - name: No storage address in the repo
