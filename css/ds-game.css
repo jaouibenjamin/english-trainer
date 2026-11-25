@@ -327,7 +327,6 @@ html.ds #stage[data-scr=extra] .btn .ico{stroke:currentColor}
 html.ds #stage[data-scr=extra] :is(.tfend,.tfe:not(:empty),.prx:not(:empty)){background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:var(--wi-r-xl);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);padding:var(--wi-s3) var(--wi-s4)}
 html.ds #stage[data-scr=extra] .tfe .tfm{border:0;padding:0;background:none}
 html.ds #stage[data-scr=extra] .tfend img[src$="/crab_happy.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_star.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
-=======
 @media (prefers-reduced-motion:reduce){html.ds #stage[data-scr=play] .lv .btn,html.ds .result .btn{transition:none}}
 
 /* ======== The extra games (?games=1: true or not, pairs, letters) in the new look =
