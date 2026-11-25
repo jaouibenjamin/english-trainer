@@ -29,7 +29,11 @@ is live text, "ברוכים הבאים, ניצני אופק!". Nothing else in t
 Voice: ElevenLabs preset voice Kaia (generated, not a clone), take 1ec486fb-379a-4ec2-9613-83ddce779343. The text sent had
 nikud on two words so they are read right: פִּיצִי and נִצָּנֵי אֹפֶק.
 
-Sound: each sentence is cut from the take and placed at its shot; the pauses are true silence. One linear gain, no
-compression and no denoising; encoded once as AAC-LC, mono, 48 kHz, 96 kbps target. Measured: -16.8 LUFS, peak
--1.0 dBTP (the take itself: noise floor -84 dB, its pauses below -45 dB). **A person must listen to the take before this ships**;
-it was checked here only by length and pauses.
+Sound: each sentence is cut from the take and placed at its shot; one linear gain on the voice, no compression and no
+denoising (the take's own noise floor is -84 dB and its pauses are true silence). Under it a music bed, original and
+instrumental (ElevenLabs Music, job c9f440f8-64c5-4dfe-ac0c-db1ae20e57bd; calm, warm, a little adventurous: plucked
+arpeggios over pads, about 84 bpm). It fades in over the first 4 s, sits about 12 dB under the speech, and fades out on
+the title (25.4 to 27 s). Encoded once: AAC-LC, stereo, 48 kHz, 128 kbps. Measured: -16.0 LUFS, peak -1.6 dBTP.
+
+The music is meant to become the platform's own theme (the map too). The generated piece ends with a short decay at
+28 s; a clean loop can be cut at its phrase boundary near 23.2 s for no credits when the map needs it.

@@ -512,7 +512,7 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 
 | File | What | Made | Job id | Model |
 |---|---|---|---|---|
-| `assets/al/intro/intro.hf_20261125_135448_1ec486fb-379a-4ec2-9613-83ddce779343.mp4` | welcome film, 30 s, 390 x 694, mono: shots 2, 3 and 5 by Grok Video (jobs 7621ea4f-5457-4816-a8dd-cd722b9e9af3, 970ab3ba-1efa-4c15-af1b-be2b890a8e29, d3df4296-1b5f-42b1-9c97-c8a8d09bb4dc), narration by ElevenLabs preset voice Kaia (job 1ec486fb-379a-4ec2-9613-83ddce779343, text with the name ניצני אופק), shots 1, 4 and 6 made here from our pictures | 2026-11-25 | 1ec486fb-379a-4ec2-9613-83ddce779343 | grok_video + text2speech_v2 |
+| `assets/al/intro/intro.hf_20261125_135448_1ec486fb-379a-4ec2-9613-83ddce779343.mp4` | welcome film, 30 s, 390 x 694, stereo: shots 2, 3 and 5 by Grok Video (jobs 7621ea4f-5457-4816-a8dd-cd722b9e9af3, 970ab3ba-1efa-4c15-af1b-be2b890a8e29, d3df4296-1b5f-42b1-9c97-c8a8d09bb4dc), narration by ElevenLabs preset voice Kaia (job 1ec486fb-379a-4ec2-9613-83ddce779343, text with the name ניצני אופק), music bed by ElevenLabs Music (job c9f440f8-64c5-4dfe-ac0c-db1ae20e57bd, original, instrumental), shots 1, 4 and 6 made here from our pictures | 2026-11-25 | 1ec486fb-379a-4ec2-9613-83ddce779343 | grok_video + text2speech_v2 |
 | `assets/al/intro/poster.hf_20261125_131558_7621ea4f-5457-4816-a8dd-cd722b9e9af3.webp` | welcome film: poster frame (from the closing shot, made here) | 2026-11-25 | 7621ea4f-5457-4816-a8dd-cd722b9e9af3 | grok_video + text2speech_v2 |
 
 ### Pitzi

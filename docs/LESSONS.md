@@ -59,3 +59,9 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 - **What happened:** the adapter derives events from the difference between the last record it copied and the next one. On a second device, the game joins the other device's record into its own at sign-in, so the next difference held the other device's answers too, and they were counted twice. Lifting the base to the whole joined record would have been wrong too: it also held this device's own answers that were not copied yet, which would then never be counted.
 - **Rule:** when a count is derived from a record that is merged from several sources, subtract what the other sources brought (what the merged record holds beyond what this source itself sent), not the merged record. A base never goes down.
 - **How to test it:** two devices on two storages, one pupil: play on one, sign in on the other, play there. Also a pull that arrives while this device still holds answers it has not sent. Total counted = answers actually played.
+
+## 12. An audio filter that resamples and lifts the pauses (welcome film, #58)
+
+- **What happened:** the welcome film's voice crackled and hissed on the owner's phone. The `loudnorm` filter outputs 192 kHz; nothing resampled it, so the AAC came out at 96 kHz and only 48 kbps. Its dynamic mode also raised the quiet pauses, so the room noise of the take sat under the whole film. The numbers looked fine (duration, pauses counted); nobody listened before it was sent.
+- **Rule:** after every audio step, check the output's sample rate and codec, and measure the noise floor in the pauses (silencedetect, astats). Encode once at 44.1 or 48 kHz with a fixed bitrate; use a plain linear gain, not a dynamic loudness filter, on speech. A person listens before it ships.
+- **How to test it:** `ffprobe` shows 44100 or 48000 Hz; silencedetect at -45 dB finds every pause; the pauses' RMS is far below the voice.

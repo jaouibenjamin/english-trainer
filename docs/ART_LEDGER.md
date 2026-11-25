@@ -16,8 +16,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | h | The six English map islands redrawn in the night-sea style; the map sea with quiet details (whale, lantern boats, lighthouse, jellyfish); painted frames: panel, gold button, HUD pill (9-slice) | islands and frames: gpt_image_2_5, medium, 1k, transparent, style reference: the English island of batch c; sea: high, 9:16, reference: the batch g sea | 10 | 5.75 | 5.75 | 52.83 | 397.17 |
 | j | Welcome film: 3 animated shots (5 s, 5 s, 2 s) and the Hebrew narration (preset voice Kaia); shots 1, 4, 6 cut here from our pictures | grok_video 720p (7.5 + 7.5 + 3); text2speech_v2 elevenlabs (0.75); running total counts batch i of PR #56 | 4 | 23.25 | 23.25 | 142.08 | 307.92 |
 | j2 | Welcome film: new narration with the platform's new name (preset voice Kaia, nikud on two words) | text2speech_v2 elevenlabs | 1 | 0.75 | 0.75 | 151.83 | 298.17 |
+| j3 | Welcome film: music bed, original, instrumental, 30 s (the platform's own theme, for the film and later the map); one take, used | elevenlabs_music_v2_5 | 1 | 4.36 | 4.36 | 156.19 | 293.81 |
 
-Total charged so far: **151.83** of 450 (with batches i and i2 of PR #56). Left: 298.17.
+Total charged so far: **156.19** of 450 (with batches i and i2 of PR #56). Left: 293.81.
 
 ## Jobs
 
@@ -100,7 +101,7 @@ Style references (approved frames, made before this ledger, not counted in the c
 b1f0d687-5d18-4811-af95-f2aca8285246, first frame 34b3388f-09b1-4b65-93c7-8b0579be81a4.
 
 Batch j jobs: shot 2 7621ea4f-5457-4816-a8dd-cd722b9e9af3, shot 3 970ab3ba-1efa-4c15-af1b-be2b890a8e29 (start frame: our sea picture, uploaded),
-shot 5 d3df4296-1b5f-42b1-9c97-c8a8d09bb4dc, narration b87a763d-1a3c-481d-852e-87d9a69afa0f (replaced). Batch j2: narration 1ec486fb-379a-4ec2-9613-83ddce779343.
+shot 5 d3df4296-1b5f-42b1-9c97-c8a8d09bb4dc, narration b87a763d-1a3c-481d-852e-87d9a69afa0f (replaced). Batch j2: narration 1ec486fb-379a-4ec2-9613-83ddce779343. Batch j3: music c9f440f8-64c5-4dfe-ac0c-db1ae20e57bd.
 
 ## Review notes
 
