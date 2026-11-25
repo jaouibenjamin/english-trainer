@@ -47,6 +47,7 @@ alter table private.answer_batches   enable row level security;
 alter table private.pupil_days       enable row level security;
 alter table private.settings         enable row level security;
 alter table private.deletions        enable row level security;
+alter table private.maintenance_log  enable row level security;
 
 -- (select app.x()) is evaluated once per statement, not once per row
 create policy classes_read on public.classes for select to authenticated
@@ -140,6 +141,19 @@ create view public.teacher_items with (security_barrier = true) as
   group by x.class_id, i.id
   having sum(x.tries) >= 3 and sum(x.wrong) > 0;
 
+-- for the teacher's screen (and the owner): did last night's housekeeping run, and is the database near its limit?
+-- Read from private.maintenance_log, which pg_cron fills. One row, or none for anyone who teaches no class.
+create view public.backend_health with (security_barrier = true) as
+  select l.at as last_run_at,
+         coalesce((l.result ->> 'ok')::boolean, false) as ok,
+         coalesce((l.result ->> 'db_mb')::int, 0) as db_mb,
+         coalesce((l.result ->> 'storage_brake')::boolean, false) as storage_brake,
+         (l.at is null or l.at < now() - interval '36 hours' or not coalesce((l.result ->> 'ok')::boolean, false)
+          or coalesce((l.result ->> 'db_mb')::int, 0) >= (select storage_brake_mb from private.settings)) as warn
+  from (select 1) one
+  left join lateral (select at, result from private.maintenance_log order by at desc limit 1) l on true
+  where exists (select 1 from public.teachers t where t.user_id = auth.uid());
+
 -- ---------------------------------------------------------------- grants: nothing, then the list
 revoke all on schema private from public, anon, authenticated;
 revoke all on all tables    in schema public, private, app from public, anon, authenticated;
@@ -160,7 +174,7 @@ grant execute on function app.pupil_id(), app.class_id(), app.teaches(uuid), app
 
 grant select on public.classes, public.teachers, public.pupils, public.answers, public.points,
                 public.pupil_totals, public.progress, public.flags, public.answer_daily, public.level_best,
-                public.class_board, public.teacher_view, public.teacher_items to authenticated;
+                public.class_board, public.teacher_view, public.teacher_items, public.backend_health to authenticated;
 grant select, insert, delete on public.roster to authenticated;
 
 -- the server role (Edge Functions, the migration tool, the keep-alive job): everything, RLS does not apply to it

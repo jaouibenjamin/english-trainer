@@ -64,7 +64,7 @@ Views (section 2 explains how they are protected):
 | `auth_lock_events` | `class_id`, `name_key`, `kind`, `at`, `until` | One row each time a lock starts. Feeds "locked N times today". |
 | `ip_salts` | `day date pk`, `salt bytea` | A random salt per day for hashing addresses. Rows older than 2 days are deleted, after which the hashes cannot be linked to an address by anyone. |
 | `answer_batches` | `pupil_id`, `batch_id uuid`, `at`, pk both | A batch of answers that is sent twice (retry on a bad network) is counted once. Deleted after 7 days. |
-| `settings` | one row | The limits in sections 4 and 5, so they can be tuned without a migration. |
+| `settings` | one row | The limits in sections 4 and 5, so they can be tuned without a migration; also `storage_brake` (section 6), `shadow_mode` (section 8, added with the functions), `backup_pubkey`, `backup_token_hash`, `backup_opened_at` (section 6, added with the backup). |
 
 What changed from the first cut in `PLAN.md`: `class_codes` and all secrets moved to a schema the API cannot see;
 `answers` points at a small `items` catalogue and carries its own points; `points` holds only non-answer awards;
@@ -126,8 +126,10 @@ Database functions a signed-in pupil may call (each derives the pupil from `auth
 A teacher may call `teacher_delete_pupil(pupil uuid)` (her class only): deletes the pupil, their answers, points,
 progress, secrets and their auth user. This is the "data a teacher or parent can ask to delete" path.
 
-`maintenance()` (the roll-up, the deletions with a short life, a totals check; also the keep-alive query) runs for the
-server role only.
+`maintenance()` (the roll-up, the deletions with a short life, a totals check, the storage brake) runs for the server
+role only, every night from pg_cron. pg_cron keeps only "1 row" of its answer, so each night's answer is written to
+`private.maintenance_log` (kept 60 days), and the view `backend_health` shows the teacher and the owner the last one,
+with `warn` set when it is not ok, is older than 36 hours, or the database is at the storage mark.
 
 Tests: `python3 tests/db.py` runs every policy as written on a throw-away local PostgreSQL with a stand-in for what
 Supabase provides (`tests/db/stub.sql`: the `auth` schema, the three API roles, `auth.uid()` from the JWT claims, and
@@ -227,7 +229,8 @@ whole class, and shown to the teacher.
 - Spraying popular codes over a class is **not stopped, it is capped**: one network gets 30 wrong codes a day for the
   class, any number of networks 100 a day (the class brake). The expected accounts opened in a day are
   `wrong tries allowed x share of pupils whose code is among the codes tried / number of codes tried`. With 3 codes
-  and 3% of pupils on them: about 1 account a day at the brake, about 26% a day from one network. The weak-code rule
+  and 3% of pupils on them: about 1 account a day expected at the brake; from one network 0.3 expected a day, which
+  is a 26% chance a day that at least one account opens. The weak-code rule
   exists to push that 3% towards zero: it refuses 965 of the 10,000 codes (below).
 
 ## 4. How it works underneath
@@ -305,8 +308,11 @@ Honest strength (review S6):
 
 **Weak codes** are refused at registration and whenever a new code is set: four equal digits, ascending or descending
 runs, `abab`, `aabb`, `19xx` and `20xx` (402 codes), every code that reads as a date (`DDMM` or `MMDD`, 588 codes: a
-classmate often knows the birthday) and the common keypad lines (2580, 1470, 1357 and the like). Together 965 codes;
-9,035 remain. The message is friendly: "pick one that is harder to guess".
+classmate often knows the birthday; 39 of them are already in the first group, so 951 together) and these 14 keypad
+lines, none of which is in the first two groups: `2580 0852 1470 0741 3690 0963 1357 2468 9753 8642 1379 7913 1397
+2684`. Together 965 codes; 9,035 remain, so a pupil easily finds one. The functions' list is this rule, and a test
+reads the keypad codes from this paragraph and counts 965 (`supabase/functions/tests`). The message is friendly:
+"pick one that is harder to guess".
 
 **Hashes from the Sheet** (`SHA-256(salt + ":" + code)`, fast, so dangerous alone):
 
@@ -360,9 +366,13 @@ Who is asking (review S2, S3):
 The teacher has two remedies, both in `teacher-reset` (review N1, N2): **unlock a pupil** clears that name's locks
 and counters without touching the code or the pictures (for the pupil kept off the school computers by someone's
 wrong guesses), and **lift the class brake** does the same for the class-wide pauses, so wrong codes before school
-cannot cost a lesson. Each use is on record and counted; neither gives the person who caused the lock anything but
-their tries back. Exempting "addresses that signed in correctly for this class in the last 30 days", as the review
-suggests, is not possible here: address hashes are salted per day and forgotten after two.
+cannot cost a lesson. Each use is on record and counted. A lift must not hand whoever caused the lock a fresh day:
+after an unlock the name gets a smaller allowance (5 wrong codes from strangers until the next day, not 20) and the
+wrong codes before the unlock still count towards the name's daily ceiling of 29; a name can be unlocked at most 2
+times a day. After a brake lift the class gets 30 more wrong codes from strangers that day, not another 100.
+Exempting "addresses that signed in correctly for this class in the last 30 days", as the review suggests, would
+need the address kept 30 days (a per-class keyed hash could do it); we chose not to keep addresses longer than two
+days.
 
 What this gives, and what it does not:
 
@@ -384,8 +394,10 @@ pictures), `weak` (code on the deny-list), `picture`, `otc`, `taken`, `roster`, 
 
 ### 4.4 The functions
 
-All: POST with JSON under 2 KB; every field validated (names: Hebrew or Latin letters, NFC, 2 to 20, the same
-characters as today); CORS to the game's origin (hygiene, not protection); never log names, codes or addresses; names
+All: POST with JSON under 2 KB; every field validated (names, after NFC and squeezing spaces: an allow-list of Hebrew
+letters, Latin letters including é and the like, and space ' ’ ׳ ״ . - inside; 2 to 20; starting with a letter. The
+same rule is a CHECK on the tables, written with \u escapes, so markup, digits, emoji, other scripts' look-alikes and
+invisible or direction characters never reach a row); CORS to the game's origin (hygiene, not protection); never log names, codes or addresses; names
 never in a query string; the same amount of work on every path.
 
 | Function | Caller | Does |
@@ -417,9 +429,20 @@ is ignored.
 | `run` {points} | Beach Run, at most 60 a day | the points sent | 60 a day | — |
 | daily bonus | 20 on the first points of a day | 20, decided by the server (Israel time) | once a day | — |
 
-Storage is finite (500 MB for everybody), so what one pupil's device can add in a day is capped too: 1,000 answer
-rows and 1,500 calls; past that nothing is written but a counter on one flag row, an empty batch leaves no row, and
-a call over 64 KB is refused unread (tested: 50,000 answers from one pupil store at most 1,000 rows).
+Storage is finite (500 MB for everybody), so what one pupil's device can add in a day is capped too (re-check of
+PR 12): 300 answer rows (honest play is about 80), 1,500 calls and 300 kept batch ids (a batch id is kept only when
+the call stored something), one Beach Run ledger row a day grown in place; past that nothing is written but a counter
+on one flag row, and a call over 64 KB is refused unread (tested: 50,000 answers from one pupil store at most 300
+rows). The blob: `save_progress` writes nothing when the blob is unchanged, refuses a write within 5 seconds of the
+last (`retry_after`), and stops at 300 writes or 4 MB a pupil a day (each write leaves a dead copy until vacuum;
+tested: 5,000 saves of a 39 KB blob as fast as possible write 105 and grow the table by about 4 MB; before, 28,000
+made it 428 MB). A refused save loses nothing: the device keeps its progress and the next save carries it.
+The storage brake: when `maintenance()` finds the database at 350 MB it switches `storage_brake` on, and events are
+then counted but not stored for everybody (saves still work) until the owner frees space; the teacher's
+`backend_health` warns. Nothing is bought. Housekeeping deletes devices not seen for 30 days, flags older than a
+year, and folds daily-bonus and Beach Run rows older than the raw window into one row per pupil and reason; a text's
+`read` row stays (it pays once, ever). At 35 pupils all at every cap the database still reaches the brake in weeks,
+not days, and the brake holds it there.
 
 Time (review S10): the client's `t` is used for the order of answers and the day they belong to (never in the
 future, at most 48 hours back), so a pupil who played offline, also on a second device that delivers an earlier
@@ -468,14 +491,19 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
   **encrypted** export. `backup_export()` returns every table as one document encrypted with pgcrypto to a public key
   whose private key only the owner holds (on his computer and one offline copy; never in GitHub, Supabase or a chat).
 - Fetching it: `backup_export(p_token)` may be called with the public key. It compares `sha256(p_token)` with a hash
-  stored in `private.settings`, answers at most once in 6 hours, and returns ciphertext only. The token is a random
+  stored in `private.settings` and returns ciphertext only. **One export** is one opening call (the table list) plus
+  its parts, `backup_export(p_token, table, offset)`, all within 30 minutes of the opening; a new export can be
+  opened at most once in 6 hours. Only a call with the right token opens one, so wrong-token calls block nothing
+  and cost the caller a cheap refusal. Whoever holds a leaked token can take the slot (and gets ciphertext); the
+  owner then stores a new hash. The token is a random
   string the owner generates; GitHub holds the token, the database holds its hash. A leaked token yields ciphertext
   and is revoked by storing a new hash. Supabase has no key type for this; it is our own function.
 - The twice-weekly workflow keeps each export as an artifact for **7 days** (a public repository's artifacts can be
   downloaded by any signed-in GitHub user, and if the owner's private key ever leaked, every export still stored
   would open). The owner also saves one a month outside GitHub.
-- The key is RSA 4096 (what pgcrypto's public-key encryption supports, to be confirmed, section 10). The export is
-  produced table by table in chunks so that no statement timeout cuts it.
+- The key is RSA 4096 with an encryption subkey (what pgcrypto's public-key encryption supports, to be confirmed,
+  section 10). Each part is one table chunk (2,000 rows) so that no statement timeout cuts it; a table that changes
+  between two parts may be a few rows off, and the restore's totals check says so.
 - **Restore drill** before the switch: the owner decrypts one export and `tools/restore.py` loads it into a second
   free project; the totals check must pass there. Repeated once a term.
 - **Summer:** GitHub switches schedules off after 60 days without repository activity and mails the owner; the
@@ -527,8 +555,12 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    Sheet-era code then opens a session **without** a new code or pictures, under our lockout, so the copy has
    something to write with. A shadow session can only receive copies (`save_progress`, `record_events`): recovery,
    pictures, one-time codes and registration are refused while the setting is on, and nothing it writes is shown to
-   a pupil. Turning the setting off replaces every pupil's auth user, which ends every shadow session at once.
-   A nightly, idempotent re-sync (`tools/migrate_sheet.py`) repairs anything a device missed.
+   a pupil. These rules live in the functions and the database, and are tested there (`tests/functions.py`).
+   Turning the setting off replaces every pupil's `auth_user_id`, which ends every shadow session at once; after it a
+   Sheet-era code opens nothing but the one upgrade step (new code and pictures, 4.2). A nightly, idempotent re-sync
+   (`tools/migrate_sheet.py`) repairs anything a device missed: the Sheet's blob replaces the copy. What shadow
+   sessions wrote is reconciled before the board switches: the per-source comparison (step 2) must be zero; any
+   pupil whose ledger differs gets a `fix` row from the comparison tool, or the copy is discarded and re-imported.
 2. **Compare daily**, per pupil: number of answers, stars per level, equality of the blob; and points **per source**
    (answers, stars, daily bonus, reading, exam, Beach Run), so a gap names its cause. Not point totals alone.
 3. **Before the switch** (all must be true): section 10 green on the real project; the owner's checklist done; the
@@ -570,8 +602,8 @@ Project settings (each has a test in section 10):
 9. Authentication → URL configuration: site URL and redirect list = the game's address only.
 10. API settings: exposed schemas = `public` only. `pg_graphql` extension off. Realtime: off for every table.
 11. Database → Extensions: `pgcrypto` (the encrypted export) and `pg_cron` (the nightly clean-up) on.
-12. Run the migrations (`supabase db push`), then `supabase/seed/catalog.sql`. Check the output says the nightly job
-    is scheduled.
+12. Run the migrations (`supabase db push`), then `supabase/seed/catalog.sql`. The output must say
+    "maintenance is scheduled: every night at 02:17 UTC"; if it says "maintenance is NOT scheduled", stop.
 13. Secrets for the functions: `PUPIL_PEPPER` generated on the owner's computer (`openssl rand -base64 32`), set with
     `supabase secrets set`, never pasted anywhere else. `ALLOWED_ORIGINS`. Deploy the functions.
 14. Backup: generate an RSA 4096 key pair with `gpg` on the owner's computer; store the **public** key in
