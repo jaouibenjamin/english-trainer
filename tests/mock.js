@@ -52,6 +52,11 @@ if(process.argv[2]==='unit'){
  t('teacher: a word count that is an object with toString does not break the teacher view',crash({st:{their:[{toString:1},1]}}).ok,true);
  t('teacher: a level star that is an object with toString does not break the teacher view',crash({g:{st:{'1-sling':{toString:1}}}}).ok,true);
  t('teacher: absurd mock numbers are clamped',crash({x:{tries:[{total:[1e308,5e9],sc:{words:[1e9,'1e9']}}]}}).mock,{n:1,first:[999,999],last:[999,999],sc:{words:[999,999]}});
+ /* the class's hard-words list: only word-like keys, no inherited keys, never above 100% */
+ const hardOf=st=>{call({...B,n:'איתי',a:'save',s:{pts:500,k:{words:20},st}});return call({c:'EN-1234',a:'teacher',t:'654321'})};
+ const hw=hardOf(JSON.parse('{"__proto__":[9,9],"constructor":[9,9],"<img src=x>":[9,9],"'+'a'.repeat(41)+'":[9,9],"goal":[3,5],"dining room":[4,2]}'));   // parsed, as a saved record is: "__proto__" is a real key here
+ t('teacher: only word-like keys reach the hard words ("constructor" is word-like and harmless now; the screen shows unit words only), and none passes 100%',[hw.ok,hw.hard.map(h=>h[0]).filter(w=>w!=='their').sort(),Math.max(...hw.hard.map(h=>h[1]))<=100],[true,['constructor','dining room','goal'],true]);
+ t('teacher: the pupil\'s own tries still count every key',hw.kids.find(k=>k.n==='איתי').tries,9*4+3+4);
  t('teacher: a score above its total is cut to the total',crash({x:{tries:[{total:[25,20]}]}}).mock,{n:1,first:[20,20],last:[20,20],sc:{}});
  for(let i=0;i<10;i++)call({c:'EN-1234',a:'teacher',t:'000000'});
  t('teacher locked after 10 wrong codes',call({c:'EN-1234',a:'teacher',t:'654321'}),{ok:false,e:'locked'});

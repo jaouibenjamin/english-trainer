@@ -186,7 +186,9 @@ and the last paper by skill (`mockOf`). It only reads; nothing new is saved and 
 typed in the exam is not sent to the screen. A pupil's record is written by their own browser, so every value is read
 as a plain number and clamped (`nv()`), and a damaged record gives nothing rather than an error. The same `nv()` now
 also guards the word and star counts the teacher view already read: before, one crafted record could make the whole
-teacher screen fail. The scores themselves come from the pupil's browser and could be made up.
+teacher screen fail. The scores themselves come from the pupil's browser and could be made up. The class's hard-words list
+counts only keys that look like an English word (at most 40 characters), without inherited keys, never above 100%,
+and the teacher screen shows only words of the unit.
 
 **The owner has to deploy a new version of the Apps Script for this to reach the class.** Until then the backend
 sends no such field, and the teacher screen is drawn as before. Do not ship this part to `main` as "done" before the
