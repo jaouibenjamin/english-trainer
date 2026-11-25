@@ -25,8 +25,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | k4 | Welcome film v5 (the owner's notes): the laughs (each character its own, no words), the slow rise, Pitzi's leap out of the sea (key image and 6 s shot), the kids' answer and run. Intro cap raised by the owner to 200 | grok_video (5 s x 3 = 22.5, 6 s = 9); gpt_image_2_5 high (1.25) | 5 | 32.75 | 32.75 | 319.44 | 130.56 |
 | k5 | Welcome film v6 (the owner's notes): the shocked faces and slower rise, small Pitzi's leap (key image and 6 s shot), the run again with Pitzi small. The owner approved spending within the 450 budget | grok_video (5 s x 2 = 15, 6 s = 9); gpt_image_2_5 high (1.25) | 4 | 25.25 | 25.25 | 344.69 | 105.31 |
 | k6 | Welcome film v7 (the owner's notes): laughs with Pitzi peeking from the sea, the shock flowing into the camera turn as the island rises, Pitzi's leap (key image, 6 s shot x 2: the first turned him into a crab with a penguin's face, unused), the run to the same island | grok_video (5 s x 3 = 22.5, 6 s x 2 = 18); gpt_image_2_5 high (1.25) | 6 | 41.75 | 41.75 | 386.44 | 63.56 |
+| k7 | Welcome film: the closing line re-recorded, 3 spellings (the take said "לנתני"); checked by speech recognition, the plain spelling used | text2speech_v2 elevenlabs (3 x 0.75) | 3 | 2.25 | 2.25 | 388.69 | 61.31 |
 
-Total charged so far: **386.44** of 450. Left: 63.56. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k6: 258.61 (the owner approved spending within the 450 budget). Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
+Total charged so far: **388.69** of 450. Left: 61.31. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k7: 260.86 (the owner approved spending within the 450 budget). Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
 
 ## Jobs
 
@@ -181,6 +182,10 @@ Batch k6 jobs: laughs and the peek 61679f79-a354-4edb-abce-2831547d829d, shock a
 leaping key image c70906f9-77f4-4183-9011-a3855d1b53b5, Pitzi's leap and line 525c9966-647b-41e7-8339-a21560ef3c5d (unused:
 122e47e5, his face turned into a penguin's), the run e78eef89-88e1-4b0e-ab69-1469ee330bf6. v6's e2d71bef, 7c37a49d, 9e3ca1ab,
 b9285b21 and 00980a2b are no longer used.
+
+Batch k7 jobs: b1e4b4c4-8238-4bd1-9f4b-be1a9e838dd5 (used, plain spelling "לניצני אופק"), 720437b1 (nikud, also heard right,
+unused), 65fdf0c9 (heard as "הופק", unused). Checked with a local speech-recognition model (faster-whisper medium); a person
+still listens.
 
 ## Review notes
 

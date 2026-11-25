@@ -55,8 +55,9 @@ The kids' chatter, laughter and cheering are the shots' own generated sound, wor
 
 Pitzi's line is ours, not from the unit: simple English, with a Hebrew caption under it.
 
-Voices, generated, never clones: ElevenLabs preset voice Kaia for the narration (takes dd64b78b-db60-4e55-9e97-e908bb1cd35a
-and 9e3d099a-f624-4dfb-a1b1-52a711fa9798, nikud on לְנִצָּנֵי אֹפֶק); Pitzi's line and the four's "Yeah, let's go!" are generated with their video
+Voices, generated, never clones: ElevenLabs preset voice Kaia for the narration (takes dd64b78b-db60-4e55-9e97-e908bb1cd35a,
+9e3d099a-f624-4dfb-a1b1-52a711fa9798 and, for the closing line, b1e4b4c4-8238-4bd1-9f4b-be1a9e838dd5: the first take of it said
+"לנתני"; the plain spelling reads right, checked by speech recognition); Pitzi's line and the four's "Yeah, let's go!" are generated with their video
 shots (91f4e24c, 30220de2), so mouths match. A person must check both lines are clear and the laughs have no words.
 
 Sound: each sentence is cut from the take and placed at its shot; one linear gain on the voice, no compression and no
