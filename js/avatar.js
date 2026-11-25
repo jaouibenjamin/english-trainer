@@ -221,7 +221,7 @@ function line(pts,here){const s=document.createElementNS(SVGNS,'svg');s.setAttri
  part(0,here,'lit');part(here,pts.length-1,'dim');return s}
 /* the star row's old pictures are drawn over by the new look (css/ds-game.css .island img.st): a stand-in instead, so
    the old file is not downloaded (an empty picture of the old one's size) (as js/main.js dsSkip does for the screens; this row is built before it is on the page) */
-const BLANK='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22200%22%20height=%22183%22/%3E 1x';   // the size of assets/sp/star.webp
+const BLANK='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="${SVGNS}" width="200" height="183"/>`)+' 1x';   // the size of assets/sp/star.webp
 const STARS_HE=['עוד לא שיחקתם','כוכב אחד','שני כוכבים','שלושה כוכבים'];
 const WALK_MS=450;
 /* the backdrop, loaded before the path replaces the list: if it fails (or takes longer than ART_WAIT), the list stays */

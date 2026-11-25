@@ -353,7 +353,8 @@ let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{i
    tests/weight.py checks the sizes against the files. */
 const NAT={isl_1:[560,388],isl_2:[560,461],isl_3:[560,448],isl_4:[560,394],isl_5:[560,407],isl_6:[560,422],star:[200,183],star_off:[200,183],
  lock:[288,379],ic_gear:[200,199],crab_wave:[326,296],crab_star:[322,342],crab_happy:[340,351]};
-const blank=n=>NAT[n]?`data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22${NAT[n][0]}%22%20height=%22${NAT[n][1]}%22/%3E 1x`:'';
+const SVGNS='http://www.w3.org/2000/svg';   // an XML namespace name, never fetched
+const blank=n=>NAT[n]?'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="${SVGNS}" width="${NAT[n][0]}" height="${NAT[n][1]}"/>`)+' 1x':'';
 function dsSkip(root){if(!root||!root.querySelectorAll)return;const L=root.tagName==='IMG'?[root]:root.querySelectorAll('img[src]:not([srcset])');
  for(const im of L){if(im.hasAttribute('srcset'))continue;const m=/(^|\/)assets\/sp\/([a-z_0-9]+)\.webp$/.exec(im.getAttribute('src')||''),b=m&&blank(m[2]);if(!b)continue;
   const cs=getComputedStyle(im);if(cs.backgroundImage.includes('url(')&&(cs.objectPosition.startsWith('-9999')||cs.height==='0px'))im.srcset=b}}
