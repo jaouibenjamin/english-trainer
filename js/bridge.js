@@ -4,6 +4,7 @@ import {SENT,TOBE_BY,T,starsFor} from './data.js';
 import {award,say,warm,ready,shuffle,esc} from './state.js';
 import {SND} from './audio.js';
 import {SP,hud,bgMap,confetti,stage,en} from './ui.js';
+import {helpOn,words} from './help.js';
 
 const toks=s=>s.replace(/([.!?])$/,' $1').split(/\s+/);
 const GAP=[122,632],TOPY=1338;   // inner cliff edges and cliff-top height in the 752x1800 bridge art (taller than the others: sky to spare above)
@@ -54,7 +55,8 @@ export async function start(host,cfg,api){
    bank.className='bank n'+r.t.length;bank.innerHTML=rows.map(o=>`<div class="brow">${o.map(k=>`<button class="pl p${k%5}${size(r.t[k])}${PUNCT[r.t[k]]?' pn':''}" data-t="${esc(r.t[k])}">${face(r.t[k])}</button>`).join('')}</div>`).join('')}
   else{g.placed=r.t.indexOf(r.gap);bt.textContent='משלימים את המשפט';bh.textContent='איזו מילה חסרה?';bh.className='';bh.removeAttribute('dir');
    /* the sentence is shown once: it is the bridge itself, with one missing plank */
-   span.innerHTML=r.t.map((t,k)=>k===g.placed?`<span class="slot gap" style="flex-grow:${fx('are')}"><i>?</i></span>`:`<span class="slot f p${k%5}" style="flex-grow:${fx(t)}"><i>${face(t)}</i></span>`).join('');
+   span.innerHTML=r.t.map((t,k)=>k===g.placed?`<span class="slot gap" style="flex-grow:${fx('are')}"><i>?</i></span>`:`<span class="slot f p${k%5}" style="flex-grow:${fx(t)}"><i>${helpOn()&&!PUNCT[t]?words(t):face(t)}</i></span>`).join('');   // with word help on, the words of the sentence (not the three answer planks) can be tapped for their meaning
+   if(helpOn())span.dataset.hk='bridge:'+r.raw;
    bank.className='bank tobe';bank.innerHTML=`<div class="brow">${['am','is','are'].map((t,k)=>`<button class="pl big p${k+1}" data-t="${t}">${t}</button>`).join('')}</div>`}
   status(calm());hudUp();place();walkTo(-1,true)}
  function fill(k,t){const sl=span.children[k];sl.className=`slot f p${k%5} laid`;sl.innerHTML=`<i>${face(t)}</i>`}
