@@ -215,3 +215,4 @@ html.ds .login .lcard .btn:not(:disabled):active{filter:brightness(.92)}
 html.ds .map .sign.total b,html.ds .island .chips .chip:not(.wsl){border:18px solid transparent;border-image:url(../assets/al/ui/pill.hf_20261125_075119_050c516b-9715-499a-b981-3306dd6a4694.webp) 46 60 fill / 18px 24px stretch;background:none;box-shadow:none;padding:0 4px}
 html.ds .map .fin{border-width:14px;border-image-width:14px;min-height:0;bottom:calc(4px + var(--sb))}
 @media (max-height:700px){html.ds #stage:is([data-scr=map],[data-scr=island]) img.pic[src*="/isl_"]{aspect-ratio:4/3}}
+html.ds .settings .panel.label{border-width:14px;border-image-width:14px}
