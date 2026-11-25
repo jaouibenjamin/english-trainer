@@ -91,7 +91,7 @@ Mission names and "5 words" are placeholders. Plural address is used so it works
 ## Rollout (each behind a flag, default off; the class keeps the current look)
 Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"` and loading `css/ds.css`. Teacher turns the class on later by config. Ship one screen at a time, test with `tests/*.py` in both modes.
 1. **Title / login** (low risk, first impression, no learning state). Needs the character picker. *Built behind the flag: see "Rollout step 1" below.*
-2. **Island map** (world map + island path, with energy and today's focus). The new structure; needs the engineer for energy rules and the weak-item recommender.
+2. **Island map** (world map + island path, with energy and today's focus). The new structure; needs the engineer for energy rules and the weak-item recommender. *First the skin: the existing English map and level list behind the flag, see "Rollout step 2" below.*
 3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered.
 4. **Fraction Bay** (math). Same shell; island of the world map.
 5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep.
@@ -161,3 +161,12 @@ Files: `js/dsflag.js` (the flag), `css/ds-game.css` (the skin), one `<script>` l
 - Targets: the two login tabs and the three fields are 48px tall with the flag on (44 to 47px today).
 - Known seams, on purpose for step 1: the map, help, class table and teacher screens are still in the old look, so moving from the title to the map changes style. The old painted icons in settings are kept.
 - Checked: `tests/play.py --quick` gives the same 171 checks on `game`, on this branch with the flag off, and with the flag on (class login against the mock backend included).
+
+## Rollout step 2: the English island map and an island's level list, behind the same flag
+Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=map|island]`. No script, markup, route, saving or request changes. Default off.
+- Map: backdrop `bg/sea` (sea from above). Top row: round glass buttons with a plate under each name, the star count as a gold-edged chip, "מקצועות" as a 48px plated button (moved down 14px so it no longer covers the "הגדרות" label). Route: aqua dashes. Island names on dark plates; locked: dashed, dimmed, grey island, new lock; the next island to play: gold ring and soft aqua glow; full: green edge. The all-played banner is a dark card with the starry Pitzi.
+- Level list (`#island/N`): `bg/english` dimmed behind; four dark rows with a colour edge each (aqua, gold, magenta, green); stars and Pitzi in the new art.
+- New art used (all from `assets/al`, nothing generated): sea, english backdrop, star, lock, gear, Pitzi wave and star. Swapped pictures keep their `<img>` and size; the old picture is pushed out of its box with `object-position` and the new one drawn as the background.
+- Known seams: the six painted islands, the boat, the whale, the compass, the chest and trophy icons and the level icons keep today's art (day-light painting on the night sea). New island art would need a generation; not done. Pressing a level row opens the level in today's look.
+- Checked: flag off, the 27 screenshots (map, island 1, island 6 × three progress states × three sizes) match `game` byte for byte; flag on, `tests/play.py --quick` 170 pass, no page errors, every button 48px or more.
+
