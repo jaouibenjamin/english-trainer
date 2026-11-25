@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
 """The extra practice games (js/extra.js), behind their switch. For now: true or not? (js/tf.js).
 
     python3 tests/extra.py              # phone sizes, laptop, and a signed-in pupil against the mock backend

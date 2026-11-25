@@ -1,3 +1,4 @@
+// suite: needs=ffmpeg full=--all quick=-   // picked up by tests/all.py
 /* The slow-playback stretch (js/stretch.js), measured on real clips: node tests/stretch_check.mjs
    For every clip checked: the result is 1/0.75 as long (within 3%), is not louder than the original at its peak (no
    clipping), keeps the loudness (RMS within 1.5 dB), and keeps the pitch (the voice's period, measured by
