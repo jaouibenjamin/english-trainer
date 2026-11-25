@@ -3,7 +3,9 @@
    that needs it, and then a new paper. Content: xdata.js. Progress: S.x, saved with the account. */
 import {XSKILL,XORDER,XPASS,PIC,POOL,KIDS,TRIP,INVITE,WRITE_CHECK,RULES,paper,practice,shuf} from './xdata.js';
 import {S,save,award,esc} from './state.js';
+import {WORDS} from './data.js';
 import {SND} from './audio.js';
+import {helpOn,words,sentBtn} from './help.js';
 import {view,stage,setBg,preload,SP,ico,spr,rb,btn,en,num,toast,confetti,clearFx,sleep} from './ui.js';
 
 /* ---------- progress ---------- */
@@ -164,18 +166,24 @@ export async function prac(k,ctx){if(!XSKILL[k])return ctx.go('mock');setBg('pap
 const fmt=l=>esc(l).replace(/([A-Za-z][A-Za-z' .,?!\/…()·→]*[A-Za-z.?!)])/g,m=>`<bdi dir="ltr" class="en">${m}</bdi>`);
 
 /* ---------- one question on the screen ---------- */
+const NUMW=WORDS.filter(w=>w.p===7).map(w=>w.en.toLowerCase());
 function question(it,mode){
+ /* word help is for practice, not for the paper: the paper is the rehearsal of the real test. Off, or in the paper, the
+    lines are drawn exactly as before. A word that is the answer of this question is never a help button. */
+ const H=helpOn()&&mode==='prac',skip=[String(it.a||'').toLowerCase(),...(it.type==='who'?NUMW:[])],   // in "who is it?" a number word would give the age on the card away
+ tx=l=>H?words(l,skip):esc(l),bl=s=>H?tx(s).replace('___','<i class="gap">&nbsp;</i>'):blank(s),
+  sb=s=>H?sentBtn(it.a&&/^(am|is|are)$/.test(it.a)?s.replace('___',it.a):s):'';   // the Hebrew of a whole sentence: only when the data has it; with a gap only when the gap is am / is / are (the Hebrew does not give that away)
  let body='';
  if(it.type==='who')body=`<div class="xkids">${KIDS.map(c=>`<span class="xkid"><b>${c.em}</b><span class="xkn">${en(c.n)}</span><span class="xkf" dir="ltr">🎂 age <b>${c.age}</b></span>${c.month?`<span class="xkf" dir="ltr">📅 <b>${esc(c.month)}</b></span>`:''}</span>`).join('')}</div>
-  <div class="xdesc" dir="ltr">${it.lines.map(l=>`<p>${esc(l)}</p>`).join('')}</div>`;
- else if(it.type==='read')body=`<details class="xtext" ${mode==='prac'||it.k==='trip:0'?'open':''} dir="ltr"><summary dir="rtl">📄 הקטע: ${en(TRIP.title)}</summary>${TRIP.lines.map((l,j)=>`<p class="${mode==='prac'&&j===it.line?'ev':''}" data-l="${j}">${esc(l)}</p>`).join('')}</details>
-  <p class="xsent" dir="ltr">${blank(it.sent)}</p>`;
- else body=`${it.pic?pic(it.pic,'big'):''}${it.big?`<p class="xbigw" dir="ltr">${esc(it.big)}</p>`:''}${it.card==='invite'?invite():''}${it.sent?`<p class="xsent" dir="ltr">${blank(it.sent)}</p>`:''}${it.raw?`<p class="xraw" dir="ltr">${esc(it.raw)}</p>`:''}`;
+  <div class="xdesc" dir="ltr">${it.lines.map(l=>`<p>${tx(l)}</p>`).join('')}</div>`;
+ else if(it.type==='read')body=`<details class="xtext" ${mode==='prac'||it.k==='trip:0'?'open':''} dir="ltr"><summary dir="rtl">📄 הקטע: ${en(TRIP.title)}</summary>${TRIP.lines.map((l,j)=>`<p class="${mode==='prac'&&j===it.line?'ev':''}" data-l="${j}">${tx(l)}</p>`).join('')}</details>
+  <p class="xsent" dir="ltr">${bl(it.sent)}</p>`;
+ else body=`${it.pic?pic(it.pic,'big'):''}${it.big?`<p class="xbigw" dir="ltr">${esc(it.big)}</p>`:''}${it.card==='invite'?invite():''}${it.sent?`<p class="xsent" dir="ltr">${bl(it.sent)}</p>${sb(it.sent)}`:''}${it.raw?`<p class="xraw" dir="ltr">${tx(it.raw)}</p>`:''}`;
  let ans='';
  if(it.type==='choice'||it.type==='who'||it.type==='read')ans=`<div class="xopts ${it.o.length>3?'four':''} ${it.o.some(o=>o.length>14)?'long':''}">${it.o.map((o,j)=>`<button class="xo" data-a="mockpick" data-j="${j}" dir="${/[א-ת]/.test(o)?'rtl':'ltr'}">${esc(o)}</button>`).join('')}</div>`;
  else if(it.type==='order')ans=`<div class="xans" dir="ltr" id="xl"><span class="xph">לחצו על המילים לפי הסדר</span></div><div class="xtiles" dir="ltr">${shuf(it.tiles).map(w=>`<button class="xtile" data-a="mocktile" data-w="${esc(w)}">${esc(w)}</button>`).join('')}<span class="xq">?</span></div>${btn('mockcheck','בדיקה','green')}`;
  else ans=`<div class="xtype"><input id="xi" class="in en" dir="ltr" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${it.type==='sentence'?'Write the sentence here':'Write here'}">${btn('mockcheck','בדיקה','green')}</div>`;
- return`<div class="xq label"><p class="xqt">${esc(it.q)}</p>${body}</div>${ans}<div class="xfb" id="xfb" role="status" aria-live="polite"></div>`}
+ return`<div class="xq label"${H?` data-hk="mock:${esc(it.k)}"`:''}><p class="xqt">${esc(it.q)}</p>${body}</div>${ans}<div class="xfb" id="xfb" role="status" aria-live="polite"></div>`}
 
 export function invite(){const d=INVITE;
  return`<div class="xinv" dir="ltr"><span class="xi1">🎈 <b>${esc(d.name)}'s Birthday!</b></span><span class="xi2"><span style="font-size:34px">🎂</span> <b style="font-size:30px">${d.age}</b></span>
