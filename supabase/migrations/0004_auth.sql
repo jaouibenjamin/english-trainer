@@ -369,8 +369,10 @@ begin
   return v;
 end $$;
 
+-- what the sign-in answer carries back; nothing during the copy phase (the game reads the Sheet then)
 create function private.pupil_state(p_pupil uuid) returns jsonb language sql security definer set search_path = '' as
-  $$ select coalesce((select jsonb_build_object('state', state, 'updated_at', updated_at) from public.progress where pupil_id = p_pupil), '{}'::jsonb) $$;
+  $$ select case when (select shadow_mode from private.settings) then '{}'::jsonb else
+       coalesce((select jsonb_build_object('state', state, 'updated_at', updated_at) from public.progress where pupil_id = p_pupil), '{}'::jsonb) end $$;
 
 /* The teacher resets a pupil of her own class (checked here again, not only in the function): the code stops working,
    every device is signed out, the name's locks are cleared, and a one-time code (already hashed) is stored. Recovery
@@ -479,6 +481,70 @@ begin
   select count(*) into n from private.legacy_import;
   return n;
 end $$;
+
+
+-- ---------------------------------------------------------------- the copy phase: write only
+-- docs/BACKEND.md section 8, step 1. While shadow_mode is on, a pupil's session can hand in copies and read nothing
+-- back: not its own rows, not the board, not its total, not the stored blob. Everything a pupil sees still comes
+-- from the Sheet, so nothing the copy holds can be shown to a pupil or leak through this side. Teachers' reads are
+-- unchanged (the daily comparison runs with the server key anyway).
+create function app.shadow() returns boolean language sql stable security definer set search_path = '' as
+  $$ select coalesce((select shadow_mode from private.settings), false) $$;
+create function app.reads_pupil() returns uuid language sql stable security definer set search_path = '' as
+  $$ select case when app.shadow() then null else app.pupil_id() end $$;
+create function app.reads_class() returns uuid language sql stable security definer set search_path = '' as
+  $$ select case when app.shadow() then null else app.class_id() end $$;
+revoke all on function app.shadow(), app.reads_pupil(), app.reads_class() from public, anon;
+grant execute on function app.shadow(), app.reads_pupil(), app.reads_class() to authenticated, service_role;
+
+alter policy classes_read  on public.classes      using (id = (select app.reads_class()) or app.teaches(id));
+alter policy pupils_read   on public.pupils       using ((auth_user_id = (select auth.uid()) and not (select app.shadow())) or app.teaches(class_id));
+alter policy answers_read  on public.answers      using (pupil_id = (select app.reads_pupil()) or app.teaches_pupil(pupil_id));
+alter policy points_read   on public.points       using (pupil_id = (select app.reads_pupil()) or app.teaches_pupil(pupil_id));
+alter policy totals_read   on public.pupil_totals using (pupil_id = (select app.reads_pupil()) or app.teaches_pupil(pupil_id));
+alter policy daily_read    on public.answer_daily using (pupil_id = (select app.reads_pupil()) or app.teaches_pupil(pupil_id));
+alter policy best_read     on public.level_best   using (pupil_id = (select app.reads_pupil()) or app.teaches_pupil(pupil_id));
+alter policy progress_read on public.progress     using (pupil_id = (select app.reads_pupil()) or app.teaches_pupil(pupil_id));
+
+create or replace view public.class_board with (security_barrier = true) as
+  select p.display_name,
+         t.points,
+         app.safe_int(g.state -> 'k' -> 'words', 1000) as words,     -- self-reported, shown only
+         app.safe_int(g.state -> 'streak', 1000)       as streak,    -- self-reported, shown only
+         (p.auth_user_id is not distinct from auth.uid()) as me
+  from public.pupils p
+  join public.pupil_totals t on t.pupil_id = p.id
+  left join public.progress g on g.pupil_id = p.id
+  where auth.uid() is not null
+    and (p.class_id = app.reads_class() or app.teaches(p.class_id));
+
+-- The two writes keep their names; the copy phase wraps them so nothing comes back. The full functions move to app
+-- (no API route) and only the wrappers can be called.
+alter function public.record_events(uuid, jsonb) set schema app;
+alter function public.save_progress(jsonb, timestamptz) set schema app;
+revoke all on function app.record_events(uuid, jsonb), app.save_progress(jsonb, timestamptz) from public, anon, authenticated;
+
+create function public.record_events(p_batch uuid, p_events jsonb) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare r jsonb := app.record_events(p_batch, p_events);
+begin
+  return case when app.shadow() then r - 'points' else r end;      -- the total is not shown during the copy phase
+end $$;
+
+-- During the copy phase the Sheet has already merged the two devices, so the copy is the newest Sheet blob: it is
+-- written over whatever is there (the daily comparison wants them equal) and the stored row never comes back.
+create function public.save_progress(p_state jsonb, p_base timestamptz default null) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare r jsonb;
+begin
+  if app.shadow() then
+    r := app.save_progress(p_state, (select updated_at from public.progress where pupil_id = app.pupil_id()));
+    return r - 'state' - 'updated_at';
+  end if;
+  return app.save_progress(p_state, p_base);
+end $$;
+revoke all on function public.record_events(uuid, jsonb), public.save_progress(jsonb, timestamptz) from public, anon;
+grant execute on function public.record_events(uuid, jsonb), public.save_progress(jsonb, timestamptz) to authenticated, service_role;
 
 revoke all on all functions in schema private from public, anon, authenticated;
 grant execute on all functions in schema private to service_role;
