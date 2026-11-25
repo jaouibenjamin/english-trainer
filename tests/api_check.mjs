@@ -301,6 +301,71 @@ for (const down of ['throw', 500]) {
   } finally { Date.now = real.now; globalThis.setTimeout = real.st; globalThis.clearTimeout = real.ct; }
 }
 
+// ---- 2d. the review of #39: a save in flight across a change of pupil, logout, long waits, an expired token
+{
+  // blocker 1: pupil A's slow save is still in flight when A logs out and B signs in on the same device
+  let release; const slow = new Promise(r => { release = r; });
+  const st = fresh({ login: b => ({ ...ses('t0'), session: { access_token: 'tok-' + b.name, refresh_token: 'ref-' + b.name, expires_at: Math.floor(Date.now() / 1000) + 3600 } }) });
+  const base = supabase(st);
+  let slowOnce = false;
+  const { m, calls, store, hide } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 30 }, async c => {
+    if (c.url.endsWith('/rpc/save_progress') && c.body.p_state.who === 'A' && c.body.p_state.n === 2 && !slowOnce) { slowOnce = true; await slow; }
+    return base(c);
+  });
+  const A = { c: 'EN-0000', n: 'Testa', p: '4827' }, Bp = { c: 'EN-0000', n: 'Probe', p: '5839' };
+  await m.api('login', A); await tick();
+  await m.api('save', { ...A, s: { who: 'A', n: 1, st: { cat: [1, 0] } } }); await tick();
+  await m.api('save', { ...A, s: { who: 'A', n: 2, st: { cat: [3, 0] } } }); await tick();     // kept (inside 30 s)
+  hide(); await tick();                                                                        // the page hides: A's save goes, and the server is slow
+  globalThis.document.visibilityState = 'visible';
+  m.forget(true); await tick();                                                                // A logs out
+  await m.api('login', Bp); await tick();                                                      // B signs in
+  release(); await tick(100);                                                                  // A's slow answer arrives now
+  await m.api('save', { ...Bp, s: { who: 'B', n: 1, st: { dog: [1, 0] } } }); await tick();
+  await m.api('save', { ...Bp, s: { who: 'B', n: 2, st: { dog: [2, 0] } } }); await tick();
+  hide(); await tick(50); globalThis.document.visibilityState = 'visible';
+  const withB = calls.filter(c => c.init.headers && c.init.headers.authorization === 'Bearer tok-Probe');
+  eq("A's slow save: nothing of A goes with B's session (no A state, no A answer)", withB.filter(c => JSON.stringify(c.body).includes('"who":"A"') || JSON.stringify(c.body).includes('"cat"')).length, 0);
+  eq("B's first save sets B's own base, so B's events are B's only", st.batches.filter(b => b.p_events.some(e => e.item === 'dog')).map(b => b.p_events.length), [1]);
+  check("and A's state is not waiting to be sent again", !JSON.stringify([...store.values()]).includes('"who":"A"'));
+}
+{
+  // 2: logout sends what was played since the last copy, then revokes
+  const st = fresh();
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 30 }, supabase(st));
+  await m.api('login', CRED); await tick();
+  await m.api('save', { ...CRED, s: { st: { cat: [1, 0] } } }); await tick();                // written at once (the first)
+  for (let i = 2; i <= 9; i++) { await m.api('save', { ...CRED, s: { st: { cat: [i, 0] } } }); await tick(5); }   // kept: inside the 30 s
+  eq('8 answers inside the 30 s window: not sent yet', st.batches.length, 0);
+  m.forget(true); await tick(100);
+  eq('logout: they are sent first, then the session is revoked', [st.batches.reduce((a, b) => a + b.p_events.length, 0), (st.logouts || []).length, st.seen.lastIndexOf('/auth/v1/logout?scope=local') > st.seen.lastIndexOf('/rest/v1/rpc/record_events')], [8, 1, true]);
+}
+{
+  // 3: many answers after a long wait go in parts of 200, none cut; a part that failed goes again under its own id
+  const st = fresh();
+  let failPart = 2;
+  const base = supabase(st);
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => {
+    if (c.url.endsWith('/rpc/record_events')) { st.batches.push(c.body); if (st.batches.length - 1 === failPart) { failPart = -1; return new Error('lost'); } return { json: { ok: true, points: 1, flagged: 0 } }; }
+    return base(c);
+  });
+  await m.api('login', CRED); await tick();
+  await m.api('save', { ...CRED, s: { st: { cat: [0, 0], dog: [0, 0] } } }); await tick();
+  await m.api('save', { ...CRED, s: { st: { cat: [450, 0], dog: [300, 0] } } }); await tick(50);
+  await m.api('save', { ...CRED, s: { st: { cat: [450, 0], dog: [300, 0] }, x: 1 } }); await tick(50);
+  const byId = new Map(st.batches.map(b => [b.p_batch, b.p_events.length]));
+  eq('750 answers: 4 parts (200, 200, 200, 150), each id once in the end, none cut', [...byId.values()], [200, 200, 200, 150]);
+  eq('the part whose answer was lost went again under the same id, the parts before it did not', st.batches.map(b => b.p_batch).filter((x, i, a) => a.indexOf(x) !== i).length, 1);
+}
+{
+  // 4: an expired access token is refreshed before the session is revoked, so the refresh token dies too
+  const st = fresh({ login: { ...ses('t0'), session: { access_token: 'old', refresh_token: 'ref1', expires_at: Math.floor(Date.now() / 1000) - 10 } } });
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  await m.api('login', CRED); await tick();
+  m.forget(true); await tick(50);
+  eq('logout with an expired access token: refreshed first, then revoked with the fresh one', st.logouts, ['Bearer acc-r']);
+}
+
 // ---- 3. events from two saves
 {
   const { m } = await load(undefined, sheetOk);
@@ -315,7 +380,8 @@ for (const down of ['throw', 500]) {
   eq('no event carries points', ev.some(e => 'pts' in e || 'points' in e), false);
   eq('the same record twice: nothing', m.events({ st: { cat: [1, 0] } }, { st: { cat: [1, 0] } }), []);
   eq('garbage in, nothing out', [m.events(null, null), m.events('x', 5), m.events({ st: 5 }, { st: [1] })], [[], [], []]);
-  eq('a counter that jumped is capped (at most 50 answers an item per save, 200 events a save)', m.events({}, { st: { cat: [100000, 0] } }).length, 50);
+  eq('a counter that jumped absurdly is capped (600 answers a word, the server\'s own daily ceiling)', m.events({}, { st: { cat: [100000, 0] } }).length, 600);
+  eq('and 4,000 events at most for one save', m.events({}, { st: Object.fromEntries(Array.from({ length: 10 }, (_, i) => ['w' + i, [1000, 0]])) }).length, 4000);
 }
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

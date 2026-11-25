@@ -417,7 +417,7 @@ def test_teacher(db):
                    ('Dana\u0301\u0301\u0301', 'stacked combining marks'), (' Dana', 'a leading space'), ('Dana ', 'a trailing space'), ('D4na', 'a digit'),
                    ('Dana\u200f', 'right-to-left mark'), ('a' * 21, '21 letters')]:
         check(f'refused: {why}', bad(n) is not None)
-    for n, why in [("'Dana", 'an apostrophe first'), ('D\u0131na', 'dotless i (Dına looks like Dina)'), ('\u017Fara', 'long s'), ('\u0138im', 'kra'), ('\u0149ina', "n preceded by '"), ('Dana-', 'a hyphen last'), ("Da ''", 'an apostrophe after a space'), ('׳נועה', 'a geresh first')]:
+    for n, why in [("'Dana", 'an apostrophe first'), ('D\u0131na', 'dotless i (Dına looks like Dina)'), ('\u017Fara', 'long s'), ('\u0138im', 'kra'), ('\u0149ina', "n preceded by '"), ('\u0133ssel', 'ij ligature'), ('Dana-', 'a hyphen last'), ("Da ''", 'an apostrophe after a space'), ('׳נועה', 'a geresh first')]:
         check(f'refused: {why}', bad(n) is not None)
     for n in ['Noa', 'נועה', "O'Neil", 'Chloé', 'בר-לב', 'ג׳ני', 'Ana Mae', 'Dan.', 'ג׳ורג׳', "ג'ורג'", 'ג’ורג’', 'Łukasz', 'Žofie', "D'"]:
         r = db.psql(f"select app.name_ok($n${n}$n$)")[0][0][0]

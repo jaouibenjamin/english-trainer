@@ -24,3 +24,7 @@ Your job:
 
 Report findings as: blocker / should fix / nice to have, each with file, line, the failure scenario and the fix.
 Do not merge to `main` yourself; the lead ships.
+
+## Lessons
+
+Read `docs/LESSONS.md` before you write or review anything. When a review finds a new class of bug, add an entry there in the PR that fixes it.

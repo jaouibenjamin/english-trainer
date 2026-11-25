@@ -2,8 +2,8 @@
 // squeezing spaces, so the function answers "input" instead of the table refusing the row: Hebrew letters, Latin
 // letters (Latin-1 and Latin Extended-A: é, Ł, Ž), and space ' ’ ׳ ״ . - inside; 2 to 20; starts with a letter; ends
 // with a letter, a dot, or ' ’ ׳ right after a letter.
-// without ı ĸ ŉ ſ (U+0131, U+0138, U+0149, U+017F): Dına and Dina must not be two pupils (review of #35)
-const L = "A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u0130\u0132-\u0137\u0139-\u0148\u014A-\u017E\u05D0-\u05EA";
+// without ı Ĳ ĳ ĸ ŉ ſ (U+0131-U+0133, U+0138, U+0149, U+017F): Dına and Dina must not be two pupils (review of #35)
+const L = "A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u0130\u0134-\u0137\u0139-\u0148\u014A-\u017E\u05D0-\u05EA";
 const M = `${L}\u05F3\u05F4\u2019' .-`;
 export const NAME_RE = new RegExp(`^[${L}](?:[${M}]{0,18}[${L}.]|(?:[${M}]{0,17}[${L}])?[\u05F3\u2019'])$`);
 export const normName = (x: unknown): string => String(x ?? "").normalize("NFC").trim().replace(/\s+/g, " ");
