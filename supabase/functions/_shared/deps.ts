@@ -4,6 +4,7 @@
 import postgres from "npm:postgres@3.4.7";
 import type { Deps, Sql } from "./core.ts";
 import { gotrueSessions } from "./gotrue.ts";
+import { installPgGuard } from "./pgguard.ts";
 
 let cached: Deps | undefined;
 const need = (name: string): string => {
@@ -14,6 +15,7 @@ const need = (name: string): string => {
 
 export function prodDeps(): Deps {
   if (cached) return cached;
+  installPgGuard();
   const pepper = Uint8Array.from(atob(need("PUPIL_PEPPER")), (c) => c.charCodeAt(0));
   if (pepper.length < 32) throw new Error("pepper too short");
   const sql = postgres(need("SUPABASE_DB_URL"), { max: 2, idle_timeout: 20, prepare: false, onnotice: () => {} });
