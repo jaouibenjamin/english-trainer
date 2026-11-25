@@ -1,13 +1,13 @@
 # Phase 3 proposal: the teacher on Supabase, then the Sheet off (DRAFT)
 
-Status: a proposal for the lead and the owner. Nothing here is built. It assumes `docs/LIVE_STAGE.md` has run to G
+Status: a proposal for the lead and the owner. Steps 1 and 2 are open pull requests (#82, #83); the rest is not built. It assumes `docs/LIVE_STAGE.md` has run to G
 (`dual` on for the class, counted equals played).
 
 ## What already exists (Phase 1, on the server)
 
 - **The teacher's account:** the `teachers` table (one row per teacher and class, added by the owner), Google as the
   only sign-in provider (runbook A3, A4), and her user created beforehand (B5).
-- **Views:** `teacher_view` (per pupil: points, answers, first-try rate, stars, flags, locks) and `teacher_items`
+- **Views:** `teacher_view` (per pupil: points, answers, first-try answers, error rate, stars, flags this week, locks today) and `teacher_items`
   (the class's hard words) return rows only for her class.
 - **Writes:** `teacher-reset` with `reset` (a 6-digit one-time code, shown once), `unlock` and `unlock_class`;
   `teacher_delete_pupil`; the roster table, with insert and delete open to her by RLS; `backend_health`.
@@ -17,7 +17,7 @@ Status: a proposal for the lead and the owner. Nothing here is built. It assumes
 - Google sign-in in the browser.
 - A teacher screen that reads Supabase.
 - The pupil screens with the pictures.
-- `'supabase'` mode finished: it is refused today unless `config.js` says `unfinished: true`.
+- `'supabase'` mode finished: it is refused today unless `config.js` says `unfinished: true`, and, like `dual`, only for a `?dual=1` device unless `everyone: true`.
 
 ## The proposal
 
@@ -25,8 +25,9 @@ Status: a proposal for the lead and the owner. Nothing here is built. It assumes
    - The pupils' pages never carry a teacher session.
    - Google through Supabase OAuth, with a redirect, PKCE and the code exchanged at `/auth/v1/token?grant_type=pkce`.
    - Plain `fetch`, no vendored library (as `js/api.js`).
-   - The session lives in `sessionStorage`, not `localStorage`, because a class computer is shared. A "sign out" button, and sign-out after 30 minutes idle.
-   - No Google host in `connect-src`: the redirect is a top-level navigation.
+   - The session lives in the page's memory only: nothing of it is written to any storage (the PKCE verifier alone sits in `sessionStorage` for at most 10 minutes and is deleted when used). It ends when the page is left (pagehide: a link, the back button, a reload, closing the tab), after 30 minutes without a tap or a key, or with "sign out"; each time it is revoked on the server, with keepalive when the page is being left.
+   - No Google host in `connect-src`: the redirect is a top-level navigation. `teacher.html` has its own policy, stricter than the game's: no inline script or style, `form-action 'none'`, `base-uri 'none'`, no referrer.
+   - The Auth redirect list holds `<game>/teacher.html` and nothing else (`docs/BACKEND.md` section 9 step 9).
 2. **The teacher screen on Supabase, behind a switch (`?tsb=1`), side by side with today's Sheet screen.**
    - **Read:** her class from `teacher_view`, today's hard words from `teacher_items`, and a warning line from `backend_health`.
    - **Write:**
@@ -46,6 +47,8 @@ Status: a proposal for the lead and the owner. Nothing here is built. It assumes
 
 ## What must be true before the Sheet is switched off
 
+All of `docs/BACKEND.md` section 8 step 3, and also:
+
 1. **The teacher has used the Supabase screen for at least a week:** signed in with Google, reset and unlocked there.
 2. **The pupil screens are approved** by the owner (they change how children sign in: his explicit yes) and by the teacher.
 3. **Counting is exact:** counted equals played (runbook G1), and the per-source points gap is 0, for 3 school days in a row (`docs/BACKEND.md` section 8, step 3).
@@ -60,6 +63,10 @@ Status: a proposal for the lead and the owner. Nothing here is built. It assumes
    - for a month the way back is to point `config.js` at the Sheet again.
    - The change to `backend/Code.gs` is the lead's and the owner's, not this team's.
 6. **The free-plan numbers after a month of `dual`** leave room for a second class (`docs/BACKEND.md` section 6).
+7. **Every step reviewed:** the engineer's security review on each PR and the security workflow green.
+8. **Pupils absent on switch day:** the switch-day runbook says how they get the new class code later, that their old code still works on Supabase until they choose a new one, and that a forgotten code goes through the teacher's one-time code.
+9. **Privacy before the Sheet is off:** the owner decides on the note for parents (`docs/BACKEND.md` "Privacy notes"); a request to delete a child's data is `teacher_delete_pupil`, and the encrypted exports that still hold the child age out after a stated number of days; the Sheet's copy of the class (names, progress, code hashes) is deleted on a stated date after the way back closes.
+10. **Switch-day headroom:** the whole class signing in at once from the school's address stays under `ip_hour` (each sign-in, new code and pictures counted).
 
 ## Order and estimates
 
@@ -74,12 +81,12 @@ These are focused engineer days for each step. Each PR takes about 2 review roun
 | 5 | The pupil screens with the pictures (3 flows), approved by the owner | UI designer + client engineer | 3–4 | the flows of section 3 |
 | 6 | `'supabase'` mode finished (no code kept, board and record from Supabase); tests | engineer | 2 | 5 |
 | 7 | The switch-day runbook, its way back, and a rehearsal on a second project | engineer, lead | 1 | 6 |
-| 8 | The switch | owner, lead | — | everything above |
+| 8 | The switch | owner (explicit yes: it changes how every child signs in), lead | — | everything above |
 
 In total that is about 11 engineer days, or about 3 to 4 weeks on the calendar with reviews and the teacher's time. Steps 1 to 4 are useful on their own: the teacher gets her own reset and unlock during `dual`, so the lead's manual step goes.
 
 ## Questions for the owner (and the teacher)
 
 - **Which Google account will the teacher use: her personal one or the school's?** A school Google Workspace can block sign-in to outside apps; that has to be tried before step 1.
-- **Google's consent screen stays in "Testing"** (free, up to 100 named users) with the teacher's address added. That is enough for one class and needs no verification by Google.
+- **Google's consent screen stays in "Testing"** (free, up to 100 named users) with the teacher's address added. That is enough for one class and needs no verification by Google. In Testing, Google shows the teacher an "unverified app" screen and her consent may need repeating after 7 days; she should see this once with the owner (step 4).
 - **Parents** (`docs/PLAN.md` Phase 3, second bullet) are not in this proposal. I suggest a separate one after the switch, because consent records and deleting a child's data need their own design and the owner's decisions.

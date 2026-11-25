@@ -38,7 +38,7 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 | A5 | 📱 Owner | Authentication → Multi-factor: enrolment off for every factor; manual identity linking off. | set back |
 | A6 | 📱 Owner | Authentication → Sessions: JWT expiry 3600; refresh-token rotation on, reuse interval 10 s. | set back |
 | A7 | 📱 Owner | Authentication → Rate limits: token verifications at least 150 per 5 minutes; sign-ups and emails at the minimum. | set back |
-| A8 | 📱 Owner | Authentication → URL configuration: site URL and redirect list = the game's address only. | set back |
+| A8 | 📱 Owner | Authentication → URL configuration: site URL = the game's address; redirect list = `<game>/teacher.html` and nothing else (`docs/BACKEND.md` section 9 step 9). | set back |
 | A9 | 📱 Owner | Settings → API: exposed schemas `public` only. Database → Extensions: `pg_graphql` off, `pgcrypto` on, `pg_cron` on. Realtime off for every table. | set back |
 | A10 | 💻 Owner | Check the settings: `export SUPABASE_URL=https://<ref>.supabase.co`, the publishable key with `read -rs SUPABASE_ANON_KEY; export SUPABASE_ANON_KEY`, then `python3 tests/live_check.py --stage 1`. **All green before going on.** | fix the red setting and run it again |
 
