@@ -458,6 +458,10 @@ rows). The blob: `save_progress` writes nothing when the blob is unchanged, refu
 last (`retry_after`), and stops at 300 writes or 4 MB a pupil a day (each write leaves a dead copy until vacuum;
 tested: 5,000 saves of a 39 KB blob as fast as possible write 105 and grow the table by about 4 MB; before, 28,000
 made it 428 MB). A refused save loses nothing: the device keeps its progress and the next save carries it.
+The client paces itself to fit (pre-live review S8, `js/api.js`): the game saves 2.5 s after every change, so the
+adapter keeps only the newest state and sends it at most every 30 s (`saveEveryS`) and at once, with keepalive, when
+the page is hidden; on `wait`, `daycap` or `brake` it keeps the state (and the pending batch) and tries again after
+the time the server names. An honest pupil playing all day sends well under 300 writes.
 The storage brake: when `maintenance()` finds the database at 350 MB it switches `storage_brake` on, and events are
 then counted but not stored for everybody (saves still work) until the owner frees space; the teacher's
 `backend_health` warns. `record_events` then answers `{ok: false, e: 'brake'}`, so the device keeps the batch and

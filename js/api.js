@@ -4,6 +4,7 @@
    Which backend is chosen by window.BACKEND in config.js. With no such key (today) the mode is 'sheet' and this file
    does exactly what js/state.js did before it existed: one POST to the Google Sheet web app.
      window.BACKEND = {mode:'dual', url:'https://<project>.supabase.co', key:'<the public key>'}
+   (optional: saveEveryS, how often at most a save goes to Supabase, 30 by default)
    'dual' (Phase 2 of docs/PLAN.md): the Sheet is asked first and its answer is the answer; afterwards, and only when
    the Sheet said ok, the same progress is copied to Supabase in the background. A failure there is never shown to
    the pupil, never slows the game, and is written to a small log on the device (shadowLog()).
@@ -25,7 +26,7 @@ export async function api(a,d){
  return supa(a,d)}
 
 /* ---------- small storage helpers: everything Supabase-side lives under its own keys, never in the game's record ---------- */
-const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log'};
+const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log',stale:'wi-sb-stale'};
 const get=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
 const set=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 /* what happened on the shadow side: time, a short kind, numbers. Never a name, a code or a token. */
@@ -35,9 +36,12 @@ const uuid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-10
 
 /* ---------- Supabase over plain fetch: no library to vendor ---------- */
 const TIMEOUT=8000;
+let hiding=false;      // a save sent while the page is being hidden goes with keepalive, so it survives the page
 async function call(path,body,token){
  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),TIMEOUT);
- try{const r=await fetch(B.url+path,{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json',apikey:B.key,authorization:'Bearer '+(token||B.key)},body:JSON.stringify(body)});
+ // the new public key format (sb_publishable_) is not a JWT: it goes as apikey only; a bearer is a pupil's session
+ const bearer=token||(B.key.startsWith('eyJ')?B.key:'');
+ try{const r=await fetch(B.url+path,{method:'POST',signal:ctl.signal,keepalive:hiding,headers:{'content-type':'application/json',apikey:B.key,...(bearer?{authorization:'Bearer '+bearer}:{})},body:JSON.stringify(body)});
   let j=null;try{j=await r.json()}catch(e){}return{status:r.status,j}}
  finally{clearTimeout(t)}}
 const fn=(name,body)=>call('/functions/v1/'+name,body);
@@ -88,27 +92,54 @@ async function writeSave(s,overwrite){
  if(r.status===200&&r.j&&r.j.conflict){
   if(!overwrite)return{ok:false,conflict:true,state:r.j.state,at:r.j.updated_at};
   set(K.ses,{...ses,at:r.j.updated_at});r=await rpc('save_progress',{p_state:s,p_base:r.j.updated_at})}   // shadow: the Sheet is the truth
+ // the server rations saves (5 s apart, 300 a day): not a failure, a "later" with the seconds to wait
+ if(r.status===200&&r.j&&!r.j.ok&&(r.j.e==='wait'||r.j.e==='daycap'))return{ok:false,e:r.j.e,retry:Math.max(1,num(r.j.retry_after))};
  if(r.status!==200||!r.j||!r.j.ok)return{ok:false,status:r.status};
  set(K.ses,{...(get(K.ses)||{}),at:r.j.updated_at});
  let points=null;
  if(pend.ev.length){const e=await rpc('record_events',{p_batch:pend.id,p_events:pend.ev});
+  if(e.status===200&&e.j&&e.j.e==='brake'){note('brake');return{ok:false,e:'brake',saved:true,retry:BRAKE_RETRY}}   // the database is full for now: the batch waits on the device
   if(e.status!==200||!e.j||!e.j.ok)return{ok:false,status:e.status,saved:true};
   points=e.j.points;if(e.j.flagged)note('flagged',{n:e.j.flagged})}
  set(K.base,pend.next);set(K.pend,null);
  return{ok:true,points,events:pend.ev.length}}
+
+/* ---------- pacing the saves (review S8) ----------
+   The game saves 2.5 s after every change; the server takes one write every 5 s and 300 a day per pupil. So only the
+   newest state is kept here and written at most every SAVE_EVERY (30 s), and at once when the page is hidden. When
+   the server answers "wait" or "daycap" (or "brake" for the events), the state is kept and tried again after the time
+   it names. Nothing is lost: the newest state carries all of it, and the events wait in the pending batch. */
+const SAVE_EVERY=1000*Math.max(0,B.saveEveryS===undefined||!Number.isFinite(+B.saveEveryS)?30:+B.saveEveryS);
+const BRAKE_RETRY=600;
+let queued=null,qOverwrite=true,lastWrite=0,holdUntil=0,timer=null,flushing=false;
+function later(){clearTimeout(timer);timer=null;if(!queued)return;
+ timer=setTimeout(()=>{flush(false).catch(()=>{})},Math.max(0,Math.max(lastWrite+SAVE_EVERY,holdUntil)-Date.now()))}
+async function flush(hidden){
+ if(!queued||flushing)return null;
+ const now=Date.now();if(now<holdUntil||(!hidden&&now<lastWrite+SAVE_EVERY)){later();return null}
+ const s=queued;queued=null;lastWrite=now;flushing=true;hiding=!!hidden;
+ let w;try{w=await writeSave(s,qOverwrite)}catch(e){w={ok:false,status:0}}finally{flushing=false;hiding=false}
+ if(w.retry){if(!queued)queued=s;holdUntil=Date.now()+w.retry*1000}             // told to wait: keep it and try again
+ else if(w.conflict&&!qOverwrite)set(K.stale,{state:w.state,at:w.at});           // 'supabase': the game joins at its next save
+ if(MODE==='dual')note('save',{ok:w.ok?1:0,st:w.status||0,ev:w.events||0,...(w.e?{e:w.e}:{}),...(w.points!=null?{server:w.points}:{})});
+ later();return w}
+if(MODE!=='sheet'&&typeof W.addEventListener==='function'){
+ const away=()=>{flush(true).catch(()=>{})};
+ W.addEventListener('pagehide',away);
+ if(typeof document!=='undefined')document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')away()})}
 
 /* ---------- 'dual': the shadow copy. Runs after the Sheet answered; nothing here can reach the pupil. ---------- */
 let busy=false,lastTry=0;
 function shadow(a,d,r){
  if(!r||!r.ok)return;                                   // the Sheet refused: nothing to copy
  if(a!=='login'&&a!=='register'&&a!=='save')return;     // the board, the teacher screen and reset stay on the Sheet
+ if(a==='save'){queued=d.s;qOverwrite=true}             // the newest state waits here until it may go
  if(busy)return;busy=true;
  (async()=>{try{
   if(a!=='save'||!(await token())){
    if(a==='save'&&Date.now()-lastTry<600000)return;     // no session and a recent refusal: do not hammer the sign-in
    lastTry=Date.now();const j=await signIn(d);note('signin',{e:j.ok?'ok':String(j.e||'net').slice(0,12)});if(!j.ok)return}
-  if(a==='save'){const w=await writeSave(d.s,true);
-   note('save',{ok:w.ok?1:0,st:w.status||0,ev:w.events||0,sheet:num(d.s&&d.s.pts),server:w.points});}
+  if(a==='save'){note('sheet',{pts:num(d.s&&d.s.pts)});await flush(false)}
  }catch(e){note('error',{e:String(e&&e.name||'x').slice(0,20)})}finally{busy=false}})()}
 
 /* ---------- 'supabase': the new backend alone ----------
@@ -120,8 +151,11 @@ async function supa(a,d){
   if(a==='login'){const j=await signIn(d,d.np?{new_code:d.np,pictures:d.pics}:null);return j.ok?{ok:true,s:j.s||{}}:{ok:false,e:j.e||'net',wait:j.wait}}
   if(a==='register'){const r=await fn('pupil-register',{class_code:d.c,name:d.n,code:d.p,pictures:d.pics});if(r.j&&r.j.ok){keep(r.j);return{ok:true,s:{}}}return{ok:false,e:(r.j&&r.j.e)||'net'}}
   if(a==='save'){if(!(await token()))return{ok:false,e:'pin'};   // no session: the game asks to sign in again and keeps the progress
-   const w=await writeSave(d.s,false);if(w.ok)return{ok:true};
-   if(w.conflict){set(K.ses,{...(get(K.ses)||{}),at:w.at});return{ok:false,e:'stale',s:w.state}}   // another device saved first: join and save again
+   const st=get(K.stale);if(st){set(K.stale,null);set(K.ses,{...(get(K.ses)||{}),at:st.at});return{ok:false,e:'stale',s:st.state}}   // a kept save met another device's
+   queued=d.s;qOverwrite=false;
+   const w=await flush(false);
+   if(!w||w.ok||w.retry)return{ok:true};                 // written, or kept here and sent within SAVE_EVERY or when the page is hidden
+   if(w.conflict){set(K.stale,null);set(K.ses,{...(get(K.ses)||{}),at:w.at});return{ok:false,e:'stale',s:w.state}}   // another device saved first: join and save again
    return{ok:false,e:w.status===401?'pin':'net'}}
   if(a==='board'){const t=await token();if(!t)return{ok:false,e:'pin'};
    const r=await fetch(B.url+'/rest/v1/class_board?select=display_name,points,words,streak&order=points.desc',{headers:{apikey:B.key,authorization:'Bearer '+t}});
