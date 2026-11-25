@@ -20,13 +20,15 @@ const B=W.BACKEND&&typeof W.BACKEND==='object'?W.BACKEND:{};
 const URL_OK=typeof B.url==='string'&&/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(B.url)&&typeof B.key==='string'&&B.key.length>20;
 // 'supabase' alone is not finished (see supa() below): it needs a second, deliberate key, so one mistyped word in
 // config.js cannot switch the live class to it (review of #21, S-b)
-/* trial in config.js turns the backend on only for a device that opened the game once with ?dual=1 (a test device
-   first; the class when the key is removed); ?dual=0 turns it off again and ends that device's session. Fail safe
-   (K2, review of #73): a key named trial in any spelling or case, with any value (even false), means trial, so a typo
-   can never switch the whole class on. Without a BACKEND key nothing is read. */
-const TRIAL=Object.keys(B).some(k=>k.toLowerCase()==='trial');
+/* One test device first, then the class (docs/LIVE_STAGE.md D3, F1). With a project in config.js, the default is a
+   trial: only a device that opened the game once with ?dual=1 copies to Supabase; ?dual=0 turns it off again and ends
+   that device's session. The class is turned on by one explicit key, everyone: true (exactly that name, exactly the
+   value true). Anything else, a misspelt, cased or nested key or a value like 'true' or 1, keeps the class on the Sheet
+   (K2b, review of #73: no typo can switch every pupil over); an old trial key changes nothing. Without a BACKEND key
+   nothing is read. */
+const EVERYONE=Object.prototype.hasOwnProperty.call(B,'everyone')&&B.everyone===true;
 let tryOn=true,tryOff=false;
-if(URL_OK&&TRIAL){tryOn=false;
+if(URL_OK&&!EVERYONE){tryOn=false;
  try{const q=new URLSearchParams(W.location&&W.location.search||'').get('dual');
   if(q==='1')W.localStorage.setItem('wi_dual','1');else if(q==='0'){tryOff=true;W.localStorage.removeItem('wi_dual')}
   tryOn=W.localStorage.getItem('wi_dual')==='1'}catch(e){}}
@@ -406,6 +408,6 @@ async function supa(a,d){
    if(r.status!==200||!Array.isArray(r.j))return{ok:false,e:'net'};return{ok:true,rows:r.j.map(x=>({n:String(x.display_name),pts:num(x.points),words:num(x.words),streak:num(x.streak)}))}}
   return{ok:false,e:'teacher'}                           // teacher and reset: after Google sign-in exists
  }catch(e){return{ok:false,e:'net'}}}
-/* ?dual=0 on a trial device: the backend is off for it from now on, so what it kept is let go too (review of #73): the
+/* ?dual=0 on a device of the trial: the backend is off for it from now on, so what it kept is let go too (review of #73): the
    session is revoked and the session, base, batch, sent record and owner marks leave the device. */
 if(tryOff&&LS&&(sidNow()||get(K.owner)||get(K.base)))op().end(true).catch(()=>{});

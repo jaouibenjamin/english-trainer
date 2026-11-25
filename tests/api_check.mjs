@@ -111,7 +111,7 @@ function supabase(state) {   // a tiny stand-in for the project: sign-in, save_p
 const fresh = o => ({ seen: [], logins: [], saves: [], batches: [], conflict: 0, loseAnswer: 0, ...o });
 {
   const st = fresh();
-  const { m, calls, store } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  const { m, calls, store } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, supabase(st));
   eq('dual: mode', m.MODE, 'dual');
   st.sheet = { ok: true, s: { pts: 1 } };
   const r = await m.api('login', CRED); await idle();
@@ -133,7 +133,7 @@ const fresh = o => ({ seen: [], logins: [], saves: [], batches: [], conflict: 0,
 }
 for (const down of ['throw', 500]) {
   const st = fresh({ down, sheet: { ok: true, s: { pts: 3 } } });
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, supabase(st));
   const t0 = Date.now();
   const r1 = await m.api('login', CRED), r2 = await m.api('save', { ...CRED, s: { pts: 3 } });
   eq(`dual, Supabase ${down === 'throw' ? 'unreachable' : 'answering 500'}: the pupil gets the Sheet's answers`, [r1, r2], [{ ok: true, s: { pts: 3 } }, { ok: true, s: { pts: 3 } }]);
@@ -142,17 +142,17 @@ for (const down of ['throw', 500]) {
 }
 {
   const st = fresh({ sheet: { ok: false, e: 'pin' } });
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, supabase(st));
   const r = await m.api('save', { ...CRED, s: { pts: 3 } }); await idle();
   eq('dual: a save the Sheet refuses is not copied', [r, st.seen], [{ ok: false, e: 'pin' }, []]);
   st.sheet = new Error('offline');
-  const x = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => c.url === SHEET ? new Error('offline') : supabase(st)(c));
+  const x = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, c => c.url === SHEET ? new Error('offline') : supabase(st)(c));
   let threw = false; try { await x.m.api('save', CRED); } catch (e) { threw = true; }
   check('dual: a Sheet network failure is thrown exactly as in sheet mode, and nothing is copied', threw && st.seen.length === 0);
 }
 {
   const st = fresh({ loseAnswer: 1 });
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, supabase(st));
   await m.api('login', CRED); await idle();
   await m.api('save', { ...CRED, s: { st: { cat: [1, 0] } } }); await idle();
   await m.api('save', { ...CRED, s: { st: { cat: [3, 0] } } }); await idle();    // the server takes it, the answer is lost
@@ -166,12 +166,12 @@ for (const down of ['throw', 500]) {
 }
 {
   const st = fresh({ conflict: 1 });
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, supabase(st));
   await m.api('login', CRED); await idle();
   await m.api('save', { ...CRED, s: { pts: 1 } }); await idle();
   eq('shadow: when another device saved first the copy is written again over the version the server named (the Sheet is the truth)', st.saves.map(s => s.p_base), ['t0', 't9']);
   const st2 = fresh({ login: { ok: false, e: 'pin' } });
-  const y = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st2));
+  const y = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, supabase(st2));
   for (let i = 0; i < 5; i++) { await y.m.api('save', { ...CRED, s: { pts: i } }); await idle(); }
   eq('a pupil the shadow side does not know yet: one sign-in try, not one per save', st2.logins.length, 1);
 }
@@ -186,7 +186,7 @@ for (const down of ['throw', 500]) {
 }
 {
   const st = fresh();
-  const { m, hide, calls } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 2 }, supabase(st));
+  const { m, hide, calls } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 2 }, supabase(st));
   await m.api('login', CRED); await idle();
   for (let i = 1; i <= 6; i++) { await m.api('save', { ...CRED, s: { pts: i, st: { cat: [i, 0] } } }); await tick(20); }
   eq('6 saves of the game inside the 2 s window: one copy now', st.saves.length, 1);
@@ -204,7 +204,7 @@ for (const down of ['throw', 500]) {
   const st = fresh();
   let answer = { ok: false, e: 'wait', retry_after: 1 };
   const base = supabase(st);
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => {
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, c => {
     if (c.url.endsWith('/rpc/save_progress') && answer) { st.saves.push(c.body); const a = answer; answer = null; return { json: a }; }
     return base(c);
   });
@@ -225,7 +225,7 @@ for (const down of ['throw', 500]) {
   const st = fresh();
   let brake = true;
   const base = supabase(st);
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => {
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, c => {
     if (c.url.endsWith('/rpc/record_events') && brake) { st.batches.push(c.body); return { json: { ok: false, e: 'brake', points: 0 } }; }
     return base(c);
   });
@@ -236,7 +236,7 @@ for (const down of ['throw', 500]) {
 }
 {
   const st = fresh();
-  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, saveEveryS: 2, unfinished: true }, supabase(st));
+  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, everyone: true, saveEveryS: 2, unfinished: true }, supabase(st));
   await m.api('login', CRED); await idle();
   const r1 = await m.api('save', { ...CRED, s: { pts: 1 } });
   const r2 = await m.api('save', { ...CRED, s: { pts: 2 } });
@@ -250,13 +250,13 @@ for (const down of ['throw', 500]) {
 
 // ---- 2c. the reviews of #21 and #35: shared devices, sign-in once, events even when a save waits, 2 hours of play
 {
-  const { m } = await load({ mode: 'supabase', url: SB, key: KEY }, sheetOk);
+  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, everyone: true }, sheetOk);
   eq("'supabase' without the second key (unfinished: true) stays on the Sheet (S-b)", m.MODE, 'sheet');
 }
 {
   const A = { c: 'EN-0000', n: 'Testa', p: '4827' }, Bp = { c: 'EN-0000', n: 'Probe', p: '5839' };
   const st = fresh({ login: b => b.name === 'Testa' ? { ...ses('t0'), session: { access_token: 'tok-A', refresh_token: 'ref-A', expires_at: Math.floor(Date.now() / 1000) + 3600 } } : { ok: false, e: 'pin' } });
-  const { m, calls, store } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  const { m, calls, store } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, supabase(st));
   await m.api('login', A); await idle();
   await m.api('save', { ...A, s: { pts: 1 } }); await idle();
   await m.api('login', Bp); await idle();
@@ -280,7 +280,7 @@ for (const down of ['throw', 500]) {
 {
   const st = fresh();
   const base = supabase(st);
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => {
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, c => {
     if (c.url.endsWith('/rpc/save_progress') && st.saves.length >= 1) { st.saves.push(c.body); return { json: { ok: false, e: 'wait', retry_after: 30 } }; }
     return base(c);
   });
@@ -311,7 +311,7 @@ for (const down of ['throw', 500]) {
   try {
     const st = fresh(); let lastOk = 0, writes = 0, refused = 0;
     const base = supabase(st);
-    const { m, hide } = await load({ mode: 'dual', url: SB, key: KEY }, c => {     // the real pacing: 30 s
+    const { m, hide } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true }, c => {     // the real pacing: 30 s
       if (c.url.endsWith('/rpc/save_progress')) {
         st.saves.push(c.body);
         if (now - lastOk < 5000 || writes >= 300) { refused++; return { json: { ok: false, e: writes >= 300 ? 'daycap' : 'wait', retry_after: 5 } }; }
@@ -338,7 +338,7 @@ for (const down of ['throw', 500]) {
   const st = fresh({ login: b => ({ ...ses('t0'), session: { access_token: 'tok-' + b.name, refresh_token: 'ref-' + b.name, expires_at: Math.floor(Date.now() / 1000) + 3600 } }) });
   const base = supabase(st);
   let slowOnce = false;
-  const { m, calls, store, hide } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, async c => {
+  const { m, calls, store, hide } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, async c => {
     if (c.url.endsWith('/rpc/save_progress') && c.body.p_state.who === 'A' && c.body.p_state.n === 2 && !slowOnce) { slowOnce = true; await slow; }
     return base(c);
   });
@@ -362,7 +362,7 @@ for (const down of ['throw', 500]) {
 {
   // 2: logout sends what was played since the last copy, then revokes
   const st = fresh();
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, supabase(st));
   await m.api('login', CRED); await idle();
   await m.api('save', { ...CRED, s: { st: { cat: [1, 0] } } }); await idle();                // written at once (the first)
   for (let i = 2; i <= 9; i++) { await m.api('save', { ...CRED, s: { st: { cat: [i, 0] } } }); await tick(5); }   // kept: inside the window
@@ -375,7 +375,7 @@ for (const down of ['throw', 500]) {
   const st = fresh();
   let failPart = 2;
   const base = supabase(st);
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => {
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, c => {
     if (c.url.endsWith('/rpc/record_events')) { st.batches.push(c.body); if (st.batches.length - 1 === failPart) { failPart = -1; return new Error('lost'); } return { json: { ok: true, points: 1, flagged: 0 } }; }
     return base(c);
   });
@@ -390,7 +390,7 @@ for (const down of ['throw', 500]) {
 {
   // 4: an expired access token is refreshed before the session is revoked, so the refresh token dies too
   const st = fresh({ login: { ...ses('t0'), session: { access_token: 'old', refresh_token: 'ref1', expires_at: Math.floor(Date.now() / 1000) - 10 } } });
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, supabase(st));
   await m.api('login', CRED); await idle();
   m.forget(true); await idle(400);
   eq('logout with an expired access token: refreshed first, then revoked with the fresh one', st.logouts, ['Bearer acc-r']);
@@ -411,7 +411,7 @@ const bearer = c => (c.init.headers || {}).authorization || '';
   const st = fresh({ login: perPupil });
   const base = supabase(st);
   let slowRefresh = true;
-  const { m, calls, store, hide } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, async c => {
+  const { m, calls, store, hide } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, async c => {
     if (c.url.includes('grant_type=refresh_token') && slowRefresh) { slowRefresh = false; await g.p; return { json: { access_token: 'late-A', refresh_token: 'late-ref-A', expires_in: 3600 } }; }
     return base(c);
   });
@@ -434,7 +434,7 @@ const bearer = c => (c.init.headers || {}).authorization || '';
   const g = gate();
   const st = fresh({ login: perPupil });
   const base = supabase(st);
-  const { m, store } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, async c => {
+  const { m, store } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, async c => {
     if (c.url.endsWith('/pupil-login') && st.logins.length === 0) { const r = base(c); await g.p; return r; }
     return base(c);
   });
@@ -452,7 +452,7 @@ const bearer = c => (c.init.headers || {}).authorization || '';
   const g = gate();
   const st = fresh({ login: perPupil });
   const base = supabase(st);
-  const { m, store } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, async c => {
+  const { m, store } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, async c => {
     if (c.url.endsWith('/rpc/save_progress') && c.body.p_state.n === 2) { const r = base(c); await g.p; return r; }
     return base(c);
   });
@@ -471,8 +471,8 @@ const bearer = c => (c.init.headers || {}).authorization || '';
   const st = fresh({ login: perPupil });
   const base = supabase(st);
   const route = async c => { if (c.url.endsWith('/rpc/save_progress') && c.body.p_state.n === 2) { const r = base(c); await g.p; return r; } return base(c); };
-  const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, route);
-  const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, route, t1);
+  const t1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, route);
+  const t2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, route, t1);
   await t1.m.api('login', A); await idle(400);
   await t1.m.api('save', { ...A, s: { n: 1, st: { cat: [1, 0] } } }); await idle(400);
   await t1.m.api('save', { ...A, s: { n: 2, st: { cat: [3, 0] } } }); await idle(400);
@@ -489,8 +489,8 @@ const bearer = c => (c.init.headers || {}).authorization || '';
   const st = fresh({ login: perPupil });
   const base = supabase(st);
   const route = async c => { if (c.url.endsWith('/rpc/save_progress') && c.body.p_state.who === 'A' && c.body.p_state.n === 2) { const r = base(c); await g.p; return r; } return base(c); };
-  const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route);
-  const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route, t1);
+  const t1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route);
+  const t2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route, t1);
   await t1.m.api('login', A); await idle(400);
   await t1.m.api('save', { ...A, s: { who: 'A', n: 1, st: { cat: [1, 0] } } }); await idle(400);
   await t1.m.api('save', { ...A, s: { who: 'A', n: 2, st: { cat: [4, 0] } } }); await idle(400);   // slow
@@ -508,8 +508,8 @@ const bearer = c => (c.init.headers || {}).authorization || '';
   const base = supabase(st);
   let sheet = { ok: true, s: {} };
   const route = c => c.url === SHEET ? { json: c.body.a === 'login' ? sheet : { ok: true } } : base(c);
-  const d1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route);
-  const d2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, route);
+  const d1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route);
+  const d2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, route);
   const total = () => st.batches.reduce((a, b) => a + b.p_events.filter(e => e.item === 'cat').length, 0);
   d2.on(); await d2.m.api('login', A); await idle(400); await d2.m.api('save', { ...A, s: { st: { cat: [0, 0] } } }); await idle(400);   // device 2 has its base
   d1.on(); await d1.m.api('login', A); await idle(400);
@@ -534,7 +534,7 @@ const bearer = c => (c.init.headers || {}).authorization || '';
   // S1, the real flow: state.js's own logout() 500 ms after the last of 8 answers
   const st = fresh({ login: perPupil });
   R = supabase(st);
-  real = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, c => R(c));   // the copy state.js imports keeps this fetch and storage
+  real = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, c => R(c));   // the copy state.js imports keeps this fetch and storage
   const { on, store } = real;
   globalThis.dispatchEvent = () => {}; globalThis.Event = class { constructor(t) { this.type = t; } };
   globalThis.document.documentElement = { classList: { toggle() {} } };
@@ -571,7 +571,7 @@ const counted = (st, w) => [...evCount(st, w)].reduce((a, b) => a + b, 0);   // 
   const st = fresh({ login: perPupil });
   const base = supabase(st);
   let hold = false;
-  const { m, store } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, async c => {
+  const { m, store } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, async c => {
     if (c.url === SHEET && hold && c.body.a === 'login' && c.body.n === 'Testa') { hold = false; await g.p; return { json: { ok: true, s: {} } }; }
     return base(c);
   });
@@ -588,8 +588,8 @@ for (const L of [false, true]) {
   locks(L);
   const st = fresh({ login: perPupil });
   const route = supabase(st);
-  const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 1.5 }, route);
-  const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 1.5 }, route, t1);
+  const t1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 1.5 }, route);
+  const t2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 1.5 }, route, t1);
   await t1.m.api('login', A); await t1.m.settled();
   await t1.m.api('save', { ...A, s: { who: 'A', st: { cat: [1, 0] } } }); await t1.m.settled();
   await t1.m.api('save', { ...A, s: { who: 'A', st: { cat: [4, 0] } } }); await t1.m.settled();   // waits for the timer
@@ -609,8 +609,8 @@ for (const L of [false, true]) {
     if (c.url.endsWith('/pupil-login')) { const r = base(c); await (c.body.name === 'Testa' ? gA.p : gB.p); return r; }
     return base(c);
   };
-  const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route);
-  const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route, t1);
+  const t1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route);
+  const t2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route, t1);
   await t1.m.api('login', A); await idle(400);
   await t2.m.api('login', Bp); await idle(400);
   gA.open(); await idle(400);
@@ -629,10 +629,10 @@ for (const L of [false, true]) {
   const base = supabase(st);
   let rec = {};
   const route = c => { if (c.url === SHEET) { if (c.body.a === 'save') rec = c.body.s; return { json: c.body.a === 'login' ? { ok: true, s: rec } : { ok: true } }; } return base(c); };
-  const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, route);
+  const t1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, route);
   await t1.m.api('login', A); await t1.m.settled();
   for (let i = 1; i <= 9; i++) { await t1.m.api('save', { ...A, s: { st: { cat: [i, 0] } } }); await t1.m.settled(); }
-  const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, route, t1);   // the same storage, a new page
+  const t2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, route, t1);   // the same storage, a new page
   await t2.m.api('login', A); await t2.m.settled();
   await t2.m.api('save', { ...A, s: { st: { cat: [9, 0] } } }); await t2.m.settled();
   t2.hide(); globalThis.document.visibilityState = 'visible'; await idle(400); await t2.m.settled();
@@ -646,7 +646,7 @@ for (const L of [false, true]) {
   const st = fresh({ login: perPupil });
   const base = supabase(st);
   let rec = {};
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, async c => {
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, async c => {
     if (c.url === SHEET) { if (c.body.a === 'save') rec = c.body.s; return { json: c.body.a === 'login' ? { ok: true, s: rec } : { ok: true } }; }
     if (c.url.endsWith('/rpc/save_progress') && c.body.p_state.st.cat[0] === 2) { const r = base(c); await g.p; return r; }
     return base(c);
@@ -670,8 +670,8 @@ for (const L of [false, true]) {
     if (c.url.endsWith('/rpc/record_events') && slow && c.body.p_events.some(e => e.item === 'cat')) { slow = false; const r = base(c); await g.p; return r; }
     return base(c);
   };
-  const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route);
-  const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route, t1);
+  const t1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route);
+  const t2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route, t1);
   await t1.m.api('login', { ...A }); await t1.m.settled();
   await t2.m.api('login', { ...A }); await t2.m.settled();
   await t1.m.api('save', { ...A, s: { st: { pre: [1, 0] } } }); await t1.m.settled();             // a first copy: the base is set
@@ -691,7 +691,7 @@ locks(false);
   locks(false);
   const st = fresh({ login: perPupil });
   const base = supabase(st);
-  const { m } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, c => c.url === SHEET ? { json: c.body.a === 'login' ? { ok: true, s: { st: { cat: [2, 0] } } } : { ok: true } } : base(c));
+  const { m } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, c => c.url === SHEET ? { json: c.body.a === 'login' ? { ok: true, s: { st: { cat: [2, 0] } } } : { ok: true } } : base(c));
   const r = await m.api('login', A);
   r.s.st.cat = [4, 1];                                         // 2 answers played into the very object the Sheet answered
   await idle();
@@ -734,13 +734,13 @@ locks(false);
     if (c.body.a === 'save') { rec = JSON.parse(JSON.stringify(c.body.s)); if (!answer) return new Promise(() => {}); }
     return { json: c.body.a === 'login' ? { ok: true, s: JSON.parse(JSON.stringify(rec)) } : { ok: true } };
   };
-  const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, route);
+  const t1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, route);
   await t1.m.api('login', A); await idle();
   await t1.m.api('save', { ...A, s: { st: { cat: [1, 0] } } }); await idle();   // answered and copied
   answer = false;
   for (let i = 2; i <= 10; i++) { t1.m.api('save', { ...A, s: { st: { cat: [i, 0] } } }); await tick(20); }   // sent, never answered
   await idle(400);
-  const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, route, t1);   // the tab was closed; a new page
+  const t2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, route, t1);   // the tab was closed; a new page
   answer = true;
   await t2.m.api('login', A); await idle();
   await t2.m.api('save', { ...A, s: { st: { cat: [10, 0] } } }); await idle();
@@ -751,7 +751,7 @@ locks(false);
   // logout_backlog (G3): 750 answers waiting when the pupil logs out
   locks(false);
   const st = fresh({ login: perPupil, sheet: { ok: true, s: {} } });
-  const { m, calls } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, supabase(st));
+  const { m, calls } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, supabase(st));
   await m.api('login', A); await idle();
   await m.api('save', { ...A, s: { st: { pre: [1, 0] } } }); await idle();
   await m.api('save', { ...A, s: { st: { pre: [1, 0], cat: [450, 0], dog: [300, 0] } } }); await idle();   // held
@@ -767,8 +767,8 @@ locks(false);
     locks(L); reloads = 0;
     const st = fresh({ login: perPupil, sheet: { ok: true, s: {} } });
     const route = supabase(st);
-    const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route);
-    const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route, t1);
+    const t1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route);
+    const t2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route, t1);
     await t1.m.api('login', A); await idle();
     await t2.m.api('login', Bp); await idle();
     for (let i = 1; i <= 8; i++) {
@@ -797,7 +797,7 @@ locks(false);
   await idle();
   S.mark({ en: 'cat' }, true); S.mark({ en: 'cat' }, true);          // 2 answers, not yet sent to the Sheet (2.5 s)
   const before = sheetSaves.length;
-  const tab2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, R, real);
+  const tab2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, R, real);
   dom(); real.on();                                              // the page's own document and storage again
   await tab2.m.api('login', Bp);
   real.store.set('aam-unit1-v1', JSON.stringify({ u: { c: Bp.c, n: Bp.n, p: Bp.p }, who: 'B' }));   // tab 2's game keeps B's record on the device
@@ -825,8 +825,8 @@ locks(false);
   const base = supabase(st);
   let first = true;
   const route = async c => { if (c.url.endsWith('/pupil-login') && c.body.name === 'Testa' && first) { first = false; const r = base(c); await g.p; return r; } return base(c); };
-  const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route);
-  const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route, t1);
+  const t1 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route);
+  const t2 = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, route, t1);
   let ev = null;
   globalThis.dispatchEvent = e => { if (e.type === 'wi-displaced') { ev = e; e.preventDefault(); } return !e.defaultPrevented; };
   t1.m.api('login', A); await idle(400);                         // tab 1: A's sign-in is on its way
@@ -856,13 +856,15 @@ locks(false);
   eq('trial off the class\'s devices: nothing registered on the page', a.listeners.length, 0);
 }
 {
-  // K2 (review of #73): a trial key in any spelling or case, with any value, keeps the class's devices on the Sheet
-  const variants = [{ trial: 'true' }, { trial: 1 }, { trial: 'yes' }, { Trial: true }, { trial: false }, { TRIAL: 0 }, { trial: null }];
+  // K2b (review of #73): with a project in config.js the default is a trial; only everyone: true (that exact key, that
+  // exact value) turns the class on. No typo, nesting or leftover key can switch every pupil over.
+  const variants = [{}, { trial: true }, { trial: false }, { trail: true }, { everyone: 'true' }, { everyone: 1 }, { Everyone: true },
+    { EVERYONE: true }, { everyon: true }, { 'everyone ': true }, { ' everyone': true }, { opts: { everyone: true } }, { everyone: [true] }, { everyone: { v: true } }];
   globalThis.location.search = '';
   const modes = [];
   for (const v of variants) modes.push((await load({ mode: 'dual', url: SB, key: KEY, ...v }, sheetOk)).m.MODE);
-  eq('K2: trial as \'true\', 1, \'yes\', Trial, false, TRIAL, null: every one is a trial (sheet without ?dual=1)', modes, variants.map(() => 'sheet'));
-  eq('and without any trial key, the class is on', (await load({ mode: 'dual', url: SB, key: KEY }, sheetOk)).m.MODE, 'dual');
+  eq('K2b: no key, trial, a misspelt, cased, spaced or nested everyone, or a value that is not literally true: the class stays on the Sheet', modes, variants.map(() => 'sheet'));
+  eq('and only everyone: true turns the class on (a leftover trial key does not stop it)', [(await load({ mode: 'dual', url: SB, key: KEY, everyone: true }, sheetOk)).m.MODE, (await load({ mode: 'dual', url: SB, key: KEY, everyone: true, trial: true }, sheetOk)).m.MODE], ['dual', 'dual']);
 }
 {
   // ?dual=0 on a trial device ends what the device kept for the backend: the session is revoked, nothing stays
@@ -883,7 +885,7 @@ locks(false);
 {
   // a sign-in paused for the address ('locked') is tried again after its wait, not only tomorrow (G4)
   const st = fresh({ login: { ok: false, e: 'locked', wait: 90 } });
-  const { m, store } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, supabase(st));
+  const { m, store } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 0 }, supabase(st));
   await m.api('login', A); await idle();
   const nf = JSON.parse(store.get('wi-sb-netfail') || 'null');
   eq('locked: no day-long stop, a pause of at least 10 minutes', [store.has('wi-sb-stop'), !!nf && nf.ms === 90000], [false, true]);
@@ -892,7 +894,7 @@ locks(false);
   // the 64 KiB keepalive budget of a page being hidden: what does not fit waits for the next visit, nothing is cut
   locks(false);
   const st = fresh({ login: perPupil, sheet: { ok: true, s: {} } });
-  const { m, calls, hide } = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, supabase(st));
+  const { m, calls, hide } = await load({ mode: 'dual', url: SB, key: KEY, everyone: true, saveEveryS: 600 }, supabase(st));
   await m.api('login', A); await m.settled();
   await m.api('save', { ...A, s: { st: { pre: [1, 0] } } }); await m.settled();
   await m.api('save', { ...A, s: { st: { pre: [1, 0], cat: [450, 0], dog: [300, 0] } } }); await m.settled();   // held: inside the 600 s
