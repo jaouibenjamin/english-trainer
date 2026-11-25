@@ -98,6 +98,11 @@ async def looks(b):
         await c.close()
 
 
+SMALL = """[...document.querySelectorAll('#rstage *')].filter(e=>e.offsetParent&&[...e.childNodes].some(n=>n.nodeType===3&&/[\\p{L}\\p{N}]/u.test(n.textContent))&&parseFloat(getComputedStyle(e).fontSize)<16)
+ .map(e=>[e.className||e.tagName,e.textContent.trim().slice(0,16),getComputedStyle(e).fontSize])"""
+FLASH = """(()=>{const lum=c=>{const m=c.match(/[\\d.]+/g).map(Number);const f=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4};return [.2126*f(m[0])+.7152*f(m[1])+.0722*f(m[2]),m[3]===undefined?1:m[3]]};
+ const e=document.querySelector('#flash'),s=getComputedStyle(e),a=lum(s.color)[0],b=lum(s.backgroundColor),r=e.getBoundingClientRect();
+ return {text:e.textContent,opaque:b[1]>=.99,ratio:+((Math.max(a,b[0])+.05)/(Math.min(a,b[0])+.05)).toFixed(2),w:Math.round(r.width),stage:Math.round(document.querySelector('#rstage').getBoundingClientRect().width)}})()"""
 TARGETS = """[...document.querySelectorAll('#rstage button,#rstage a')].filter(e=>e.offsetParent&&getComputedStyle(e).visibility!=='hidden')
  .map(e=>{const r=e.getBoundingClientRect();return [e.className||e.tagName,e.dataset.k||e.dataset.go||e.dataset.pace||'',Math.round(r.width),Math.round(r.height)]})"""
 
@@ -116,6 +121,48 @@ async def ds_targets(pg, tag, where):
     t = await pg.evaluate(TARGETS)
     small = [x for x in t if x[3] < 48]
     check(t and not small, f'{tag}: {where}: every button and link is 48px or more {small}')
+    tiny = await pg.evaluate(SMALL)
+    check(not tiny, f'{tag}: {where}: no text under 16px {tiny[:4]}')
+
+async def ds_slow(b):
+    """new look on a small phone (360x740) on slow wifi, with reduced motion asked by the device: the menu stays hidden
+    until both stylesheets are in, so the old look never shows; the question card in the new look ends as high as in
+    today's look (the lanes stay above the road); the card does not slide in and "right" only fades"""
+    c = await b.new_context(viewport={'width': 360, 'height': 740}, device_scale_factor=1, has_touch=True, reduced_motion='reduce')
+    pg = await c.new_page()
+    errs = []; watch(pg, errs)
+    await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
+    async def slow(route):
+        await asyncio.sleep(3); await route.continue_()
+    await pg.route('**/css/run-ds.css', slow)
+    # every frame from the start: was the menu ever on screen with content before the new look's stylesheet was in?
+    await pg.add_init_script("""window.__early={frames:0,shown:0};(function f(){const m=document.querySelector('#menu');
+      if(m&&m.children.length){const css=[...document.styleSheets].some(s=>(s.href||'').endsWith('/css/run-ds.css'));__early.frames+=css?0:1;
+       if(!css&&getComputedStyle(m).visibility!=='hidden')__early.shown++}requestAnimationFrame(f)})()""")
+    await pg.goto(BASE + '?ds=1')
+    await pg.wait_for_selector('[data-go="run"]', state='visible', timeout=15000)
+    E = await pg.evaluate('__early')
+    late = await pg.evaluate("[getComputedStyle(document.querySelector('#menu')).visibility,getComputedStyle(document.querySelector('.card')).borderImageSource.includes('panel')]")
+    check(E['frames'] > 0 and E['shown'] == 0 and late == ['visible', True], f'360x740 new look, slow stylesheet: the menu stays hidden until the new look is in (frames with the menu built but the new look not yet in: {E["frames"]}, shown: {E["shown"]}) {late}')
+    fit = await pg.evaluate("(()=>{const m=document.querySelector('#menu'),h=document.querySelector('.crabhead.hero').getBoundingClientRect();m.scrollTop=1e5;const b=document.querySelector('#menu .sm-btn').getBoundingClientRect();const r=[Math.round(h.top),Math.round(b.bottom),innerHeight];m.scrollTop=0;return r})()")
+    check(fit[0] >= 0 and fit[1] <= fit[2], f'360x740 new look: the start menu shows its picture whole at the top and scrolls down to the last button {fit}')
+    await pg.click('[data-go="run"]'); await pg.evaluate('window.__runFast=8; __run.noHit(true)')
+    lows = []; motion = []
+    for _ in range(6):
+        await pg.wait_for_function('!!__run.G().gate||__run.G().ended', timeout=60000)
+        if await pg.evaluate('__run.G().ended'): break
+        await pg.wait_for_timeout(450)
+        lows.append(await pg.evaluate("Math.round(document.querySelector('#banner').getBoundingClientRect().bottom)"))
+        anim = [await pg.evaluate("getComputedStyle(document.querySelector('#banner')).animationName")]
+        await pg.evaluate('__run.goLane(__run.lanes().indexOf(__run.answer()))')
+        await pg.wait_for_function('!__run.G().gate', timeout=60000)
+        anim.append(await pg.evaluate("getComputedStyle(document.querySelector('#flash')).animationName"))
+        motion.append(anim)
+    check(lows and max(lows) <= 205, f'360x740 new look: the question card ends at 205px or higher, as in today\'s look (195), so the lanes stay above the road {lows}')
+    check(motion and all(m == ['none', 'dsstill'] for m in motion), f'360x740 new look, reduced motion: the card does not slide in and "right" only fades {motion[:2]}')
+    real = [e for e in errs if 'WebGL' not in e and 'GPU stall' not in e]
+    check(not real, f'360x740 new look: no page errors or failed requests {real[:3]}')
+    await c.close()
 
 async def play(b, w, h, tag, qs=''):
     """a whole run; qs='?ds=1' plays it in the new look, which must change nothing but the styling"""
@@ -168,6 +215,9 @@ async def play(b, w, h, tag, qs=''):
                     seen += 1
                     if seen == 1:
                         await pg.wait_for_timeout(250); await shot(pg, f'{tag}_04_wrong')
+                        if qs:
+                            F = await pg.evaluate(FLASH)
+                            check(F['opaque'] and F['ratio'] >= 4.5 and F['w'] < F['stage'], f'{tag}: "almost" over the road sits on its own solid plate, 4.5:1 or more {F}')
                     if seen == 2:
                         await pg.wait_for_timeout(250); await shot(pg, f'{tag}_05_right')
         await pg.wait_for_timeout(60)
@@ -228,6 +278,7 @@ async def main():
             b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])
             await play(b, 390, 844, 'r390x844')
             await play(b, 390, 844, 'r390x844_ds', '?ds=1')
+            await ds_slow(b)
             await looks(b)
             if '--quick' not in sys.argv:
                 await play(b, 1366, 640, 'r1366x640')

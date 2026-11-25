@@ -20,14 +20,14 @@ html.ds #hearts.hit{animation:none}
 /* the question card: dark, with a keyline, compact so the road stays in view */
 html.ds .banner{background:var(--wi-navy-800);border:2px solid var(--wi-line);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);color:var(--wi-text);animation:dsin var(--wi-dur-slow) var(--wi-ease)}
 @keyframes dsin{from{transform:translateY(-8px);opacity:0}}
-html.ds .banner .q{color:var(--wi-text-dim);font-weight:700}
+html.ds .banner .q{color:var(--wi-text-dim);font-weight:700;font-size:var(--wi-fs-sm)}
 html.ds .banner .big,html.ds .banner .sent{color:var(--wi-text)}
 html.ds .banner .gap{border-bottom-color:var(--wi-aqua)}
 html.ds .banner .pic{box-shadow:0 0 0 2px var(--wi-line)}
 /* the speaker is a 48px target; the negative margin keeps the card as short as before */
 html.ds .banner .say{width:48px;height:48px;margin-block:-8px;border:2px solid var(--wi-aqua);background:var(--wi-azure);color:var(--wi-text);font-size:18px}
 html.ds .banner .say:active{background:var(--wi-azure-press)}
-html.ds .banner .hint{color:var(--wi-aqua)}
+html.ds .banner .hint{color:var(--wi-aqua);font-size:var(--wi-fs-sm)}
 html.ds .banner.ok{background:var(--wi-navy-800);border-color:var(--wi-good)}
 html.ds .banner.ok .q{color:var(--wi-good)}
 html.ds .banner.bad{background:var(--wi-navy-800);border-color:var(--wi-fix)}
@@ -35,7 +35,7 @@ html.ds .banner.bad .q{color:var(--wi-fix)}
 html.ds .banner .ans{color:var(--wi-text)}
 html.ds .banner .ans b{color:var(--wi-gold)}
 /* the three answers, one per lane, in the order of the lanes */
-html.ds .ln{background:var(--wi-navy-900);border:2px solid var(--wi-line);color:var(--wi-text);font-weight:700}
+html.ds .ln{background:var(--wi-navy-900);border:2px solid var(--wi-line);color:var(--wi-text);font-weight:700;font-size:var(--wi-fs-sm)}
 html.ds .ln.cur{background:var(--wi-navy-700);border-color:var(--wi-aqua);box-shadow:inset 0 0 0 2px var(--wi-aqua)}
 html.ds .ln.none{opacity:1;color:var(--wi-locked);border-style:dashed}
 
@@ -46,29 +46,31 @@ html.ds .pb:active{transform:translateY(3px);box-shadow:0 0 0 2px var(--wi-scrim
 html.ds .pbd{min-height:var(--wi-tap);background:var(--wi-azure);border:2px solid var(--wi-aqua);color:var(--wi-text);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);font-weight:700}
 html.ds .pbd.on{background:var(--wi-aqua);color:var(--wi-navy-900);box-shadow:0 0 0 2px var(--wi-scrim)}
 
-/* "right" / "almost" over the road: a solid edge instead of a soft shadow; a miss only fades, it does not pop */
-html.ds #flash{color:var(--wi-text);text-shadow:0 3px 0 var(--wi-scrim),0 -1px 0 var(--wi-scrim),2px 0 0 var(--wi-scrim),-2px 0 0 var(--wi-scrim)}
-html.ds #flash.ok{color:var(--wi-good)}
-html.ds #flash.bad{color:var(--wi-fix)}
+/* "right" / "almost" over the road: on its own navy plate (never bare text on the 3D picture); a miss only fades, it does not pop */
+html.ds #flash{inline-size:fit-content;max-inline-size:calc(100% - 32px);margin-inline:auto;padding:2px var(--wi-s5) 6px;background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:var(--wi-r-xl);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);color:var(--wi-text);text-shadow:none;font-size:40px;line-height:1.2}
+html.ds #flash:empty{visibility:hidden}
+html.ds #flash.ok{color:var(--wi-good);border-color:var(--wi-good)}
+html.ds #flash.bad{color:var(--wi-fix);border-color:var(--wi-fix)}
 html.ds #flash.bad.show{animation:dsfade 1s var(--wi-ease)}
 @keyframes dsfade{0%{opacity:0}20%{opacity:1}70%{opacity:1}100%{opacity:0;transform:translateY(-12px)}}
 
 /* start, pause and end menus: a painted panel, one gold button, one quiet way back */
-html.ds .sheet{background:rgba(5,14,34,.62)}
+html.ds .sheet{background:rgba(5,14,34,.62);justify-content:safe center}   /* taller than a small phone: start at the top and scroll, never cut the top off */
+html.ds .sheet>.card:has(.crabhead.hero){margin-top:52px}   /* room for the picture that sits half above the card, also when the menu scrolls */
 html.ds .card{border:22px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 22px / 4px round;background:none;box-shadow:none;color:var(--wi-text);padding:0 4px 4px;border-radius:0}
 html.ds .card h1,html.ds .card h2{color:var(--wi-text);line-height:var(--wi-lh-tight)}
 html.ds .card p{color:var(--wi-text)}
 html.ds .card .goal{background:var(--wi-navy-900);border:2px solid var(--wi-gold);color:var(--wi-gold);border-radius:var(--wi-r-md)}
-html.ds .card .who,html.ds .card p.who{color:var(--wi-text-dim)}
+html.ds .card .who,html.ds .card p.who{color:var(--wi-text-dim);font-size:var(--wi-fs-sm)}
 html.ds .card a{color:var(--wi-aqua)}
-html.ds .how span,html.ds .score span{background:var(--wi-navy-700);border:2px solid var(--wi-line);color:var(--wi-text);border-radius:var(--wi-r-md)}
+html.ds .how span,html.ds .score span{background:var(--wi-navy-700);border:2px solid var(--wi-line);color:var(--wi-text);border-radius:var(--wi-r-md);font-size:var(--wi-fs-sm);line-height:1.25}
 html.ds .how b{color:var(--wi-aqua)}
 html.ds .score b{color:var(--wi-gold)}
-html.ds .miss li{background:var(--wi-navy-900);border:1px solid var(--wi-line);color:var(--wi-text)}
+html.ds .miss li{background:var(--wi-navy-900);border:1px solid var(--wi-line);color:var(--wi-text);font-size:var(--wi-fs-sm)}
 html.ds .miss li b{color:var(--wi-good)}
 html.ds .miss bdi[dir=ltr],html.ds .miss li b{font-family:'WI Latin','WI Hebrew',system-ui,sans-serif}
-html.ds .pl{color:var(--wi-text-dim)}
-html.ds .pace button{min-height:var(--wi-tap);background:var(--wi-navy-700);border:2px solid var(--wi-line);color:var(--wi-text);border-radius:var(--wi-r-md)}
+html.ds .pl{color:var(--wi-text-dim);font-size:var(--wi-fs-sm)!important}
+html.ds .pace button{min-height:var(--wi-tap);font-size:var(--wi-fs-sm);background:var(--wi-navy-700);border:2px solid var(--wi-line);color:var(--wi-text);border-radius:var(--wi-r-md)}
 html.ds .pace button.on{background:var(--wi-navy-900);border-color:var(--wi-aqua);box-shadow:inset 0 0 0 2px var(--wi-aqua)}
 html.ds .crabhead.hero{background:var(--wi-navy-700);border:3px solid var(--wi-gold);box-shadow:0 0 0 3px var(--wi-scrim);filter:none}
 html.ds .big-btn{min-height:56px;border:24px solid transparent;border-image:url(../assets/al/ui/button.hf_20261125_075122_cc6e3e5f-f91a-4a1a-84fa-df545ab8aa3f.webp) 46 60 fill / 24px 30px stretch;background:none;box-shadow:none;padding:0 6px;color:var(--wi-navy-900);font-weight:800;line-height:1.2}
@@ -76,6 +78,11 @@ html.ds .big-btn:active{transform:translateY(3px);box-shadow:none}
 html.ds .sm-btn{display:inline-flex;align-items:center;justify-content:center;min-height:var(--wi-tap);padding:0 var(--wi-s5);margin-top:var(--wi-s1);background:var(--wi-azure);border:2px solid var(--wi-aqua);color:var(--wi-text);border-radius:var(--wi-r-pill);box-shadow:0 0 0 2px var(--wi-scrim)}
 html.ds #nogl{background:var(--wi-navy-900);color:var(--wi-text)}
 html.ds #nogl a{color:var(--wi-aqua)}
+
+/* the device asks for reduced motion: the card appears without sliding, and "right" / "almost" only fade in and out
+   (the fade is what shows and hides them, so it stays; nothing moves) */
+@keyframes dsstill{0%{opacity:0}15%{opacity:1}75%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){html.ds .banner{animation:none}html.ds #flash.show,html.ds #flash.bad.show{animation:dsstill 1.2s linear}html.ds .pb:active,html.ds .big-btn:active{transform:none}}
 
 /* calm mode: nothing moves */
 html.ds.calm .banner,html.ds.calm #flash.show,html.ds.calm .pb,html.ds.calm .big-btn{animation:none!important;transition:none!important}
