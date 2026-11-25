@@ -1,0 +1,12 @@
+/* teacher.html: plain and calm; the game's colours (css/game.css) without its stage */
+:root{--ink:#5a4534;--paper:#fff4de;--line:rgba(90,69,52,.25)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:#efe2c6;color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+main{width:min(100%,480px);background:var(--paper);border-radius:16px;box-shadow:0 0 0 2px var(--line);padding:24px;display:flex;flex-direction:column;gap:16px;text-align:center}
+h1{margin:0;font-size:24px}
+p{margin:0}
+#who{font-weight:700;direction:ltr;unicode-bidi:isolate}
+#note{min-height:1.5em}
+button{min-height:48px;padding:10px 24px;border:0;border-radius:12px;background:var(--ink);color:var(--paper);font:inherit;font-weight:700;cursor:pointer}
+button:focus-visible{outline:3px solid #2a4a8c;outline-offset:2px}
+[hidden]{display:none!important}

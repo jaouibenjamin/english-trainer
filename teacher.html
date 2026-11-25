@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Content-Security-Policy of the teacher's page (tests/csp_check.py holds it to its own rules): stricter than the game's.
+     Scripts and styles only from this site, no inline script or style; requests only to this site and, when config.js
+     names one, the Supabase project (https://<project>.supabase.co is added to connect-src then, as on every page).
+     Google needs no entry: the sign-in is a top-level navigation, not a request. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<script src="js/csplog.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>כניסת מורים</title>
+<link rel="stylesheet" href="css/teacher.css">
+<script src="config.js"></script>
+<script type="module" src="js/teacher.js"></script>
+</head>
+<body>
+<main>
+<h1>כניסת מורים</h1>
+<p id="msg"></p>
+<p id="who"></p>
+<button id="in" type="button" hidden>כניסה עם Google</button>
+<button id="out" type="button" hidden>יציאה</button>
+<p id="note" role="status"></p>
+</main>
+</body>
+</html>

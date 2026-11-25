@@ -679,7 +679,9 @@ Project settings (each has a test in section 10):
    is per calling address and all our functions share theirs, so five classes signing in in the same five minutes
    need five times that; raise it again before a second class joins. Sign-ups and email sends at the minimum. No
    custom SMTP.
-9. Authentication → URL configuration: site URL and redirect list = the game's address only.
+9. Authentication → URL configuration: site URL and redirect list = the game's address only. With the teacher's page
+   (Phase 3, `docs/PHASE3.md`): the redirect list holds exactly `<the game's address>/teacher.html` as well, and nothing
+   else: it is the only address the Google sign-in may return to.
 10. API settings: exposed schemas = `public` only. `pg_graphql` extension off. Realtime: off for every table.
 11. Database → Extensions: `pgcrypto` (the encrypted export) and `pg_cron` (the nightly clean-up) on.
 12. Run the migrations (`supabase db push`), then `supabase/seed/catalog.sql`. The output must say

@@ -26,6 +26,7 @@ from csp_wait import csp_wait      # wait_for_function without eval: every page 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 META = re.compile(r'<meta http-equiv="Content-Security-Policy" content="([^"]+)">')
 CONNECT = ["'self'", 'https://script.google.com', 'https://script.googleusercontent.com', 'blob:']
+TEACHER = 'teacher.html'
 GOOGLE = ('https://script.google.com', 'https://script.googleusercontent.com')
 sha = lambda body: "'sha256-" + base64.b64encode(hashlib.sha256(body.encode()).digest()).decode() + "'"
 # a violation, in the page's own words: the listener writes it to window.__csp as well as to the console
@@ -50,6 +51,8 @@ def static():
             check(f'{p}: an inline script is only an import map allowed by its hash (its hash now: {h})', 'importmap' in tag and h in (m[0] if m else ''), tag)
         ev = re.findall(r'<[a-z][^>]*\son[a-z]+\s*=', s)
         check(f'{p}: no inline event handler', not ev, ev[:3])
+    # the teacher's page has a policy of its own, stricter than the game's (docs/PHASE3.md): checked below
+    tpol = pols.pop(TEACHER, '')
     check('the same policy on every page', len(set(pols.values())) == 1, set(pols.values()))
     pol = next(iter(pols.values()), '')
     d = {x.split()[0]: x.split()[1:] for x in pol.split(';') if x.strip()}
@@ -72,6 +75,13 @@ def static():
         bodies = [b for tag, b in re.findall(r'<script([^>]*)>(.*?)</script>', s, re.S) if 'src=' not in tag]
         ok = len(m) == 1 and s.index('<meta http-equiv') < s.find('<script') and all(sha(x) in m[0] for x in bodies) and 'unsafe' not in m[0].split('script-src')[1].split(';')[0] and "object-src 'none'" in m[0] and "base-uri 'none'" in m[0]
         check(f'{n}: a policy of its own, its inline script allowed only by its hash', ok, [sha(x) for x in bodies])
+    # teacher.html: scripts and styles from this site only, nothing inline, requests to this site and (once config.js
+    # names one) the Supabase project only: no Apps Script host, no Google host (the sign-in is a top-level navigation)
+    t = {x.split()[0]: x.split()[1:] for x in tpol.split(';') if x.strip()}
+    o = backend_origin(cfg)
+    check('teacher.html: its own policy, stricter than the game\'s', bool(tpol) and t.get('default-src') == ["'self'"] and t.get('script-src') == ["'self'"]
+          and t.get('style-src') == ["'self'"] and t.get('object-src') == ["'none'"] and t.get('base-uri') == ["'none'"] and t.get('form-action') == ["'none'"], tpol)
+    check('teacher.html: requests to this site and the BACKEND project only', t.get('connect-src') == ["'self'"] + ([o] if o else []), (t.get('connect-src'), o))
     # dual mode: the Supabase project must be allowed on every page, or its copies would be refused
     check('config.js: a BACKEND url, if any, is in every page\'s connect-src', backend_allowed(cfg, pols) is None, backend_allowed(cfg, pols))
     fake = {'index.html': "default-src 'self'; connect-src 'self' https://script.google.com"}
@@ -180,6 +190,7 @@ async def main():
             await visit(b, B + 'worksheet.html?island=1', 'body', errs, 'worksheet')
             await visit(b, B + 'world.html', 'body', errs, 'world')
             await visit(b, B + 'ds.html', 'body', errs, 'ds')
+            await visit(b, B + 'teacher.html', '#msg', errs, 'teacher')
             for q in ('', '?style=lowpoly', '?ds=1'):      # ?ds=1: Beach Run in the new look (css/run-ds.css)
                 c, pg = await new_page(b, 390, 844, errs=errs)
                 await pg.add_init_script(LISTEN)
