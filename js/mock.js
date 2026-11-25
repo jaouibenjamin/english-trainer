@@ -167,7 +167,10 @@ export async function prac(k,ctx){if(!XSKILL[k])return ctx.go('mock');setBg('pap
    ${btn('nav','לעמוד מבחן הדמו','cream sm','data-to="mock"')}</div></section>`;
  confetti(undefined,undefined,40);SND.win();setTimeout(()=>say('pracDone'),700)}
 
-const fmt=l=>esc(l).replace(/([A-Za-z][A-Za-z' .,?!\/…()·→]*[A-Za-z.?!)])/g,m=>`<bdi dir="ltr" class="en">${m}</bdi>`);
+/* split first, then escape each piece. An English run starts at a letter or digit and goes on until Hebrew or a bracket,
+   the same rule as mixed() in js/run.js: an apostrophe and a number stay inside ("aren't", "I'm 12 years old."), and
+   brackets stay outside, so the Hebrew line mirrors them ("(Maya, Israel, June)"). Only a run with a letter is English. */
+const fmt=l=>String(l).split(/([A-Za-z0-9](?:[^\u0590-\u05FF()]*[A-Za-z0-9.?!'\u2019\u2026])?)/).map((p,i)=>i%2&&/[A-Za-z]/.test(p)?`<bdi dir="ltr" class="en">${esc(p)}</bdi>`:esc(p)).join('');
 
 /* ---------- one question on the screen ---------- */
 const NUMW=WORDS.filter(w=>w.p===7).map(w=>w.en.toLowerCase());
@@ -226,7 +229,7 @@ function mark(ok){const q=view.querySelector('.xq.label');if(q){q.classList.remo
 function wrongWhy(it,v){if(it.skill==='grammar'&&it.k.startsWith('be:'))return'בדקו מי הנושא: I, דבר אחד, או כמה?';if(it.type==='who')return'בדקו כל פרט: גיל, חודש ותחביב';if(it.type==='read')return'חפשו בקטע מילה מהשאלה';return''}
 /* practice feedback under the question */
 function feedback(ok,it,why,reveal){const fb=document.getElementById('xfb');if(!fb)return;
- if(ok){fb.className='xfb ok';fb.innerHTML=`<b>נכון!</b> ${fmt(it.tip||'')}`;return}
+ if(ok){fb.className='xfb ok';fb.innerHTML=`<b>נכון!</b> <span>${fmt(it.tip||'')}</span>`;return}   // one line of text in the column, not one line per piece
  if(!reveal){fb.className='xfb bad';fb.innerHTML=`<b>עוד ניסיון:</b> ${esc(why||'נסו שוב')}`;return}
  fb.className='xfb sol';fb.innerHTML=`<b>התשובה:</b> ${en(it.a)}<span>${fmt(it.tip||'')}</span>${btn('mocknext',`הבא ${ico('next')}`,'green sm')}`;
  if(it.type==='read'){const p=view.querySelector(`.xtext p[data-l="${it.line}"]`);if(p){p.classList.add('ev');view.querySelector('.xtext').open=true}}}
