@@ -45,7 +45,7 @@ async def flag_off(b, w, h, errs):
     tag = f'off {w}x{h}'
     c, pg, reqs = await page(b, w, h, errs, SEED)
     await pg.goto(P.BASE + '#map'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(600)
-    check(f'[{tag}] the map has no dock', await pg.locator('.wd').count() == 0)
+    check(f'[{tag}] the map has no dock and no character on it', await pg.locator('.wd').count() == 0 and await pg.locator('.wtok').count() == 0)
     await pg.evaluate("location.hash='avatar'"); await pg.wait_for_selector('.scr.title'); await pg.wait_for_timeout(300)
     check(f'[{tag}] #avatar is an unknown address, as before: the title screen', await pg.evaluate("document.getElementById('stage').dataset.scr") == 'title' and await pg.locator('.wpick').count() == 0)
     got = [u for u, _ in reqs if any(u.endswith(f) for f in WORLD_FILES)]
@@ -85,7 +85,7 @@ async def flag_on(b, w, h, errs):
     await pg.click('.wpick__ok'); await pg.wait_for_selector('.wd__pic'); await pg.wait_for_timeout(300)
     ls = await pg.evaluate(LS)
     rec = json.loads(ls.get('wi_world', 'null') or 'null')
-    check(f'[{tag}] the choice is kept in wi_world as an id, two indexes and the lists\' version (and the level already announced)', rec == {'v': 1, 'p': {'local': {'av': 'girl-curls', 'nm': [1, 2], 'nv': 2, 'en': 0, 'sl': 1}}}, rec)
+    check(f'[{tag}] the choice is kept in wi_world as an id, two indexes and the lists\' version (and the level already announced, and the island it stands on)', rec == {'v': 1, 'p': {'local': {'av': 'girl-curls', 'nm': [1, 2], 'nv': 2, 'en': 0, 'sl': 1, 'at': 1}}}, rec)
     check(f'[{tag}] and not in the progress record', 'girl-curls' not in ls.get('aam-unit1-v1', '') and 'Tiger' not in ls.get('aam-unit1-v1', ''))
     check(f'[{tag}] the map shows the character and its name (one word per line)', 'Happy Tiger' in ' '.join((await pg.inner_text('.wd__hi')).split()))
     clip = await pg.evaluate("[...document.querySelectorAll('.wd__hi bdi')].map(e=>e.scrollWidth>e.clientWidth+1)")
@@ -106,7 +106,7 @@ async def flag_on(b, w, h, errs):
     await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings'); await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     W2 = await pg.evaluate('window.__world')
     check(f'[{tag}] energy never goes down', W2['energy']['points'] == 120 and W2['energy']['level'] == 3, W2['energy'])
-    await pg.click('.wd__focus'); await pg.wait_for_selector('.lvrow')
+    await pg.click('.wd__focus'); await pg.wait_for_selector('.w-path .w-st')      # with the flag the island is a path of stones
     check(f'[{tag}] today\'s focus takes the pupil to that island', await pg.evaluate('location.hash') == '#island/1')
     await c.close()
 
@@ -238,6 +238,44 @@ async def goto_hash(pg, h, sel):
 
 async def set_world(pg, rec):
     await pg.evaluate("r=>localStorage.setItem('wi_world',JSON.stringify({v:1,p:{local:r}}))", rec)
+
+
+async def notice_clear(b, errs):
+    """the new-character notice never covers the character on the map (or Pitzi's "?" badge): for the island played now
+    from 1 to 6, one and several new characters, with and without a chosen character, at 390, 360, 320x640 and 320x568.
+    It stays between the map's header and the dock, its buttons are 48 px, and on the island screen (the path) there is
+    no notice at all"""
+    LOOK = """(()=>{const n=document.querySelector('.wnew'),t=document.querySelector('.wtok,.wask');if(!n||!t)return {n:!!n,t:!!t};
+      const a=n.getBoundingClientRect(),c=t.getBoundingClientRect(),d=document.querySelector('.wd').getBoundingClientRect();
+      let top=0;for(const e of document.querySelectorAll('.maphead,.subjpill'))top=Math.max(top,e.getBoundingClientRect().bottom);
+      return {n:true,t:true,hit:!(a.right<=c.left||a.left>=c.right||a.bottom<=c.top||a.top>=c.bottom),band:a.top>=top-0.5&&a.bottom<=d.top+0.5,
+        btn:[...n.querySelectorAll('button')].every(x=>x.getBoundingClientRect().height>=48),h:!!n.querySelector('.wnew__h').getBoundingClientRect().height,
+        island:(window.__world.token||{}).island,tight:n.classList.contains('wnew--tight')}})()"""
+    bad, seen, tight = [], set(), []
+    for w, h in ((390, 844), (360, 740), (320, 640), (320, 568)):
+        for done in range(0, 6):
+            st = {f'{i}-{t}': 3 for i in range(1, done + 1) for t in ('sling', 'listen', 'read', 'bridge')}
+            for av in ('girl-curls', None):
+                for sl, en in ((1, LEVELS[1]), (1, LEVELS[5])):   # one new character, then several (3 portraits and "ועוד 2")
+                    r = {'en': en, 'sl': sl}
+                    if av: r.update({'av': av, 'nm': [0, 0], 'nv': 2})
+                    c, pg, reqs = await page(b, w, h, errs, {'g': {'st': st}})
+                    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(json.dumps({'v': 1, 'p': {'local': r}})))
+                    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wnew'); await pg.wait_for_timeout(400)
+                    L = await pg.evaluate(LOOK)
+                    seen.add(L.get('island'))
+                    if L.get('tight'): tight.append((w, h, L.get('island'), av))
+                    if not (L['n'] and L['t'] and not L['hit'] and L['band'] and L['btn'] and L['h']): bad.append((w, h, done, av, sl, en, L))
+                    if (w, h, done, av, en) == (320, 568, 1, None, LEVELS[5]): await P.shot(pg, 'world-notice-320x568-tight')
+                    if (w, h, done, av, en) == (390, 844, 0, 'girl-curls', LEVELS[1]): await P.shot(pg, 'world-notice-390x844-top')
+                    await c.close()
+    check(f'the notice never covers the character (or the "?" badge), stays between header and dock, 48 px buttons (islands {sorted(x for x in seen if x)})', not bad and {1, 2, 4, 6} <= seen, bad[:3])
+    check('it drops its sentence only where nothing else fits (a short screen)', all(x[1] < 640 for x in tight), tight)
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(json.dumps({'v': 1, 'p': {'local': {'av': 'girl-curls', 'nm': [0, 0], 'nv': 2, 'en': LEVELS[5], 'sl': 1}}})))
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(300)
+    check('the island screen (the path and its walker) never shows the notice', await pg.locator('.wnew').count() == 0 and await pg.locator('.w-walker').count() == 1)
+    await c.close()
 
 
 async def ladder(b, errs):
@@ -404,6 +442,250 @@ async def fin_logout(b, errs):
     await c.close()
 
 
+async def map_token(b, errs):
+    """the character on the map: on the island played now, a hop once when that island changes, skippable, none with
+    reduced motion; Pitzi as today when no character is chosen or the device cannot keep one (docs/DESIGN.md)"""
+    two = {'g': {'st': {'1-sling': 3, '1-listen': 3, '1-read': 3, '1-bridge': 3, '2-sling': 1}}}
+    rec = lambda **k: json.dumps({'v': 1, 'p': {'local': dict({'av': 'fox', 'nm': [0, 0], 'en': 0}, **k)}})
+    # the island whose picture is nearest the token (it stands at the island's side, as Pitzi does)
+    WHERE = """(()=>{const t=document.querySelector('.wtok');if(!t)return null;const r=t.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+      let best=0,d=1e9;for(const i of document.querySelectorAll('.isl')){const p=i.querySelector('.pw').getBoundingClientRect(),e=Math.hypot(p.left+p.width/2-x,p.top+p.height/2-y);if(e<d){d=e;best=+[...i.classList].find(c=>/^i\\d$/.test(c)).slice(1)}}
+      return best})()"""
+    LOOK = """(()=>{const t=document.querySelector('.wtok'),r=t.getBoundingClientRect(),g=document.querySelector('.isl.cur .tag').getBoundingClientRect(),cs=getComputedStyle(t);
+      const pw=document.querySelector('.isl.cur .pw').getBoundingClientRect().width;
+      return {w:r.width,h:r.height,want:Math.round(Math.min(44,pw*.6)),tag:!(r.right<=g.left||r.left>=g.right||r.bottom<=g.top||r.top>=g.bottom),ring:cs.borderTopWidth,shadow:getComputedStyle(t,'::after').content!=='none',hit:cs.pointerEvents,
+        aria:t.getAttribute('aria-hidden'),inside:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}})()"""
+    for w, h in ((390, 844), (360, 740), (320, 568), (768, 1024), (1366, 768)):
+        tag = f'token {w}x{h}'
+        c, pg, reqs = await page(b, w, h, errs, two)
+        await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=1)))
+        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_function('!window.__hop||window.__hop.playState==="finished"', timeout=5000); await pg.wait_for_timeout(100)   # the hop (900 ms) is over before measuring
+        W = await pg.evaluate('window.__world.token')
+        on = await pg.evaluate(WHERE)
+        check(f'[{tag}] the character stands on the island played now (2, "ממשיכים כאן"), in place of the crab', on == 2 and W['island'] == 2 and await pg.locator('.isl.i2.cur').count() == 1 and await pg.evaluate("getComputedStyle(document.querySelector('.isl.cur .here')).display") == 'none', (on, W))
+        L = await pg.evaluate(LOOK)
+        check(f'[{tag}] a framed token of 44 px (at most 60% of a small island), 3 px ring, a ground shadow, on screen, never over the "ממשיכים כאן" tag, decoration only', L['w'] == L['want'] and L['h'] == L['want'] and (w < 390 or L['w'] == 44) and L['ring'] == '3px' and L['shadow'] and not L['tag'] and L['inside'] and L['hit'] == 'none' and L['aria'] == 'true', L)
+        check(f'[{tag}] it hopped from island 1 to 2, once, and the new island is remembered', W['hop'] == {'from': 1, 'to': 2, 'anim': True} and json.loads(await pg.evaluate("localStorage.getItem('wi_world')"))['p']['local']['at'] == 2, W)
+        await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings'); await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(200)
+        check(f'[{tag}] back on the map: no second hop', (await pg.evaluate('window.__world.token'))['hop'] is None)
+        lab = await pg.get_attribute('.isl.i2', 'aria-label')
+        check(f'[{tag}] the island played now says so to a screen reader (flag on only)', lab == 'אי בית הספר, ממשיכים כאן', lab)
+        if w == 390:
+            await P.shot(pg, 'world-token-390x844')
+        await c.close()
+    # a tap ends the hop at once
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=1)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(100)
+    await pg.mouse.click(195, 160); await pg.wait_for_timeout(50)
+    check('a tap anywhere ends the hop at once', await pg.evaluate("window.__hop.playState") == 'finished')
+    await c.close()
+    # a tap on an island during the hop ends it and still opens that island
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=1)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(100)
+    await pg.click('.isl.i1', force=True); await pg.wait_for_timeout(50)
+    hs = await pg.evaluate("window.__hop.playState")
+    await pg.wait_for_function("location.hash==='#island/1'", timeout=3000)
+    check('a tap on an island during the hop ends it and that island opens', hs == 'finished')
+    await c.close()
+    # a key ends it too
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=1)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(100)
+    await pg.keyboard.press('Tab'); await pg.wait_for_timeout(50)
+    check('a key ends the hop at once', await pg.evaluate("window.__hop.playState") == 'finished')
+    d = await pg.evaluate("window.__hop.effect.getTiming().duration")
+    check('the hop is 900 ms with a squash on landing', d == 900 and 'scale(1.14, 0.84)' in await pg.evaluate("JSON.stringify(window.__hop.effect.getKeyframes().map(k=>k.transform))"), d)
+    await c.close()
+    # reduced motion: no hop, the character is simply there
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.emulate_media(reduced_motion='reduce')
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=1)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(200)
+    W = await pg.evaluate('window.__world.token')
+    check('reduced motion: no hop, the character is on island 2 at once', W['hop'] == {'from': 1, 'to': 2, 'anim': False} and await pg.evaluate(WHERE) == 2, W)
+    await c.close()
+    # every island full: on the last open island
+    full = {'g': {'st': {f'{i}-{t}': 3 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge'), (6, 'sling listen')) for t in ts.split()}}}
+    c, pg, reqs = await page(b, 390, 844, errs, full)
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=6)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(300)
+    check('every island full: the character stands on the last island', await pg.evaluate(WHERE) == 6)
+    await c.close()
+    # an `at` on an island not open is no position: no hop from it
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=4)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(300)
+    W = await pg.evaluate('window.__world.token')
+    check('a remembered island that is not open is no position: no hop, the character simply on island 2', W['hop'] is None and await pg.evaluate(WHERE) == 2, W)
+    await c.close()
+    # no character yet: Pitzi stands on the island as today, with a small "?" badge that opens the picker
+    for w, h in ((390, 844), (320, 568)):
+        c, pg, reqs = await page(b, w, h, errs, two)
+        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wask'); await pg.wait_for_timeout(300)
+        k = await pg.evaluate("""(()=>{const b=document.querySelector('.wask').getBoundingClientRect(),d=document.querySelector('.wask__dot').getBoundingClientRect(),c=document.querySelector('.isl.i2.cur .here').getBoundingClientRect();
+          const cx=b.left+b.width/2,cy=b.top+b.height/2;return {w:b.width,h:b.height,dot:d.width,on:cx>=c.left&&cx<=c.right&&cy>=c.top-4&&cy<=c.bottom,here:getComputedStyle(document.querySelector('.isl.i2.cur .here')).display,
+          label:document.querySelector('.wask').getAttribute('aria-label'),in:b.left>=0&&b.right<=innerWidth}})()""")
+        check(f'[no character {w}x{h}] Pitzi on the island played now as today, a small "?" badge on him in a 48 px tap area, named, no token', await pg.locator('.wtok').count() == 0 and k['here'] != 'none' and k['on'] and k['w'] >= 48 and k['h'] >= 48 and k['dot'] <= 24 and k['label'] and k['in'], k)
+        if w == 390:
+            await P.shot(pg, 'world-ask-390x844')
+            await pg.click('.wask'); await pg.wait_for_selector('.wpick__grid')
+            check('the "?" badge opens the picker', True)
+        await c.close()
+    # flag off: the island's name for a screen reader stays exactly as today
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.goto(P.BASE + '#map'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(200)
+    check('flag off: the island played now keeps its label as today', await pg.get_attribute('.isl.i2', 'aria-label') == 'אי בית הספר')
+    await c.close()
+    # a device that cannot keep a character: nothing on the map
+    api = f'http://127.0.0.1:{P.API_PORT}/'
+    c, pg, reqs = await page(b, 390, 844, errs, two, api=api, user={'c': CLASS, 'n': 'נועה', 'p': '1357'})
+    await pg.add_init_script("try{Object.defineProperty(window.crypto,'subtle',{get:()=>undefined,configurable:true})}catch(e){}")
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+    check('no digest: no token, no "?", Pitzi as today', await pg.locator('.wtok,.wask').count() == 0 and await pg.evaluate("getComputedStyle(document.querySelector('.isl.cur .here')).display") != 'none')
+    await c.close()
+
+
+async def island_path(b, errs):
+    """an island as a path of stones: the levels in their order, each with its name; the character on the next stone,
+    gliding to a tapped one before the level opens; a second tap and the back button never held up (docs/DESIGN.md)"""
+    st = {'g': {'st': {'1-sling': 3, '1-listen': 2}}}
+    rec = json.dumps({'v': 1, 'p': {'local': {'av': 'fox', 'nm': [0, 0], 'en': 0, 'at': 1}}})
+    seed = "if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec)
+    NAMES = ['קלע המילים', 'תופסים צלילים', 'בקבוק הסיפור', 'גשר המשפטים']
+    SUBS = ['פוגעים במילה הנכונה', 'שומעים מילה ולוחצים עליה', 'קוראים סיפור ועונים', 'בונים משפט וחוצים']
+    GEO = """(()=>{const v=document.documentElement.getBoundingClientRect(),W=innerWidth,H=innerHeight;
+      const st=[...document.querySelectorAll('.w-path .w-st')].map(b=>{const r=b.getBoundingClientRect(),n=b.querySelector('.w-st__name').getBoundingClientRect();
+        const fs=[...b.querySelectorAll('.w-st__name b,.w-st__name small')].map(e=>parseFloat(getComputedStyle(e).fontSize));
+        return {to:b.dataset.to,name:b.querySelector('.w-st__name b').textContent,sub:b.querySelector('.w-st__name small').textContent,fs:Math.min(...fs),
+          w:r.width,h:r.height,in:r.left>=0&&r.right<=W&&n.left>=0&&n.right<=W&&n.top>=0&&n.bottom<=H,state:b.className.replace(/.*w-st--/,''),plate:[n.left,n.top,n.right,n.bottom]}});
+      const ov=(a,c)=>!(a[2]<=c[0]||a[0]>=c[2]||a[3]<=c[1]||a[1]>=c[3]);
+      const clash=st.some((x,i)=>st.some((y,j)=>j>i&&ov(x.plate,y.plate)));
+      const lit=document.querySelector('.w-line__lit'),dim=document.querySelector('.w-line__dim');
+      const line={lit:lit?lit.getAttribute('points').split(' ').length:0,dim:dim?dim.getAttribute('points').split(' ').length:0};
+      const gc=document.querySelector('.w-st--current .w-st__art'),glow=gc?getComputedStyle(gc).animationName:null;
+      const wk=document.querySelector('.w-walker'),wr=wk&&wk.getBoundingClientRect(),cur=document.querySelector('.w-st--current');
+      const near=wk&&cur?Math.abs((wr.left+wr.width/2)-(cur.getBoundingClientRect().left+cur.getBoundingClientRect().width/2))<4:null;
+      return {st,near,clash,line,glow,wk:wr?[wr.width,wr.height]:null,list:!!document.querySelector('.lvlist')}})()"""
+    for w, h in ((390, 844), (360, 740), (320, 568), (768, 1024), (1366, 768)):
+        tag = f'path {w}x{h}'
+        c, pg, reqs = await page(b, w, h, errs, st)
+        await pg.add_init_script(seed)
+        await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(400)
+        g = await pg.evaluate(GEO)
+        check(f'[{tag}] the stones are the levels in order, with the names and sub-lines of today\'s list', [x['to'] for x in g['st']] == ['play/1/sling', 'play/1/listen', 'play/1/read', 'play/1/bridge'] and [x['name'] for x in g['st']] == NAMES and [x['sub'] for x in g['st']] == SUBS and not g['list'], g['st'])
+        check(f'[{tag}] labels never below 15 px, and no two labels overlap', all(x['fs'] >= 15 for x in g['st']) and not g['clash'], [(x['fs'], x['plate']) for x in g['st']])
+        check(f'[{tag}] a dotted line joins the stones: gold up to the glowing stone (3 stones), dim after it (2)', g['line'] == {'lit': 3, 'dim': 2}, g['line'])
+        check(f'[{tag}] the glowing stone pulses; the character is a 52 px token', g['glow'] == 'wglow' and g['wk'] == [52, 52], (g['glow'], g['wk']))
+        check(f'[{tag}] played stones lit, the first not played glowing, the rest open (no level is locked today)', [x['state'] for x in g['st']] == ['done', 'done', 'current', 'open'], [x['state'] for x in g['st']])
+        check(f'[{tag}] every stone at least 48 px, every stone and its name on the screen', all(x['w'] >= 48 and x['h'] >= 48 and x['in'] for x in g['st']), g['st'])
+        check(f'[{tag}] the character stands on the glowing stone', g['near'] is True, g['near'])
+        a = await pg.evaluate(AUDIT.replace(".wd *,.wd__note,.wpick *", ".w-path *"))
+        check(f'[{tag}] every name and number at least 4.5:1', not a['bad'], a['bad'])
+        if w == 390:
+            await P.shot(pg, 'world-path-390x844')
+        await c.close()
+    # a tap: the character walks (under 0.6 s), then the tapped level opens
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.add_init_script(seed)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    t0 = await pg.evaluate('performance.now()')
+    await pg.click('.w-st[data-to="play/1/bridge"]')
+    await pg.wait_for_function("location.hash==='#play/1/bridge'", timeout=3000)
+    dt = await pg.evaluate('performance.now()') - t0
+    check('a tapped stone: the character glides there and that level opens, in under 0.6 s', dt < 650, round(dt))
+    await P.lv(pg, 'bridge')
+    await c.close()
+    # the label is part of the stone's button: a tap on it opens that level
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.add_init_script(seed)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    await pg.click('.w-st[data-to="play/1/listen"] .w-st__name small')
+    await pg.wait_for_function("location.hash==='#play/1/listen'", timeout=3000)
+    check('a tap on a label opens its level (stone and label are one button)', True)
+    await c.close()
+    # a second tap during the walk wins; the back button during the walk is never held up
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.add_init_script(seed)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    await pg.evaluate("window.__opens=[];addEventListener('hashchange',()=>{if(location.hash.startsWith('#play/'))__opens.push(location.hash)})")
+    await pg.click('.w-st[data-to="play/1/bridge"]'); await pg.wait_for_timeout(120)
+    t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/1/sling"]')
+    await pg.wait_for_function("location.hash.startsWith('#play/')", timeout=3000); dt = await pg.evaluate('performance.now()') - t0; await pg.wait_for_timeout(600)
+    check('a second tap during the glide ends it and goes at once: that level opens, and only it', await pg.evaluate('__opens') == ['#play/1/sling'] and dt < 200, (await pg.evaluate('__opens'), round(dt)))
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    await pg.evaluate("window.__opens=[]")   # the same page (only the address after # changed): its listener is still there
+    await pg.click('.w-st[data-to="play/1/read"]'); await pg.click('.w-st[data-to="play/1/read"]', force=True, no_wait_after=True); await pg.wait_for_timeout(800)
+    check('two quick taps on a stone open its level once', await pg.evaluate('__opens') == ['#play/1/read'], await pg.evaluate('__opens'))
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    await pg.click('.w-st[data-to="play/1/read"]'); await pg.wait_for_timeout(100); await pg.click('[data-a=nav][data-to="map"]')
+    await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(700)
+    check('the back button during the walk: back on the map, and no level opens after', await pg.evaluate('location.hash') == '#map')
+    await c.close()
+    # keyboard: the stones in order, Enter opens
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.add_init_script(seed)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    order = await pg.evaluate("[...document.querySelectorAll('button,a[href]')].filter(e=>e.closest('.w-path')).map(e=>e.dataset.to)")
+    check('keyboard and screen-reader order equals the level order', order == ['play/1/sling', 'play/1/listen', 'play/1/read', 'play/1/bridge'], order)
+    labels = await pg.evaluate("[...document.querySelectorAll('.w-path .w-st')].map(b=>b.getAttribute('aria-label'))")
+    check('each stone is named with its number, its level and its stars', labels[0].startswith('שלב 1: קלע המילים, שלושה כוכבים') and 'כאן אתם עכשיו' in labels[2], labels)
+    await pg.focus('.w-st[data-to="play/1/listen"]'); await pg.keyboard.press('Enter')
+    await pg.wait_for_function("location.hash==='#play/1/listen'", timeout=3000)
+    check('Enter on a stone opens its level', True)
+    await c.close()
+    # reduced motion: no walk, the level opens at once
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.emulate_media(reduced_motion='reduce'); await pg.add_init_script(seed)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/1/read"]')
+    await pg.wait_for_function("location.hash==='#play/1/read'", timeout=3000)
+    check('reduced motion: no walk, the level opens at once', await pg.evaluate('performance.now()') - t0 < 200)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    check('reduced motion: the glowing stone does not pulse', await pg.evaluate("getComputedStyle(document.querySelector('.w-st--current .w-st__art')).animationName") == 'none')
+    await c.close()
+    # no character: no walker, a tap opens at once; the bonus island has its two stones
+    c, pg, reqs = await page(b, 390, 844, errs, {'g': {'st': {f'{i}-{t}': 3 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge')) for t in ts.split()}}})
+    await pg.goto(P.BASE + '?ds=1#island/6'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(200)
+    g = await pg.evaluate(GEO)
+    check('the bonus island: its two levels as two stones, no character when none is chosen', [x['to'] for x in g['st']] == ['play/6/sling', 'play/6/listen'] and await pg.locator('.w-walker').count() == 0, g['st'])
+    t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/6/listen"]')
+    await pg.wait_for_function("location.hash==='#play/6/listen'", timeout=3000)
+    check('no character: a tap opens the level at once', await pg.evaluate('performance.now()') - t0 < 200)
+    await c.close()
+    # a device that cannot keep a character: the path, without a character
+    api = f'http://127.0.0.1:{P.API_PORT}/'
+    c, pg, reqs = await page(b, 390, 844, errs, st, api=api, user={'c': CLASS, 'n': 'נועה', 'p': '1357'})
+    await pg.add_init_script("try{Object.defineProperty(window.crypto,'subtle',{get:()=>undefined,configurable:true})}catch(e){}")
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(200)
+    check('no digest: the path is there, without a character', await pg.locator('.w-walker').count() == 0 and await pg.locator('.w-path .w-st').count() == 4)
+    await c.close()
+    # a locked island stays locked: its address goes back to the map
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.goto(P.BASE + '?ds=1#island/4'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(200)
+    check('a locked island stays locked with the flag (its address goes to the map)', await pg.evaluate('location.hash') == '#map' and await pg.locator('.w-path').count() == 0)
+    await c.close()
+    # the path's art fails to load: today's list, never a blank screen (the failed loads are expected here, so their
+    # console lines go to a list of their own)
+    for what, pat in (('the backdrop', '**/assets/al/bg/english.*'), ('a stone picture', '**/assets/al/ui/stone-current.*')):
+        c, pg, reqs = await page(b, 390, 844, [], st)
+        await pg.add_init_script(seed)
+        await pg.route(pat, lambda r: r.abort())
+        await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.scr.island'); await pg.wait_for_timeout(3200)
+        v = await pg.evaluate("({rows:[...document.querySelectorAll('.lvlist .lvrow')].filter(r=>r.getBoundingClientRect().height>0&&getComputedStyle(r.closest('.lvlist')).visibility==='visible').length,path:document.querySelectorAll('.w-path').length,cls:document.querySelector('.scr.island').classList.contains('wpath')})")
+        check(f'{what} cannot load: today\'s list of levels, visible, and no path', v == {'rows': 4, 'path': 0, 'cls': False}, v)
+        if v['rows'] == 4:
+            await pg.click('.lvrow >> nth=1'); await pg.wait_for_function("location.hash==='#play/1/listen'", timeout=3000)
+        check(f'{what} cannot load: the list still opens its levels', v['rows'] == 4)
+        await c.close()
+    # flag off: today's list, nothing of the path fetched
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.goto(P.BASE + '#island/1'); await pg.wait_for_selector('.lvrow'); await pg.wait_for_timeout(300)
+    check('flag off: today\'s list of levels, no path, nothing of it fetched', await pg.locator('.lvrow').count() == 4 and await pg.locator('.w-path').count() == 0 and not [u for u, _ in reqs if 'worldpath' in u or 'avatar' in u])
+    await c.close()
+
+
 async def anim(b, errs):
     """the picker plays a character's short animation when it is tapped (js/avanim.js): the file is requested only then,
     never with reduced motion, and never without the flag"""
@@ -509,11 +791,14 @@ async def main():
             await brand(b, errs)
             await anim(b, errs)
             await ladder(b, errs)
+            await notice_clear(b, errs)
             await reachable(b, errs)
             await kept(b, errs)
             await old_names(b, errs)
             await names(b, errs)
             await fin_logout(b, errs)
+            await map_token(b, errs)
+            await island_path(b, errs)
             await b.close()
     finally:
         for p in procs: p.terminate()

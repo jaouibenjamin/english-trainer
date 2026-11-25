@@ -12,7 +12,9 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   in one line at the bottom; it cannot be chosen, and a tap (and the screen reader's name for it) says "(name): אפשר
   לפתוח ברמה N (עוד N רמות)". A character a pupil already chose stays theirs even if it would be locked at their
   level. When a level opens a character, the map says once "דמות חדשה נפתחה!" with its portrait and a button to the
-  picker; when several came at once, "דמויות חדשות נפתחו!" with the newest three portraits and "ועוד N". A device
+  picker; when several came at once, "דמויות חדשות נפתחו!" with the newest three portraits and "ועוד N". The notice
+  never covers the character on the map (or the "?" badge): it sits above the dock, or under the map's header when the
+  character stands there; on a short screen where neither fits, it drops its sentence (the heading says it). A device
   that first opens the map at a high level is not told about old news.
 - **Its name:** a describing word and an animal, one from each of two fixed lists (`NAME_A`, `NAME_B` in
   `js/world_data.js`), stored as two indexes and the lists' version (`nv: 2`). No free text. A name stored from the
@@ -28,7 +30,8 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
 - **Storage:** `localStorage` key `wi_world`, one record per pupil on the device. A signed-in pupil's record is
   filed under a SHA-256 digest of `wi|` + the class code in upper case + `|` + the name (trimmed, spaces collapsed),
   never under the code or the name; a device that is not signed in uses `local`. The record holds only a character
-  id, two indexes, the names' version, the energy and the last level announced. Stored energy above 100000 is read as
+  id, two indexes, the names' version, the energy, the last level announced and the island the character last stood
+  on. Stored energy above 100000 is read as
   100000.
 - It is not in the progress record that `pack()` / `merge()` send to the sheet, and the file makes no request.
   `tests/world.py` checks all of this, including against the mock backend in class mode, a damaged or edited record,
@@ -42,6 +45,25 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   the site's data in the browser (or `localStorage.removeItem('wi_world')`) deletes them all; nothing is kept anywhere
   else.
 - **Today's focus** leaves out the bonus island (months and numbers): it is about the unit's five word lists.
+- **The character on the map** (docs/DESIGN.md spec): the chosen character stands, as a 44 px framed portrait token with
+  a small shadow on the ground, on the island played now (the one marked "ממשיכים כאן"; when every island is full, the
+  last one), in the crab's place at the island's lower edge, beside the tag and never over it. When that island changes
+  it hops once from the island it stood on before (`at` in the record): an arc, 0.9 s, a squash on landing; any tap or
+  key ends it and still does what it would have done; none with reduced motion or calm mode. On a small island (a short
+  phone) the token is at most 60% of the island's picture. With no character yet, Pitzi stands there as today with a
+  small "?" badge (a 48 px tap area) that opens the picker; on a device that cannot keep one, Pitzi alone. A remembered
+  island that is not open is no position. With the flag, the island played now also says "ממשיכים כאן" (or "מתחילים
+  כאן") to a screen reader; without it the island's label is as today.
+- **An island as a path** (docs/DESIGN.md spec): with the flag, an island's levels are stones along the painted path
+  of the English island backdrop, in their order, joined by a dotted line (gold up to the next stone, dim after it).
+  Each stone has a label on a dark plate with the level's name and sub-line, exactly as in today's list (it wraps on a
+  narrow screen, never below 15 px), and stone and label are one button. Played stones are lit with their stars, the
+  first not played glows and pulses softly, the others are open (as today, every level of an open island can be
+  played). The character, a 52 px token, stands on the glowing stone and glides to a tapped one (0.45 s, ease-out)
+  before the level opens; a second tap ends the glide and goes at once (two quick taps open the level once), the back
+  button is never held up, and with reduced motion or calm, with no character, or on a device that cannot keep one,
+  the level opens at once and nothing pulses. If the backdrop cannot load (or takes over 2.5 s), or a stone picture fails, today's list stays (never a blank screen). The path and stones are shared with the world.html preview
+  (`js/worldpath.js`, `css/worldpath.css`). Same routes, order and unlock rules as the list.
 
 ## The ladder (energy level → character)
 | Level | Energy from | Opens |
