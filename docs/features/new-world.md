@@ -35,3 +35,10 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   hops once from the island it stood on before (`at` in the record): 0.7 s, any tap ends it, none with reduced motion
   or calm mode. With no character yet, a "?" at the island's side opens the picker (never a block). A device that
   cannot keep a character shows neither.
+- **An island as a path:** with the flag, an island's levels are stones along the painted path of the English island
+  backdrop, in their order, each with its name (the same names as today's list); played stones are lit with their
+  stars, the first not played glows, the others are open (as today, every level of an open island can be played).
+  The character stands on the glowing stone and walks to a tapped one (0.45 s) before the level opens; a second tap
+  re-aims it, the back button is never held up, and with reduced motion or calm, with no character, or on a device
+  that cannot keep one, the level opens at once. The path and stones are shared with the world.html preview
+  (`js/worldpath.js`, `css/worldpath.css`). Same routes, order and unlock rules as the list.
