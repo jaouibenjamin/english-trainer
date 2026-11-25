@@ -93,7 +93,7 @@ Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"
 1. **Title / login** (low risk, first impression, no learning state). Needs the character picker. *Built behind the flag: see "Rollout step 1" below.*
 2. **Island map** (world map + island path, with energy and today's focus). The new structure; needs the engineer for energy rules and the weak-item recommender. *First the skin: the existing English map and level list behind the flag, see "Rollout step 2" below.*
 3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered. *Built behind the flag: see "Rollout step 3" below.*
-4. **Fraction Bay** (math). Same shell; island of the world map.
+4. **Fraction Bay** (math). Same shell; island of the world map. *Built behind the flag: see "Rollout step 4" below.*
 5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep.
 6. **Beach Run HUD**. Chips and bar over the WebGL canvas; check phone performance (no blur).
 7. **Teacher screen**. Dark or paper; it is data-heavy. Last, lowest kid impact.
@@ -191,4 +191,13 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=play|result]`. No
 
 ### The extra games (`?games=1`) in the new look
 Under `html.ds #stage[data-scr=extra]`. The light cards (true or not, pairs, letters) are dark cards with white text; right is a green edge, wrong a coral edge, and the game's own words and marks stay, so colour is never the only sign. Face-down pairs show an aqua "?". The explain block, the pairs list and the end screen sit on dark cards; the counters and one-line notes on plates. Backdrop: the English island picture, dimmed. Checked: `tests/extra.py` 253 pass with the flag on, screenshots of card, explain, wrong, board and end for all three games at 390x844, 360x640 and 1366x768.
+
+## Rollout step 4: Fraction Bay behind the same flag
+Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=math|misland|mplay]`. No script, markup, route, saving or request changes. Default off.
+- The maths screens reuse the English classes (`.map`, `.island`, `.lv`, `.result`), so the rules of steps 2 and 3 reach them; this step adds the screen-level rules for the three maths screens and the maths pieces.
+- Bay map: the sea with details, the new island pictures (the bay uses the same six pictures as the English map, locked versions included), the bay's name on a plate under the star chip.
+- Island screen: the maths backdrop (`bg/math`), dimmed, under the level rows of step 2.
+- Levels: the same night tint and HUD as the English levels. Keypad keys navy with white digits, the check key gold; choice cards navy with a green or coral edge for right and wrong; the pizza footer notes on plates. The worksheet paper and the pizza task note stay light, like the mock exam: they are written work.
+- The slingshot's caption (English and maths) is a dark plate, so a long message never sits as white text on paper.
+- Checked: flag on, `tests/math.py --quick` 21 pass, screenshots of every state (map, island, pizza ask, build, cut, eat, merge, wholes, count; sling aim and miss; sheet question, form, solution; every result) at 390x844, 360x740 and 1366x768. Flag off: `ds-game.css` is not loaded.
 
