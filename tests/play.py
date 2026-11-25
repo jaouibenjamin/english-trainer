@@ -13,6 +13,7 @@ It starts its own static server for the repo and, for class mode, the mock Apps 
 """
 import asyncio, math, os, subprocess, sys, time, socket, urllib.parse
 from playwright.async_api import async_playwright
+from csp_wait import csp_wait
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOCK = os.environ.get('MOCK', os.path.join(ROOT, 'tests', 'mock.js'))
@@ -320,10 +321,12 @@ async def play_level(pg, isl, typ, **kw):
 
 async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=1 if LAPTOP else 2, has_touch=not LAPTOP, locale='he-IL')
-    pg = await c.new_page()
+    pg = csp_wait(await c.new_page())
     await pg.add_init_script(speech)
     await pg.add_init_script(clip_stub(clips))
     pg.on('pageerror', lambda e: errs.append('pageerror: ' + str(e)))
+    # anything the Content-Security-Policy blocks is an error (the browser also logs it; this names the directive)
+    await pg.add_init_script("document.addEventListener('securitypolicyviolation',e=>console.error('CSP violation: '+e.violatedDirective+' '+e.blockedURI+' '+(e.sourceFile||'')+':'+e.lineNumber))")
     pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
     # An <audio> element aborts the download of its clip
     # when the next clip replaces it: only that (a media request under assets/voice/, net::ERR_ABORTED) is tolerated.
@@ -710,7 +713,8 @@ def start_servers(mock=False):
     """Start this run's own static server on this checkout (and the mock backend when asked), each on its own free
     port. Returns the processes, for the caller to terminate. Stops the run, saying why, if a port is already taken or
     a server does not come up: a suite must never go on against a server it did not start."""
-    want = [('the test server', PORT, [sys.executable, '-m', 'http.server', str(PORT), '--bind', '127.0.0.1'], None)]
+    # the static server adds the mock backend's origin to the pages' Content-Security-Policy when it runs (tests/static_server.py)
+    want = [('the test server', PORT, [sys.executable, os.path.join(ROOT, 'tests', 'static_server.py'), str(PORT)] + ([f'http://127.0.0.1:{API_PORT}'] if mock else []), None)]
     if mock:
         want.append(('the mock backend', API_PORT, ['node', MOCK], dict(os.environ, MOCK_PORT=str(API_PORT))))
     procs = []

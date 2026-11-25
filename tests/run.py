@@ -6,6 +6,7 @@
 import asyncio, os, subprocess, sys, time, socket
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import remote_guard
+from csp_wait import csp_wait
 from playwright.async_api import async_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,7 +56,7 @@ async def looks(b):
     for name in ('__proto__', 'constructor', 'toString', 'nosuchlook'):
         errs = []
         c = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=1, has_touch=True)
-        pg = await c.new_page()
+        pg = csp_wait(await c.new_page())
         watch(pg, errs)
         models = []
         pg.on('response', lambda r: models.append(r.url.split('/')[-1]) if '/assets/3d/' in r.url else None)
@@ -73,7 +74,7 @@ async def looks(b):
     for tag, url, block in (('lowpoly', BASE + '?style=lowpoly', False), ('no model', BASE, True)):
         errs = []
         c = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True)
-        pg = await c.new_page()
+        pg = csp_wait(await c.new_page())
         watch(pg, errs, missing_ok='assets/3d/' if block else '')
         models = []
         pg.on('response', lambda r: models.append((r.status, r.url.split('/')[-1])) if '/assets/3d/' in r.url else None)
@@ -101,7 +102,7 @@ async def looks(b):
 async def play(b, w, h, tag):
     errs = []
     c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2, has_touch=w < 700)
-    pg = await c.new_page()
+    pg = csp_wait(await c.new_page())
     watch(pg, errs)
     await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
     await pg.goto(BASE)

@@ -12,6 +12,9 @@ import {SND,unlock} from './audio.js';
 const $=s=>document.querySelector(s);
 const cv=$('#gl'),stageEl=$('#rstage'),hud=$('#hud'),pad=$('#pad'),menu=$('#menu'),banner=$('#banner'),flashEl=$('#flash');
 if(SET.calm)document.documentElement.classList.add('calm');
+/* a menu picture that fails to load falls back to its data-fb picture (a listener, not an inline onerror: the page's
+   Content-Security-Policy allows no inline handlers). Load errors do not bubble, so it listens in the capture phase. */
+menu.addEventListener('error',e=>{const i=e.target;if(i&&i.dataset&&i.dataset.fb&&i.getAttribute('src')!==i.dataset.fb)i.src=i.dataset.fb},true);
 /* two looks: anime cel-shading (default) and low-poly (?style=lowpoly) */
 /* the runner models and their menu pictures are ours, served next to the game (relative URLs; sources: assets/sources.tsv) */
 const M3D='assets/3d/',HPIC='assets/x/';
@@ -312,7 +315,7 @@ function setPause(v){if(!G||!G.on||G.ended)return;paused=v;if(v){menu.hidden=fal
 /* ---------------- menus ---------------- */
 const who=()=>API&&S.u?`<p class="who">${esc(S.u.n)} · <bdi>${S.pts}</bdi> נקודות</p>`:API?`<p class="who">לא מחוברים, אז הנקודות לא ייכנסו לטבלת הכיתה. <a href="index.html">להתחברות</a></p>`:'';
 function start(){const r=R();hud.hidden=pad.hidden=true;menu.hidden=false;
- menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" onerror="this.src='assets/sp/crab_wave.webp'"><h1>ריצת החוף</h1>
+ menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" data-fb="assets/sp/crab_wave.webp"><h1>ריצת החוף</h1>
   <p class="goal">רצים, עונים, ומתאמנים עוד ועוד. כל השאלות מהדפים שקיבלתם מהמורה.</p>
   <div class="how"><span><b>◀ ▶</b>מחליפים מסלול</span><span><b>▲</b>קופצים מעל מכשול</span><span><b>🪧</b>רצים מתחת לתשובה הנכונה</span></div><p class="pl">קצב ריצה</p>${paceRow()}<p class="who">יודעים כבר את התשובה? לחצו ⏩ והשער יגיע מהר.</p>
   <p>טעיתם? רואים את התשובה הנכונה, והשאלה חוזרת עוד מעט באותה ריצה.</p>${r.best?`<p class="who">השיא שלכם: <bdi>${r.best}</bdi> תשובות נכונות</p>`:''}${who()}</div>
@@ -325,7 +328,7 @@ function end(done){if(!G||G.ended)return;G.ended=true;G.gate=null;banner.hidden=
  setTimeout(()=>{hud.hidden=pad.hidden=true;menu.hidden=false;
   const mini=w=>{const i=PIC.indexOf(w);return i<0?'':`<span class="mpic" style="background-position:${(i%6)*20}% ${(Math.floor(i/6)*100/3).toFixed(3)}%"></span>`};
   const miss=G.missed.map(m=>`<li>${m.pic?mini(m.pic):''}${m.sent?`<bdi dir="ltr">${esc(m.sent)}</bdi>`:m.pic?'':esc(m.q)} ← <b>${esc(m.a)}</b></li>`).join('');
-  menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" onerror="this.src='assets/sp/crab_star.webp'"><h2>${done?'הגעתם לסוף המסלול!':'נגמרו הלבבות'}</h2>
+  menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" data-fb="assets/sp/crab_star.webp"><h2>${done?'הגעתם לסוף המסלול!':'נגמרו הלבבות'}</h2>
    <div class="score"><span><b>${G.firstRight}</b>נכון בפעם הראשונה</span><span><b>${G.shells}</b>צדפים</span><span><b dir="ltr">+${G.pts}</b>נקודות</span></div>
    ${G.missed.length?`<p>את אלה כדאי לחזור עליהם. הם יופיעו שוב בריצה הבאה:</p><ul class="miss">${miss}</ul>`:`<p class="goal">אף טעות! ככה מגיעים מוכנים למבחן.</p>`}
    ${R().dpts>=DAY_CAP?'<p class="who">היום כבר אספתם את כל הנקודות של ריצת החוף. אפשר להמשיך לרוץ ולהתאמן.</p>':''}${who()}</div>
