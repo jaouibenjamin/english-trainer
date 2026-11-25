@@ -108,8 +108,8 @@ function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('pa
   <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus&&!got?'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`;worldIsland(i)}
 /* with the design flag, the island's levels become a path of stones (js/avatar.js islandPath): the list waits, hidden,
    only while that loads, and comes back if it cannot; without the flag this does nothing */
-function worldIsland(i){if(!dsOn())return;const list=view.querySelector('.scr.island .lvlist');if(!list)return;list.style.visibility='hidden';const my=navId;
- import('./avatar.js').then(m=>my===navId&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{}).then(()=>{if(list.isConnected)list.style.visibility=''})}
+function worldIsland(i){if(!dsOn())return;if(!view.querySelector('.scr.island .lvlist'))return;const my=navId;   // the list stays shown until the path is ready to take its place
+ import('./avatar.js').then(m=>my===navId&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{})}
 
 /* ---------- play + result ---------- */
 async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type);if(!lv||!isOpen(i))return go('map');

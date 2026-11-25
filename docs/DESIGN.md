@@ -253,7 +253,8 @@ match the portraits; the token reads as "me" at once and stays consistent, so it
 - The token stands on the current island (the one with "ממשיכים כאן" / "מתחילים כאן"), at the island's lower edge,
   beside that tag and never covering it. It is decoration: `aria-hidden`, no tap target of its own; the island stays the
   48 px button it is today.
-- When a new island opened since the last visit (keep the last island id on the device, e.g. `wi_lastIsl`, one value),
+- When a new island opened since the last visit (the island the character last stood on is `at`, kept per pupil in
+  the device's `wi_world` record; an island not open counts as none),
   the token hops once from the old island to the new one along the dotted line: an arc, 900 ms, ease-in-out, a squash on
   landing. It plays once, only on that visit. Any tap or key skips to the end and does what the tap would have done. With
   reduced motion or calm mode there is no hop: the token is simply on the new island.
@@ -261,7 +262,7 @@ match the portraits; the token reads as "me" at once and stays consistent, so it
 
 **The island as a path.**
 - The level rows become stones along a winding path drawn over the island's backdrop, in order, bottom to top. Use the
-  same percentage positions as `world.html` (`PATHS` in `js/world.js`); an island with more levels than positions
+  same percentage positions as `world.html` (`PATHS` in `js/worldpath.js`, shared by both); an island with more levels than positions
   scrolls vertically, the path continuing.
 - Each stone: done = `ui/stone-done` with its stars (`ui/star`, as today); next = `ui/stone-current` with a soft gold
   glow pulse (none with reduced motion); locked = `ui/stone-locked`, dimmed, with the lock. A dotted line joins the stones

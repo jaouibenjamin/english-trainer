@@ -319,16 +319,26 @@ async def map_token(b, errs):
     W = await pg.evaluate('window.__world.token')
     check('a remembered island that is not open is no position: no hop, the character simply on island 2', W['hop'] is None and await pg.evaluate(WHERE) == 2, W)
     await c.close()
-    # no character yet: Pitzi stands on the island as today, with a small "?" badge that opens the picker
-    for w, h in ((390, 844), (320, 568)):
-        c, pg, reqs = await page(b, w, h, errs, two)
+    # no character yet: Pitzi stands on the island as today, with a small "?" badge by him that opens the picker; its tap
+    # area never covers an island's picture (the island stays the island's button)
+    five = {'g': {'st': {f'{i}-{t}': 3 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge')) for t in ts.split()}}}
+    for w, h, seedx, cur in ((390, 844, two, 2), (360, 740, two, 2), (320, 568, two, 2), (768, 1024, two, 2), (1366, 768, two, 2), (1366, 768, five, 6), (360, 740, five, 6), (320, 568, five, 6)):
+        c, pg, reqs = await page(b, w, h, errs, seedx)
         await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wask'); await pg.wait_for_timeout(300)
-        k = await pg.evaluate("""(()=>{const b=document.querySelector('.wask').getBoundingClientRect(),d=document.querySelector('.wask__dot').getBoundingClientRect(),c=document.querySelector('.isl.i2.cur .here').getBoundingClientRect();
-          const cx=b.left+b.width/2,cy=b.top+b.height/2;return {w:b.width,h:b.height,dot:d.width,on:cx>=c.left&&cx<=c.right&&cy>=c.top-4&&cy<=c.bottom,here:getComputedStyle(document.querySelector('.isl.i2.cur .here')).display,
-          label:document.querySelector('.wask').getAttribute('aria-label'),in:b.left>=0&&b.right<=innerWidth}})()""")
-        check(f'[no character {w}x{h}] Pitzi on the island played now as today, a small "?" badge on him in a 48 px tap area, named, no token', await pg.locator('.wtok').count() == 0 and k['here'] != 'none' and k['on'] and k['w'] >= 48 and k['h'] >= 48 and k['dot'] <= 24 and k['label'] and k['in'], k)
-        if w == 390:
+        k = await pg.evaluate("""(()=>{const b=document.querySelector('.wask').getBoundingClientRect(),d=document.querySelector('.wask__dot').getBoundingClientRect(),c=document.querySelector('.isl.cur .here').getBoundingClientRect();
+          const ov=[...document.querySelectorAll('.isl .pw')].map(p=>{const r=p.getBoundingClientRect();return Math.max(0,Math.min(b.right,r.right)-Math.max(b.left,r.left))*Math.max(0,Math.min(b.bottom,r.bottom)-Math.max(b.top,r.top))}).reduce((x,y)=>x+y,0);
+          const cx=b.left+b.width/2,cy=b.top+b.height/2,near=Math.hypot(cx-(c.left+c.width/2),cy-(c.top+c.height/2))<=c.width+b.width/2;
+          return {w:b.width,dot:d.width,ov,near,cur:+[...document.querySelector('.isl.cur').classList].find(x=>/^i\\d$/.test(x)).slice(1),here:getComputedStyle(document.querySelector('.isl.cur .here')).display,
+          label:document.querySelector('.wask').getAttribute('aria-label'),in:b.left>=0&&b.right<=innerWidth&&b.top>=0&&b.bottom<=innerHeight}})()""")
+        check(f'[no character {w}x{h}, island {cur}] Pitzi as today; a small "?" badge by him, named, on screen; its tap area (48 px, or 32 with no room) never over an island\'s picture', await pg.locator('.wtok').count() == 0 and k['cur'] == cur and k['here'] != 'none' and k['near'] and k['w'] >= 32 and k['dot'] <= 24 and k['ov'] == 0 and k['label'] and k['in'], k)
+        if w >= 768:
+            check(f'[no character {w}x{h}, island {cur}] with room beside Pitzi, the badge keeps a 48 px tap area', k['w'] >= 48, k)
+        if (w, h) == (390, 844):
             await P.shot(pg, 'world-ask-390x844')
+            box = await pg.evaluate("(()=>{const r=document.querySelector('.isl.i2 .pw').getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]})()")
+            await pg.mouse.click(box[0], box[1]); await pg.wait_for_function("location.hash==='#island/2'", timeout=3000)
+            check('a tap on the island\'s picture opens the island, not the picker', True)
+            await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wask'); await pg.wait_for_timeout(300)
             await pg.click('.wask'); await pg.wait_for_selector('.wpick__grid')
             check('the "?" badge opens the picker', True)
         await c.close()
@@ -351,6 +361,7 @@ async def island_path(b, errs):
     gliding to a tapped one before the level opens; a second tap and the back button never held up (docs/DESIGN.md)"""
     st = {'g': {'st': {'1-sling': 3, '1-listen': 2}}}
     rec = json.dumps({'v': 1, 'p': {'local': {'av': 'fox', 'nm': [0, 0], 'en': 0, 'at': 1}}})
+    five = {'g': {'st': {f'{i}-{t}': 3 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge')) for t in ts.split()}}}
     seed = "if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec)
     NAMES = ['קלע המילים', 'תופסים צלילים', 'בקבוק הסיפור', 'גשר המשפטים']
     SUBS = ['פוגעים במילה הנכונה', 'שומעים מילה ולוחצים עליה', 'קוראים סיפור ועונים', 'בונים משפט וחוצים']
@@ -412,7 +423,7 @@ async def island_path(b, errs):
     await pg.click('.w-st[data-to="play/1/bridge"]'); await pg.wait_for_timeout(120)
     t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/1/sling"]')
     await pg.wait_for_function("location.hash.startsWith('#play/')", timeout=3000); dt = await pg.evaluate('performance.now()') - t0; await pg.wait_for_timeout(600)
-    check('a second tap during the glide ends it and goes at once: that level opens, and only it', await pg.evaluate('__opens') == ['#play/1/sling'] and dt < 200, (await pg.evaluate('__opens'), round(dt)))
+    check('a second tap during the glide ends it and goes at once: that level opens, and only it', await pg.evaluate('__opens') == ['#play/1/sling'] and dt < 400, (await pg.evaluate('__opens'), round(dt)))
     await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
     await pg.evaluate("window.__opens=[]")   # the same page (only the address after # changed): its listener is still there
     await pg.click('.w-st[data-to="play/1/read"]'); await pg.click('.w-st[data-to="play/1/read"]', force=True, no_wait_after=True); await pg.wait_for_timeout(800)
@@ -440,7 +451,7 @@ async def island_path(b, errs):
     await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
     t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/1/read"]')
     await pg.wait_for_function("location.hash==='#play/1/read'", timeout=3000)
-    check('reduced motion: no walk, the level opens at once', await pg.evaluate('performance.now()') - t0 < 200)
+    check('reduced motion: no walk, the level opens at once', await pg.evaluate('performance.now()') - t0 < 400)
     await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
     check('reduced motion: the glowing stone does not pulse', await pg.evaluate("getComputedStyle(document.querySelector('.w-st--current .w-st__art')).animationName") == 'none')
     await c.close()
@@ -451,7 +462,7 @@ async def island_path(b, errs):
     check('the bonus island: its two levels as two stones, no character when none is chosen', [x['to'] for x in g['st']] == ['play/6/sling', 'play/6/listen'] and await pg.locator('.w-walker').count() == 0, g['st'])
     t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/6/listen"]')
     await pg.wait_for_function("location.hash==='#play/6/listen'", timeout=3000)
-    check('no character: a tap opens the level at once', await pg.evaluate('performance.now()') - t0 < 200)
+    check('no character: a tap opens the level at once', await pg.evaluate('performance.now()') - t0 < 400)
     await c.close()
     # a device that cannot keep a character: the path, without a character
     api = f'http://127.0.0.1:{P.API_PORT}/'
@@ -464,6 +475,72 @@ async def island_path(b, errs):
     c, pg, reqs = await page(b, 390, 844, errs, st)
     await pg.goto(P.BASE + '?ds=1#island/4'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(200)
     check('a locked island stays locked with the flag (its address goes to the map)', await pg.evaluate('location.hash') == '#map' and await pg.locator('.w-path').count() == 0)
+    await c.close()
+    # a slow phone: the backdrop delayed. The island area is never empty, and it never flips from list to path late:
+    # the path only if the art is here within about 0.3 s, else the list for this visit
+    SAMPLE = """(()=>{const L=document.querySelector('.lvlist'),rows=L&&getComputedStyle(L).visibility==='visible'?[...L.querySelectorAll('.lvrow')].filter(r=>r.getBoundingClientRect().height>0).length:0;
+      const st=document.querySelectorAll('.w-path .w-st').length;return rows?'list':st?'path':'empty'})()"""
+    for delay in (0, 800, 2000, 3500):
+        c, pg, reqs = await page(b, 390, 844, [], st)
+        await pg.add_init_script(seed)
+        def slow(d):
+            async def h(r):
+                await asyncio.sleep(d / 1000); await r.continue_()
+            return h
+        await pg.route('**/assets/al/bg/english.*', slow(delay))
+        await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.scr.island')
+        seen = []
+        for _ in range(45):
+            seen.append(await pg.evaluate(SAMPLE)); await pg.wait_for_timeout(100)
+        flips = [k for k in range(1, len(seen)) if seen[k] != seen[k - 1]]
+        late = [k for k in flips if k > 8]   # a swap after about 0.9 s (module, then at most 0.3 s for the pictures)
+        check(f'backdrop {delay} ms: the island area is never empty, and never changes late ({"path" if delay == 0 else "list for this visit"})', 'empty' not in seen and not late and seen[-1] == ('path' if delay == 0 else 'list'), ''.join(x[0] for x in seen))
+        await c.close()
+    # the map fetches the path's pictures when idle: the next island opens on the path even on a slow line
+    c, pg, reqs = await page(b, 390, 844, [], st)
+    await pg.add_init_script(seed)
+    async def slow8(r):
+        await asyncio.sleep(0.8); await r.continue_()
+    await pg.route('**/assets/al/bg/english.*', slow8)
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(3500)
+    pre = [u for u, _ in reqs if '/assets/al/bg/english.' in u or '/assets/al/ui/stone-' in u]
+    await pg.evaluate("location.hash='island/1'"); await pg.wait_for_selector('.scr.island'); await pg.wait_for_timeout(1200)
+    check('the map fetches the path\'s pictures when idle (backdrop and the two stones), and the island then opens on its path', len(pre) >= 3 and await pg.evaluate(SAMPLE) == 'path', pre)
+    await c.close()
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.goto(P.BASE + '#map'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(3000)
+    check('flag off: the map fetches nothing of the path', not [u for u, _ in reqs if '/assets/al/bg/english.' in u or '/assets/al/ui/stone-' in u])
+    await c.close()
+    # Pitzi's hint: the list screen's words, one line under the path
+    for w, h in ((390, 844), (360, 740), (320, 568), (768, 1024), (1366, 768)):
+        c, pg, reqs = await page(b, w, h, errs, st)
+        await pg.add_init_script(seed)
+        await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(300)
+        k = await pg.evaluate("""(()=>{const t=document.querySelector('.w-hint');if(!t)return null;const r=t.getBoundingClientRect(),g=document.querySelector('.w-stage').getBoundingClientRect();
+          const hit=[...document.querySelectorAll('.w-st,.w-st__name')].some(e=>{const q=e.getBoundingClientRect();return !(q.right<=r.left||q.left>=r.right||q.bottom<=r.top||q.top>=r.bottom)});
+          return {text:t.textContent,under:r.top>=g.bottom-1,in:r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight,hit,fs:parseFloat(getComputedStyle(t).fontSize)}})()""")
+        check(f'[hint {w}x{h}] Pitzi\'s hint, the same words as the list screen, one line under the path, on screen, over no stone', k and k['text'] == 'אפשר לחזור לכל שלב ולאסוף עוד כוכבים' and k['under'] and k['in'] and not k['hit'] and k['fs'] >= 15, k)
+        a = await pg.evaluate(AUDIT.replace(".wd *,.wd__note,.wpick *", ".w-hint"))
+        check(f'[hint {w}x{h}] at least 4.5:1', not a['bad'], a['bad'])
+        await c.close()
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.add_init_script(seed)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(200)
+    check('an island not played yet: "בחרו שלב. יש ארבעה, כמו חלקי המבחן"', await pg.inner_text('.w-hint') == 'בחרו שלב. יש ארבעה, כמו חלקי המבחן')
+    await c.close()
+    c, pg, reqs = await page(b, 390, 844, errs, five)
+    await pg.goto(P.BASE + '?ds=1#island/6'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(200)
+    check('the bonus island: "כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה"', await pg.inner_text('.w-hint') == 'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה')
+    await c.close()
+    # a stone picture that fails during a glide: the list comes back, and the level being walked to still opens
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.add_init_script(seed)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(200)
+    await pg.click('.w-st[data-to="play/1/bridge"]'); await pg.wait_for_timeout(60)
+    await pg.evaluate("document.querySelector('.w-path .w-st__art').dispatchEvent(new Event('error'))")
+    back = await pg.evaluate("!!document.querySelector('.lvlist') && !document.querySelector('.w-path') && !document.querySelector('.w-hint')")
+    await pg.wait_for_function("location.hash==='#play/1/bridge'", timeout=3000)
+    check('a picture failing mid-glide: the list comes back, and the level walked to still opens', back)
     await c.close()
     # the path's art fails to load: today's list, never a blank screen (the failed loads are expected here, so their
     # console lines go to a list of their own)

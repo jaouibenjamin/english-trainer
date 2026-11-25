@@ -108,7 +108,13 @@ export async function decorateMap(view,go,live=()=>true){
  sec.classList.add('hasdock');document.getElementById('stage').classList.add('wdock');sec.append(note,dock);
  const tok=token(sec,id,me,go);
  window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,token:tok};   // for the tests
+ preload();
 }
+/* the island path's pictures, fetched from the map when the browser is idle, so an island opens straight onto its path */
+const PATH_ART=['bg/english','ui/stone-done','ui/stone-current'];
+let pre=null;
+function preload(){if(pre)return;pre=[];const go=()=>{for(const k of PATH_ART){const im=new Image();im.decoding='async';im.src=ART[k];pre.push(im)}};
+ if(window.requestIdleCallback)requestIdleCallback(go,{timeout:2000});else setTimeout(go,800)}
 
 /* ---------- the character on the map ----------
    The chosen character stands on the island the pupil plays now (the one marked "ממשיכים כאן"; when every island is
@@ -116,12 +122,23 @@ export async function decorateMap(view,go,live=()=>true){
    from the island it stood on before, along the dotted line's direction: short, any tap ends it at once, and with
    reduced motion or calm mode it is simply there. With no character yet, Pitzi stands there as today, with a small
    "?" badge that opens the picker. A device that cannot keep a character shows Pitzi alone. */
-/* no character yet: Pitzi stands on the island as today, with a small "?" badge on him that opens the picker (a
-   22 px badge in a 48 px tap area; never a block, the island stays the island's button) */
+/* no character yet: Pitzi stands on the island as today, with a small "?" badge by him that opens the picker. The
+   island stays the island's button: the badge's 48 px tap area sits beside Pitzi on the sea side, off the island's
+   picture; where there is no room for that (a narrow screen), the tap area shrinks to the dot and a few px. */
+const ASK=48,ASK_MIN=32;
 function ask(sec,isl,go){const c=isl.querySelector('.here');if(!c)return null;const r=c.getBoundingClientRect(),s=sec.getBoundingClientRect();if(!r.width)return null;
+ const p=(isl.querySelector('.pw')||isl).getBoundingClientRect(),out=(r.left+r.right)/2<(p.left+p.right)/2?-1:1;   // the sea side: away from the island's middle
+ const pics=[...sec.querySelectorAll('.isl .pw')].map(e=>e.getBoundingClientRect());
+ const free=(x,y,h)=>x-h/2>=s.left&&x+h/2<=s.right&&y-h/2>=s.top&&y+h/2<=s.bottom&&pics.every(q=>x+h/2<=q.left||x-h/2>=q.right||y+h/2<=q.top||y-h/2>=q.bottom);
+ /* places by Pitzi, nearest first: on the sea side at his head, his middle, his feet; then under and over him */
+ const cx=(r.left+r.right)/2,edge=out<0?p.left:p.right,spots=h=>[r.top+r.height*.1,r.top+r.height*.5,r.bottom].map(y=>[out<0?Math.min(cx,edge-h/2):Math.max(cx,edge+h/2),y])
+  .concat([[cx,r.bottom+h/2],[cx,r.top-h/2]]);
+ let hit=ASK,at=spots(ASK).find(([x,y])=>free(x,y,ASK));
+ if(!at){hit=ASK_MIN;at=spots(ASK_MIN).find(([x,y])=>free(x,y,ASK_MIN))||[Math.max(s.left+ASK_MIN/2,Math.min(s.right-ASK_MIN/2,edge+out*ASK_MIN/2)),r.top+r.height*.1]}
+ const [x,y]=at;
  const b=btn('wask',null,()=>go('avatar'));b.setAttribute('aria-label','בוחרים דמות שתצא לדרך');b.appendChild(el('span','wask__dot','?'));
- b.style.left=(r.left-s.left+r.width/2)+'px';b.style.top=(r.top-s.top+r.height*.1)+'px';sec.appendChild(b);
- return{island:idOf(isl),hop:null,ask:true}}
+ b.style.left=(x-s.left)+'px';b.style.top=(y-s.top)+'px';b.style.width=b.style.height=hit+'px';sec.appendChild(b);
+ return{island:idOf(isl),hop:null,ask:true,hit}}
 const HOP_MS=900;   // docs/DESIGN.md "the character on the map": an arc, 900 ms, a squash on landing
 function islandEl(sec,i){return sec.querySelector('.isl.i'+i)}
 function hereOf(sec){const c=sec.querySelector('.isl.cur');if(c)return c;const open=[...sec.querySelectorAll('.isl:not(.locked)')];return open[open.length-1]||null}
@@ -140,6 +157,8 @@ function token(sec,id,me,go){
  const isl=hereOf(sec);if(!isl||!id.key)return null;   // a device that cannot keep a character: Pitzi as today, nothing more
  if(!me.av)return ask(sec,isl,go);
  const sz=tokSize(isl),at=spot(sec,isl,sz),to=idOf(isl);
+ /* never over the "ממשיכים כאן" pill: on a short phone the island's lower edge reaches it, so stand just above it */
+ const pill=isl.querySelector('.tag .hb');if(pill){const pr=pill.getBoundingClientRect(),top=pr.top-sec.getBoundingClientRect().top;if(pr.height&&at.y+sz/2>top)at.y=top-sz/2}
  const t=el('span','wtok');t.setAttribute('aria-hidden','true');t.appendChild(pic(me.av,'wtok__pic'));   // a picture only: the island under it stays the button
  t.style.left=at.x+'px';t.style.top=at.y+'px';t.style.width=t.style.height=sz+'px';
  sec.classList.add('hastok');sec.appendChild(t);
@@ -175,16 +194,19 @@ function line(pts,here){const s=document.createElementNS(SVGNS,'svg');s.setAttri
  part(0,here,'lit');part(here,pts.length-1,'dim');return s}
 const STARS_HE=['עוד לא שיחקתם','כוכב אחד','שני כוכבים','שלושה כוכבים'];
 const WALK_MS=450;
-/* the backdrop, loaded before the path replaces the list: if it fails (or takes longer than ART_WAIT), the list stays */
-const ART_WAIT=2500;
-function loaded(src){return new Promise(r=>{const im=new Image(),t=setTimeout(()=>r(false),ART_WAIT);
- im.onload=()=>{clearTimeout(t);r(true)};im.onerror=()=>{clearTimeout(t);r(false)};im.src=src})}
+/* The path replaces today's list only when its pictures are here: already loaded (the map fetches them when idle), or
+   arriving within ART_WAIT. Otherwise the list stays for this visit. The list is never hidden while we wait, so the
+   island area is never empty, and the island never flips from list to path late. */
+const ART_WAIT=300;
+function ready(keys){return Promise.all(keys.map(k=>new Promise(r=>{const im=new Image();im.src=ART[k];
+ if(im.complete&&im.naturalWidth)return r(true);const t=setTimeout(()=>r(false),ART_WAIT);
+ im.onload=()=>{clearTimeout(t);r(true)};im.onerror=()=>{clearTimeout(t);r(false)}}))).then(a=>a.every(Boolean))}
 export async function islandPath(view,i,go,live=()=>true){
  const id=await ident();
  const sec=view.querySelector('.scr.island'),list=sec&&sec.querySelector('.lvlist');
  if(!live()||!list||!same(id))return;
  style();
- if(!await loaded(ART['bg/english'])||!live()||!list.isConnected||!same(id))return false;   // no picture: today's list, never a blank screen
+ if(!await ready(PATH_ART)||!live()||!list.isConnected||!same(id))return false;   // not here yet, or failed: today's list for this visit
  const me=id.key?mine(id):{av:null},lv=i.levels.map(([t])=>({t,s:starsOf(i.id,t),L:LEVEL_INFO[t]}));
  const next=lv.findIndex(x=>!x.s),here=next<0?lv.length-1:next,pts=pathPoints('english',lv.length);
  const wrap=el('div','w-stagewrap wisl'),stage=el('div','w-stage');stage.style.backgroundImage='url("'+ART['bg/english']+'")';
@@ -216,9 +238,11 @@ export async function islandPath(view,i,go,live=()=>true){
   li.appendChild(b);ol.appendChild(li)});
  stage.appendChild(line(pts,here));stage.appendChild(ol);if(walker)stage.appendChild(walker);wrap.appendChild(stage);
  /* a stone picture that fails: back to today's list (the stones are buttons over a picture that is not there) */
- let back=false;const undo=()=>{if(back||!wrap.isConnected)return;back=true;clearTimeout(timer);if(walk)walk.cancel();wrap.replaceWith(list);sec.classList.remove('wpath');list.style.visibility=''};
+ let back=false;const undo=()=>{if(back||!wrap.isConnected)return;back=true;wrap.replaceWith(list);sec.classList.remove('wpath');if(hint)hint.remove()};   // a glide already under way still opens its level
  for(const im of ol.querySelectorAll('img'))im.addEventListener('error',undo,{once:true});
- list.replaceWith(wrap);sec.classList.add('wpath');
+ /* Pitzi's hint from the list screen (the same words), one line under the path */
+ const g=sec.querySelector('.guide .label'),hint=g&&g.textContent.trim()?el('p','w-hint',g.textContent.trim()):null;
+ list.replaceWith(wrap);if(hint)wrap.after(hint);sec.classList.add('wpath');
  window.__world={...(window.__world||{}),path:{island:i.id,levels:lv.map(x=>x.t),here,next,walker:!!walker,key:id.key}};   // for the tests
  return true}
 

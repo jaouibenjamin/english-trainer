@@ -36,7 +36,7 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   it hops once from the island it stood on before (`at` in the record): an arc, 0.9 s, a squash on landing; any tap or
   key ends it and still does what it would have done; none with reduced motion or calm mode. On a small island (a short
   phone) the token is at most 60% of the island's picture. With no character yet, Pitzi stands there as today with a
-  small "?" badge (a 48 px tap area) that opens the picker; on a device that cannot keep one, Pitzi alone. A remembered
+  small "?" badge that opens the picker, its tap area beside him and never over an island's picture (48 px where there is room, 32 px on a narrow screen); on a device that cannot keep one, Pitzi alone. A remembered
   island that is not open is no position. With the flag, the island played now also says "ממשיכים כאן" (or "מתחילים
   כאן") to a screen reader; without it the island's label is as today.
 - **An island as a path** (docs/DESIGN.md spec): with the flag, an island's levels are stones along the painted path
@@ -47,5 +47,5 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   played). The character, a 52 px token, stands on the glowing stone and glides to a tapped one (0.45 s, ease-out)
   before the level opens; a second tap ends the glide and goes at once (two quick taps open the level once), the back
   button is never held up, and with reduced motion or calm, with no character, or on a device that cannot keep one,
-  the level opens at once and nothing pulses. If the backdrop cannot load (or takes over 2.5 s), or a stone picture fails, today's list stays (never a blank screen). The path and stones are shared with the world.html preview
+  the level opens at once and nothing pulses. The map fetches the path's pictures when the browser is idle; the island swaps today's list for the path only if they are there (or arrive within 0.3 s), else the list stays for that visit, so the island area is never empty and never changes late. A stone picture that fails later puts the list back (a glide already under way still opens its level). Pitzi's hint from the list screen stays, one line under the path. The path and stones are shared with the world.html preview
   (`js/worldpath.js`, `css/worldpath.css`). Same routes, order and unlock rules as the list.
