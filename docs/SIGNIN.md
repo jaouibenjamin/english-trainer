@@ -1,65 +1,82 @@
 # Spec: the pupil's sign-in screens for Supabase mode (DRAFT, for the owner's and the teacher's approval)
 
-Status: a design spec. Nothing here is built or switched on. The flows are `docs/BACKEND.md` section 3 (A, B, E, F);
-the step in the plan is `docs/PHASE3.md` step 5. **These screens change how children sign in: they need the owner's
-explicit yes (and the teacher's) before they are ever switched on.** Every string a child sees is listed below for
-that approval.
+Status: a design spec, revised after an independent kids-UI review and the backend engineer's answers. Nothing here is
+built or switched on. The flows are `docs/BACKEND.md` section 3 (A, B, E, F); the step in the plan is
+`docs/PHASE3.md` step 5. **These screens change how children sign in: they need the owner's explicit yes (and the
+teacher's) before they are ever switched on.** Every string a child sees is listed below for that approval.
 
-Wireframes: `docs/mock/signin.html` (a static page in the new look; not linked from the game, not wired to anything,
-no requests). Portrait 390x844 first; the same column centred on a laptop.
+Wireframes: `docs/mock/signin.html`, a static page in the new look, not linked from the game, not wired to anything,
+no script, no requests. It is responsive: each screen is shown at 390 x 844, and the picture screens also at
+360 x 740 and 320 x 568, so the smallest phones can be judged. The picture tiles there are labelled placeholders.
 
-## 1. The picture grid: the existing art cannot give a good one (stop here; it needs credits)
+## 1. Rules every screen follows
 
-I checked everything under `assets/al` (no generation). The usable candidates are 13: cat, fox, octopus, owl,
-parrot, penguin, shark, turtle (avatars), Pitzi (the crab), one robot, and the bolt, gear and lock icons. The 8
-children's portraits, the pilot and the diver are out (they look like classmates). That set fails on three counts:
+- One question per screen. On top: a back arrow (48 px, keeps what was typed) and the step, "שלב 2 מתוך 5". Steps are
+  numbered per flow and always count the same screens (section 3 lists them).
+- The main action is the gold button in a **bottom bar that stays on screen** (sticky, above the keyboard and the safe
+  area). Only the middle scrolls. Nothing a child needs is below the fold at 360 x 740.
+- Headings are one short line, 22 px. Body text 18 px. Every target 48 px or more.
+- Errors sit under the field in `--wi-fix` (warm, never alarm red), are read out (`role="alert"`), never blame, and
+  always say what to do next. A wrong answer never ends anything.
+- Plural "אתם" as the game already speaks; no gendered verbs to the child.
+- Reduced motion and calm mode: no pop, no shake, no slide.
 
-1. **9 of the 13 are avatars, and a pupil's avatar is shown to the whole class** (board, map). A child who picks "my
-   fox" as a secret picture hands every classmate half the secret. This alone rules them out.
-2. **Too few.** `docs/BACKEND.md` section 3 counts on about 20 pictures: two in order out of 20 are 380 pairs, 3
-   tries 0.79%. With 13 it is 156 pairs and 1.9% (with 16, 240 and 1.25%). The security numbers would have to be
-   re-done and re-approved.
-3. **The icons already mean something** in the game (gear = settings, lock = a closed island, bolt = energy), so they
-   confuse, and the two robots are too alike to keep both.
+### The 4-digit code field
 
-**What is missing:** 20 new pictures, one style (painted, the Arcade Lagoon palette, one object on a plain navy
-tile, no text, no characters, no brands), none of them used anywhere else in the game, each nameable in one Hebrew
-word and different in shape *and* colour from the others:
+One real `<input inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off">` (a password manager must not
+offer to save it), shown as four boxes with dots, LTR, with a "הצגה" toggle, **and** a big on-screen keypad of 48 px
+keys (1 to 9, 0, delete) under it for a child who cannot find the digits on a laptop keyboard. Both feed the same
+field. Nothing is kept after the screen closes.
+
+### The picture screen (choose, recall)
+
+- **Two big slots on top, "1" and "2"**, side by side (first on the right, RTL). Each tap on a tile fills the next
+  empty slot with that picture and its name. Tapping a filled slot empties it. The order lives in the slots, nothing
+  else marks the tiles, so the child sees "first, then second".
+- **The grid scrolls under the slots**; the slots and the bottom bar stay. Tiles about 76 px on a 360 wide screen
+  (`repeat(auto-fill, minmax(72px, 1fr))` with an 8 px gap: 4 across at 360 and 390, 3 across at 320), the picture
+  56 to 64 px inside, its Hebrew word under it. Each tile is a button labelled by its word.
+- **Shuffled on every visit**, a different order in the repeat step (A5) than in the choose step (A3), and a new order
+  on every recovery attempt (E2), so nobody can learn a pair by where a finger went.
+- **Sound** (recorded clips, preset voice Kaia, never browser speech): the first time the screen opens, one line plays
+  once: "קודם תמונה אחת, אחר כך עוד אחת". A tap on a tile also says its name. A mute button sits with the others in
+  the game's settings; calm mode keeps sound off.
+- Screen reader: "תפוח, נבחרה ראשונה"; a filled slot reads "תמונה ראשונה: תפוח. הקישו כדי להוריד".
+- **In recovery (E2) the slots show filled dots, not the pictures**, like the code's dots, and tapped tiles get no ring
+  or mark: a neighbour must not read the pair off the screen.
+
+## 2. The picture set (20, new art; cap A of the art budget)
+
+The art under `assets/al` cannot give a good grid (9 of the 13 usable images are avatars every classmate sees on the
+board; the icons already mean something in the game). The art brief for 20 new pictures:
+
+- One style: painted, Arcade Lagoon palette, one object, thick flat shapes (thin lines vanish at 64 px), centred on a
+  plain navy tile, readable at 56 px. **No characters, no faces, no letters or numbers, no brands.**
+- **Nothing that is also part of the game:** no avatar animal, no Pitzi or any crab, and nothing from the sea and the
+  islands (no boat, moon, star, sun, shell, anchor, fish, lighthouse, palm, island), no game icon (gear, lock, bolt,
+  key, star).
+- **Nothing everybody would pick** (a football, a birthday cake), and no confusable pair: every picture differs from
+  every other in silhouette *and* main colour; only one round red thing.
+- Each one word, the same spelling everywhere (this file, the art's file name in `sources.tsv`, the clips).
 
 | | | | | |
 |---|---|---|---|---|
-| תפוח (apple, red) | בננה (banana, yellow) | אבטיח (watermelon slice) | עוגה (cake, pink) | כדור (ball, blue and white) |
-| מטריה (umbrella, purple) | אופניים (bicycle) | עפיפון (kite, orange) | תוף (drum) | גיטרה (guitar) |
-| כובע (hat) | נעל (shoe) | שעון (clock) | ירח (moon) | עץ (tree) |
-| פרח (flower) | בית (house) | סירה (sailboat) | פיל (elephant, grey) | ג׳ירפה (giraffe) |
+| תפוח (apple, red, round) | בננה (banana, yellow, crescent) | אבטיח (watermelon slice, green and red, wedge) | גזר (carrot, orange, long) | ענבים (grapes, purple, bunch) |
+| פרח (flower, pink, petals) | מטריה (umbrella, blue, open) | עפיפון (kite, green, diamond) | תוף (drum, red and white, cylinder) | כובע (hat, brown, wide brim) |
+| נעל (shoe, light blue) | פיל (elephant, grey) | ג׳ירפה (giraffe, yellow with brown spots, tall) | בית (house, cream with a red roof) | עיפרון (pencil, yellow, long) |
+| ספר (book, blue-green, closed) | פעמון (bell, gold) | מכונית (car, teal) | מספריים (scissors, silver and orange) | פטרייה (mushroom, red cap, white dots) |
 
-Left out on purpose: a key or a lock (they read as "password"), two red fruits (apple and strawberry are confused at
-72 px), anything on an avatar, Pitzi, the islands, numbers and letters.
+Pairs checked for confusion: apple and mushroom (round vs stalk and cap), banana and pencil (curve vs straight),
+umbrella and mushroom (blue vs red, handle vs stalk), elephant and giraffe (wide vs tall).
 
-Estimate: one sheet of 20 on a 4 x 5 grid, cut into tiles (one style for free), gpt_image_2_5 high, 1.25 a take; with
-a retake or two **about 2.5 to 5 credits**; 20 single images would be about 25 to 30. The art budget is at 448.69 of
-450, so either needs the owner to set a new cap. **Nothing has been generated.** The wireframes use labelled
-placeholder tiles.
+**Cost estimate (cap A, 25 credits):** pictures as 5 sheets of 4, gpt_image_2_5 high, 1.25 each: **6.25**, with a
+retake of two sheets 8.75. Sound: 22 clips (20 names, "קודם תמונה אחת, אחר כך עוד אחת", "אמרו את זה בקול"),
+text2speech_v2 with the Kaia preset, quoted 0.75 each = **16.5** quoted (the account has charged 0.15 a take so far,
+about 3.3). Together 22.75 quoted, inside the cap. Nothing has been generated yet.
 
-## 2. The rules every screen follows
+## 3. The flows, screen by screen, with every string
 
-- One question per screen, a progress line on top ("שלב 2 מתוך 4"), a back arrow (48 px) that keeps what was typed.
-- Buttons and tiles 48 px or more; the main action is the gold button at the bottom, inside the thumb's reach.
-- Fields: a visible label above (never only a placeholder), `inputmode="numeric"` for codes, `autocomplete="off"`
-  and no autofill of the 4-digit code; class code `autocapitalize="characters"`, Latin, LTR inside the RTL page.
-- The 4-digit code shows as 4 boxes with dots, with a "הצגה" (show) toggle; nothing is kept after the screen closes.
-- Errors appear under the field in `--wi-fix` (warm, never alarm red), in words a child can act on, and are read
-  out (`role="alert"`). Wrong answers never blame: "לא נכון" is followed by what to do.
-- The pictures: a 4 x 5 grid, tiles about 76 px with an 8 px gap on a 390 wide screen, each a button with its Hebrew
-  word under it and as its label. Tapping marks it with a gold ring and a badge "1" or "2"; tapping a marked tile
-  unmarks it (and the "2" becomes "1"). The grid order is fixed (the same everywhere, so memory by place helps; a
-  shuffle would not hide what is tapped anyway). Screen reader: "תפוח, נבחרה ראשונה".
-- Reduced motion and calm mode: no pop on the badge, no shake on an error.
-- Gendered Hebrew is avoided with the plural "אתם" the game already uses.
-
-## 3. The screens and every string (for approval)
-
-### Entry (sign-in screen, Supabase mode)
+### Entry
 
 | Where | Text |
 |---|---|
@@ -67,102 +84,133 @@ placeholder tiles.
 | Main button | נרשמים בפעם הראשונה |
 | Second button | כבר נרשמתי |
 | Link | שכחתי את הקוד |
+| Tick box (on every sign-in screen) | מחשב משותף: לא לזכור אותי |
 
-### A. Register (4 steps)
+The tick box keeps the session for this tab only (it ends when the tab closes). Unticked, the device stays signed in.
+
+### A. Register (5 steps)
 
 | Step | Where | Text |
 |---|---|---|
-| A1 | Heading | מי אתם? |
-| | Label | קוד הכיתה |
-| | Hint | 8 אותיות ומספרים. הוא כתוב על הלוח. |
-| | Label | השם הפרטי שלכם |
+| A1 1/5 | Heading | מי אתם? |
+| | Label, hint | קוד הכיתה · 8 תווים, אותיות ומספרים. הוא על הלוח. |
+| | Label, hint | השם הפרטי שלכם · כמו שכתוב ברשימה של המורה |
 | | Button | המשך |
 | | Error: class code | קוד הכיתה לא נכון. בדקו שוב מול הלוח. |
 | | Error: name not on the list | השם הזה לא ברשימת הכיתה. בקשו מהמורה להוסיף אותו. |
-| | Error: name already registered | כבר נרשמו עם השם הזה. אם זה אתם, הקישו "כבר נרשמתי". |
-| A2 | Heading | בוחרים קוד סודי |
+| | Error: name already taken | מישהו כבר נרשם בשם הזה. אם זה אתם, הקישו "כבר נרשמתי". אם יש בכיתה שני ילדים בשם הזה, בקשו מהמורה. |
+| A2 2/5 | Heading | בוחרים קוד סודי |
 | | Text | 4 ספרות שרק אתם יודעים. לא הקוד של הטלפון! |
 | | Label | הקוד הסודי שלי (4 ספרות) |
 | | Label | שוב את אותו הקוד |
 | | Toggle | הצגה / הסתרה |
-| | Error: weak code | קל מדי לנחש את הקוד הזה. בחרו קוד אחר. |
+| | Error: weak code | קל מדי לנחש. לא 1234 ולא ספרות חוזרות. נסו קוד אחר. |
 | | Error: the two differ | שני הקודים לא זהים. נסו שוב. |
-| A3 | Heading | בוחרים שתי תמונות סודיות |
-| | Text | קודם אחת, ואחריה עוד אחת. הן יעזרו לכם אם תשכחו את הקוד. |
-| | Hint | אל תגלו אותן לאף אחד, גם לא לחברים. |
-| | Status | נבחרה 1 מתוך 2 / נבחרו 2 מתוך 2 |
+| A3 3/5 | Heading | בוחרים שתי תמונות סודיות |
+| | Line (sound, once) | קודם תמונה אחת, אחר כך עוד אחת |
+| | Slots | 1 · 2 |
+| | Hint (under the slots) | הקישו על תמונה כדי לבחור. הקישו על משבצת כדי להחליף. |
 | | Button (after two) | המשך |
-| A4 | Heading | עוד פעם, כדי לזכור |
-| | Text | הקישו שוב על שתי התמונות, באותו הסדר. |
-| | Error: other pictures or order | זה לא אותו הדבר. נסו שוב, או חזרו לבחור מחדש. |
-| | Link | לבחור תמונות אחרות |
+| A4 4/5 | Heading | זוכרים בעזרת סיפור |
+| | The pair, large | תפוח, ואחר כך עפיפון |
+| | Text (sound) | אמרו את זה בקול. |
+| | Text | מצאו סיפור קצר שמחבר אותן. למשל: התפוח עף על עפיפון. אל תספרו אותו לאף אחד. |
+| | Button | זכרתי |
+| A5 5/5 | Heading | עכשיו מהזיכרון |
+| | Text | הקישו על שתי התמונות, באותו הסדר. |
+| | Error: other pictures or order | לא בדיוק. נסו שוב, אתם קרובים. |
+| | After 3 misses | אפשר לבחור תמונות חדשות. (returns to A3, new shuffle) |
 | Done | Heading | נרשמתם! |
 | | Text | המכשיר הזה יזכור אתכם. אם תשכחו את הקוד, התמונות יעזרו. |
 | | Button | יוצאים לדרך |
 
-A4 is new (not in BACKEND.md): a check on the device only, so a child remembers what they tapped. Nothing extra is
-sent.
+A4 and A5 are client-side only (nothing extra is sent). A5 comes **after** the code (A2) and the story (A4) so it is
+real recall, not copying. **After this the pair is never shown again**, anywhere.
+
+**Two pupils with the same first name:** as in the live game, the teacher adds one letter to the second name on her
+list (the first name, a space and a letter, e.g. "{שם} ב"), and the child types it that way. The A1 hint "כמו שכתוב ברשימה של המורה" and the taken-name message
+both point there.
 
 ### B. Sign in
 
 | Where | Text |
 |---|---|
 | Heading | נכנסים |
-| Labels | קוד הכיתה / השם הפרטי שלכם / הקוד הסודי שלי (4 ספרות) |
+| Labels | קוד הכיתה · השם הפרטי שלכם · הקוד הסודי שלי (4 ספרות) |
 | Button | כניסה |
 | Error: name or code (the same for both, BACKEND D1) | השם או הקוד לא נכונים. נסו שוב. |
-| Error: wait | היו יותר מדי ניסיונות. אפשר לנסות שוב בעוד 5 דקות. (15 דקות / שעה / 4 שעות) |
 | Link | שכחתי את הקוד |
 
-### B'. First sign-in of a pupil from the Sheet (one time; nothing opens before it is done)
+### B'. First sign-in of a pupil from the Sheet (one time)
 
-| Where | Text |
-|---|---|
-| Heading | יש לנו כניסה חדשה ובטוחה יותר |
-| Text | פעם אחת בלבד: בוחרים קוד סודי חדש ושתי תמונות סודיות. הנקודות והכוכבים שלכם נשמרים. |
-| Button | בואו נתחיל |
-| Then | A2, A3 and A4 as above, progress "שלב 1 מתוך 3" ... |
-| Error: new code equals the old (only if the server refuses it) | בחרו קוד חדש, לא את הקוד הקודם. |
+| Step | Where | Text |
+|---|---|---|
+| B'1 | Screen B | as above; the old code is typed here |
+| B'2 1/4 | Heading | כניסה חדשה: בוחרים קוד ותמונות |
+| | Text | פעם אחת בלבד. הנקודות והכוכבים שלכם נשמרים. |
+| | Button | בואו נתחיל |
+| B'3 to B'5 2/4 to 4/4 | | A2 (new code), A3 (pictures), A4 and A5 (story, recall), numbered 2/4, 3/4, 4/4 (A4 and A5 count as one step) |
+| Error: new code equals the old (if the server refuses it) | | בחרו קוד חדש, לא את הקוד הקודם. |
+| If the tab closes before the end | (next time, after B'1) | עוד לא סיימתם לבחור קוד ותמונות. אפשר להמשיך עכשיו. |
+
+Nothing opens before the end of B'5 (BACKEND 3B). If the tab closes in the middle nothing has changed on the server:
+the **old code still works**, and the next sign-in starts B'2 again with the line above.
+
+A pupil from the Sheet who **forgot the old code** has no pictures yet: "שכחתי את הקוד" → E1 → straight to E3 with
+"עוד לא בחרתם תמונות. בקשו מהמורה קוד חדש." (the server answers E1 with "no pictures"; it says nothing an attacker can
+use that the teacher's list does not already show).
 
 ### E. "I forgot my code"
 
 | Step | Where | Text |
 |---|---|---|
-| E1 | Heading | שכחתם את הקוד? זה קורה. |
-| | Labels | קוד הכיתה / השם הפרטי שלכם |
+| E1 1/3 | Heading | שכחתם את הקוד? זה קורה. |
+| | Labels | קוד הכיתה · השם הפרטי שלכם |
 | | Button | המשך |
-| E2 | Heading | הקישו על שתי התמונות הסודיות שלכם, לפי הסדר |
-| | Error: wrong (tries left) | זה לא זה. נשארו עוד 2 ניסיונות. (עוד ניסיון אחד) |
-| | After the 3rd wrong try | השחזור עם תמונות נסגר לשם הזה. בקשו מהמורה קוד חדש. |
-| | Already used in the last 30 days | כבר החלפתם קוד החודש. בקשו מהמורה קוד חדש. |
-| | Class paused for the day | אי אפשר לשחזר עם תמונות היום. נסו מחר, או בקשו מהמורה קוד. |
+| E2 2/3 | Heading | התמונות הסודיות, לפי הסדר |
+| | Slots | filled dots, not pictures |
+| | Wrong, 2 left | לא התאים. אפשר לנסות עוד 2 פעמים. |
+| | Wrong, 1 left | ניסיון אחרון. קחו רגע לחשוב על הסדר. |
+| | After the 3rd | הפעם התמונות לא עבדו. המורה תעזור לכם עם קוד חדש. |
+| | Used in the last 30 days | כבר החלפתם קוד החודש. המורה תעזור לכם עם קוד חדש. |
+| | Paused for the class today | היום אי אפשר לשחזר עם תמונות. המורה תעזור לכם עם קוד חדש, או נסו מחר. |
 | | Link | קיבלתי קוד מהמורה |
-| E3 | Heading | הקוד מהמורה |
-| | Label | 6 ספרות |
-| | Button | המשך |
+| E3 2/3 | Heading | הקוד מהמורה |
+| | Label | 6 ספרות (LTR, the same keypad) |
 | | Error | הקוד לא נכון או שפג תוקפו. בקשו מהמורה קוד חדש. |
-| E4 | Then | A2, A3 and A4: a new code and **two new pictures** |
+| | When a reset is waiting (E1 goes straight here) | יש לכם קוד חדש מהמורה. הקלידו אותו כאן. |
+| E4 3/3 | | a new code (A2) and **two new pictures** (A3, A4, A5) |
 | Done | Heading | הקוד החדש מוכן! |
 | | Text | בטלפונים ובמחשבים אחרים תצטרכו להיכנס שוב עם הקוד החדש. |
 | | Button | יוצאים לדרך |
 
-While a reset is waiting (BACKEND F4) the pictures do not work. If the server answers E1 with "a teacher's code is
-waiting", E1 goes straight to E3 with the text "המורה הכינה לכם קוד. הקלידו אותו כאן." Whether the server may say
-that (it tells anyone with the class code and the name that a reset is waiting) is the engineer's call; if not, E2's
-wrong-picture message is shown and the link to E3 is enough.
+### Waits (from the backend engineer's rules; the server's answer carries the scope and the wait)
 
-### Signing out (settings)
+On a school Wi-Fi 25 children share one address, so the screen tells the child **which kind of wait** it is.
+
+| Scope | When | Text |
+|---|---|---|
+| Name, this device | 5 wrong codes for this name: 5, then 15, 60, 240 minutes (resets after 24 hours without a mistake). Classmates are not affected; a device where only this child signed in correctly in the last 30 days counts only its own mistakes | השם הזה עוצר לכמה דקות, רק במחשב הזה. אפשר לנסות שוב בעוד {N} דקות. בינתיים אפשר ללחוץ "שכחתי את הקוד" או לבקש מהמורה עזרה. |
+| Everyone at this address | 30 wrong codes in 24 hours across all names from one address (unknown devices wait), or the class brake (100 a day; the teacher is told at 60 and can lift it) | הכניסה מהמחשבים כאן עוצרת עד {HH:MM}, כי היו הרבה ניסיונות שגויים. אפשר לבקש מהמורה לשחרר. מי שכבר מחובר ממשיך לשחק. |
+| Class code, this address | 30 wrong class codes in an hour from one address | עצרנו את הניסיונות עם קוד הכיתה עד {HH:MM}. בדקו את הקוד על הלוח, או בקשו מהמורה. |
+| Pictures | 3 wrong for a name (closed until the teacher), 5 a day from one address, 10 a day in the class | the E2 messages above |
+
+A pupil who is already signed in is never stopped by any of these (BACKEND D4).
+
+### Shared device and switching
 
 | Where | Text |
 |---|---|
-| Button | יציאה מהמכשיר הזה |
-| Confirm | לצאת? בפעם הבאה תצטרכו את השם ואת הקוד. |
-| Buttons | כן, לצאת / נשארים |
+| Next to the greeting on the map | זה לא אני · החלפת משתמש |
+| Settings button | יציאה מהמכשיר הזה |
+| Confirm | לצאת? ההתקדמות נשמרת. בפעם הבאה תצטרכו את השם ואת הקוד. |
+| Buttons | כן, לצאת · נשארים |
 | Hint | במחשב משותף, תמיד יוצאים בסוף. |
+
+"זה לא אני" asks the same confirm and then shows the Entry screen.
 
 ## 4. Questions for the owner
 
-1. The 20 pictures (section 1): a new cap of about 5 credits for one sheet, or about 30 for single images?
-2. Should the device remember the class code (not the name or the code), so a child types it once? It saves typing
-   on a shared computer but leaves the class code on that computer. My suggestion: no, it is on the board.
-3. A4 (tap the pictures again to confirm): keep it? It costs 10 seconds and saves a forgotten pair.
+1. The 20 pictures and 22 clips under cap A (22.75 quoted): go?
+2. The tick box "מחשב משותף: לא לזכור אותי": off by default (as written) or on by default at school?
+3. The story step (A4): keep it? It adds about 15 seconds once and is what makes the pair stick after two weeks.
