@@ -74,17 +74,20 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
    return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}${cur?' cur':''}${todo?' todo':''}${x<50?' lc':''}" style="left:${x}%;top:${y.toFixed(1)}px" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}">
     <span class="pw">${spr('isl_'+i.id,'pic')}${o?'':spr('lock','lk')}${cur?`<span class="here">${spr('crab_wave','bc')}</span>`:''}</span>
     <span class="tag">${cur?`<em class="hb">${tot?'ממשיכים כאן':'מתחילים כאן'}</em>`:''}<b>${esc(i.he)}</b>${i.bonus?`<small class="bn">אי בונוס · שני שלבים</small>`:''}<small>${o?`${star()}${num(st+'/'+mx)}${st===mx?spr('ic_check','ck'):''}`:`נפתח ב־${num(i.need)}${star()}`}</small></span></button>`}).join('')}
- </section>`;worldMap()}
+ </section>`;worldMap();
+ /* with the design flag, a very short screen leaves the all-played banner out (worldFits): say its line once per visit */
+ if(played&&!fin&&!finSaid){finSaid=true;toast(all?'כל הכבוד! סיימתם את כל האיים':`עברתם בכל האיים! ${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`}`,3200)}}
+let finSaid=false;   // the all-played line was said as a toast in this visit
 /* the new world behind the design flag (?ds=1): js/avatar.js is fetched only on such a device; without the flag this does nothing */
 const dsOn=()=>document.documentElement.classList.contains('ds');
 const WORLD_DOCK=76;   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
-/* With the design flag, the island pictures are 7:6 (4:3 when the viewport is at most 700px high) and the labels a
-   little taller. THESE NUMBERS COPY css/ds-game.css (img.pic[src*="/isl_"] aspect-ratio 7/6, and 4/3 under
-   @media (max-height:700px)): change them together. The media test below is the same viewport test as the CSS.
-   TAG is the tallest label (the bonus island's three lines, 74px); 56px is the smallest island (320x568).
-   so an island and its label need more height than the game's own layout gives them. Islands in one column are two
-   rows apart: shrink them until a picture and its label fit in that space (the bonus island's label has three lines).
-   Without the flag the size is returned unchanged. */
+/* The islands' size with the design flag. Its island pictures are 7:6 (4:3 when the viewport is at most 700px high)
+   and its labels a little taller, so an island and its label need more height than the game's own layout gives them.
+   Islands in one column are two rows apart: worldIw shrinks them until a picture and its label fit in that space.
+   - THESE NUMBERS COPY css/ds-game.css (img.pic[src*="/isl_"] aspect-ratio 7/6, and 4/3 under @media (max-height:700px)):
+     change them together. The media test below is the same viewport test as the CSS.
+   - WORLD_TAG is the tallest label (the bonus island's three lines, 74px); 56px is the smallest island (320x568).
+   - Without the flag the size is returned unchanged. */
 const WORLD_TAG=74,worldPr=()=>matchMedia('(max-height:700px)').matches?.75:6/7,worldRoom=(w,H,mt,finH)=>2*(H-mt-(w*.76+48)-14-finH)/5;
 function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=worldPr();
  while(iw>56&&iw*pr+WORLD_TAG>worldRoom(iw,H,mt,finH))iw-=2;
