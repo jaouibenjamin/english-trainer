@@ -27,8 +27,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | k6 | Welcome film v7 (the owner's notes): laughs with Pitzi peeking from the sea, the shock flowing into the camera turn as the island rises, Pitzi's leap (key image, 6 s shot x 2: the first turned him into a crab with a penguin's face, unused), the run to the same island | grok_video (5 s x 3 = 22.5, 6 s x 2 = 18); gpt_image_2_5 high (1.25) | 6 | 41.75 | 41.75 | 386.44 | 63.56 |
 | k7 | Welcome film: the closing line re-recorded, 3 spellings (the take said "לנתני"); checked by speech recognition, the plain spelling used | text2speech_v2 elevenlabs (3 x 0.75) | 3 | 2.25 | 2.25 | 388.69 | 61.31 |
 | k8 | Welcome film: a 5 s test of upscaling the finished film to 4K (Topaz, 2160p), to price a sharper sharing version. Not used | topaz_video 2160p, 5 s | 1 | (no quote offered) | 9.00 | 397.69 | 52.31 |
+| k9 | Welcome film: the whole film (no title, 36 s) upscaled to 4K for sharing with the teacher; the title is then rendered at 4K over it. The owner asked for it | topaz_video 2160p, 36 s | 1 | (no quote offered; the test priced it about 65) | 51.00 | 448.69 | 1.31 |
 
-Total charged so far: **397.69** of 450. Left: 52.31. (The account charges voice takes less than their quote, 0.15 for most; the ledger keeps the quote, so it errs on the safe side.) (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k7: 260.86 (the owner approved spending within the 450 budget). Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
+Total charged so far: **448.69** of 450. Left: 1.31. (The account charges voice takes less than their quote, 0.15 for most; the ledger keeps the quote, so it errs on the safe side.) (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k9: 320.86 (the owner approved spending within the 450 budget). Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
 
 ## Jobs
 

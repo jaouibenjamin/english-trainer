@@ -42,11 +42,11 @@ def spans(s, cls, d0, step):
     return ''.join(out)
 
 
-async def frames(html, outdir, n=78):
+async def frames(html, outdir, n=78, dsf=1):
     from playwright.async_api import async_playwright
     async with async_playwright() as p:
         b = await p.chromium.launch(executable_path=os.environ.get('CHROME', '/usr/bin/google-chrome'))
-        pg = await b.new_page(viewport={'width': 540, 'height': 330})
+        pg = await b.new_page(viewport={'width': 540, 'height': 330}, device_scale_factor=dsf)
         await pg.set_content(html); await pg.wait_for_timeout(2500)
         await pg.evaluate("document.getAnimations().forEach(a=>a.pause())")
         for k in range(n):
@@ -67,17 +67,18 @@ def main():
     o = ap.parse_args()
     os.makedirs(o.outdir, exist_ok=True)
     html = TPL.replace('L1', spans(o.l1, 'a', 0, 0.05)).replace('L2', spans(o.l2, 'b', 0.55, 0.07))
+    W, H = map(int, subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', o.master],
+                                   capture_output=True, text=True, check=True).stdout.strip().split(','))
     with tempfile.TemporaryDirectory() as td:
-        asyncio.run(frames(html, td))
-        W, H = map(int, subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', o.master],
-                                       capture_output=True, text=True, check=True).stdout.strip().split(','))
+        asyncio.run(frames(html, td, dsf=max(1, -(-W // 540))))  # render the title at the film's own scale, so 4K stays sharp
         k = W / 540; y = int(H * 0.2 - 165 * k)
         sc = '' if W == 540 else f',scale={round(540 * k / 2) * 2}:-2'
         ov = f"[1:v]format=rgba{sc},setpts=PTS-STARTPTS+{o.at}/TB[t];[0:v][t]overlay=0:{y}:eof_action=repeat:format=auto,format=yuv420p"
         if W != 540:
-            share = os.path.join(o.outdir, 'share.mp4')
+            big = W >= 1500  # 4K: a higher bit rate, else the upscale is wasted
+            share = os.path.join(o.outdir, 'share4k.mp4' if big else 'share.mp4')
             run('-i', o.master, '-framerate', '30', '-i', os.path.join(td, '%03d.png'), '-filter_complex', ov + '[v]', '-map', '[v]', '-map', '0:a',
-                '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', '19', '-maxrate', '4500k', '-bufsize', '9000k',
+                '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', '19', '-maxrate', '16000k' if big else '4500k', '-bufsize', '32000k' if big else '9000k',
                 '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-ac', '2', '-movflags', '+faststart', share)
             print(share, os.path.getsize(share), hashlib.sha256(open(share, 'rb').read()).hexdigest())
             return
