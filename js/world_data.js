@@ -23,8 +23,8 @@ export const NAME_V=2;
 export const NAME_A=[
  {en:'Brave',he:'אמיץ/ה'},{en:'Happy',he:'שמח/ה'},{en:'Clever',he:'חכם/ה'},{en:'Fast',he:'מהיר/ה'},
  {en:'Funny',he:'מצחיק/ה'},{en:'Strong',he:'חזק/ה'},{en:'Kind',he:'טוב/ת לב'},{en:'Lucky',he:'בר/בת מזל'},
- {en:'Super',he:'סופר'},{en:'Cool',he:'מגניב/ה'},{en:'Mighty',he:'אדיר/ה'},{en:'Wild',he:'פראי/ת'}];
+ {en:'Golden',he:'זהוב/ה'},{en:'Cool',he:'מגניב/ה'},{en:'Mighty',he:'אדיר/ה'},{en:'Wild',he:'פראי/ת'}];
 export const NAME_B=[
  {en:'Fox',he:'שועל'},{en:'Lion',he:'אריה'},{en:'Tiger',he:'טיגריס'},{en:'Eagle',he:'נשר'},
  {en:'Wolf',he:'זאב'},{en:'Dolphin',he:'דולפין'},{en:'Panda',he:'פנדה'},{en:'Shark',he:'כריש'},
- {en:'Owl',he:'ינשוף'},{en:'Bear',he:'דוב'},{en:'Dragon',he:'דרקון'},{en:'Falcon',he:'בז'}];
+ {en:'Owl',he:'ינשוף'},{en:'Bear',he:'דוב'},{en:'Dragon',he:'דרקון'},{en:'Rabbit',he:'ארנב'}];

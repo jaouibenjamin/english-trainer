@@ -8,11 +8,12 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   **Rule: the eight human kids are always open.** Every child can pick a kid who looks like them from the first
   minute; no child's look is ever locked behind a level (the owner's lead, 25.11.2026). The other twelve (animals,
   robots, the diver, the pilot) open one per energy level, from level 2 to 13: the fox first, the most exciting last
-  (see the ladder below). A locked
-  tile shows the character dimmed with "נפתח ברמה N"; it cannot be chosen, and a tap says how far it is. A character
-  a pupil already chose stays theirs even if it would be locked at their level. When a level opens a character, the
-  map says once "דמות חדשה נפתחה!" with its portrait and a button to the picker ("דמויות חדשות נפתחו!" when two levels
-  came at once; a device that first opens the map at a high level is not told about old news).
+  (see the ladder below). A locked tile shows the whole character at 0.7, a small lock in its top corner and "רמה N"
+  in one line at the bottom; it cannot be chosen, and a tap (and the screen reader's name for it) says "(name): אפשר
+  לפתוח ברמה N (עוד N רמות)". A character a pupil already chose stays theirs even if it would be locked at their
+  level. When a level opens a character, the map says once "דמות חדשה נפתחה!" with its portrait and a button to the
+  picker; when several came at once, "דמויות חדשות נפתחו!" with the newest three portraits and "ועוד N". A device
+  that first opens the map at a high level is not told about old news.
 - **Its name:** a describing word and an animal, one from each of two fixed lists (`NAME_A`, `NAME_B` in
   `js/world_data.js`), stored as two indexes and the lists' version (`nv: 2`). No free text. A name stored from the
   earlier lists (no version) reads as "no name yet", so nobody gets a different name silently. All 144 names fit on
@@ -83,13 +84,14 @@ both genders.
 | Strong | חזק/ה | Dolphin | דולפין |
 | Kind | טוב/ת לב | Panda | פנדה |
 | Lucky | בר/בת מזל | Shark | כריש |
-| Super | סופר | Owl | ינשוף |
+| Golden | זהוב/ה | Owl | ינשוף |
 | Cool | מגניב/ה | Bear | דוב |
 | Mighty | אדיר/ה | Dragon | דרקון |
-| Wild | פראי/ת | Falcon | בז |
+| Wild | פראי/ת | Rabbit | ארנב |
 
 All 144 pairs were read for an unkind or silly meaning, in English and in the Hebrew under each word; none found.
-For her attention: "Wild" (פראי/ת) is meant as "full of energy"; she may prefer to drop it.
+For her attention: "Wild" (פראי/ת) is meant as "full of energy"; she may prefer to drop it. "Golden" replaced "Super" (its Hebrew "סופר" reads as a writer or a supermarket; "Smart" would have the same Hebrew as "Clever") and "Rabbit" replaced "Falcon" (בז is unknown to many children).
 Also ours and to be checked: "דמות חדשה נפתחה!", "דמויות חדשות נפתחו!", "(name) מחכה לכם. רוצים להחליף?", "לבחירת דמות",
-"אחר כך", "נפתח ברמה N", "(name) נפתח/ת ברמה N. עוד N רמות: מרוויחים אנרגיה כשלומדים, ואף פעם לא מפסידים אותה.",
+"אחר כך", "N דמויות חדשות מחכות לכם. רוצים להחליף?", "ועוד N", "רמה N" (the badge on a locked tile),
+"(name): אפשר לפתוח ברמה N (עוד N רמות). מרוויחים אנרגיה כשלומדים, ואף פעם לא מפסידים אותה.",
 "בכל רמה חדשה נפתחת דמות חדשה. עכשיו אתם ברמה N."

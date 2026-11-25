@@ -81,6 +81,9 @@ export function focus(){
   if(n&&(!best||n>best.count))best={island:i.id,he:i.he,count:n}}
  return best&&{...best,count:Math.min(FOCUS_MAX,best.count)}}
 
+/* what a tap on a locked character says (one neutral form, no gender slash), also its accessible name */
+const lockedSay=(a,level)=>{const n=a.open-level;return a.he+': אפשר לפתוח ברמה '+a.open+' (עוד '+(n===1?'רמה אחת':n+' רמות')+'). מרוויחים אנרגיה כשלומדים, ואף פעם לא מפסידים אותה.'};
+
 /* ---------- small DOM helpers ---------- */
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function pic(id,cls){const i=el('img',cls);i.src=ART['av/'+id];i.alt='';i.decoding='async';i.draggable=false;return i}
@@ -127,7 +130,10 @@ export async function decorateMap(view,go,live=()=>true){
  if(fresh.length){const a=fresh[fresh.length-1],box=el('div','wnew');box.setAttribute('role','dialog');box.setAttribute('aria-labelledby','wnew-h');
   const h=el('h2','wnew__h',fresh.length>1?'דמויות חדשות נפתחו!':'דמות חדשה נפתחה!');h.id='wnew-h';
   const ok=btn('wnew__ok','לבחירת דמות',()=>go('avatar'));
-  box.append(pic(a.id,'wnew__pic'),h,el('p','wnew__t',a.he+' מחכה לכם. רוצים להחליף?'),ok,btn('wnew__later','אחר כך',()=>box.remove()));
+  const pics=el('div','wnew__pics');for(const x of fresh.slice(-3).reverse())pics.appendChild(pic(x.id,'wnew__pic'));   // the newest first, up to three
+  if(fresh.length>3)pics.appendChild(el('span','wnew__more','ועוד '+(fresh.length-3)));
+  if(fresh.length>1){pics.classList.add('wnew__pics--many');box.classList.add('wnew--many')}
+  box.append(pics,h,el('p','wnew__t',fresh.length>1?fresh.length+' דמויות חדשות מחכות לכם. רוצים להחליף?':a.he+' מחכה לכם. רוצים להחליף?'),ok,btn('wnew__later','אחר כך',()=>box.remove()));
   sec.appendChild(box);ok.focus({preventScroll:true})}
  window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,fresh:fresh.map(a=>a.id)};   // for the tests
 }
@@ -144,23 +150,24 @@ export async function picker(view,go,live=()=>true){
  head.appendChild(btn('wpick__back','חזרה',()=>go('map')));
  const h=el('h1','wpick__h');h.tabIndex=-1;head.appendChild(h);sec.appendChild(head);
  const body=el('div','wpick__body');sec.appendChild(body);
- function choose(){h.textContent='בוחרים דמות';body.replaceChildren();
+ function choose(){h.textContent='בוחרים דמות';body.replaceChildren();sec.scrollTop=0;
   body.appendChild(el('p','wpick__sub','אפשר להחליף אותה מתי שרוצים.'));
   const grid=el('div','wpick__grid');grid.setAttribute('role','group');grid.setAttribute('aria-label','הדמויות');
   const note=el('p','wpick__note','בכל רמה חדשה נפתחת דמות חדשה. עכשיו אתם ברמה '+E.level+'.');note.setAttribute('role','status');
   for(const a of AVATARS){const locked=a.open>E.level&&a.id!==me.av,sel=pick===a.id;   // the character a pupil already has stays theirs
    const b=btn('wpick__av'+(locked?' is-locked':'')+(sel?' is-selected':''),null,()=>{
-    if(locked){const n=a.open-E.level;note.textContent=a.he+' נפתח/ת ברמה '+a.open+'. עוד '+(n===1?'רמה אחת':n+' רמות')+': מרוויחים אנרגיה כשלומדים, ואף פעם לא מפסידים אותה.';return}
+    if(locked){note.textContent=lockedSay(a,E.level);return}
     pick=a.id;choose();const s=body.querySelector('.is-selected');if(s){s.focus({preventScroll:true});playAv(s.querySelector('img'),a.id)}});   // its short animation, once (js/avanim.js: nothing before a tap, nothing with reduced motion or calm)
    b.dataset.id=a.id;b.appendChild(pic(a.id,'wpick__art'));
-   if(locked){b.setAttribute('aria-label',a.he+', נפתח ברמה '+a.open);b.setAttribute('aria-disabled','true');b.appendChild(el('span','wpick__lock','נפתח ברמה '+a.open))}
+   if(locked){b.setAttribute('aria-label',lockedSay(a,E.level));b.setAttribute('aria-disabled','true');
+    const k=el('img','wpick__key');k.src=ART['ui/lock'];k.alt='';k.decoding='async';b.append(k,el('span','wpick__lock','רמה '+a.open))}   // a small lock in the top corner and "רמה N" in one short line at the bottom: the picture stays in view
    else{b.setAttribute('aria-label',a.he);b.setAttribute('aria-pressed',sel?'true':'false')}
    grid.appendChild(b)}
   body.append(grid,note);
   const why=el('p','wpick__why',pick?'':'קודם בוחרים דמות.');
   const nx=btn('wpick__ok','הלאה: בוחרים שם',()=>{if(!pick){why.textContent='קודם בוחרים דמות.';return}name()});
   nx.setAttribute('aria-disabled',pick?'false':'true');body.append(nx,why)}
- function name(){h.textContent='איך קוראים לדמות?';body.replaceChildren();
+ function name(){h.textContent='איך קוראים לדמות?';body.replaceChildren();sec.scrollTop=0;   // each step starts at its heading (the picker may have scrolled to its button)
   body.appendChild(el('p','wpick__sub','בוחרים מילה אחת מכל רשימה. השם באנגלית.'));
   const who=el('div','wpick__who');who.appendChild(pic(pick,'wpick__big'));const shown=el('p','wpick__name');shown.setAttribute('aria-live','polite');who.appendChild(shown);body.appendChild(who);
   const rows=[0,1].map(k=>{const L=k?NAME_B:NAME_A,row=el('div','wpick__spin');row.appendChild(el('span','wpick__l',k?'מילה שנייה':'מילה ראשונה'));

@@ -40,12 +40,19 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .wpick__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--wi-s2)}
 .wpick__av{position:relative;aspect-ratio:1;padding:0;border:2px solid var(--wi-line);border-radius:var(--wi-r-lg);background:var(--wi-navy-800);overflow:hidden}
 .wpick__av.is-selected{border-color:var(--wi-gold);box-shadow:0 0 0 3px var(--wi-gold)}
-.wpick__av.is-locked .wpick__art{opacity:.5}   /* dimmed, still recognisable above its "נפתח ברמה N" plate */
+.wpick__av.is-locked .wpick__art{opacity:.7}   /* dimmed, the whole character in view: a child sees what they are working towards */
 .wpick__art{width:100%;height:100%;object-fit:cover;display:block}
-.wpick__lock{position:absolute;inset-inline:4px;inset-block-end:4px;padding:1px 4px;border-radius:var(--wi-r-sm);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-xs);font-weight:700;line-height:1.25;text-align:center}   /* "נפתח ברמה N" on a solid plate */
+.wpick__lock{position:absolute;inset-block-end:3px;inset-inline:3px;padding:0 2px;border-radius:var(--wi-r-pill);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-sm);font-weight:700;line-height:1.3;white-space:nowrap;text-align:center;box-shadow:0 0 0 1px var(--wi-line)}   /* "רמה N" in one short line at the bottom: the picture stays in view */
+.wpick__key{position:absolute;inset-block-start:4px;inset-inline-end:4px;width:20px;height:20px;padding:2px;border-radius:50%;background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-line);object-fit:contain}   /* the lock, in the top corner */
 /* ---- the map: a new character opened (shown once) ---- */
 .map .wnew{position:absolute;z-index:6;inset-inline:16px;bottom:calc(80px + var(--sb,0px));display:grid;grid-template-columns:72px 1fr;grid-template-areas:"p h" "p t" "b b" "l l";column-gap:var(--wi-s3);row-gap:var(--wi-s2);padding:var(--wi-s3) var(--wi-s4);border-radius:var(--wi-r-lg);background:var(--wi-navy-800);border:2px solid var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);color:var(--wi-text);font-family:var(--wi-font-ui)}
-.map .wnew__pic{grid-area:p;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--wi-gold);align-self:center}
+.map .wnew__pics{grid-area:p;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.map .wnew__pic{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--wi-gold);flex:none}
+/* several new characters: up to three small portraits side by side across the top, and "ועוד N" */
+.map .wnew.wnew--many{grid-template-columns:1fr;grid-template-areas:"p" "h" "t" "b" "l"}
+.map .wnew__pics--many{flex-direction:row;flex-wrap:wrap}
+.map .wnew__pics--many .wnew__pic{width:56px;height:56px}
+.map .wnew__more{font-weight:800;color:var(--wi-gold);font-size:var(--wi-fs-sm);padding-inline-start:4px}
 .map .wnew__h{grid-area:h;margin:0;font-size:var(--wi-fs-lg);color:var(--wi-gold);line-height:1.2;align-self:end}
 .map .wnew__t{grid-area:t;margin:0;font-size:var(--wi-fs-sm);color:var(--wi-text)}
 .map .wnew button{font:inherit;cursor:pointer;min-height:var(--wi-tap);border-radius:var(--wi-r-pill);font-weight:800}

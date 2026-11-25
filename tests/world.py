@@ -67,12 +67,14 @@ async def flag_on(b, w, h, errs):
     await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid')
     av = await pg.evaluate("[...document.querySelectorAll('.wpick__av')].map(b=>({id:b.dataset.id,locked:b.classList.contains('is-locked')}))")
     check(f'[{tag}] picker: the 20 characters, the 8 human kids open at level 1, the other 12 locked', len(av) == 20 and [a['id'] for a in av if not a['locked']] == STARTERS and [a['id'] for a in av if a['locked']] == LADDER, av)
-    lab = await pg.evaluate("[...document.querySelectorAll('.wpick__av.is-locked')].map(b=>[b.querySelector('.wpick__lock').textContent,b.getAttribute('aria-disabled')])")
-    check(f'[{tag}] a locked tile says at which level it opens, and is not selectable', lab == [[f'נפתח ברמה {n}', 'true'] for n in range(2, 14)], lab)
+    lab = await pg.evaluate("[...document.querySelectorAll('.wpick__av.is-locked')].map(b=>[b.querySelector('.wpick__lock').textContent,b.getAttribute('aria-disabled'),/אפשר לפתוח ברמה/.test(b.getAttribute('aria-label')),!!b.querySelector('.wpick__key')])")
+    check(f'[{tag}] a locked tile shows a lock and "רמה N", says the whole sentence to a screen reader, and is not selectable', lab == [[f'רמה {n}', 'true', True, True] for n in range(2, 14)], lab)
+    seen = await pg.evaluate(BADGES)
+    check(f'[{tag}] the character on a locked tile is in view (0.7) and its badge is one line inside the tile, nothing cut off', not seen['bad'] and seen['op'] == ['0.7'], seen)
     await P.shot(pg, f'world-picker-{w}x{h}')
     await pg.click('.wpick__av[data-id=penguin]', force=True); await pg.wait_for_timeout(100)   # aria-disabled: a tap still reaches it, and it explains
     t = await pg.inner_text('.wpick__note')
-    check(f'[{tag}] a tap on a locked character says kindly how to get there, and does not choose it', 'ברמה 9' in t and 'עוד 8 רמות' in t and 'אף פעם לא מפסידים' in t and await pg.locator('.wpick__av.is-selected').count() == 0, t)
+    check(f'[{tag}] a tap on a locked character says kindly how to get there (one neutral form, no gender slash), and does not choose it', 'אפשר לפתוח ברמה 9' in t and 'עוד 8 רמות' in t and 'אף פעם לא מפסידים' in t and '/' not in t and await pg.locator('.wpick__av.is-selected').count() == 0, t)
     await pg.click('.wpick__ok', force=True); await pg.wait_for_timeout(100)      # aria-disabled: still pressable, it explains
     check(f'[{tag}] "next" without a character asks for one first', await pg.locator('.wpick__spin').count() == 0 and 'קודם בוחרים דמות' in await pg.inner_text('.wpick__why'))
     await pg.click('.wpick__av[data-id=girl-curls]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
@@ -277,6 +279,14 @@ async def ladder(b, errs):
     await set_world(pg, {'en': LEVELS[4], 'sl': 3}); await goto_hash(pg, 'map', '.wnew')
     W = await pg.evaluate('window.__world')
     check('two levels at once: "דמויות חדשות נפתחו!" with the newest one', W['fresh'] == LADDER[2:4] and 'דמויות חדשות נפתחו!' in await pg.inner_text('.wnew') and LADDER[3] in await pg.get_attribute('.wnew__pic', 'src'), W['fresh'])
+    # a jump from level 2 to 7: five new characters, the newest three shown and "ועוד 2"
+    await set_world(pg, {'en': LEVELS[6], 'sl': 2}); await goto_hash(pg, 'map', '.wnew')
+    J = await pg.evaluate("(()=>({fresh:__world.fresh,pics:[...document.querySelectorAll('.wnew__pic')].map(i=>i.getAttribute('src').split('/').pop().split('.')[0]),more:(document.querySelector('.wnew__more')||{}).textContent||'',t:document.querySelector('.wnew').innerText}))()")
+    check('a jump from level 2 to 7: the newest three portraits, "ועוד 2", and how many are waiting', J['fresh'] == LADDER[1:6] and J['pics'] == LADDER[5:2:-1] and J['more'] == 'ועוד 2' and '5 דמויות חדשות מחכות לכם' in J['t'], J)
+    a = await pg.evaluate(AUDIT.replace(".wd *,.wd__note,.wpick *", ".wnew,.wnew *"))
+    box = await pg.evaluate("(()=>{const r=document.querySelector('.wnew').getBoundingClientRect(),d=document.querySelector('.wd').getBoundingClientRect(),s=document.getElementById('stage').getBoundingClientRect();return {top:r.top>=s.top,clear:r.bottom<=d.top+1}})()")
+    check('the notice with several portraits reads (4.5:1, 44 px), is whole on the screen and above the dock', not a['bad'] and not a['small'] and box['top'] and box['clear'], [a, box])
+    await P.shot(pg, 'world-new-characters-390x844')
     # first map visit at a high level: no notice, the level is remembered
     await set_world(pg, {'en': LEVELS[6]}); await goto_hash(pg, 'map', '.map .wd')
     rec = json.loads((await pg.evaluate(LS))['wi_world'])['p']['local']
@@ -324,6 +334,10 @@ async def old_names(b, errs):
     await c.close()
 
 
+BADGES = """(()=>{const bad=[],op=new Set();for(const b of document.querySelectorAll('.wpick__av.is-locked')){const t=b.getBoundingClientRect(),g=b.querySelector('.wpick__lock'),r=g.getBoundingClientRect();
+ op.add(getComputedStyle(b.querySelector('.wpick__art')).opacity);
+ if(g.scrollWidth>g.clientWidth+1||r.height>28||r.left<t.left-0.5||r.right>t.right+0.5)bad.push([b.dataset.id,g.textContent,Math.round(r.width),Math.round(r.height),g.scrollWidth-g.clientWidth])}
+ return {bad,op:[...op]}})()"""
 FIT = """async()=>{const {NAME_A,NAME_B}=await import('./js/world_data.js');const out=[];
  const hi=document.querySelector('.wd__hi');const bd=[...hi.querySelectorAll('bdi')];
  for(const a of NAME_A)for(const b of NAME_B){bd[0].textContent=a.en;bd[1].textContent=b.en;
@@ -342,15 +356,21 @@ FIT_PICK = """async()=>{const {NAME_A,NAME_B}=await import('./js/world_data.js')
 async def names(b, errs):
     """all 144 names fit, one word per line on the map and on one line in the picker, at 360 and 320 px; the surprise
     button and the arrows only ever give names from the two lists"""
-    for w, h in ((360, 740), (320, 640)):
+    for w, h in ((360, 740), (320, 640), (320, 568)):
         c, pg, reqs = await page(b, w, h, errs, SEED)
         await pg.add_init_script("if(!sessionStorage.getItem('w')){sessionStorage.setItem('w','1');localStorage.setItem('wi_world',JSON.stringify({v:1,p:{local:{av:'fox',nm:[0,0],nv:2,en:0}}}))}")
         await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd__focus'); await pg.wait_for_timeout(300)
         bad = await pg.evaluate(FIT)
         check(f'[{w}x{h}] all 144 names fit in the map dock next to today\'s focus, one word per line, nothing cut off', not bad, bad[:6])
-        await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+        await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid')
+        seen = await pg.evaluate(BADGES)
+        check(f'[{w}x{h}] every locked tile: the character in view and "רמה N" whole on one line inside the tile', not seen['bad'], seen)
+        await pg.evaluate("document.querySelector('.scr.wpick').scrollTop=1e5")   # as after scrolling down to the button
+        await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
         bad = await pg.evaluate(FIT_PICK)
         check(f'[{w}x{h}] all 144 names fit on one line in the picker, and every word with its Hebrew under it', not bad, bad[:6])
+        top = await pg.evaluate("document.querySelector('.wpick__h').getBoundingClientRect().top")
+        check(f'[{w}x{h}] the name step starts at its heading (on the screen, even after the picker scrolled to its button)', top >= 0, top)
         if w == 320:
             seen = set()
             for _ in range(40):
