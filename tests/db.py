@@ -384,6 +384,17 @@ def test_teacher(db):
     rows, err = db.insert(T, 'roster', dict(class_id=C1, name_key='new kid', display_name='New Kid'))
     eq('teacher 1 adds a name to her own class list', (rows and rows[0]['name_key'], err), ('new kid', None))
     rows_n("teacher 1 deletes from class 2's list: nothing happens", db.delete(T, 'roster', dict(class_id=C2)), 0)
+    # step 3 of docs/PHASE3.md: what teacher.html sends, checked here by the database itself
+    denied('teacher 1 adds a name whose key is not the one the database computes: refused', db.insert(T, 'roster', dict(class_id=C1, name_key='Dana Lee', display_name='Dana Lee')), 'violates check constraint')
+    denied('teacher 1 adds a name already on her list: refused (no double)', db.insert(T, 'roster', dict(class_id=C1, name_key='new kid', display_name='New  Kid'.replace('  ', ' '))), 'duplicate key')
+    rows, err = db.select(T, 'classes', 'id')
+    eq("teacher 1 reads the classes: hers only (the page's class list and its unlock button)", ([r['id'] for r in rows or []], err), ([C1], None))
+    rows, err = db.select(T, 'teacher_view', 'pupil_id, class_id')
+    eq('the screen gets each pupil id and class id, of her class only (the actions name them)', (bool(rows) and all(r['pupil_id'] and r['class_id'] == C1 for r in rows), err), (True, None))
+    n_pupils = db.admin(f"select count(*) from public.pupils where class_id = '{C1}'")
+    rows, err = db.delete(T, 'roster', dict(class_id=C1, name_key='new kid'))
+    eq('teacher 1 removes exactly one name from her own list, and gets it back (the page shows what was removed)', ([r['name_key'] for r in rows or []], err), (['new kid'], None))
+    eq('removing a name from the list removes no pupil', db.admin(f"select count(*) from public.pupils where class_id = '{C1}'"), n_pupils)
     denied('teacher 1 deletes a pupil of class 2', db.rpc(T, 'teacher_delete_pupil', dict(p_pupil=pid('X'))), 'not your pupil')
 
     print('-- deleting a pupil removes them from every table')

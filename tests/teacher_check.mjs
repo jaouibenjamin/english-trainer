@@ -33,8 +33,9 @@ function gotrue(clock) {
     },
     async fetch(u, init = {}) {
       const url = new URL(u), body = init.body ? JSON.parse(init.body) : null, auth = (init.headers || {}).authorization || '';
-      log.push({ path: url.pathname + url.search, body, auth, apikey: (init.headers || {}).apikey, keepalive: !!init.keepalive });
+      log.push({ path: url.pathname + url.search, body, auth, apikey: (init.headers || {}).apikey, keepalive: !!init.keepalive, method: init.method, prefer: (init.headers || {}).prefer });
       if (g.delay) await g.delay;
+      if (g.down) throw new TypeError('Failed to fetch');
       const out = (status, j) => ({ status, json: async () => j });
       if (url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'pkce') {
         const c = codes.get(body.auth_code);
@@ -56,9 +57,16 @@ function gotrue(clock) {
         for (const s of sessions.values()) if ('Bearer ' + s.access_token === auth) s.alive = false;
         return out(204, null);
       }
+      if (url.pathname === '/functions/v1/teacher-reset') {
+        const s = [...sessions.values()].find(x => 'Bearer ' + x.access_token === auth && x.alive);
+        if (!s) return out(401, { message: 'Invalid JWT' });
+        return out(200, body.action === 'reset' ? { ok: true, otc: '123456', expires_at: '2027-01-12T08:00:00Z', name: 'Noa' } : { ok: true });
+      }
       if (url.pathname.startsWith('/rest/v1/')) {
         const s = [...sessions.values()].find(x => 'Bearer ' + x.access_token === auth && x.alive);
         if (!s) return out(401, { message: 'JWT expired' });
+        if (init.method === 'DELETE') return out(200, []);
+        if (init.method === 'POST') return out(201, null);
         return out(200, (g.rows[url.pathname.slice(9)] || {})[s.user.email] || []);
       }
       return out(404, null);
@@ -253,6 +261,39 @@ const tick = () => new Promise(r => setTimeout(r, 5));
   eq('a read refused by the server (401): signed out, nothing to show', [r2, u.auth.signedIn(), u.outs], [null, false, ['expired']]);
   const v = tab(t);
   eq('no read without a session (no request at all)', [await v.auth.read('/rest/v1/teacher_view'), v.server.log.length], [null, u.server.log.length]);
+}
+// ---- 13. step 3: her actions, with her token only, and a one-time code never handed over after she is gone
+{
+  const t = tab();
+  await t.signIn();
+  const r = await t.auth.write('/functions/v1/teacher-reset', { action: 'reset', pupil_id: 'p1' });
+  const last = t.server.log.at(-1);
+  eq('write: POST with her token, the body as given', [r.status, r.j.otc, last.method, last.auth.startsWith('Bearer acc-'), last.apikey, last.body], [200, '123456', 'POST', true, KEY, { action: 'reset', pupil_id: 'p1' }]);
+  const d = await t.auth.write('/rest/v1/roster?class_id=eq.c1&name_key=eq.noa', undefined, 'DELETE', 'return=representation');
+  eq('write: DELETE with no body and the Prefer asked for', [d.status, t.server.log.at(-1).method, t.server.log.at(-1).body, t.server.log.at(-1).prefer], [200, 'DELETE', null, 'return=representation']);
+  let release; t.server.delay = new Promise(x => { release = x; });
+  const late = t.auth.write('/functions/v1/teacher-reset', { action: 'reset', pupil_id: 'p1' });
+  await tick();
+  t.server.delay = null; await t.auth.signOut('out'); release();
+  eq('a new code that comes back after sign-out is never handed to the page', await late, null);
+  await t.signIn();
+  let rel2; t.server.delay = new Promise(x => { rel2 = x; });
+  const late2 = t.auth.write('/functions/v1/teacher-reset', { action: 'reset', pupil_id: 'p1' });
+  await tick();
+  t.server.delay = null; t.auth.left(); rel2();
+  eq('nor after she left the page', await late2, null);
+  await t.signIn();
+  t.server.down = true;
+  eq('no network: told as such (status 0), still signed in', [await t.auth.write('/functions/v1/teacher-reset', { action: 'unlock', pupil_id: 'p1' }), t.auth.signedIn()], [{ status: 0, j: null }, true]);
+  t.server.down = false;
+  for (const s of t.server.sessions.values()) s.alive = false;
+  t.outs.length = 0;
+  eq('an action refused by the server (401): signed out, nothing returned', [await t.auth.write('/functions/v1/teacher-reset', { action: 'unlock', pupil_id: 'p1' }), t.auth.signedIn(), t.outs], [null, false, ['expired']]);
+  const n = t.server.log.length;
+  eq('no action without a session (no request at all)', [await t.auth.write('/rest/v1/roster', { class_id: 'c1' }), t.server.log.length], [null, n]);
+  const src = fs.readFileSync(path.join(ROOT, 'js/teacher.js'), 'utf8');
+  check('teacher.js: the code never goes to the console, storage or the address bar', !/console\./.test(src) && !/(local|session)Storage\.setItem\([^)]*otc/i.test(src) && !/(location|history)[^;]*otc/i.test(src));
+  check('teacher.js: every action waits for her "yes" and checks the epoch after each await', (src.match(/act\(`/g) || []).length === 5 && (src.match(/if\(!r\|\|e!==epoch\)return;/g) || []).length === 5);
 }
 // ---- 11. the page and the site
 {

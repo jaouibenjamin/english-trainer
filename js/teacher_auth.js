@@ -26,8 +26,8 @@ export function teacherAuth(env){
  const self=()=>location.origin+location.pathname;
  const get=()=>{try{return JSON.parse(store.getItem(FLOW))}catch(e){return null}};
  const drop=()=>{try{store.removeItem(FLOW)}catch(e){}};
- async function call(path,body,token,method,keep){
-  const r=await fetch(url+path,{method:method||'POST',keepalive:!!keep,headers:{apikey:key,...(body!==undefined?{'content-type':'application/json'}:{}),...(token?{authorization:'Bearer '+token}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
+ async function call(path,body,token,method,keep,prefer){
+  const r=await fetch(url+path,{method:method||'POST',keepalive:!!keep,headers:{apikey:key,...(body!==undefined?{'content-type':'application/json'}:{}),...(token?{authorization:'Bearer '+token}:{}),...(prefer?{prefer}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
   let j=null;try{j=await r.json()}catch(e){}return{status:r.status,j}}
  function keep(j){ses={access:j.access_token,refresh:j.refresh_token,exp:now()+1000*(+j.expires_in||3600),user:{id:j.user&&j.user.id||null,email:j.user&&j.user.email||''}};touch()}
  /* activity: a tap or a key; 30 minutes without one ends the session */
@@ -82,6 +82,15 @@ export function teacherAuth(env){
   if(g!==gen)return null;
   if(r.status===401){await signOut('expired');return null}
   return r.status===200&&Array.isArray(r.j)?{rows:r.j}:{error:'server'}}
+ /* an action (docs/PHASE3.md step 3): a call with her token that changes something; the server checks it again. null
+    when there is no session, or when it changed while the answer was on its way: a one-time code that comes back after
+    she left is never handed to the page */
+ async function write(path,body,method,prefer){
+  const g=gen,t=await token();if(!t||g!==gen)return null;
+  let r;try{r=await call(path,body,t,method||'POST',false,prefer)}catch(e){return g===gen?{status:0,j:null}:null}
+  if(g!==gen)return null;
+  if(r.status===401){await signOut('expired');return null}
+  return r}
  /* leaving the page ends the session (not the trip to Google, which keeps only the verifier) */
  function left(){if(going)return;if(ses)signOut('left')}
- return{begin,finish,token,read,signOut,touch,wake,left,user:()=>ses?{...ses.user}:null,signedIn:()=>!!ses}}
+ return{begin,finish,token,read,write,signOut,touch,wake,left,user:()=>ses?{...ses.user}:null,signedIn:()=>!!ses}}
