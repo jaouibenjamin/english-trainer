@@ -25,7 +25,8 @@ export function playAv(img,id){
   return true;
  }
  clearTimeout(img.__avT);
+ img.onerror=()=>{clearTimeout(img.__avT);img.onerror=null;img.src=still};   // a missing file: straight back to the still portrait, never a broken picture
  img.src=anim+'#p'+(++n);   // a new address each time, so the animation starts again from its first frame
- img.__avT=setTimeout(()=>{img.src=still},PLAY_MS);
+ img.__avT=setTimeout(()=>{img.onerror=null;img.src=still},PLAY_MS);
  return true;
 }
