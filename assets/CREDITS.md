@@ -536,8 +536,8 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 
 | File | What | Made | Job id | Model |
 |---|---|---|---|---|
-| `assets/al/intro/intro.hf_20261125_152954_f47c0bff-0f28-4752-80da-32d4a42b4992.mp4` | welcome film v2, 33.7 s, 390 x 710, stereo: one continuous camera from the school gate to the island. Shots by Grok Video from our key images (gpt_image_2_5 jobs 5f2c23a8, 14f86136, c3ab51b6, 5195d0a8; video jobs d69a525d, 95ba6021, 33b2a7ea, e1b88c79, 9f533fd3, f47c0bff), Pitzi's shot from v1 (970ab3ba); narration ElevenLabs preset voice Kaia (dd64b78b), Pitzi's line preset voice Archie (7e57dcd5), music c9f440f8 | 2026-11-25 | f47c0bff-0f28-4752-80da-32d4a42b4992 | grok_video + gpt_image_2_5 + text2speech_v2 |
-| `assets/al/intro/poster.hf_20261125_152813_9f533fd3-72c0-49aa-b65c-8b09bdf03b96.webp` | welcome film v2: poster (the four on the hill, the island lit; last frame of the zoom-out) | 2026-11-25 | 9f533fd3-72c0-49aa-b65c-8b09bdf03b96 | grok_video |
+| `assets/al/intro/intro.hf_20261125_154514_f7ce2658-a46d-4523-8a64-a33ebc88e245.mp4` | welcome film v3, 32 s, 390 x 710, stereo: the four leave school, walk, sit and laugh; the island rises from the sea; Pitzi leaps onto a rock and calls; the kids cheer. Grok Video shots d69a525d, 95ba6021, 33b2a7ea, e1b88c79, 43b94f4e, f7ce2658 (with their own generated sound: footsteps, laughter, rumble, water, cheering; no words); key images 5f2c23a8, 14f86136, c3ab51b6, 5195d0a8, 89744b75 (gpt_image_2_5); narration Kaia dd64b78b and 9e3d099a, Pitzi preset voice Archie 7e57dcd5, music c9f440f8 | 2026-11-25 | f7ce2658-a46d-4523-8a64-a33ebc88e245 | grok_video + gpt_image_2_5 + text2speech_v2 |
+| `assets/al/intro/poster.hf_20261125_154514_f7ce2658-a46d-4523-8a64-a33ebc88e245.webp` | welcome film v3: poster (Pitzi on his rock, the four cheering, the island; last frame of his shot) | 2026-11-25 | f7ce2658-a46d-4523-8a64-a33ebc88e245 | grok_video |
 
 ### Pitzi
 
