@@ -29,7 +29,12 @@ export async function api(a,d){
  return supa(a,d)}
 
 /* ---------- small storage helpers: everything Supabase-side lives under its own keys, never in the game's record ---------- */
-const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log',stale:'wi-sb-stale',owner:'wi-sb-owner',stop:'wi-sb-stop'};
+const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log',stale:'wi-sb-stale',owner:'wi-sb-owner',stop:'wi-sb-stop',netfail:'wi-sb-netfail'};
+/* The session generation (review of #39, blocker 1): raised whenever this device's session is let go (another pupil,
+   logout). A save in flight belongs to the generation it started in: after every await it checks, and if the session
+   changed meanwhile it stops without touching the session, the base, the pending batch or the queue, so one pupil's
+   progress can never be written with, or become the base of, the next pupil's session. */
+let gen=0;
 const get=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
 const set=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 /* what happened on the shadow side: time, a short kind, numbers. Never a name, a code or a token. */
@@ -59,23 +64,32 @@ async function token(){
 async function rpc(name,args){const t=await token();if(!t)return{status:401,j:null};return call('/rest/v1/rpc/'+name,args,t)}
 function keep(j){const old=get(K.ses)||{};const s=j.session||{};
  set(K.ses,{access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at||Math.floor(Date.now()/1000)+(s.expires_in||3600),device_token:j.device_token||old.device_token,at:j.updated_at||null})}
-async function signIn(d,extra){const dev=(get(K.ses)||{}).device_token;
+async function signIn(d,extra){const dev=(get(K.ses)||{}).device_token,g=gen;
  const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{}),...(extra||{})});
+ if(r.j&&r.j.ok&&g!==gen)return{ok:false,e:'net'};      // the device was signed out meanwhile: this session is not kept
  if(r.j&&r.j.ok)keep(r.j);return r.j||{ok:false,e:'net'}}
-export function signOut(){const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null);set(K.base,null);set(K.pend,null);set(K.stale,null);queued=null}   // this device only
+export function signOut(){gen++;const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null);set(K.base,null);set(K.pend,null);set(K.stale,null);
+ queued=null;holdUntil=0;lastWrite=0;clearTimeout(timer);timer=null}   // this device only; the next pupil starts with no wait of the last one
 /* Review of #21, B1: on a shared device the session must belong to the pupil whose progress is being saved. The device
    keeps a hash of class code and name (never the name itself); when another pupil's request comes, the old session is
    revoked on the server (best effort) and forgotten here before anything is sent. */
 async function ownerOf(d){const t=String(d&&d.c||'').trim().toUpperCase()+'|'+String(d&&d.n||'').normalize('NFC').trim().replace(/\s+/g,' ').toLowerCase();
  const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('wi-owner|'+t));return Array.from(new Uint8Array(h).slice(0,12),b=>b.toString(16).padStart(2,'0')).join('')}
-async function dropSession(keepProgress){const s=get(K.ses)||{};
- if(s.access_token){try{await call('/auth/v1/logout?scope=local',{},s.access_token)}catch(e){}}   // the refresh token dies with it
+async function dropSession(keepProgress){
+ if(!keepProgress)gen++;                                // saves in flight stop now, before anything is awaited
+ // a fresh access token first (review of #39, 4): revoking with an expired one is refused, and the refresh token lives on
+ let t=null;try{t=await token()}catch(e){}
+ const s=get(K.ses)||{};
+ if(t){try{await call('/auth/v1/logout?scope=local',{},t)}catch(e){}}   // the refresh token dies with it
  if(keepProgress)set(K.ses,s.device_token?{device_token:s.device_token}:null);   // the same pupil: only the session goes
  else signOut()}
 /* For js/state.js (review of #21, B1): logout forgets everything of this pupil on the device and revokes the session
    on the server; relogin (the Sheet refused the pupil) drops only the session, so the same pupil's pending progress
    waits for them. With no session on the device (the Sheet mode of today) nothing is sent anywhere. */
-export function forget(all){dropSession(!all).catch(()=>{})}
+export function forget(all){(async()=>{
+ // logout (review of #39, 2): what was played since the last copy goes first, within 8 s; then the session is revoked
+ if(all&&queued)await Promise.race([flush(true).catch(()=>{}),new Promise(r=>setTimeout(r,8000))]);
+ await dropSession(!all)})().catch(()=>{})}
 async function sameOwner(d){if(!d||!d.c||!d.n)return true;const h=await ownerOf(d),cur=get(K.owner);
  if(cur&&cur!==h){await dropSession();set(K.stop,null)}
  set(K.owner,h);return h}
@@ -86,41 +100,57 @@ async function sameOwner(d){if(!d||!d.c||!d.n)return true;const h=await ownerOf(
    word answers (st: [tries, wrong]), a level's stars going up (g.st, m.st), a text read perfectly (read + k.reads),
    a finished mock exam (x.tries). What it cannot see is listed in docs/BACKEND.md section 8 (the gap per source). */
 const num=x=>+x||0,obj=x=>x&&typeof x==='object'&&!Array.isArray(x)?x:{};
+/* After a long wait (the server said wait, daycap or brake) many answers build up. They are all kept (review of #39,
+   3) and sent in batches of BATCH; the caps only stop a counter that jumped absurdly (a broken or edited record). */
+const BATCH=200,MAX_PER_WORD=600,MAX_EVENTS=4000;
 export function events(prev,next){
  const ev=[],p=obj(prev),n=obj(next),now=Date.now();
  const ps=obj(p.st),ns=obj(n.st);
  for(const w in ns){const a=Array.isArray(ns[w])?ns[w]:[],b=Array.isArray(ps[w])?ps[w]:[];
-  const tries=Math.min(50,Math.max(0,num(a[0])-num(b[0]))),wrong=Math.min(tries,Math.max(0,num(a[1])-num(b[1])));
+  const tries=Math.min(MAX_PER_WORD,Math.max(0,num(a[0])-num(b[0]))),wrong=Math.min(tries,Math.max(0,num(a[1])-num(b[1])));
   for(let i=0;i<tries;i++)ev.push({type:'answer',game:'en',item:w,correct:true,first_try:i>=wrong,t:now})}
  for(const[g,key]of[['en','g'],['math','m']]){const a=obj(obj(n[key]).st),b=obj(obj(p[key]).st);
   for(const l in a){const s=Math.min(3,Math.floor(num(a[l])));if(s>Math.floor(num(b[l])))ev.push({type:'level',game:g,level:l,stars:s})}}
  if(num(obj(n.k).reads)>num(obj(p.k).reads)){const a=obj(n.read),b=obj(p.read);for(const id in a)if(num(a[id])>num(b[id]))ev.push({type:'read',text:id})}
  const seen=new Set((Array.isArray(obj(p.x).tries)?p.x.tries:[]).map(t=>t&&t.at));
  for(const t of Array.isArray(obj(n.x).tries)?n.x.tries:[])if(t&&!seen.has(t.at)&&Array.isArray(t.total))ev.push({type:'exam',paper:'mock',right:Math.max(0,Math.floor(num(t.total[0])))});
- return ev.slice(0,200)}
+ return ev.slice(0,MAX_EVENTS)}
+/* the id of part i of a pending batch: the batch's own id for part 0, then ids derived from it, so a part that is
+   sent again keeps its id and the server counts it once */
+const partId=(id,i)=>i?id.slice(0,-4)+((parseInt(id.slice(-4),16)+i)&0xffff).toString(16).padStart(4,'0'):id;
 
 /* ---------- writing a save to Supabase (shared by 'dual' and 'supabase') ----------
    Order matters for "never counted twice": the batch gets its id and is stored on the device BEFORE it is sent; if the
    answer is lost, the same batch with the same id goes again and the server ignores the repeat. */
 async function writeSave(s,overwrite){
+ const g=gen,live=()=>g===gen;
+ const t=await token();                                 // one token for this whole save, taken once
+ if(!live())return{ok:false,aborted:true};
+ if(!t)return{ok:false,status:401};
  let pend=get(K.pend);
  if(!pend){const base=get(K.base),ev=base?events(base,s):[];   // the first save on a device has nothing to compare with: it sets the base
-  pend={id:uuid(),ev,next:s};set(K.pend,pend)}
+  pend={id:uuid(),ev,next:s,sent:0};set(K.pend,pend)}
  const ses=get(K.ses)||{};
- let r=await rpc('save_progress',{p_state:s,p_base:ses.at||null});
+ const rpcT=(name,args)=>call('/rest/v1/rpc/'+name,args,t);
+ let r=await rpcT('save_progress',{p_state:s,p_base:ses.at||null});
+ if(!live())return{ok:false,aborted:true};
  if(r.status===200&&r.j&&r.j.conflict){
   if(!overwrite)return{ok:false,conflict:true,state:r.j.state,at:r.j.updated_at};
-  set(K.ses,{...ses,at:r.j.updated_at});r=await rpc('save_progress',{p_state:s,p_base:r.j.updated_at})}   // shadow: the Sheet is the truth
+  set(K.ses,{...ses,at:r.j.updated_at});r=await rpcT('save_progress',{p_state:s,p_base:r.j.updated_at})   // shadow: the Sheet is the truth
+  if(!live())return{ok:false,aborted:true}}
  // the server rations saves (5 s apart, 300 a day): not a failure, a "later" with the seconds to wait. The events still
  // go now (review of #21, B2): they do not depend on the blob, and held back they would meet the next day's caps.
  const later_=r.status===200&&r.j&&!r.j.ok&&(r.j.e==='wait'||r.j.e==='daycap')?{e:r.j.e,retry:Math.max(1,num(r.j.retry_after))}:null;
  if(!later_&&(r.status!==200||!r.j||!r.j.ok))return{ok:false,status:r.status};
  if(!later_)set(K.ses,{...(get(K.ses)||{}),at:r.j.updated_at});
  let points=null;
- if(pend.ev.length){const e=await rpc('record_events',{p_batch:pend.id,p_events:pend.ev});
-  if(e.status===200&&e.j&&e.j.e==='brake'){note('brake');return{ok:false,e:'brake',saved:!later_,retry:Math.max(BRAKE_RETRY,later_?later_.retry:0)}}   // the database is full for now: the batch waits on the device
+ for(let i=num(pend.sent);i*BATCH<pend.ev.length;i++){    // in parts of BATCH; each part done is remembered
+  const e=await rpcT('record_events',{p_batch:partId(pend.id,i),p_events:pend.ev.slice(i*BATCH,(i+1)*BATCH)});
+  if(!live())return{ok:false,aborted:true};
+  if(e.status===200&&e.j&&e.j.e==='brake'){note('brake');return{ok:false,e:'brake',saved:!later_,retry:Math.max(BRAKE_RETRY,later_?later_.retry:0)}}   // the database is full for now: the rest waits on the device
   if(e.status!==200||!e.j||!e.j.ok)return later_?{ok:false,...later_}:{ok:false,status:e.status,saved:true};
-  points=e.j.points;if(e.j.flagged)note('flagged',{n:e.j.flagged})}
+  points=e.j.points;if(e.j.flagged)note('flagged',{n:e.j.flagged});
+  pend={...pend,sent:i+1};set(K.pend,pend)}
  set(K.base,pend.next);set(K.pend,null);
  return later_?{ok:false,...later_,points,events:pend.ev.length}:{ok:true,points,events:pend.ev.length}}
 
@@ -138,8 +168,9 @@ async function flush(hidden){
  if(!queued||flushing)return null;
  const now=Date.now();if(now<holdUntil||(!hidden&&now<lastWrite+SAVE_EVERY)){later();return null}
  if(!(get(K.ses)||{}).refresh_token)return null;        // no session (yet): the state waits, nothing is sent
- const s=queued;queued=null;lastWrite=now;flushing=true;hiding=!!hidden;
+ const s=queued,g=gen;queued=null;lastWrite=now;flushing=true;hiding=!!hidden;
  let w;try{w=await writeSave(s,qOverwrite)}catch(e){w={ok:false,status:0}}finally{flushing=false;hiding=false}
+ if(g!==gen||w.aborted)return w;                        // the session changed meanwhile: nothing of this save is kept
  if(w.retry){if(!queued)queued=s;holdUntil=Date.now()+w.retry*1000}             // told to wait: keep it and try again
  else if(w.conflict&&!qOverwrite)set(K.stale,{state:w.state,at:w.at});           // 'supabase': the game joins at its next save
  if(MODE==='dual')note('save',{ok:w.ok?1:0,st:w.status||0,ev:w.events||0,...(w.e?{e:w.e}:{}),...(w.points!=null?{server:w.points}:{})});
@@ -153,7 +184,7 @@ if(MODE!=='sheet'&&typeof W.addEventListener==='function'){
 /* Sign-in on the shadow side (review of #21, S-a): only when there is no session for this pupil; never again the
    same day after the server said no (a pupil Supabase does not know would otherwise count as wrong codes from the
    school's one address and could pause sign-in for the whole class); after a network error at most every 10 minutes. */
-let busy=false,netFail=null,waiting=null;
+let busy=false,waiting=null;
 const today=()=>new Date().toISOString().slice(0,10);
 function shadow(a,d,r){
  if(!r||!r.ok)return;                                   // the Sheet refused: nothing to copy
@@ -165,10 +196,10 @@ function shadow(a,d,r){
   if(a==='save'){queued=d.s;qOverwrite=true}            // the newest state waits here until it may go
   if(!(await token())){
    const stop=get(K.stop);if(stop&&stop.owner===owner&&stop.day===today())return;
-   if(netFail&&netFail.owner===owner&&Date.now()-netFail.at<600000)return;
+   const nf=get(K.netfail);if(nf&&nf.owner===owner&&Date.now()-nf.at<600000)return;
    await dropSession(true);set(K.owner,owner);
    const j=await signIn(d);note('signin',{e:j.ok?'ok':String(j.e||'net').slice(0,12)});
-   if(!j.ok){const s0=get(K.ses)||{};set(K.ses,s0.device_token?{device_token:s0.device_token}:null);if(!j.e||j.e==='net'||j.e==='server')netFail={owner,at:Date.now()};else set(K.stop,{owner,day:today()});return}
+   if(!j.ok){const s0=get(K.ses)||{};set(K.ses,s0.device_token?{device_token:s0.device_token}:null);if(!j.e||j.e==='net'||j.e==='server')set(K.netfail,{owner,at:Date.now()});else set(K.stop,{owner,day:today()});return}
    if(a==='save')queued=d.s}
   if(a==='save'){note('sheet',{pts:num(d.s&&d.s.pts)});await flush(false)}
  }catch(e){note('error',{e:String(e&&e.name||'x').slice(0,20)})}finally{busy=false;if(waiting){const w=waiting;waiting=null;shadow('save',w,{ok:true})}}})()}

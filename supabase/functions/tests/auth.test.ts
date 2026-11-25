@@ -643,7 +643,7 @@ T("S5: the caller's address comes from the platform's end of X-Forwarded-For; an
   eq(clientIp(rq({ "cf-connecting-ip": "2001:DB8::1", "x-forwarded-for": "6.6.6.6" }), "cf-connecting-ip"), "2001:db8:0:0::/64", "a platform header, when the project shows that is the one");
   // IPv6 by /64, ports dropped (review of #35)
   for (const [a, want] of [["2001:db8:aa:bb:1:2:3:4", "2001:db8:aa:bb::/64"], ["2001:db8:aa:bb:ffff::9", "2001:db8:aa:bb::/64"], ["[2001:db8::7]:443", "2001:db8:0:0::/64"],
-    ["198.51.100.7:52011", "198.51.100.7"], ["::ffff:198.51.100.7", "198.51.100.7"], ["010.1.1.1", "10.1.1.1"], ["300.1.1.1", ""], ["1:2:3", ""], ["::1::2", ""], ["fe80::1%eth0", ""]]) {
+    ["198.51.100.7:52011", "198.51.100.7"], ["::ffff:198.51.100.7", "198.51.100.7"], ["::ffff:cb00:7107", "203.0.113.7"], ["010.1.1.1", "10.1.1.1"], ["300.1.1.1", ""], ["1:2:3", ""], ["::1::2", ""], ["fe80::1%eth0", ""]]) {
     eq(addressBucket(a), want, "address bucket of " + a);
   }
   eq(clientIp(rq({}), "xff-last"), "", "none");
@@ -683,7 +683,7 @@ T("S6: a pupil's auth user gets no second identity; one that has one is replaced
 
 T("S9: names: the same allow-list as the database, with ׳ ' ’ after a letter and Latin Extended-A", async () => {
   for (const n of ["ג׳ורג׳", "ג'ורג'", "ג’ורג’", "Łukasz", "Žofie", "D'", "Chloé", "ג׳ני", "Ana Mae", "Dan."]) ok(isName(n), "allowed: " + n);
-  for (const n of ["'Dana", "Dana-", "׳נועה", "Dá́na", "Dаna", "1Dan", "D\u0131na", "\u017Fara", "\u0138im", "\u0149ina"]) ok(!isName(n), "refused: " + JSON.stringify(n));
+  for (const n of ["'Dana", "Dana-", "׳נועה", "Dá́na", "Dаna", "1Dan", "D\u0131na", "\u017Fara", "\u0138im", "\u0149ina", "\u0133ssel", "Mi\u0133nt"]) ok(!isName(n), "refused: " + JSON.stringify(n));
   const c = await newClass();
   eq(e(await reg(c, "ג׳ורג׳", "4827")), "ok", "and the database takes the same name");
   clock.ms += HOUR;
@@ -765,8 +765,9 @@ T("a reset during a stream of guesses: no deadlock (auth_finish takes the name l
 });
 
 T("the postgres.js guard drops exactly the stray null write, nothing else (S-h)", async () => {
-  const ev = (code: string) => new ErrorEvent("error", { error: Object.assign(new TypeError("x"), { code }), cancelable: true });
-  const stray = ev("ERR_STREAM_NULL_VALUES"), other = ev("ECONNRESET");
+  const PG = "at nextWrite (file:///root/.cache/deno/npm/registry.npmjs.org/postgres/3.4.7/src/connection.js:250:24)";
+  const ev = (code: string, stack: string) => new ErrorEvent("error", { error: Object.assign(new TypeError("x"), { code, stack: "TypeError: x\n    " + stack }), cancelable: true });
+  const stray = ev("ERR_STREAM_NULL_VALUES", PG), other = ev("ECONNRESET", PG), elsewhere = ev("ERR_STREAM_NULL_VALUES", "at ours (file:///app/_shared/core.ts:1:1)");
   // dispatched to the guard alone: a capturing listener that stops the event first would hide a bug, so we read defaultPrevented
   globalThis.dispatchEvent(stray);
   const seen: boolean[] = [];
@@ -774,8 +775,9 @@ T("the postgres.js guard drops exactly the stray null write, nothing else (S-h)"
   const keep = (e: Event) => { seen.push(e.defaultPrevented); e.preventDefault(); };
   globalThis.addEventListener("error", keep);
   globalThis.dispatchEvent(other);
+  globalThis.dispatchEvent(elsewhere);
   globalThis.removeEventListener("error", keep);
-  eq([stray.defaultPrevented, seen], [true, [false]], "the stray write is dropped; another error is not touched by the guard");
+  eq([stray.defaultPrevented, seen], [true, [false, false]], "the stray write is dropped; another error is not touched by the guard");
 });
 
 T("teardown", async () => {

@@ -421,7 +421,7 @@ is hers before any slow hashing, so a stranger's token makes it do no work (pre-
 All: POST with JSON under 2 KB; every field validated (names, after NFC and squeezing spaces: an allow-list of Hebrew
 letters, Latin letters including é, Ł, Ž (Latin-1 and Latin Extended-A), and space ' ’ ׳ ״ . - inside; 2 to 20;
 starting with a letter and ending with a letter, a dot, or ' ’ ׳ right after a letter, so ג׳ורג׳ and ג'ורג' fit
-(pre-live review S9). The
+(pre-live review S9). Look-alikes are refused: ı Ĳ ĳ ĸ ŉ ſ. The
 same rule is a CHECK on the tables, written with \u escapes, so markup, digits, emoji, other scripts' look-alikes and
 invisible or direction characters never reach a row); CORS to the game's origin (hygiene, not protection); never log names, codes or addresses; names
 never in a query string; the same amount of work on every path.
@@ -611,6 +611,10 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    `supabase` mode unless `config.js` also says `unfinished: true` (S-b). On a shared device the adapter keeps only a
    hash of class code and name; a different pupil's request first revokes and forgets the previous pupil's session
    (B1), and a pupil Supabase does not know is tried once a day, not at every sign-in (S-a).
+   A save in flight belongs to the session it started with: if the device changes pupil meanwhile, it stops without
+   touching the next pupil's session, base or queue (review of #39). Logout first sends what was played since the last
+   copy (within 8 s), then revokes the session with a fresh token; answers that built up during a long wait go in
+   parts of 200 under ids derived from the pending batch, so none is cut and none is counted twice.
 4. **The switch** (the point of no return for sign-in): new class code (8 characters) handed out; the client's config
    points at Supabase; the Sheet backend starts answering every request with an error the old client already treats
    as "sign in again", so a stale tab cannot keep writing to the Sheet. Pupils sign in once with their old code and
