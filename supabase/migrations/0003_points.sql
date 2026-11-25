@@ -72,9 +72,11 @@ begin
     perform private.flag_add(v_pupil, 'daycap', v_today);
     return jsonb_build_object('ok', true, 'capped', true, 'points', tot.points, 'added', 0, 'flagged', jsonb_array_length(p_events));
   end if;
-  if s.storage_brake then      -- the database is near the free plan's size: nothing is written until the owner acts
+  if s.storage_brake then
+    -- the database is near the free plan's size: nothing is written until the owner acts. Not a silent loss (review
+    -- S4): the answer says so, and the device keeps the batch and sends it again later with the same id.
     perform private.flag_add(v_pupil, 'storage', v_today);
-    return jsonb_build_object('ok', true, 'capped', true, 'points', tot.points, 'added', 0, 'flagged', jsonb_array_length(p_events));
+    return jsonb_build_object('ok', false, 'e', 'brake', 'points', tot.points);
   end if;
   if jsonb_array_length(p_events) = 0 then      -- nothing to do, nothing to remember
     return jsonb_build_object('ok', true, 'points', tot.points, 'added', 0, 'flagged', 0);
@@ -301,7 +303,10 @@ language plpgsql security definer set search_path = '' as $$
 declare s private.settings; v_cut timestamptz; rolled int; bad int; purged boolean := true; v_mb int; v_out jsonb;
 begin
   select * into s from private.settings;
-  v_cut := ((now() at time zone s.tz)::date - s.raw_days)::timestamp at time zone s.tz;
+  -- under the storage brake the roll-up waits (review S3): it writes new roll-up rows before vacuum can reuse the
+  -- space of the deleted ones, so it grows the database exactly when it must not
+  v_cut := case when s.storage_brake then '-infinity'::timestamptz
+                else ((now() at time zone s.tz)::date - s.raw_days)::timestamp at time zone s.tz end;
   with old as (delete from public.answers where at < v_cut returning *),
   agg as (
     select pupil_id, (at at time zone s.tz)::date as day, item_id, count(*)::int as tries,
@@ -324,6 +329,7 @@ begin
   delete from private.deletions        where at < now() - interval '400 days';
   delete from private.pupil_days       where day < (now() at time zone s.tz)::date - 30;
   delete from private.ip_salts         where day < (now() at time zone 'utc')::date - 2;
+  delete from private.class_misses     where hour < now() - interval '2 days';
   delete from private.reset_codes      where expires_at < now() - interval '7 days';
   delete from private.pupil_devices    where last_ok_at < now() - make_interval(days => s.device_days);
   delete from public.flags             where day < (now() at time zone s.tz)::date - s.flags_days;

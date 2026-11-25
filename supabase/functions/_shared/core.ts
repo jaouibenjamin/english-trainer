@@ -49,6 +49,9 @@ const picsLike = (x: unknown): x is number[] => isPictures(x, Array.isArray(x) ?
 
 async function buckets(d: Deps, body: Body, ctx: Ctx) {
   const now = d.now();
+  // no readable address: a bucket of its own for this request, so no two callers ever share one (review S5); the
+  // per-name and per-class limits still hold for it
+  const ip = ctx.ip || "unparsed:" + b64url(randomBytes(12));
   // the address is hashed with a random salt that lives two days; the raw address is never stored or logged
   const day = (t: Date) => t.toISOString().slice(0, 10);
   const salt = (await d.sql`select private.ip_salt(${day(now)}::date, ${hex(randomBytes(16))}) as v`)[0].v as string;
@@ -56,9 +59,9 @@ async function buckets(d: Deps, body: Body, ctx: Ctx) {
   const prev = (await d.sql`select private.ip_salt(${day(new Date(now.getTime() - 86_400_000))}::date, ${hex(randomBytes(16))}) as v`)[0].v as string;
   return {
     now: now.toISOString(),
-    ipPrev: await tag(unhex(prev), "ip", ctx.ip || "unknown", 8),
+    ipPrev: await tag(unhex(prev), "ip", ip, 8),
     dev: isDeviceToken(body.device_token) ? await tag(d.pepper, "dev", body.device_token) : "",
-    ip: await tag(unhex(salt), "ip", ctx.ip || "unknown", 8),
+    ip: await tag(unhex(salt), "ip", ip, 8),
     lookup: await tag(d.pepper, "class", normClassCode(body.class_code)),
   };
 }
@@ -180,6 +183,8 @@ export async function teacherReset(d: Deps, body: Body, ctx: Ctx): Promise<Reply
       : (await d.sql`select private.teacher_unlock_class(${teacher}::uuid, ${body.class_id}::uuid, ${now}::timestamptz) as v`)[0].v;
     return u.ok ? { ok: true } : fail(u.e === "limit" ? "limit" : "forbidden"); // limit: twice a day, then the reset
   }
+  // not her pupil: answered before the slow hash, so a stranger's token cannot make the function work (review N3)
+  if (!(await d.sql`select private.teacher_has_pupil(${teacher}::uuid, ${body.pupil_id}::uuid) as v`)[0].v) return fail("forbidden");
   const iter = (await d.sql`select kdf_iter from private.settings`)[0].kdf_iter as number;
   const otc = randomDigits(6);
   const salt = randomBytes(16);

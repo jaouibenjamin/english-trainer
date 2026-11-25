@@ -98,7 +98,12 @@ async def local(b, w, h, errs, full):
     check(f'[{tag}] a wrong answer shows the word with its own meaning', first['en'] in exp and words[first['en']].split(',')[0] in exp)
     check(f'[{tag}] and says the word will come back; nothing ended', 'תחזור' in exp and await pg.evaluate('window.__lv.g.queue.length') == n and await pg.evaluate('window.__lv.g.done') == 0)
     await P.shot(pg, f'extra-{tag}-explain')
-    await pg.keyboard.press('Enter'); await pg.wait_for_selector('.tfy')
+    # while the explanation shows, an arrow does not answer, and Enter goes on even when the focus left the button
+    await pg.keyboard.press('ArrowRight'); await pg.wait_for_timeout(120)
+    check(f'[{tag}] an arrow while the explanation shows changes nothing', await pg.locator('.tfe').count() == 1 and await pg.evaluate('window.__lv.g.done') == 0)
+    await pg.evaluate('document.activeElement && document.activeElement.blur()')
+    await pg.keyboard.press('Enter'); await pg.wait_for_selector('.tfy', timeout=3000)
+    check(f'[{tag}] Enter goes on to the next card from anywhere on the page', await pg.locator('.tfe').count() == 0)
     check(f'[{tag}] the word went to the end of the round', (await pg.evaluate('window.__lv.g.queue.at(-1).w.en')) == first['en'])
 
     # ---- play to the end: buttons, swipe and keys; every card is checked against the teacher's list ----

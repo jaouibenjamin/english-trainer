@@ -1,6 +1,7 @@
 # Supabase CLI config for the functions. The gateway's own JWT check is off because pupils call three of these before
 # they have a session and the project's public key may not be a JWT; each function checks its caller itself
-# (teacher-reset and set_picture verify the bearer token with Supabase Auth).
+# (teacher-reset verifies the bearer token with Supabase Auth; the admin functions compare it with the server key).
+# There is no function that sets pictures for a signed-in session: pictures change only in pupil-login and pupil-recover.
 [functions.pupil-register]
 verify_jwt = false
 [functions.pupil-login]

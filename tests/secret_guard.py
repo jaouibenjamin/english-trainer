@@ -12,7 +12,8 @@ in the docs, so the check now looks for key *material* instead:
   5. a database URL with a password for a host that is not this machine;
   6. a database password assigned to its usual variable names;
   7. a bare `password = "…"` line, as in a toml `[db]` section;
-  8. a libpq connection string (`host=… password=…`) with a password that is not a reference.
+  8. a libpq connection string (`host=… password=…`, also with spaces around =) with a password that is not a reference;
+  9. a `password:` key with a value in YAML or JSON.
 A file that is not UTF-8 is read as latin-1, never skipped. What it cannot see: a key that was base64-encoded,
 compressed or split into pieces; gitleaks runs next to it.
 `--self-test` proves each rule fires and that the legitimate forms pass."""
@@ -25,7 +26,10 @@ DBPW = re.compile(r'(?i)\b(PGPASSWORD|POSTGRES_PASSWORD|\w*DB_PASSWORD|db_pass\w
 PRIVATE_KEY = re.compile(r'BEGIN [A-Z0-9 ]*PRIVATE KEY')
 DB_URL = re.compile(r'postgres(?:ql)?://[^\s:/@\'"<\[$]+:([^\s@\'"]{4,})@([^\s:/\'"]+)')
 TOML_PW = re.compile(r'(?im)^[ \t]*["\']?(\w*password|pass|pwd)["\']?[ \t]*=[ \t]*["\']([^"\'$\n]{6,})["\']')
-DSN_PW = re.compile(r'(?i)\b(?:host|hostaddr|dbname|user)=\S+[^\n]*?\bpassword=["\']?([^\s"\'$<\[{]{4,})|\bpassword=["\']?([^\s"\'$<\[{]{4,})[^\n]*?\b(?:host|hostaddr|dbname)=\S')
+DSN_PW = re.compile(r'(?i)\b(?:host|hostaddr|dbname|user)[ \t]*=[ \t]*\S+[^\n]*?\bpassword[ \t]*=[ \t]*["\']?([^\s"\'$<\[{]{4,})|\bpassword[ \t]*=[ \t]*["\']?([^\s"\'$<\[{]{4,})[^\n]*?\b(?:host|hostaddr|dbname)[ \t]*=[ \t]*\S')
+# YAML or JSON: `password: hunter2`, `"password": "hunter2",` (the whole rest of the line is the value; review N6)
+KV_PW = re.compile(r'(?im)^[ \t{-]*["\']?(\w*password|passwd|pwd)["\']?[ \t]*:[ \t]*["\']?([^\s"\'$<\[{#(),;]{6,})["\']?[ \t]*,?[ \t]*$')
+NOT_A_VALUE = {'string', 'str', 'null', 'none', 'true', 'false', 'required', 'optional', 'secret', 'redacted'}
 LOCAL = {'localhost', '127.0.0.1', '::1', 'db', 'host'}
 
 
@@ -51,6 +55,9 @@ def scan(text):
         out.append(f'a database password assigned to {m.group(1)}')
     for m in TOML_PW.finditer(text):
         out.append('a password written in a settings file')
+    for m in KV_PW.finditer(text):
+        if m.group(2).lower() not in NOT_A_VALUE:
+            out.append('a password written as a YAML or JSON value')
     if DSN_PW.search(text):
         out.append('a connection string with a password')
     if PRIVATE_KEY.search(text):
@@ -70,15 +77,17 @@ def self_test():
            'SUPABASE_SERVICE_ROLE_KEY: >-\n    ' + 'q' * 40, 'service_role_key:\n  ' + 'q' * 40, 'const PEPPER = "' + 'Zm9v' * 8 + '"', 'SERVICE_KEY=' + 'k' * 30,
            'PG' + 'PASSWORD=hunter2', 'db_' + 'password = "s3cretpw"', '-----BEGIN PGP ' + 'PRIVATE KEY BLOCK-----', '-----BEGIN ENCRYPTED ' + 'PRIVATE KEY-----',
            '-----BEGIN OPENSSH ' + 'PRIVATE KEY-----', 'BACKUP_EXPORT_TOKEN=' + 't' * 32,
-           '[db]\nport = 54322\n' + 'password = "hunter2hunter2"', 'host=db.abcdefgh.supabase.co port=5432 user=postgres pass' + 'word=hunter2x dbname=postgres',
-           "psql 'pass" + "word=hunter2x host=db.example.com'"]
+           '[db]\nport = 54322\n' + 'pass' + 'word = "hunter2hunter2"', 'host=db.abcdefgh.supabase.co port=5432 user=postgres pass' + 'word=hunter2x dbname=postgres',
+           "psql 'pass" + "word=hunter2x host=db.example.com'", 'db:\n  pass' + 'word: hunter2hunter2\n', '{"pass' + 'word": "hunter2hunter2",\n "user": "x"}',
+           'host = db.example.com port = 5432 pass' + 'word = hunter2x']
     good = [tok('anon'), f'grant all on all tables in schema public to {role};', 'SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}',
             "key = os.environ['SUPABASE_SERVICE_ROLE_KEY']", 'const pepper = Deno.env.get("PUPIL_PEPPER")', 'sb_publishable_A1b2C3d4E5f6G7h8',
             'postgresql://postgres:[YOUR-PASSWORD]@db.example.supabase.co/postgres', 'postgres://postgres:postgres@localhost:5432/wi_test',
             'PUPIL_PEPPER=$(openssl rand -base64 32)', 'const pepper = Uint8Array.from(atob(need("PUPIL_PEPPER")), (c) => c.charCodeAt(0));',
             'PGPASSWORD=$DB_PASS psql', 'PBKDF2-HMAC-SHA256(password = inner, salt = 16 random bytes)', '-----BEGIN PGP PUBLIC KEY BLOCK-----',
             'env:\n  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.X }}\n  OTHER: value', '[db]\npassword = env("SUPABASE_DB_PASSWORD")',
-            'host=/tmp/sock port=5432 password=$PGPASSWORD', "r = {'password': secrets.token_urlsafe(24)}", 'password = ""']
+            'host=/tmp/sock port=5432 password=$PGPASSWORD', "r = {'password': secrets.token_urlsafe(24)}", 'password = ""',
+            'password: ${{ secrets.DB_PASSWORD }}', '  password: string;', 'interface X {\n  password: string\n}', '"password": "$DB_PASSWORD",']
     ok = all(scan(x) for x in bad) and not any(scan(x) for x in good)
     for x in bad:
         if not scan(x): print('self-test: not caught:', x[:30] + '…')
