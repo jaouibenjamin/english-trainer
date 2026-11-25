@@ -2,7 +2,7 @@
 
 Each entry is a bug class that cost us more than one review round. An engineer reads this before starting; a reviewer checks the change against it. When a review finds a new class (not just a new instance), add an entry in the same PR that fixes it.
 
-## 1. An await that outlives the pupil (PRs #21, #39, #41; gate 4 still open)
+## 1. An await that outlives the pupil (PRs #21, #39, #41; gate 4: one guard, `op()` in `js/api.js`)
 
 - **What happened:** on a shared device, pupil A's request was still in flight when A logged out and B signed in. When it came back, the code went on as if nothing had changed: it sent A's data with B's token, wrote A's state as B's base, or stored A's session again. Three rounds each closed one await and the review found the next.
 - **Rule:** after every `await`, the world may have changed. Anything that reads "who is signed in" (token, session, owner, base, queue) must capture an identity before the await and check it after, before any write or send.
@@ -53,3 +53,9 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 
 - **What happened:** the backup included address salts, typed names and old hashes, and the live check could have created users.
 - **Rule:** every export has an explicit, tested exclusion list. A check against the live backend never writes.
+
+## 11. A difference of merged records counts someone else's work (gate 4, S3)
+
+- **What happened:** the adapter derives events from the difference between the last record it copied and the next one. On a second device, the game joins the other device's record into its own at sign-in, so the next difference held the other device's answers too, and they were counted twice. Lifting the base to the whole joined record would have been wrong too: it also held this device's own answers that were not copied yet, which would then never be counted.
+- **Rule:** when a count is derived from a record that is merged from several sources, subtract what the other sources brought (what the merged record holds beyond what this source itself sent), not the merged record. A base never goes down.
+- **How to test it:** two devices on two storages, one pupil: play on one, sign in on the other, play there. Also a pull that arrives while this device still holds answers it has not sent. Total counted = answers actually played.
