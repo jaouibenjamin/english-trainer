@@ -3,8 +3,8 @@
    data each screen needs; docs/DESIGN.md describes it for the engineer who wires real state later.
    DOM is built with createElement and textContent only. */
 import {ART} from './world_art.js';
-import {AVATARS,NAME_A,NAME_B} from './world_data.js';
-import {playAv} from './avanim.js';   // a character's 2 s animation, once, on tap, selection or hover   // the 20 characters and the two name lists
+import {AVATARS,NAME_A,NAME_B} from './world_data.js';   // the 20 characters and the two name lists
+import {playAv} from './avanim.js';   // a character's 2 s animation, once, on tap, selection or hover
 
 /* ---- flag: the page shows only with ?ds=1, or when the wi_ds flag is already set on this device (read only) ---- */
 const flagOn=(()=>{

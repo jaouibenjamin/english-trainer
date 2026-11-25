@@ -23,12 +23,16 @@ def check(label, ok, extra=''):
         fails.append(label)
 
 
+NO_FILE = {'owl'}   # two takes changed its expression: it gets the CSS tilt-and-bounce of its still portrait instead
+
+
 def files_check():
     art = open(os.path.join(ROOT, 'js', 'world_art.js'), encoding='utf-8').read()
     data = open(os.path.join(ROOT, 'js', 'world_data.js'), encoding='utf-8').read()
     ids = re.findall(r"\{id:'([a-z-]+)'", data)
     anim = dict(re.findall(r"'avanim/([a-z-]+)':'([^']+)'", art))
-    check(f'every one of the {len(ids)} characters has an animation, and no other', len(ids) == 20 and set(anim) == set(ids), sorted(set(ids) ^ set(anim)))
+    want = set(ids) - NO_FILE
+    check(f'every one of the {len(ids)} characters but {sorted(NO_FILE)} has an animation file, and no other', len(ids) == 20 and set(anim) == want, sorted(want ^ set(anim)))
     rows = {}
     for ln in open(os.path.join(ROOT, 'assets', 'al', 'sources.tsv'), encoding='utf-8').read().split('\n')[1:]:
         c = ln.split('\t')
@@ -86,7 +90,7 @@ async def run(ids):
             ctx, pg, seen, errs = await page()
             await pg.goto(base + '?ds=1&screen=picker'); await pg.wait_for_selector('#avgrid .wi-av'); await pg.wait_for_timeout(800)
             check('flag on: no animation file is requested before a tap', not seen, seen[:2])
-            first = await pg.evaluate("[...document.querySelectorAll('#avgrid .wi-av')].findIndex(b=>!b.classList.contains('wi-av--locked'))")
+            first = await pg.evaluate("[...document.querySelectorAll('#avgrid .wi-av')].findIndex((b,i)=>!b.classList.contains('wi-av--locked')&&i!==%d)" % ids.index('owl'))
             await pg.locator('#avgrid .wi-av').nth(first).click(); await pg.wait_for_timeout(400)
             want = ids[first]
             src = await pg.evaluate("document.querySelector('#avgrid [aria-pressed=true] .wi-av__art').getAttribute('src')")
@@ -94,6 +98,12 @@ async def run(ids):
             await pg.wait_for_timeout(2600)
             src = await pg.evaluate("document.querySelector('#avgrid [aria-pressed=true] .wi-av__art').getAttribute('src')")
             check('after it has played, the still portrait is back', f'/av/{want}.' in src and '/avanim/' not in src, src)
+            # the owl has no file: its still portrait tilts and bounces once, and nothing is requested
+            n0 = len(seen)
+            bob = await pg.evaluate("""async()=>{const img=document.querySelectorAll('#avgrid .wi-av__art')[%d];const m=await import('./js/avanim.js');
+              const r=m.playAv(img,'owl');const a=getComputedStyle(img).animationName;await new Promise(z=>setTimeout(z,1100));
+              return [r,a,img.classList.contains('wi-av__art--bob'),img.getAttribute('src')]}""" % ids.index('owl'))
+            check('the owl: no file is requested, its still tilts and bounces once, then the class is gone', len(seen) == n0 and bob[0] and bob[1] == 'wi-av-bob' and not bob[2] and '/av/owl.' in bob[3], bob)
             check('no page errors', not errs, errs[:2])
             await ctx.close()
 

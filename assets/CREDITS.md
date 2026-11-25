@@ -512,13 +512,12 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 
 | File | What | Made | Job id | Model |
 |---|---|---|---|---|
-| `assets/al/avanim/fox.hf_20261125_130552_4e6e410f-561b-45c3-92d3-8a7b72309d9a.webp` | character animation, 2 s, plays once on tap: fox | 2026-11-25 | 4e6e410f-561b-45c3-92d3-8a7b72309d9a | grok_video |
-| `assets/al/avanim/owl.hf_20261125_131127_d2d2b170-25ff-49b5-8d7d-0fcef6ed25d5.webp` | character animation, 2 s, plays once on tap: owl | 2026-11-25 | d2d2b170-25ff-49b5-8d7d-0fcef6ed25d5 | grok_video |
+| `assets/al/avanim/fox.hf_20261125_135453_ab8ea61d-9a2c-4fe1-beda-89141de05554.webp` | character animation, 2 s, plays once on tap: fox (retake: smile, tilt, one wink or blink; frames 1 to 13 and back) | 2026-11-25 | ab8ea61d-9a2c-4fe1-beda-89141de05554 | grok_video |
 | `assets/al/avanim/turtle.hf_20261125_130901_e0c51c5f-6901-4c33-89bb-89313b26215c.webp` | character animation, 2 s, plays once on tap: sea turtle | 2026-11-25 | e0c51c5f-6901-4c33-89bb-89313b26215c | grok_video |
 | `assets/al/avanim/shark.hf_20261125_130858_d982cc13-a6f1-46e8-9d8f-9cca79ccfaf7.webp` | character animation, 2 s, plays once on tap: shark | 2026-11-25 | d982cc13-a6f1-46e8-9d8f-9cca79ccfaf7 | grok_video |
 | `assets/al/avanim/parrot.hf_20261125_131130_9028e4dd-1693-4a0d-abd8-1a7219bcef28.webp` | character animation, 2 s, plays once on tap: parrot | 2026-11-25 | 9028e4dd-1693-4a0d-abd8-1a7219bcef28 | grok_video |
 | `assets/al/avanim/cat.hf_20261125_130859_2d6e7703-b127-467d-a053-b9b8ebd478c2.webp` | character animation, 2 s, plays once on tap: cat | 2026-11-25 | 2d6e7703-b127-467d-a053-b9b8ebd478c2 | grok_video |
-| `assets/al/avanim/penguin.hf_20261125_130856_52510732-c825-4c1c-a0b5-63d53da3ebfb.webp` | character animation, 2 s, plays once on tap: penguin | 2026-11-25 | 52510732-c825-4c1c-a0b5-63d53da3ebfb | grok_video |
+| `assets/al/avanim/penguin.hf_20261125_135453_37bd5424-72a9-45fd-8b9e-4b44c36d7e3c.webp` | character animation, 2 s, plays once on tap: penguin (retake: smile, tilt, one wink or blink; frames 1 to 15 and back) | 2026-11-25 | 37bd5424-72a9-45fd-8b9e-4b44c36d7e3c | grok_video |
 | `assets/al/avanim/robot-box.hf_20261125_130857_079ba72f-84f8-488a-b4f2-c2993213ec78.webp` | character animation, 2 s, plays once on tap: robot, box head | 2026-11-25 | 079ba72f-84f8-488a-b4f2-c2993213ec78 | grok_video |
 | `assets/al/avanim/diver.hf_20261125_130858_47e0e32c-cfc8-416b-a766-4c9c11c9681d.webp` | character animation, 2 s, plays once on tap: diver, brass helmet | 2026-11-25 | 47e0e32c-cfc8-416b-a766-4c9c11c9681d | grok_video |
 | `assets/al/avanim/pilot.hf_20261125_130857_b554383f-e6e2-447f-814b-a2631f39a0b3.webp` | character animation, 2 s, plays once on tap: explorer, closed helmet | 2026-11-25 | b554383f-e6e2-447f-814b-a2631f39a0b3 | grok_video |
