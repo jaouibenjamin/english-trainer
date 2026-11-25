@@ -92,6 +92,9 @@ async def main():
                         then=[('#island/1', '.xtb'), ('#extra/1/tf', '#tfk'), ('#extra/1/pairs', '.prk'), ('#extra/1/scramble', '.scl'),
                               ('#card', '#stage[data-scr=card]'), ('#settings', '.scr.settings'), ('#play/1/read', 'lv:read')])
             await visit(b, B + 'index.html', '.title .btn', errs, 'game-laptop', 1366, 768, then=game[:3])
+            # every switch together with the new look (docs/LESSONS.md 8: switches fine alone can break together)
+            await visit(b, B + 'index.html?ds=1&help=1&card=1&games=1&sheet=1&tmock=1', '.title .btn', errs, 'game-all-switches',
+                        then=[('#map', '.map .isl'), ('#island/1', '.xtb'), ('#extra/1/tf', '#tfk'), ('#settings', '.scr.settings'), ('#card', '#stage[data-scr=card]'), ('#play/1/read', 'lv:read')])
             await visit(b, B + 'trainer.html', '#app', errs, 'trainer')
             await visit(b, B + 'worksheet.html?island=1', 'body', errs, 'worksheet')
             await visit(b, B + 'world.html', 'body', errs, 'world')
