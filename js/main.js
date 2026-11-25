@@ -19,7 +19,9 @@ const BGFIT={sling:'bottom',listen:'bottom',read:'bottom',bridge:'bridge'};
 let level=null,V={name:''},navId=0;
 const go=h=>{if(location.hash==='#'+h)route();else location.hash=h};
 const isl=id=>ISLANDS.find(i=>i.id===+id);
-const loader=()=>{view.innerHTML=`<div class="loader">${spr('crab_wave','bob')}<p>רגע, מפליגים…</p></div>`};
+const loader=()=>{view.innerHTML=`<div class="loader">${spr('crab_wave','bob')}<p>רגע, מפליגים…</p></div>`;
+ /* with the design flag, a wait that goes on says so, honestly, after 5 s (css/ds-game.css draws the loader in the new look) */
+ if(dsOn()){const L=view.querySelector('.loader');L.setAttribute('role','status');setTimeout(()=>{if(L.isConnected)L.appendChild(Object.assign(document.createElement('p'),{className:'loader__more',textContent:'עוד רגע…'}))},5000)}};
 const top=(title,back='map')=>`<header class="top">${rb('nav',ico('back'),'חזרה',1,`data-to="${back}"`)}<h2 class="ribbon"><span>${title}</span></h2><span class="rbsp"></span></header>`;
 const star=()=>spr('star','st');
 const pts=n=>num((+n||0).toLocaleString('en-US'));

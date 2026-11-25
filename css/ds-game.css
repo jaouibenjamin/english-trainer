@@ -406,3 +406,12 @@ html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .toast
 html.ds #stage[data-scr=mockrun] .xquit{border-radius:0;border:0;box-shadow:none;background:radial-gradient(closest-side,var(--wi-navy-800) calc(100% - 3px),var(--wi-line) calc(100% - 2px),transparent 100%);color:#fff;min-inline-size:var(--wi-tap);min-block-size:var(--wi-tap)}   /* a square hit box (corner taps must land), the disc drawn as a background */
 html.ds #stage[data-scr=mockrun] .xquit .ico{stroke:currentColor}
 html.ds #stage[data-scr=mockrun] .xtrail{padding-inline:60px}
+
+/* ======== The loader in the new look: navy, the new Pitzi, the same words; "עוד רגע…" after 5 s (js/main.js loader) ========
+   A wait must never look like a broken screen: it covers the whole board, whatever background is behind it. */
+html.ds #view .loader{position:absolute;inset:0;z-index:5;background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);font-weight:700;font-size:var(--wi-fs-md);gap:var(--wi-s2)}
+html.ds #view .loader img{width:120px;height:120px;object-fit:contain;object-position:-9999px 0;background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat}
+html.ds #view .loader p{margin:0}
+html.ds #view .loader .loader__more{color:var(--wi-text-dim);font-size:var(--wi-fs-sm);font-weight:600}
+html.calm #view .loader img{animation:none}
+@media (prefers-reduced-motion:reduce){html.ds #view .loader img{animation:none}}
