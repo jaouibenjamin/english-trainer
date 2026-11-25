@@ -541,6 +541,9 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .chips .wsl{text-decoration:none;color:inherit;min-height:44px;display:inline-flex;align-items:center;cursor:pointer}
 .chips .wsl:focus-visible{outline:3px solid #2d6f8e;outline-offset:2px}
 
+/* the mock exam rows on a pupil's card of the teacher screen (only with the switch, and only when the backend sends them) */
+.kid .km{border-top:2px dashed rgba(90,69,52,.22);padding-top:5px;justify-content:flex-start;gap:4px 14px}
+.kid .km.sk{border-top:0;padding-top:0;margin-top:2px}
 
 /* ---------- word help (js/help.js): only drawn on a device that was given the switch ---------- */
 .hw{font:inherit;color:inherit;letter-spacing:inherit;background:none;border:0;margin:0;padding:0 1px;cursor:pointer;border-bottom:2px dotted rgba(90,69,52,.55);border-radius:3px;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}

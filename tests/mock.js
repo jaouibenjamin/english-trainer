@@ -33,6 +33,26 @@ if(process.argv[2]==='unit'){
  t('teacher',call({c:'EN-1234',a:'teacher',t:'654321'}).hard,[['their',75,4]]);
  call({...B,n:'איתי',a:'save',s:{pts:500,st:{goal:null,kick:[2,1]},k:{words:20}}});
  t('teacher survives a damaged record',call({c:'EN-1234',a:'teacher',t:'654321'}).ok,true);
+ /* the mock exam on the teacher screen: read from the saved record, nothing else */
+ const kidOf=n=>call({c:'EN-1234',a:'teacher',t:'654321'}).kids.find(k=>k.n===n);
+ t('teacher: no mock paper yet gives null',kidOf('נועה').mock,null);
+ call({...B,a:'save',s:{pts:130,day:'2026-11-11',streak:2,st:{their:[4,3]},k:{words:7,reads:1},x:{tries:[
+  {at:1000,total:[9,20],sc:{words:[3,5],grammar:[2,5],reading:[2,5],writing:[2,5]},miss:['a:1'],wrong:[['a:1','zzz']]},
+  {at:2000,total:[15,20],sc:{words:[5,5],grammar:[4,5],reading:[3,5],writing:[3,5]},miss:[],wrong:[]}],prac:{grammar:1},seen:['a:1']}}});
+ t('teacher: papers, first and last total, last paper by skill',kidOf('נועה').mock,{n:2,first:[9,20],last:[15,20],sc:{words:[5,5],grammar:[4,5],reading:[3,5],writing:[3,5]}});
+ t('teacher: the answers a pupil typed are not sent to the teacher screen',/zzz|wrong|miss|seen|prac/.test(JSON.stringify(kidOf('נועה').mock)),false);
+ call({...B,n:'איתי',a:'save',s:{pts:500,k:{words:20},x:{tries:['junk',{total:'no'},{total:[1,0]},null,{at:'x',total:['7','10'],sc:{words:'bad',grammar:[9,'x']}}]}}});
+ t('teacher: a damaged mock record gives clean numbers or nothing',kidOf('איתי').mock,{n:1,first:[7,10],last:[7,10],sc:{}});
+ call({...B,n:'איתי',a:'save',s:{pts:500,k:{words:20},x:'broken'}});
+ t('teacher: a broken mock record gives null',kidOf('איתי').mock,null);
+ t('login state is untouched by the teacher view',call({...B,a:'login'}).s.x.tries.length,2);
+ /* a pupil can save anything from the browser console: no record may make the teacher view throw */
+ const crash=s=>{call({...B,n:'איתי',a:'save',s:{pts:500,k:{words:20},...s}});const r=call({c:'EN-1234',a:'teacher',t:'654321'});return {ok:r.ok,mock:r.kids?r.kids.find(k=>k.n==='איתי').mock:'none'}};
+ t('teacher: a mock total that is an object with toString does not break the teacher view',crash({x:{tries:[{total:[1,{toString:1}]}]}}),{ok:true,mock:null});
+ t('teacher: a word count that is an object with toString does not break the teacher view',crash({st:{their:[{toString:1},1]}}).ok,true);
+ t('teacher: a level star that is an object with toString does not break the teacher view',crash({g:{st:{'1-sling':{toString:1}}}}).ok,true);
+ t('teacher: absurd mock numbers are clamped',crash({x:{tries:[{total:[1e308,5e9],sc:{words:[1e9,'1e9']}}]}}).mock,{n:1,first:[999,999],last:[999,999],sc:{words:[999,999]}});
+ t('teacher: a score above its total is cut to the total',crash({x:{tries:[{total:[25,20]}]}}).mock,{n:1,first:[20,20],last:[20,20],sc:{}});
  for(let i=0;i<10;i++)call({c:'EN-1234',a:'teacher',t:'000000'});
  t('teacher locked after 10 wrong codes',call({c:'EN-1234',a:'teacher',t:'654321'}),{ok:false,e:'locked'});
  for(let i=0;i<5;i++)call({...B,p:'0000',a:'login'});
