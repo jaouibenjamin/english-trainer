@@ -13,6 +13,14 @@ unless `?intro=1` asks (so the other suites run as before); `tests/intro.py` che
 
 The platform is **ניצני אופק**. The closing title is live text, "ברוכים הבאים לניצני אופק!".
 
+## Files and the build
+
+- `master.*.mp4`: the film without its closing title, with the final sound mix (not played).
+- `tools/intro_film.py MASTER OUTDIR [--l1 ... --l2 ...]` renders the title and writes the two played files:
+  `intro.*.mp4` (540 x 982, about 1.8 Mbit/s, the default) and `intro-light.*.mp4` (390 x 710, about 3 MB).
+  A rename is a re-run of this script: no credits.
+- The player (`js/intro.js`) plays the light one when the connection reports saved data or 2G/3G, the full one otherwise.
+
 ## Story (version 6, the owner's notes)
 
 1. A generic illustrated school gate at sunset: the four (girl with braids, boy with cap, fox, penguin: our avatars) wave

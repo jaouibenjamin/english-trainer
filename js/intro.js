@@ -7,6 +7,9 @@
    - Calm mode or prefers-reduced-motion: the poster and the buttons show, the film still waits for a tap.
    DOM is built with createElement and textContent only. The narration text is flagged for the teacher (docs/INTRO.md). */
 const FILM='assets/al/intro/intro.hf_20261125_162146_00980a2b-0f5a-4695-b31f-982280cb406b.mp4';
+/* the same film, lighter (390 x 710, about 3 MB), for a phone on a slow or saved-data connection */
+const FILM_LIGHT='assets/al/intro/intro-light.hf_20261125_162146_00980a2b-0f5a-4695-b31f-982280cb406b.mp4';
+const light=()=>{try{const c=navigator.connection;return !!c&&(c.saveData||/(^|-)2g|3g/.test(c.effectiveType||''))}catch(e){return false}};
 const POSTER='assets/al/intro/poster.hf_20261125_160942_30220de2-7942-4db5-bb82-9f99b71a615f.webp';
 /* [from, to, text] in seconds of the film, from the pauses in the narration */
 const CUES=[
@@ -41,7 +44,7 @@ export function showIntro(){
  document.addEventListener('keydown',key);
  skip.addEventListener('click',close);done.addEventListener('click',close);
  play.addEventListener('click',()=>{
-  play.hidden=true;v.src=FILM;
+  play.hidden=true;v.src=light()?FILM_LIGHT:FILM;
   const p=v.play();if(p&&p.catch)p.catch(()=>{play.hidden=false});
  });
  v.addEventListener('timeupdate',()=>{

@@ -26,17 +26,18 @@ def check(label, ok, extra=''):
 def files_check():
     js = open(os.path.join(ROOT, 'js', 'intro.js'), encoding='utf-8').read()
     film = re.search(r"FILM='([^']+)'", js).group(1); poster = re.search(r"POSTER='([^']+)'", js).group(1)
+    light = re.search(r"FILM_LIGHT='([^']+)'", js).group(1)
     rows = {}
     for ln in open(os.path.join(ROOT, 'assets', 'al', 'sources.tsv'), encoding='utf-8').read().split('\n')[1:]:
         c = ln.split('\t')
         if len(c) > 5:
             rows['assets/' + c[1]] = c
     ok = True; info = {}
-    for f in (film, poster):
+    for f in (film, light, poster):
         p = os.path.join(ROOT, f)
         if not os.path.isfile(p) or rows.get(f, [None] * 6)[5] != hashlib.sha256(open(p, 'rb').read()).hexdigest():
             ok = False; info[f] = 'missing or not listed with its sha256'
-    check('the film and its poster exist and are listed in sources.tsv with their sha256', ok, info)
+    check('the film, its light version and the poster exist and are listed in sources.tsv with their sha256', ok, info)
     size = os.path.getsize(os.path.join(ROOT, film))
     try:
         pr = json.loads(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_name,channels,sample_rate,width:format=duration', '-of', 'json', os.path.join(ROOT, film)], capture_output=True, text=True).stdout)
@@ -45,6 +46,8 @@ def files_check():
     except Exception as e:
         fmt_ok = False; st = str(e)
     check('the film is H.264 at most 560 px wide with AAC at 44.1 or 48 kHz (a 96 kHz track crackled on phones, LESSONS 12), at most 40 s and under 9.5 MB', fmt_ok and size < 9.5 * 1024 * 1024, [size, list(st)])
+    ls = os.path.getsize(os.path.join(ROOT, light))
+    check('the light version is under 3.5 MB', ls < 3.5 * 1024 * 1024, ls)
     return film
 
 
