@@ -30,3 +30,12 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   the site's data in the browser (or `localStorage.removeItem('wi_world')`) deletes them all; nothing is kept anywhere
   else.
 - **Today's focus** leaves out the bonus island (months and numbers): it is about the unit's five word lists.
+- **The character on the map** (docs/DESIGN.md spec): the chosen character stands, as a 44 px framed portrait token with
+  a small shadow on the ground, on the island played now (the one marked "ממשיכים כאן"; when every island is full, the
+  last one), in the crab's place at the island's lower edge, beside the tag and never over it. When that island changes
+  it hops once from the island it stood on before (`at` in the record): an arc, 0.9 s, a squash on landing; any tap or
+  key ends it and still does what it would have done; none with reduced motion or calm mode. On a small island (a short
+  phone) the token is at most 60% of the island's picture. With no character yet, Pitzi stands there as today with a
+  small "?" badge (a 48 px tap area) that opens the picker; on a device that cannot keep one, Pitzi alone. A remembered
+  island that is not open is no position. With the flag, the island played now also says "ממשיכים כאן" (or "מתחילים
+  כאן") to a screen reader; without it the island's label is as today.
