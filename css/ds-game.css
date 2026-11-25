@@ -290,6 +290,7 @@ html.ds .result .unlock{color:var(--wi-navy-900)}
 html.ds .result .rcrab[src$="/crab_star.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/star.hf_20261124_204534_0bba02d5-095c-4463-82a0-a38d364fea44.webp) center/contain no-repeat}
 html.ds .result .rcrab[src$="/crab_happy.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
 html.ds .result .rcrab[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat}
+/* ======== The extra games (?games=1: true or not, pairs, letters) in the new look ========
    Same rules: styling only, under html.ds #stage[data-scr=extra]. The light cards become dark cards with white text;
    right is a green edge, wrong a coral edge, never colour alone (the game's own words and marks stay). */
 html.ds #stage[data-scr=extra]{--ink:#FFFFFF;--ink2:var(--wi-text-dim);--good:var(--wi-good);--bad:var(--wi-fix);background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);box-shadow:0 0 0 1px var(--wi-navy-700)}
@@ -328,8 +329,6 @@ html.ds #stage[data-scr=extra] :is(.tfend,.tfe:not(:empty),.prx:not(:empty)){bac
 html.ds #stage[data-scr=extra] .tfe .tfm{border:0;padding:0;background:none}
 html.ds #stage[data-scr=extra] .tfend img[src$="/crab_happy.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_star.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
 @media (prefers-reduced-motion:reduce){html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .btn,html.ds .result .btn{transition:none}}
-
-/* ======== The extra games (?games=1: true or not, pairs, letters) in the new look =
 
 /* ======== Fraction Bay (#math, #misland/N, #mplay/N/type) in the new look ========
    The maths screens reuse the English classes (.map, .island, .lv, .result), so most rules above reach them. Here:
