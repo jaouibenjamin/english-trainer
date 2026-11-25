@@ -13,8 +13,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | e | Mission stones (done, current, locked), HUD icons (star, bolt, lock, focus, gear, sound on / off) | gpt_image_2_5, medium, 1k, 1:1, transparent | 9 | 4.50 | 4.50 | 24.75 | 425.25 |
 | g | Review fixes: robot portrait redone, Pitzi "listen" redone, world map sea from above | portrait and pose: medium, 1:1; sea: high, 9:16 | 3 | 2.25 | 2.25 | 27.00 | 423.00 |
 | f | Sound: 2 island themes x 2 takes (30 s each, 4.36), 3 signature sounds x 2 takes (3 s each, 0.44) | elevenlabs_music_v2_5, instrumental | 10 | 20.08 | 20.08 | 47.08 | 402.92 |
+| h | The six English map islands redrawn in the night-sea style; the map sea with quiet details (whale, lantern boats, lighthouse, jellyfish); painted frames: panel, gold button, HUD pill (9-slice) | islands and frames: gpt_image_2_5, medium, 1k, transparent, style reference: the English island of batch c; sea: high, 9:16, reference: the batch g sea | 10 | 5.75 | 5.75 | 52.83 | 397.17 |
 
-Total charged so far: **47.08** of 450. Left: 402.92.
+Total charged so far: **52.83** of 450. Left: 397.17.
 
 ## Jobs
 
@@ -73,6 +74,21 @@ Themes: mono MP3, 64 kbit/s, 28 s, about 224 KB, levelled to about -24 LUFS so t
 and ends at second 15 of the original, with the original end crossfaded into the original start in the middle, so the
 loop point is continuous. An MP3 still has a few milliseconds of silence at its edges; the player should crossfade or
 use Web Audio to loop without a tick. Signature sounds: mono MP3, 2.4 s, under 20 KB.
+
+Batch h (owner's go-ahead through the lead, about 20 to 30 credits for closing the gap to the concept frames). All ten jobs are used, first try. Locked islands are made here from the same pictures (80 % grey, half brightness, a cool mist), no extra jobs. Nine requests were first sent with a wrong reference id and refused before any job started; nothing was charged for them.
+
+| Subject | Job id |
+|---|---|
+| island 1, hobbies | f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5 |
+| island 2, school | 015dc5a7-8cf0-4957-9a08-a0b036734301 |
+| island 3, the new home | b74f0f8d-8612-409a-9938-2d53629d4086 |
+| island 4, the birthday | 2c5654f8-c012-4de6-ab90-f80dd20c6f40 |
+| island 5, presents | 4417a597-d43d-4c75-afbc-86525a35ac92 |
+| island 6, treasure | 742bbc3a-52ff-4652-a1c9-b43679ba2e26 |
+| sea with details | 17486f52-96ee-4372-9033-9dd45cfa5736 |
+| panel frame | 18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca |
+| gold button | cc6e3e5f-f91a-4a1a-84fa-df545ab8aa3f |
+| HUD pill | 050c516b-9715-499a-b981-3306dd6a4694 |
 
 Batches b to e: every job is used, except the first "listen" pose named above; the ids are in `assets/al/sources.tsv` (Pitzi's wave pose,
 c2effc24-9597-44ee-9eb7-204c981203c3, was the reference for the other five poses).

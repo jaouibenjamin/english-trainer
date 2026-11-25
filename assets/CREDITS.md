@@ -528,6 +528,18 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 | `assets/al/map/island-soon1.hf_20261124_204629_e5ab673e-c11b-4d70-acfa-4d87a746a26b.webp` | world map: island not open yet, mountain | 2026-11-24 | e5ab673e-c11b-4d70-acfa-4d87a746a26b | gpt_image_2_5 |
 | `assets/al/map/island-soon2.hf_20261124_204628_f79d5c21-6119-4d00-9fbd-ce7aa4f434c4.webp` | world map: island not open yet, jungle | 2026-11-24 | f79d5c21-6119-4d00-9fbd-ce7aa4f434c4 | gpt_image_2_5 |
 | `assets/al/map/island-soon3.hf_20261124_204627_8c02e0f6-60dd-4619-9d13-3ea2c5b45fe3.webp` | world map: island not open yet, crystal arches | 2026-11-24 | 8c02e0f6-60dd-4619-9d13-3ea2c5b45fe3 | gpt_image_2_5 |
+| `assets/al/map/isl-1-locked.hf_20261125_075120_f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5.webp` | English map island 1 (hobbies), locked: made here from the same picture (greyed, darker, cool mist), no extra job | 2026-11-25 | f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5 | gpt_image_2_5 |
+| `assets/al/map/isl-1.hf_20261125_075120_f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5.webp` | English map island 1 (hobbies) | 2026-11-25 | f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5 | gpt_image_2_5 |
+| `assets/al/map/isl-2-locked.hf_20261125_075122_015dc5a7-8cf0-4957-9a08-a0b036734301.webp` | English map island 2 (school), locked: made here from the same picture (greyed, darker, cool mist), no extra job | 2026-11-25 | 015dc5a7-8cf0-4957-9a08-a0b036734301 | gpt_image_2_5 |
+| `assets/al/map/isl-2.hf_20261125_075122_015dc5a7-8cf0-4957-9a08-a0b036734301.webp` | English map island 2 (school) | 2026-11-25 | 015dc5a7-8cf0-4957-9a08-a0b036734301 | gpt_image_2_5 |
+| `assets/al/map/isl-3-locked.hf_20261125_075120_b74f0f8d-8612-409a-9938-2d53629d4086.webp` | English map island 3 (the new home), locked: made here from the same picture (greyed, darker, cool mist), no extra job | 2026-11-25 | b74f0f8d-8612-409a-9938-2d53629d4086 | gpt_image_2_5 |
+| `assets/al/map/isl-3.hf_20261125_075120_b74f0f8d-8612-409a-9938-2d53629d4086.webp` | English map island 3 (the new home) | 2026-11-25 | b74f0f8d-8612-409a-9938-2d53629d4086 | gpt_image_2_5 |
+| `assets/al/map/isl-4-locked.hf_20261125_075118_2c5654f8-c012-4de6-ab90-f80dd20c6f40.webp` | English map island 4 (the birthday), locked: made here from the same picture (greyed, darker, cool mist), no extra job | 2026-11-25 | 2c5654f8-c012-4de6-ab90-f80dd20c6f40 | gpt_image_2_5 |
+| `assets/al/map/isl-4.hf_20261125_075118_2c5654f8-c012-4de6-ab90-f80dd20c6f40.webp` | English map island 4 (the birthday) | 2026-11-25 | 2c5654f8-c012-4de6-ab90-f80dd20c6f40 | gpt_image_2_5 |
+| `assets/al/map/isl-5-locked.hf_20261125_075121_4417a597-d43d-4c75-afbc-86525a35ac92.webp` | English map island 5 (presents), locked: made here from the same picture (greyed, darker, cool mist), no extra job | 2026-11-25 | 4417a597-d43d-4c75-afbc-86525a35ac92 | gpt_image_2_5 |
+| `assets/al/map/isl-5.hf_20261125_075121_4417a597-d43d-4c75-afbc-86525a35ac92.webp` | English map island 5 (presents) | 2026-11-25 | 4417a597-d43d-4c75-afbc-86525a35ac92 | gpt_image_2_5 |
+| `assets/al/map/isl-6-locked.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp` | English map island 6 (treasure), locked: made here from the same picture (greyed, darker, cool mist), no extra job | 2026-11-25 | 742bbc3a-52ff-4652-a1c9-b43679ba2e26 | gpt_image_2_5 |
+| `assets/al/map/isl-6.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp` | English map island 6 (treasure) | 2026-11-25 | 742bbc3a-52ff-4652-a1c9-b43679ba2e26 | gpt_image_2_5 |
 
 ### Backgrounds
 
@@ -537,6 +549,7 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 | `assets/al/bg/english.hf_20261124_204750_bfb9c336-44b5-4c94-bda9-e8cea4054138.webp` | English island path backdrop | 2026-11-24 | bfb9c336-44b5-4c94-bda9-e8cea4054138 | gpt_image_2_5 |
 | `assets/al/bg/math.hf_20261124_204751_6e57a9de-39a3-4daf-9575-b6c82d806521.webp` | maths island path backdrop | 2026-11-24 | 6e57a9de-39a3-4daf-9575-b6c82d806521 | gpt_image_2_5 |
 | `assets/al/bg/sea.hf_20261124_210013_f6e9010a-f742-47cc-a849-a034fbb86389.webp` | world map background, sea from above, no islands | 2026-11-24 | f6e9010a-f742-47cc-a849-a034fbb86389 | gpt_image_2_5 |
+| `assets/al/bg/sea-details.hf_20261125_075052_17486f52-96ee-4372-9033-9dd45cfa5736.webp` | world map background: the sea from above with a whale, two lantern boats, a lighthouse and jellyfish near the edges | 2026-11-25 | 17486f52-96ee-4372-9033-9dd45cfa5736 | gpt_image_2_5 |
 
 ### Mission stones and HUD icons
 
@@ -552,6 +565,9 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 | `assets/al/ui/gear.hf_20261124_204754_5c2c044b-27ad-4163-bd88-d7a7167def82.webp` | HUD icon: gear | 2026-11-24 | 5c2c044b-27ad-4163-bd88-d7a7167def82 | gpt_image_2_5 |
 | `assets/al/ui/sound-on.hf_20261124_204752_b82c7717-fa0a-4eef-b50e-de204f3e78e6.webp` | HUD icon: sound on | 2026-11-24 | b82c7717-fa0a-4eef-b50e-de204f3e78e6 | gpt_image_2_5 |
 | `assets/al/ui/sound-off.hf_20261124_204752_b82c7717-fa0a-4eef-b50e-de204f3e78e6.webp` | HUD icon: sound off | 2026-11-24 | b82c7717-fa0a-4eef-b50e-de204f3e78e6 | gpt_image_2_5 |
+| `assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp` | painted panel frame, aqua rim (9-slice, border-image) | 2026-11-25 | 18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca | gpt_image_2_5 |
+| `assets/al/ui/button.hf_20261125_075122_cc6e3e5f-f91a-4a1a-84fa-df545ab8aa3f.webp` | painted gold primary button (9-slice, border-image) | 2026-11-25 | cc6e3e5f-f91a-4a1a-84fa-df545ab8aa3f | gpt_image_2_5 |
+| `assets/al/ui/pill.hf_20261125_075119_050c516b-9715-499a-b981-3306dd6a4694.webp` | painted HUD pill frame, gold rim (9-slice, border-image) | 2026-11-25 | 050c516b-9715-499a-b981-3306dd6a4694 | gpt_image_2_5 |
 
 ### Island themes
 

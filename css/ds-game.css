@@ -179,3 +179,39 @@ html.ds .island .chips .wsl{min-block-size:var(--wi-tap);color:var(--wi-aqua);bo
 html.ds .island .xtr small{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s3);font-size:var(--wi-fs-xs)}
 html.ds .island .xtb{min-block-size:var(--wi-tap);padding:0 var(--wi-s4);background:var(--wi-navy-900);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-pill);box-shadow:var(--wi-e1);font-family:var(--wi-font-ui)}
 html.ds .island .xtb:active{background:var(--wi-navy-700)}
+
+/* ======== Painted art for the new look (batch h): the six English islands, a locked version of each, the sea with quiet
+   details, and painted frames (panel, gold button, HUD pill) used as border-image so all text stays live ======== */
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_1.webp"]{background-image:url(../assets/al/map/isl-1.hf_20261125_075120_f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_1.webp"]{background-image:url(../assets/al/map/isl-1-locked.hf_20261125_075120_f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_2.webp"]{background-image:url(../assets/al/map/isl-2.hf_20261125_075122_015dc5a7-8cf0-4957-9a08-a0b036734301.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_2.webp"]{background-image:url(../assets/al/map/isl-2-locked.hf_20261125_075122_015dc5a7-8cf0-4957-9a08-a0b036734301.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_3.webp"]{background-image:url(../assets/al/map/isl-3.hf_20261125_075120_b74f0f8d-8612-409a-9938-2d53629d4086.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_3.webp"]{background-image:url(../assets/al/map/isl-3-locked.hf_20261125_075120_b74f0f8d-8612-409a-9938-2d53629d4086.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_4.webp"]{background-image:url(../assets/al/map/isl-4.hf_20261125_075118_2c5654f8-c012-4de6-ab90-f80dd20c6f40.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_4.webp"]{background-image:url(../assets/al/map/isl-4-locked.hf_20261125_075118_2c5654f8-c012-4de6-ab90-f80dd20c6f40.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_5.webp"]{background-image:url(../assets/al/map/isl-5.hf_20261125_075121_4417a597-d43d-4c75-afbc-86525a35ac92.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_5.webp"]{background-image:url(../assets/al/map/isl-5-locked.hf_20261125_075121_4417a597-d43d-4c75-afbc-86525a35ac92.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_6.webp"]{background-image:url(../assets/al/map/isl-6.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_6.webp"]{background-image:url(../assets/al/map/isl-6-locked.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp)}
+/* the island pictures: the old <img> keeps its place; its picture moves out of the box and the new one is drawn in it.
+   The new islands are taller (trees), so the box gets a little more height, anchored at the bottom */
+html.ds #stage:is([data-scr=map],[data-scr=island]) img.pic[src*="/isl_"]{object-position:-9999px 0;background-position:center bottom;background-size:contain;background-repeat:no-repeat;aspect-ratio:7/6;height:auto}
+html.ds .map .isl.locked .pic{filter:none}
+html.ds .map .isl.cur .pic{filter:none}
+/* the map sea: the same sea with a whale, two lantern boats, a lighthouse and jellyfish painted near the edges */
+html.ds #stage[data-scr=map] #bg .bgl{background-image:url(../assets/al/bg/sea-details.hf_20261125_075052_17486f52-96ee-4372-9033-9dd45cfa5736.webp)!important}
+html.ds .map .deco{display:none}
+/* the route: round glowing dots (a bright stroke on the dark sea, no blur) */
+html.ds .map .route path{stroke:#8FF7E6;stroke-width:4;stroke-dasharray:.1 11;stroke-linecap:round;opacity:.85}
+
+/* painted frames as border-image; the fill keeps the dark middle under the text */
+html.ds .login .lcard,html.ds .settings .panel.label,html.ds .map .fin{border:22px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 22px / 4px round;background:none;box-shadow:none}
+html.ds .login .lcard{padding:var(--wi-s2) var(--wi-s2) var(--wi-s1)}
+html.ds .settings .panel.label{padding:0 var(--wi-s1)}
+html.ds .map .fin{padding:0}
+html.ds .login .lcard .btn:not(:disabled),html.ds .settings .acct .btn.gold{border:24px solid transparent;border-image:url(../assets/al/ui/button.hf_20261125_075122_cc6e3e5f-f91a-4a1a-84fa-df545ab8aa3f.webp) 46 60 fill / 24px 30px stretch;background:none;box-shadow:none;padding:0 6px;color:var(--wi-navy-900)}
+html.ds .login .lcard .btn:not(:disabled):active{filter:brightness(.92)}
+html.ds .map .sign.total b,html.ds .island .chips .chip:not(.wsl){border:18px solid transparent;border-image:url(../assets/al/ui/pill.hf_20261125_075119_050c516b-9715-499a-b981-3306dd6a4694.webp) 46 60 fill / 18px 24px stretch;background:none;box-shadow:none;padding:0 4px}
+html.ds .map .fin{border-width:14px;border-image-width:14px;min-height:0;bottom:calc(4px + var(--sb))}
+@media (max-height:700px){html.ds #stage:is([data-scr=map],[data-scr=island]) img.pic[src*="/isl_"]{aspect-ratio:4/3}}
