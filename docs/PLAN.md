@@ -131,7 +131,13 @@ From comparing with a similar 8th-grade site (no login, device-only progress, ma
   generation.
 - **Avatar micro-animations:** a 1–2 s loop per character with its own mood, on tap or selection (phones have no hover),
   hover on laptops. Cost estimated first.
-- **Welcome text is generic** ("ברוכים הבאים לאיי המילים"). The school's name and the grade are not shown on the
+- **The platform is named "ניצני אופק"** (decided 25.11.2026). It will hold English, math, Hebrew language and
+  science; "איי המילים" stays only as the name of the English world (the English map, its button, the card, the
+  worksheet, Beach Run). The live site keeps "איי המילים" until the new look goes live: for now the new name shows
+  only behind `?ds=1` (title and login screens, the page title, the welcome line). The repository name and the site
+  address stay as they are until there is a domain, so saved links and home-screen icons keep working; the
+  manifest's name changes with the flag flip, not before (a home-screen install would be renamed for everyone).
+- **Welcome text is generic** ("ברוכים הבאים לניצני אופק"; it was "ברוכים הבאים לאיי המילים"). The school's name and the grade are not shown on the
   public site; at most after sign-in, and only with the school's agreement.
 - **A school world, illustrated, not photographed.** No photos of the real school or classrooms anywhere in the public
   site or repo (a public map of where the children are every day, and no photos of children, ever). Instead an

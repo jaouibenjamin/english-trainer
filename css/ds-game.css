@@ -196,6 +196,7 @@ html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_6.webp"]{back
 html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_6.webp"]{background-image:url(../assets/al/map/isl-6-locked.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp)}
 /* the island pictures: the old <img> keeps its place; its picture moves out of the box and the new one is drawn in it.
    The new islands are taller (trees), so the box gets a little more height, anchored at the bottom */
+/* the 7:6 below and the 4:3 under 700px are copied in js/main.js worldIw() (the map's island size with the dock): change both */
 html.ds #stage:is([data-scr=map],[data-scr=island]) img.pic[src*="/isl_"]{object-position:-9999px 0;background-position:center bottom;background-size:contain;background-repeat:no-repeat;aspect-ratio:7/6;height:auto}
 html.ds .map .isl.locked .pic{filter:none}
 html.ds .map .isl.cur .pic{filter:none}

@@ -62,7 +62,7 @@
 /* ---------- exam ---------- */
 .mockrun,.mockprac{gap:8px}
 .xtop{width:100%;max-width:400px;flex:none;display:flex;flex-direction:column;gap:2px;position:relative}
-.xquit{position:absolute;inset-inline-end:0;top:0;width:40px;height:40px}
+.xquit{position:absolute;inset-inline-end:0;top:0;z-index:1;width:48px;height:48px}   /* above .xtrail (positioned and later in the page), a full 48px target */
 .xtrail{position:relative;display:flex;align-items:center;justify-content:center;gap:0;padding:6px 44px 22px;direction:rtl}
 .xs{display:flex;flex-direction:column;align-items:center;width:48px;opacity:.55;transition:opacity .3s,transform .3s}
 .xs b{width:38px;height:38px;display:grid;place-items:center;font-size:20px;border-radius:50%;background:#fffaf0;border:2.5px solid rgba(90,69,52,.5)}

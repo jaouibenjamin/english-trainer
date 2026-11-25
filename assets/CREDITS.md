@@ -508,6 +508,30 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 | `assets/al/av/octopus.hf_20261124_204327_b1c753c1-abca-4c2e-9a73-d209ae4faad3.webp` | character portrait: octopus | 2026-11-24 | b1c753c1-abca-4c2e-9a73-d209ae4faad3 | gpt_image_2_5 |
 | `assets/al/av/robot-bell.hf_20261124_210015_6c7fc276-a450-4cc4-930d-e689225044d4.webp` | character portrait: robot, green diving bell | 2026-11-24 | 6c7fc276-a450-4cc4-930d-e689225044d4 | gpt_image_2_5 |
 
+### Character animations (2 s, played once on tap)
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/avanim/fox.hf_20261125_135453_ab8ea61d-9a2c-4fe1-beda-89141de05554.webp` | character animation, 2 s, plays once on tap: fox (retake: smile, tilt, one wink or blink; frames 1 to 13 and back) | 2026-11-25 | ab8ea61d-9a2c-4fe1-beda-89141de05554 | grok_video |
+| `assets/al/avanim/turtle.hf_20261125_130901_e0c51c5f-6901-4c33-89bb-89313b26215c.webp` | character animation, 2 s, plays once on tap: sea turtle | 2026-11-25 | e0c51c5f-6901-4c33-89bb-89313b26215c | grok_video |
+| `assets/al/avanim/shark.hf_20261125_130858_d982cc13-a6f1-46e8-9d8f-9cca79ccfaf7.webp` | character animation, 2 s, plays once on tap: shark | 2026-11-25 | d982cc13-a6f1-46e8-9d8f-9cca79ccfaf7 | grok_video |
+| `assets/al/avanim/parrot.hf_20261125_131130_9028e4dd-1693-4a0d-abd8-1a7219bcef28.webp` | character animation, 2 s, plays once on tap: parrot | 2026-11-25 | 9028e4dd-1693-4a0d-abd8-1a7219bcef28 | grok_video |
+| `assets/al/avanim/cat.hf_20261125_130859_2d6e7703-b127-467d-a053-b9b8ebd478c2.webp` | character animation, 2 s, plays once on tap: cat | 2026-11-25 | 2d6e7703-b127-467d-a053-b9b8ebd478c2 | grok_video |
+| `assets/al/avanim/penguin.hf_20261125_135453_37bd5424-72a9-45fd-8b9e-4b44c36d7e3c.webp` | character animation, 2 s, plays once on tap: penguin (retake: smile, tilt, one wink or blink; frames 1 to 15 and back) | 2026-11-25 | 37bd5424-72a9-45fd-8b9e-4b44c36d7e3c | grok_video |
+| `assets/al/avanim/robot-box.hf_20261125_130857_079ba72f-84f8-488a-b4f2-c2993213ec78.webp` | character animation, 2 s, plays once on tap: robot, box head | 2026-11-25 | 079ba72f-84f8-488a-b4f2-c2993213ec78 | grok_video |
+| `assets/al/avanim/diver.hf_20261125_130858_47e0e32c-cfc8-416b-a766-4c9c11c9681d.webp` | character animation, 2 s, plays once on tap: diver, brass helmet | 2026-11-25 | 47e0e32c-cfc8-416b-a766-4c9c11c9681d | grok_video |
+| `assets/al/avanim/pilot.hf_20261125_130857_b554383f-e6e2-447f-814b-a2631f39a0b3.webp` | character animation, 2 s, plays once on tap: explorer, closed helmet | 2026-11-25 | b554383f-e6e2-447f-814b-a2631f39a0b3 | grok_video |
+| `assets/al/avanim/girl-curls.hf_20261125_130858_71e97db1-4ff6-4158-b859-fe8aab0c0420.webp` | character animation, 2 s, plays once on tap: girl, curls and headband | 2026-11-25 | 71e97db1-4ff6-4158-b859-fe8aab0c0420 | grok_video |
+| `assets/al/avanim/girl-braids.hf_20261125_130859_dc24c69f-f02f-4a62-8471-3446698fc491.webp` | character animation, 2 s, plays once on tap: girl, braids | 2026-11-25 | dc24c69f-f02f-4a62-8471-3446698fc491 | grok_video |
+| `assets/al/avanim/girl-glasses.hf_20261125_130856_36896b79-c6e7-4229-9bd4-94bfd3f9e073.webp` | character animation, 2 s, plays once on tap: girl, glasses and headphones | 2026-11-25 | 36896b79-c6e7-4229-9bd4-94bfd3f9e073 | grok_video |
+| `assets/al/avanim/girl-ponytail.hf_20261125_130919_ff0b06a1-c050-406a-bcbf-f839ca4b147c.webp` | character animation, 2 s, plays once on tap: girl, ponytail and goggles | 2026-11-25 | ff0b06a1-c050-406a-bcbf-f839ca4b147c | grok_video |
+| `assets/al/avanim/boy-cap.hf_20261125_130921_28e1c89e-fa99-4ede-bd23-61b296bc3900.webp` | character animation, 2 s, plays once on tap: boy, cap | 2026-11-25 | 28e1c89e-fa99-4ede-bd23-61b296bc3900 | grok_video |
+| `assets/al/avanim/boy-curls.hf_20261125_130920_c2d74619-7816-46f9-af65-b8bf92836a8b.webp` | character animation, 2 s, plays once on tap: boy, curls and rain jacket | 2026-11-25 | c2d74619-7816-46f9-af65-b8bf92836a8b | grok_video |
+| `assets/al/avanim/boy-blond.hf_20261125_130925_b6caefca-93f5-4684-ac8a-c5336523c0dd.webp` | character animation, 2 s, plays once on tap: boy, glasses and vest | 2026-11-25 | b6caefca-93f5-4684-ac8a-c5336523c0dd | grok_video |
+| `assets/al/avanim/boy-scarf.hf_20261125_130919_29b9100c-d989-49ad-894b-ddcd03be8800.webp` | character animation, 2 s, plays once on tap: boy, bandana | 2026-11-25 | 29b9100c-d989-49ad-894b-ddcd03be8800 | grok_video |
+| `assets/al/avanim/octopus.hf_20261125_130919_719b4000-fc5c-460a-a244-508cc849d7ce.webp` | character animation, 2 s, plays once on tap: octopus | 2026-11-25 | 719b4000-fc5c-460a-a244-508cc849d7ce | grok_video |
+| `assets/al/avanim/robot-bell.hf_20261125_130924_c1de682e-ac27-40f8-b210-34792001ae2d.webp` | character animation, 2 s, plays once on tap: robot, green diving bell | 2026-11-25 | c1de682e-ac27-40f8-b210-34792001ae2d | grok_video |
+
 ### Pitzi
 
 | File | What | Made | Job id | Model |

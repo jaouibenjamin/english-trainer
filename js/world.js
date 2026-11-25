@@ -4,6 +4,7 @@
    DOM is built with createElement and textContent only. */
 import {ART} from './world_art.js';
 import {AVATARS,NAME_A,NAME_B} from './world_data.js';   // the 20 characters and the two name lists
+import {playAv} from './avanim.js';   // a character's 2 s animation, once, on tap, selection or hover
 
 /* ---- flag: the page shows only with ?ds=1, or when the wi_ds flag is already set on this device (read only) ---- */
 const flagOn=(()=>{
@@ -73,8 +74,9 @@ function drawGrid(){
   b.addEventListener('click',()=>{
    if(locked){$('pk-note-t').textContent=a.he+': נפתחת ברמת אנרגיה '+a.open+'. עכשיו אתם ברמה '+DEMO.energy.level+'.';return}
    S.pick=a.id;drawGrid();
-   const again=g.querySelector('[aria-pressed=true]');if(again)again.focus({preventScroll:true});
+   const again=g.querySelector('[aria-pressed=true]');if(again){again.focus({preventScroll:true});playAv(again.querySelector('.wi-av__art'),a.id)}
   });
+  if(!locked)b.addEventListener('mouseenter',()=>{if(matchMedia('(hover: hover)').matches)playAv(b.querySelector('.wi-av__art'),a.id)});
   const w=el('div');w.appendChild(b);g.appendChild(w);
  }
  const nx=$('pk-next');nx.setAttribute('aria-disabled',S.pick?'false':'true');
@@ -187,6 +189,7 @@ function drawMute(){
 }
 
 function start(){
+ document.title='ניצני אופק: העולם החדש (תצוגה)';   // the platform's new name (docs/PLAN.md); world.html shows only with the flag
  $('gate').hidden=true;$('app').hidden=false;
  drawGrid();
  $('pk-next').addEventListener('click',()=>{if(!S.pick){$('pk-why').textContent='קודם בוחרים דמות.';return}drawName();pickerStep(true)});
