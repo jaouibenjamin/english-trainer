@@ -108,13 +108,26 @@ export async function decorateMap(view,go,live=()=>true){
  sec.classList.add('hasdock');document.getElementById('stage').classList.add('wdock');sec.append(note,dock);
  const tok=token(sec,id,me,go);
  window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,token:tok};   // for the tests
- preload();
+ preload(sec);
 }
-/* the island path's pictures, fetched from the map when the browser is idle, so an island opens straight onto its path */
+/* The island path's pictures, fetched from the map so an island opens straight onto its path: they start once the
+   page and the map's own pictures are in (so they never hold up the map or a first tap), at low priority, and are
+   decoded before they count as ready. If the child goes anywhere but an island before they are in, they are dropped
+   (and fetched again on the next map). window.__world.pathArt is the promise of it, for the tests. */
 const PATH_ART=['bg/english','ui/stone-done','ui/stone-current'];
-let pre=null;
-function preload(){if(pre)return;pre=[];const go=()=>{for(const k of PATH_ART){const im=new Image();im.decoding='async';im.src=ART[k];pre.push(im)}};
- if(window.requestIdleCallback)requestIdleCallback(go,{timeout:2000});else setTimeout(go,800)}
+let pre=null;   // {imgs, ok, done}
+function preload(sec){
+ if(!pre){
+  const P={imgs:{},ok:false,done:null};let stop=false,end;pre=P;
+  /* settles once: true when all are in and decoded, false when one fails or the preload is dropped */
+  P.done=new Promise(r=>end=r).then(ok=>{P.ok=ok;removeEventListener('hashchange',leave);if(!ok&&pre===P)pre=null;return ok});
+  const leave=()=>{if(P.ok||/^#island\//.test(location.hash))return;stop=true;for(const im of Object.values(P.imgs))if(!im.complete)im.removeAttribute('src');end(false)};
+  addEventListener('hashchange',leave);
+  const after=document.readyState==='complete'?Promise.resolve():new Promise(r=>addEventListener('load',r,{once:true}));
+  const own=()=>Promise.all([...sec.querySelectorAll('img')].map(i=>i.complete?0:i.decode().catch(()=>0)));
+  after.then(own).then(()=>stop?false:Promise.all(PATH_ART.map(k=>{const im=new Image();im.decoding='async';im.fetchPriority='low';
+    im.src=ART[k];P.imgs[k]=im;return im.decode().then(()=>true,()=>false)})).then(a=>a.every(Boolean)&&!stop)).catch(()=>false).then(end)}
+ window.__world.pathArt=pre.done}
 
 /* ---------- the character on the map ----------
    The chosen character stands on the island the pupil plays now (the one marked "ממשיכים כאן"; when every island is
@@ -124,11 +137,11 @@ function preload(){if(pre)return;pre=[];const go=()=>{for(const k of PATH_ART){c
    "?" badge that opens the picker. A device that cannot keep a character shows Pitzi alone. */
 /* no character yet: Pitzi stands on the island as today, with a small "?" badge by him that opens the picker. The
    island stays the island's button: the badge's 48 px tap area sits beside Pitzi on the sea side, off the island's
-   picture; where there is no room for that (a narrow screen), the tap area shrinks to the dot and a few px. */
+   picture or tag; where there is no room for that (a narrow screen), the tap area shrinks to the dot and a few px. */
 const ASK=48,ASK_MIN=32;
 function ask(sec,isl,go){const c=isl.querySelector('.here');if(!c)return null;const r=c.getBoundingClientRect(),s=sec.getBoundingClientRect();if(!r.width)return null;
  const p=(isl.querySelector('.pw')||isl).getBoundingClientRect(),out=(r.left+r.right)/2<(p.left+p.right)/2?-1:1;   // the sea side: away from the island's middle
- const pics=[...sec.querySelectorAll('.isl .pw')].map(e=>e.getBoundingClientRect());
+ const pics=[...sec.querySelectorAll('.isl .pw,.isl .tag')].map(e=>e.getBoundingClientRect());   // an island's picture and its tag are both its button
  const free=(x,y,h)=>x-h/2>=s.left&&x+h/2<=s.right&&y-h/2>=s.top&&y+h/2<=s.bottom&&pics.every(q=>x+h/2<=q.left||x-h/2>=q.right||y+h/2<=q.top||y-h/2>=q.bottom);
  /* places by Pitzi, nearest first: on the sea side at his head, his middle, his feet; then under and over him */
  const cx=(r.left+r.right)/2,edge=out<0?p.left:p.right,spots=h=>[r.top+r.height*.1,r.top+r.height*.5,r.bottom].map(y=>[out<0?Math.min(cx,edge-h/2):Math.max(cx,edge+h/2),y])
@@ -198,15 +211,18 @@ const WALK_MS=450;
    arriving within ART_WAIT. Otherwise the list stays for this visit. The list is never hidden while we wait, so the
    island area is never empty, and the island never flips from list to path late. */
 const ART_WAIT=300;
-function ready(keys){return Promise.all(keys.map(k=>new Promise(r=>{const im=new Image();im.src=ART[k];
- if(im.complete&&im.naturalWidth)return r(true);const t=setTimeout(()=>r(false),ART_WAIT);
- im.onload=()=>{clearTimeout(t);r(true)};im.onerror=()=>{clearTimeout(t);r(false)}}))).then(a=>a.every(Boolean))}
+const wait=ms=>new Promise(r=>setTimeout(()=>r(false),ms));
+async function ready(){
+ if(pre&&pre.ok)return true;                                                  // fetched and decoded from the map
+ if(pre&&pre.done&&await Promise.race([pre.done,wait(ART_WAIT)])===true)return true;   // still coming: a short wait
+ if(pre&&pre.done)return false;
+ return Promise.race([Promise.all(PATH_ART.map(k=>{const im=new Image();im.src=ART[k];return im.decode().then(()=>true,()=>false)})).then(a=>a.every(Boolean)),wait(ART_WAIT)])}   // straight onto an island (a link): the same short wait
 export async function islandPath(view,i,go,live=()=>true){
  const id=await ident();
  const sec=view.querySelector('.scr.island'),list=sec&&sec.querySelector('.lvlist');
  if(!live()||!list||!same(id))return;
  style();
- if(!await ready(PATH_ART)||!live()||!list.isConnected||!same(id))return false;   // not here yet, or failed: today's list for this visit
+ if(!await ready()||!live()||!list.isConnected||!same(id))return false;   // not here yet, or failed: today's list for this visit
  const me=id.key?mine(id):{av:null},lv=i.levels.map(([t])=>({t,s:starsOf(i.id,t),L:LEVEL_INFO[t]}));
  const next=lv.findIndex(x=>!x.s),here=next<0?lv.length-1:next,pts=pathPoints('english',lv.length);
  const wrap=el('div','w-stagewrap wisl'),stage=el('div','w-stage');stage.style.backgroundImage='url("'+ART['bg/english']+'")';

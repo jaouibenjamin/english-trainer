@@ -106,8 +106,8 @@ function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('pa
   ${extraRow(i)}<div class="lvlist">${i.levels.map(([t],k)=>{const L=LEVEL_INFO[t],s=starsOf(i.id,t);
    return `<button class="lvrow p${k%4}" data-a="nav" data-to="play/${i.id}/${t}"><span class="lic">${spr(L.icon)}</span><span class="lt"><b>${L.name}</b>${stars(s)}<small>${L.sub}</small></span></button>`}).join('')}</div>
   <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus&&!got?'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`;worldIsland(i)}
-/* with the design flag, the island's levels become a path of stones (js/avatar.js islandPath): the list waits, hidden,
-   only while that loads, and comes back if it cannot; without the flag this does nothing */
+/* with the design flag, the island's levels become a path of stones (js/avatar.js islandPath) when its pictures are
+   ready; until then, or if they are not, today's list stays as it is. Without the flag this does nothing */
 function worldIsland(i){if(!dsOn())return;if(!view.querySelector('.scr.island .lvlist'))return;const my=navId;   // the list stays shown until the path is ready to take its place
  import('./avatar.js').then(m=>my===navId&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{})}
 
