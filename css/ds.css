@@ -152,6 +152,11 @@
 .wi-av--locked .wi-av__art{opacity:.35}
 .wi-av__lock{position:absolute;inset:0;display:grid;place-items:center}
 .wi-av__art{display:block;inline-size:100%;block-size:100%;border-radius:50%}
+/* a character without an animation file (js/avanim.js): one small tilt-and-bounce of the still, never with reduced motion */
+.wi-av__art--bob{animation:wi-av-bob .9s ease-in-out 1}
+@keyframes wi-av-bob{0%,100%{transform:none}25%{transform:translateY(-6%) rotate(-6deg)}55%{transform:translateY(0) rotate(4deg)}78%{transform:translateY(-2%) rotate(-1deg)}}
+@media (prefers-reduced-motion: reduce){.wi-av__art--bob{animation:none}}
+html.calm .wi-av__art--bob{animation:none}
 
 /* ---- chip / tag ---- */
 .wi-tag{display:inline-flex;align-items:center;gap:var(--wi-s1);min-block-size:28px;padding-inline:var(--wi-s3);border-radius:var(--wi-r-pill);background:var(--wi-navy-700);color:var(--wi-text);font:600 var(--wi-fs-xs)/1 var(--wi-font-ui)}

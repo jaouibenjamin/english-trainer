@@ -14,8 +14,10 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | g | Review fixes: robot portrait redone, Pitzi "listen" redone, world map sea from above | portrait and pose: medium, 1:1; sea: high, 9:16 | 3 | 2.25 | 2.25 | 27.00 | 423.00 |
 | f | Sound: 2 island themes x 2 takes (30 s each, 4.36), 3 signature sounds x 2 takes (3 s each, 0.44) | elevenlabs_music_v2_5, instrumental | 10 | 20.08 | 20.08 | 47.08 | 402.92 |
 | h | The six English map islands redrawn in the night-sea style; the map sea with quiet details (whale, lantern boats, lighthouse, jellyfish); painted frames: panel, gold button, HUD pill (9-slice) | islands and frames: gpt_image_2_5, medium, 1k, transparent, style reference: the English island of batch c; sea: high, 9:16, reference: the batch g sea | 10 | 5.75 | 5.75 | 52.83 | 397.17 |
+| i | Character animations: 2 s per character, played once on tap (20 used); sample first (fox), then 19, then two retakes | grok_video, 2 s, 1:1, start image: the character's portrait (batch a/g) | 22 | 66.00 | 66.00 | 118.83 | 331.17 |
+| i2 | Character animations, lead's frame review: retakes of penguin, fox, owl (one each); penguin and fox used, owl failed again and gets a CSS tilt-and-bounce instead | grok_video, 2 s, 1:1, same start images | 3 | 9.00 | 9.00 | 127.83 | 322.17 |
 
-Total charged so far: **52.83** of 450. Left: 397.17.
+Total charged so far: **127.83** of 450. Left: 322.17. (Batch i and i2 together: 75.00, the cap set for the animations.)
 
 ## Jobs
 
@@ -90,12 +92,49 @@ Batch h (owner's go-ahead through the lead, about 20 to 30 credits for closing t
 | gold button | cc6e3e5f-f91a-4a1a-84fa-df545ab8aa3f |
 | HUD pill | 050c516b-9715-499a-b981-3306dd6a4694 |
 
+Batch i (owner's go-ahead through the lead, cap 75 including retakes). Every frame of every take was looked at; the human characters were checked for a changed face, teeth, hands or extra fingers. Two first takes were not used: the owl (it puffed up and the framing jumped in) and the parrot (its crest turned into blue spikes, it stopped looking like its portrait). Each file: animated WebP, 192 x 192, 12 fps, the 24 generated frames plus 4 that fade back to the first, so it ends on the still portrait; 91 to 146 KB.
+
+| Character | Job id | Used |
+|---|---|---|
+| owl | d2d2b170-25ff-49b5-8d7d-0fcef6ed25d5 | no (lead's frame review): both eyes narrow into a scowl, f13 to f14 |
+| turtle | e0c51c5f-6901-4c33-89bb-89313b26215c | yes |
+| shark | d982cc13-a6f1-46e8-9d8f-9cca79ccfaf7 | yes |
+| parrot | 9028e4dd-1693-4a0d-abd8-1a7219bcef28 | yes |
+| cat | 2d6e7703-b127-467d-a053-b9b8ebd478c2 | yes |
+| penguin | 52510732-c825-4c1c-a0b5-63d53da3ebfb | no (lead's frame review): pose cut f4 to f5, beak wide open, double image in the fade |
+| robot-box | 079ba72f-84f8-488a-b4f2-c2993213ec78 | yes |
+| diver | 47e0e32c-cfc8-416b-a766-4c9c11c9681d | yes |
+| pilot | b554383f-e6e2-447f-814b-a2631f39a0b3 | yes |
+| girl-curls | 71e97db1-4ff6-4158-b859-fe8aab0c0420 | yes |
+| girl-braids | dc24c69f-f02f-4a62-8471-3446698fc491 | yes |
+| girl-glasses | 36896b79-c6e7-4229-9bd4-94bfd3f9e073 | yes |
+| girl-ponytail | ff0b06a1-c050-406a-bcbf-f839ca4b147c | yes |
+| boy-cap | 28e1c89e-fa99-4ede-bd23-61b296bc3900 | yes |
+| boy-curls | c2d74619-7816-46f9-af65-b8bf92836a8b | yes |
+| boy-blond | b6caefca-93f5-4684-ac8a-c5336523c0dd | yes |
+| boy-scarf | 29b9100c-d989-49ad-894b-ddcd03be8800 | yes |
+| octopus | 719b4000-fc5c-460a-a244-508cc849d7ce | yes |
+| robot-bell | c1de682e-ac27-40f8-b210-34792001ae2d | yes |
+| fox | 4e6e410f-561b-45c3-92d3-8a7b72309d9a | no (lead's frame review): toothy grin, ears pinned back, ghost ears in the fade |
+| owl, first take | cbd4da92-6c26-4777-8b1f-7fc7ed2a9553 | no: puffed up, framing jumped |
+| parrot, first take | 73fbce94-1121-405b-82ff-8a1476aee2ff | no: crest turned into blue spikes |
+
 Batches b to e: every job is used, except the first "listen" pose named above; the ids are in `assets/al/sources.tsv` (Pitzi's wave pose,
 c2effc24-9597-44ee-9eb7-204c981203c3, was the reference for the other five poses).
 
 Style references (approved frames, made before this ledger, not counted in the cap): world map
 339d6b72-d680-4b39-86de-d4927d9cb120, island path 16f37d15-7965-43c3-9666-fb1ee2c49611, avatar picker
 b1f0d687-5d18-4811-af95-f2aca8285246, first frame 34b3388f-09b1-4b65-93c7-8b0579be81a4.
+
+Batch i2 (retakes; prompt: closed-mouth smile, small head tilt, one blink or wink, nothing new). Each take's frames were
+all looked at. None returns to the starting pose, so the used ones play frames 1 to k and back (ending exactly on the still,
+no blended frames):
+
+| Character | Job | Used |
+|---|---|---|
+| penguin | 37bd5424-72a9-45fd-8b9e-4b44c36d7e3c | yes, frames 1 to 15 and back: smile, tilt, one blink, beak closed |
+| fox | ab8ea61d-9a2c-4fe1-beda-89141de05554 | yes, frames 1 to 13 and back: closed-mouth smile, tilt, one wink |
+| owl | 797aa225-841f-4c78-b8ef-7fc1f4e57e95 | no: one eye half-lidded into a side-eye (f7 to f9), then a frowning wink; CSS tilt-and-bounce instead |
 
 ## Review notes
 
