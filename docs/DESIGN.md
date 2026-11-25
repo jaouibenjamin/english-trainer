@@ -204,4 +204,6 @@ Files: `css/ds-teacher.css` (the skin), one more entry in the stylesheet list of
 ## Welcome film, behind the same flag
 
 Shown once on first open of the game page; poster first, play only on tap, 48 px skip from the first second, captions
-as live text. Details and the narration (flagged for the teacher) in `docs/INTRO.md`; art in batch j of the ledger.
+as live text. The platform's new name, **ניצני אופק**, is in its closing title only (the in-game rename is the client
+engineer's, behind the flag). Details and the narration (flagged for the teacher's review) in `docs/INTRO.md`; art in
+batch j of the ledger.

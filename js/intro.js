@@ -6,17 +6,17 @@
    - Closing (skip, Escape, end) stores wi_intro=1 on this device and removes everything, the video's source included.
    - Calm mode or prefers-reduced-motion: the poster and the buttons show, the film still waits for a tap.
    DOM is built with createElement and textContent only. The narration text is flagged for the teacher (docs/INTRO.md). */
-const FILM='assets/al/intro/intro.hf_20261125_131558_7621ea4f-5457-4816-a8dd-cd722b9e9af3.mp4';
+const FILM='assets/al/intro/intro.hf_20261125_135448_1ec486fb-379a-4ec2-9613-83ddce779343.mp4';
 const POSTER='assets/al/intro/poster.hf_20261125_131558_7621ea4f-5457-4816-a8dd-cd722b9e9af3.webp';
 /* [from, to, text] in seconds of the film, from the pauses in the narration */
 const CUES=[
  [0.3,4.7,'בלילה, באמצע הים, מחכים לכם איים מיוחדים.'],
- [5.5,8.2,'כל אי הוא עולם של מילים באנגלית.'],
+ [5.5,8.3,'בכל אי מחכה עולם אחר לגלות.'],
  [9.1,12.2,'פיצי הסרטן כבר מחכה לכם על החוף:'],
- [12.8,15.3,'Hi! My name is Pitzi!'],
- [16.4,19.0,'בוחרים דמות, ויוצאים לדרך.'],
- [19.4,25.0,'משחקים, טועים, מתקנים, ומשתפרים כל יום עוד קצת.'],
- [26.2,29.9,'ברוכים הבאים לאיי המילים!']];
+ [12.8,15.1,'Hi! My name is Pitzi!'],
+ [16.4,19.4,'בוחרים דמות, ויוצאים לדרך.'],
+ [19.5,24.6,'משחקים, טועים, מתקנים, ומשתפרים כל יום עוד קצת.'],
+ [26.2,29.9,'ברוכים הבאים, ניצני אופק!']];
 const TITLE_AT=25.4;
 const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e};
 
@@ -24,7 +24,7 @@ export function showIntro(){
  if(document.getElementById('wi-intro'))return;
  const box=el('div','wi-intro');box.id='wi-intro';box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','סרטון פתיחה');
  const v=el('video','wi-intro__film');v.setAttribute('playsinline','');v.preload='none';v.poster=POSTER;v.muted=false;v.setAttribute('aria-hidden','true');
- const title=el('p','wi-intro__title','ברוכים הבאים לאיי המילים');title.hidden=true;
+ const title=el('p','wi-intro__title','ברוכים הבאים, ניצני אופק!');title.hidden=true;
  const cap=el('p','wi-intro__cap');cap.dir='auto';
  const skip=el('button','wi-intro__skip','דלגו');skip.type='button';
  const play=el('button','wi-intro__play','צפייה בסרטון');play.type='button';
