@@ -26,10 +26,14 @@ const pts=n=>num((+n||0).toLocaleString('en-US'));
 const nst=n=>`<span class="nb">${num(n)}${star()}</span>`;   // a number and its star never part at a line break
 
 /* ---------- title ---------- */
+/* The platform's name (owner's decision 25.11.2026, docs/PLAN.md). Shown only with the design flag (?ds=1) for now:
+   the live class keeps "איי המילים" until the new look goes live. "איי המילים" stays the name of the English world
+   (the English button, the card, the worksheet, Beach Run). */
+const BRAND='ניצני אופק';
 function title(){setBg('title','bottom');
  const d=Math.ceil((new Date(2026,10,25)-new Date())/864e5),md=M.daysToExam(),m=bgMap('bottom');
  view.innerHTML=`<section class="scr title">
-  <div class="logo"><h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p></div>
+  <div class="logo">${dsOn()?`<h1>${BRAND}</h1><p>ברוכים הבאים ל${BRAND}</p>`:`<h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p>`}</div>
   <div class="tgo subj"><p class="label pick">במה מתאמנים היום?</p>
    <button class="btn green xl sb" data-a="nav" data-to="map"><span><b>אנגלית</b><small>איי המילים${d>0&&d<60?` · מבחן בעוד ${num(d)} ימים`:''}</small></span></button>
    <button class="btn coral sb xm" data-a="nav" data-to="mock"><span><b>מבחן דמו באנגלית</b><small>${XS_last()}</small></span></button>
@@ -173,7 +177,7 @@ function login(){setBg('paper','center');
  const tab=(m,t)=>`<button type="button" role="tab" aria-selected="${(m==='register')===reg}" data-a="lmode" data-m="${m}">${t}</button>`;
  const sw=V.sw?`<button type="button" class="swl" data-a="lmode" data-m="${V.sw}">${V.sw==='register'?'זאת הפעם הראשונה שלי':'כבר נרשמתי'} ${ico('next')}</button>`:'';
  const fg=`<button type="button" class="swl" data-a="forgot">שכחתי את הקוד ${ico('next')}</button>`,pinErr=V.err===ERR.pin||V.err===ERR.locked;
- view.innerHTML=`<section class="scr login"><div class="logo sm"><h1>איי המילים</h1></div>
+ view.innerHTML=`<section class="scr login"><div class="logo sm"><h1>${dsOn()?BRAND:'איי המילים'}</h1></div>
   <div class="lwrap">${spr('crab_wave','lcrab')}
   <form class="scrollp lcard" id="lf" autocomplete="off"><h3>כניסה לכיתה</h3>
    <div class="seg" role="tablist" aria-label="כניסה או הרשמה">${tab('login','כבר נרשמתי')}${tab('register','פעם ראשונה שלי')}</div>
