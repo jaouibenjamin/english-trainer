@@ -4,13 +4,13 @@ import { asUser, clock, DAY, deps, e, eq, freshIp, HOUR, log, MIN, newClass, ok,
 import { kdf, legacySheetHash, stats, tag } from "../_shared/crypto.ts";
 import { adminClass, type Body, type Reply, teacherReset, wrapLegacy } from "../_shared/core.ts";
 import { handler } from "../_shared/http.ts";
-import { isWeakCode } from "../_shared/validate.ts";
+import { isName, isWeakCode } from "../_shared/validate.ts";
 
 const T = (name: string, fn: () => Promise<void>) => Deno.test({ name, fn, sanitizeResources: false, sanitizeOps: false });
 const tok = (r: Reply) => (r as Body).device_token as string;
 
 T("setup: fast hashes for the suite (one test below uses the real 600,000 rounds)", async () => {
-  await settings({ kdf_iter: 100000 });
+  await settings({ kdf_iter: 100000, save_gap_s: 0 }); // the database clock is real here; the 5-second rule is tested in tests/db.py
 });
 
 T("register: a pupil is created, signed in, and nothing secret is stored or returned in the clear", async () => {
@@ -39,11 +39,27 @@ T("register: a pupil is created, signed in, and nothing secret is stored or retu
 T("weak codes are refused at registration and whenever a new code is set", async () => {
   const weak = Array.from({ length: 10000 }, (_, i) => String(i).padStart(4, "0")).filter(isWeakCode);
   eq(weak.length, 965, "codes on the list");
+  // the rule is the one written in docs/BACKEND.md 4.2: its groups, and the 14 keypad codes listed there
+  const doc = await Deno.readTextFile(new URL("../../../docs/BACKEND.md", import.meta.url));
+  const listed = (doc.match(/these 14 keypad\s+lines[^`]*((?:`[^`]+`[\s\S]*?)+)\. Together 965/)?.[1] ?? "").replace(/[`\s]+/g, " ").trim().split(" ").filter((x) => /^\d{4}$/.test(x));
+  const days = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const date = (d: number, m: number) => m >= 1 && m <= 12 && d >= 1 && d <= days[m - 1];
+  const group = (c: string) => {
+    const d = [...c].map(Number), st = d[1] - d[0];
+    return (d[0] === d[1] && d[1] === d[2] && d[2] === d[3]) || (Math.abs(st) === 1 && d[2] - d[1] === st && d[3] - d[2] === st) ||
+      (d[0] === d[2] && d[1] === d[3]) || (d[0] === d[1] && d[2] === d[3]) || /^(19|20)/.test(c) ||
+      date(+c.slice(0, 2), +c.slice(2)) || date(+c.slice(2), +c.slice(0, 2));
+  };
+  eq(listed.length, 14, "the doc lists 14 keypad codes");
+  eq(weak.filter((w) => !group(w)).sort(), [...listed].sort(), "the code's list is exactly the doc's groups plus the doc's keypad codes");
+  eq(weak.filter(group).length, 951, "the doc's groups: 951");
   for (const w of ["2406", "0624", "3112", "2902", "2580", "1357"]) ok(isWeakCode(w), w + " (a date or a keypad line) is weak");
   for (const g of ["3113", "0013", "4500"]) ok(!isWeakCode(g), g + " is not a date");
   for (const w of ["0000", "1234", "4321", "1212", "1122", "2015", "1999", "7777", "0123", "9876"]) ok(isWeakCode(w), w + " is weak");
   for (const g of ["4827", "5839", "8353", "6149", "7159", "9053"]) ok(!isWeakCode(g), g + " is fine");
   const c = await newClass();
+  for (const n of ["Da\u200bna", "D\u0430na", "\u3164\u3164", "Dana\u{1F600}", "<b>x</b>"]) eq(e(await reg(c, n, "4827")), "input", "a name the allow-list refuses: " + JSON.stringify(n));
+  for (const n of ["Chloé", "ג׳ני", "O'Neil"]) ok(isName(n), "allowed: " + n);
   eq(e(await reg(c, "Gal", "1234")), "weak", "register");
   await reg(c, "Gal", "4827", [3, 11]);
   eq(e(await recPic(c, "Gal", [3, 11], "2015")), "weak", "recover");
@@ -332,6 +348,13 @@ T("teacher unlock: clears a pupil's locks without touching the code; lifts the c
   eq(e(await T("t:" + teacher, { action: "unlock", pupil_id: pid })), "ok", "her teacher unlocks");
   eq(e(await log(c, "Lia", "4827", { ip: freshIp() })), "ok", "the same code works again: nothing was reset");
   eq(e(await recPic(c, "Lia", [3, 11], "5839", [7, 2], freshIp())), "ok", "and recovery is open again with the same pictures");
+  eq((await sql`select count(*)::int as n from private.auth_attempts where class_id = ${c.id} and kind = 'code' and lifted`)[0].n, 20,
+    "the lifted tries are kept: they still count towards the name's daily ceiling");
+  for (let i = 0; i < 5; i++) await log(c, "Lia", "9053", { ip: freshIp() });
+  eq(e(await log(c, "Lia", "5839", { ip: freshIp() })), "locked", "after an unlock, strangers get 5 more wrong codes, not a fresh 20");
+  eq(e(await T("t:" + teacher, { action: "unlock", pupil_id: pid })), "ok", "a second unlock the same day");
+  eq(e(await T("t:" + teacher, { action: "unlock", pupil_id: pid })), "limit", "a third is refused: twice a day, then the reset");
+  eq(e(await log(c, "Lia", "5839", { ip: freshIp() })), "ok", "and the pupil is in");
   const names = Array.from({ length: 6 }, (_, i) => "Zed" + "abcdef"[i]);
   for (const n of names) await reg(c, n, "4827", [3, 11], freshIp());
   clock.ms += 2 * HOUR;
@@ -341,8 +364,10 @@ T("teacher unlock: clears a pupil's locks without touching the code; lifts the c
   const after = names.map(() => "");
   for (let i = 0; i < 6; i++) after[i] = e(await log(c, names[i], "4827", { ip: freshIp() }));
   ok(after.filter((x) => x === "ok").length >= 5, "the lesson can start: pupils sign in on the school computers " + JSON.stringify(after));
+  for (let i = 0; i < 30; i++) await log(c, names[i % 6], "9053", { ip: freshIp() });
+  eq(e(await log(c, names[1], "4827", { ip: freshIp() })), "locked", "after a lift the class gets 30 more wrong codes from strangers, not another 100");
   const kinds = (await sql`select kind from private.auth_lock_events where class_id = ${c.id} and kind like 'unlock%' order by at`).map((x) => x.kind);
-  eq(kinds, ["unlock", "unlock-class"], "both uses are on record");
+  eq(kinds, ["unlock", "unlock", "unlock-class"], "every use is on record");
   clock.ms += 2 * DAY;
 });
 

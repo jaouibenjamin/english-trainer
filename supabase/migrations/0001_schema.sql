@@ -7,11 +7,14 @@
 create schema if not exists app;
 create schema if not exists private;
 
--- What a first name may never contain, whoever writes it (the functions check more: letters only, Hebrew or Latin):
--- control characters, digits, ASCII punctuation other than space ' . - (no markup, no spreadsheet formula), and the
--- invisible characters that make two names look the same or flip their direction (zero-width, bidi controls).
+-- What a first name may be (docs/BACKEND.md 4.4): an allow-list, not a list of what is forbidden. Letters only,
+-- Hebrew (U+05D0-U+05EA) or Latin (A-Z, a-z and the Latin-1 letters U+00C0-U+00FF without the two signs U+00D7 and
+-- U+00F7), with a space, apostrophe ' or ’, geresh ׳, gershayim ״, dot or hyphen inside; 2 to 20 characters; it
+-- starts with a letter and ends with a letter or a dot. Everything else is refused: markup, digits, emoji, look-alike
+-- letters of other scripts, invisible and direction characters, blank-looking letters, combining marks, a leading or
+-- trailing space. Written with \u escapes so no invisible character hides in this file.
 create function app.name_ok(n text) returns boolean language sql immutable set search_path = '' as
-  $$ select char_length(n) between 2 and 20 and n !~ '[\u0001-\u001f!-&(-,/-@\[-`{-\u007f​-‏‪-‮⁦-⁩﻿]' $$;
+  $$ select n ~ '^[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u05D0-\u05EA][A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u05D0-\u05EA\u05F3\u05F4\u2019'' .-]{0,18}[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u05D0-\u05EA.]$' $$;
 
 -- "Noa", " noa " and "NOA" are one pupil: trimmed, inner spaces squeezed, lower-cased
 create function app.name_key(n text) returns text language sql immutable
@@ -116,7 +119,7 @@ create table public.progress (
 create table public.flags (
   id       bigint generated always as identity primary key,
   pupil_id uuid not null references public.pupils on delete cascade,
-  kind     text not null check (kind in ('rate', 'daycap', 'repeat', 'items', 'levels', 'marathon', 'unusual', 'bonus')),
+  kind     text not null check (kind in ('rate', 'daycap', 'repeat', 'items', 'levels', 'marathon', 'unusual', 'bonus', 'saves', 'storage')),
   day      date not null,
   n        int not null default 1,
   unique (pupil_id, kind, day)
@@ -258,6 +261,10 @@ create table private.pupil_days (
   arrived   int not null default 0,      -- answers with points that reached the server on this day, whatever they claim
   stored    int not null default 0,      -- answer rows written on this day: the ceiling that protects the free 500 MB
   calls     int not null default 0,      -- record_events calls on this day
+  batches   int not null default 0,      -- batch ids kept on this day (one per call that stored something)
+  saves     int not null default 0,      -- save_progress writes on this day
+  save_kb   int not null default 0,      -- and their size: every write leaves a dead copy until vacuum
+  last_save_at timestamptz,              -- the last of them: two writes are at least save_gap_s apart
   levels    int not null default 0,
   exams     int not null default 0,
   run_pts   int not null default 0,
@@ -276,6 +283,14 @@ create table private.deletions (
   points   int not null default 0
 );
 
+-- each night's maintenance() answer: under pg_cron nobody reads it otherwise. Kept log_days; the teacher's health
+-- view warns from the last row.
+create table private.maintenance_log (
+  id     bigint generated always as identity primary key,
+  at     timestamptz not null default now(),
+  result jsonb not null
+);
+
 -- one row: every limit of docs/BACKEND.md sections 4 and 5, tunable without a migration
 create table private.settings (
   one              boolean primary key default true check (one),
@@ -288,7 +303,7 @@ create table private.settings (
   max_per_minute   int not null default 20,
   max_pointed_day  int not null default 600,
   max_item_day     int not null default 6,
-  max_rows_day     int not null default 1000,   -- answer rows one pupil may add in a day; beyond it only a counter moves
+  max_rows_day     int not null default 300,    -- answer rows one pupil may add in a day (honest play: about 80); beyond it only a counter moves
   max_calls_day    int not null default 1500,
   max_levels_day   int not null default 20,
   unusual_answers  int not null default 300,
@@ -320,6 +335,15 @@ create table private.settings (
   otc_tries        int not null default 30,
   otc_hours        int not null default 48,
   class_ip_hour    int not null default 30,
-  register_ip_hour int not null default 60
+  register_ip_hour int not null default 60,
+  -- storage (review PB1b and the re-check): what one pupil's device can add in a day, and the brake for all
+  max_saves_day    int not null default 300,     -- honest play saves about every 3 s of play at most, and far less
+  save_gap_s       int not null default 5,
+  max_save_kb_day  int not null default 4000,    -- 4 MB a pupil a day: 35 pupils at worst add 140 MB before vacuum
+  max_batches_day  int not null default 300,     -- a batch follows a save
+  storage_brake_mb int not null default 350,     -- maintenance() switches the brake on at this size (limit 500 MB)
+  storage_brake    boolean not null default false,
+  flags_days       int not null default 365,
+  log_days         int not null default 60
 );
 insert into private.settings default values;
