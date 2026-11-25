@@ -30,13 +30,8 @@ export async function api(a,d){
 
 /* ---------- small storage helpers: everything Supabase-side lives under its own keys, never in the game's record ---------- */
 const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log',stale:'wi-sb-stale',owner:'wi-sb-owner',stop:'wi-sb-stop',netfail:'wi-sb-netfail'};
-/* The session generation (review of #39, blocker 1): raised whenever this device's session is let go (another pupil,
-   logout). A save in flight belongs to the generation it started in: after every await it checks, and if the session
-   changed meanwhile it stops without touching the session, the base, the pending batch or the queue, so one pupil's
-   progress can never be written with, or become the base of, the next pupil's session. */
-let gen=0;
 const get=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
-const set=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const set=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};   // raw: only op(), keep(), signOut() and note() call it
 /* what happened on the shadow side: time, a short kind, numbers. Never a name, a code or a token. */
 function note(k,v){const l=get(K.log)||[];l.push({t:Date.now(),k,...(v||{})});set(K.log,l.slice(-80))}
 export const shadowLog=()=>get(K.log)||[];
@@ -44,55 +39,101 @@ const uuid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-10
 
 /* ---------- Supabase over plain fetch: no library to vendor ---------- */
 const TIMEOUT=8000;
-let hiding=false;      // a save sent while the page is being hidden goes with keepalive, so it survives the page
-async function call(path,body,token){
+// body undefined: a GET. keep: sent while the page is being hidden, with keepalive, so it survives the page
+async function call(path,body,token,keep){
  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),TIMEOUT);
  // the new public key format (sb_publishable_) is not a JWT: it goes as apikey only; a bearer is a pupil's session
  const bearer=token||(B.key.startsWith('eyJ')?B.key:'');
- try{const r=await fetch(B.url+path,{method:'POST',signal:ctl.signal,keepalive:hiding,headers:{'content-type':'application/json',apikey:B.key,...(bearer?{authorization:'Bearer '+bearer}:{})},body:JSON.stringify(body)});
+ try{const r=await fetch(B.url+path,{method:body===undefined?'GET':'POST',signal:ctl.signal,keepalive:!!keep,headers:{...(body===undefined?{}:{'content-type':'application/json'}),apikey:B.key,...(bearer?{authorization:'Bearer '+bearer}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
   let j=null;try{j=await r.json()}catch(e){}return{status:r.status,j}}
  finally{clearTimeout(t)}}
-const fn=(name,body)=>call('/functions/v1/'+name,body);
-/* the session: access token (an hour), refresh token, the device token the server handed out. The 4-digit code is never here. */
-async function token(){
- const s=get(K.ses);if(!s||!s.refresh_token)return null;
- if(s.access_token&&s.expires_at&&s.expires_at*1000-Date.now()>60000)return s.access_token;
- let r;try{r=await call('/auth/v1/token?grant_type=refresh_token',{refresh_token:s.refresh_token})}catch(e){return s.access_token||null}   // offline: keep what we have
- if(r.status===200&&r.j&&r.j.access_token){set(K.ses,{...s,access_token:r.j.access_token,refresh_token:r.j.refresh_token,expires_at:r.j.expires_at||Math.floor(Date.now()/1000)+(r.j.expires_in||3600)});return r.j.access_token}
- if(r.status>=400&&r.status<500){set(K.ses,{device_token:s.device_token});return null}   // the session was ended on the server: sign in again; local progress is untouched
- return s.access_token||null}
-async function rpc(name,args){const t=await token();if(!t)return{status:401,j:null};return call('/rest/v1/rpc/'+name,args,t)}
+const fn=(name,body)=>call('/functions/v1/'+name,body);   // the public key only, never a session
+
+/* ---------- the one guard (review of #41) ----------
+   The device's session is identified by two things: gen, raised in this page whenever a session is let go (another
+   pupil, logout), and sid, a random id keep() writes into the stored session (a refresh keeps it; every tab sees it,
+   since it lives in storage). An operation takes an op() when it starts, which remembers both. Every read of the token,
+   every call made with it, and every write of the session, the base, the pending batch, the stale record, the owner
+   marks and the queue goes through that op, and the op refuses (writes nothing, sends nothing, its token is null) as
+   soon as either changed: a late answer of one pupil's operation can never touch the next pupil's session or progress,
+   in this tab or another one. The only other writers are keep() (a new session, called by op.keep), signOut() (called by
+   op.end) and note(), the device log (numbers only). The await-by-await list is in the PR of gate 4. */
+const sidNow=()=>(get(K.ses)||{}).sid||null;
+let gen=0;
+function op(){
+ const g=gen,sid=sidNow(),live=()=>g===gen&&sidNow()===sid;
+ let tk=null;                                           // one token per operation, taken once
+ const o={sid,live,hidden:false,
+  put(k,v){if(!live())return false;set(k,v);return true},
+  queue(s,ow){if(!live())return false;queued=s;qOverwrite=ow;return true},
+  take(){if(!live())return null;const s=queued;queued=null;return s},
+  keep(j){if(!live())return false;keep(j);return true},   // a new session: the op that made it is done with the old one
+  /* the access token (an hour), refreshed when it is about to end */
+  async token(){
+   if(!live()||!sid)return null;if(tk)return tk;
+   const s=get(K.ses);if(!s||!s.refresh_token)return null;
+   if(s.access_token&&s.expires_at&&s.expires_at*1000-Date.now()>60000)return tk=s.access_token;
+   let r;try{r=await call('/auth/v1/token?grant_type=refresh_token',{refresh_token:s.refresh_token})}catch(e){r=null}
+   if(!live())return null;                              // B1: a late refresh never writes over the session that came meanwhile
+   if(r&&r.status===200&&r.j&&r.j.access_token){set(K.ses,{...get(K.ses),access_token:r.j.access_token,refresh_token:r.j.refresh_token,expires_at:r.j.expires_at||Math.floor(Date.now()/1000)+(r.j.expires_in||3600)});return tk=r.j.access_token}
+   if(r&&r.status>=400&&r.status<500){set(K.ses,{device_token:s.device_token});return null}   // ended on the server: sign in again; progress stays
+   return tk=s.access_token||null},                      // offline: keep what we have
+  /* a call with the session's token; aborted when the session changed before or while it ran */
+  async call(path,body){const t=await o.token();if(!live())return{status:0,j:null,aborted:true};if(!t)return{status:401,j:null};
+   const r=await call(path,body,t,o.hidden);return live()?r:{...r,aborted:true}},
+  /* let go of this op's session: revoked on the server, forgotten here. all: everything of the pupil goes (logout,
+     another pupil); otherwise only the session (the same pupil signs in again). Nothing at all if the device's
+     session is already another one (S2). */
+  async end(all){
+   const t=await o.token();                             // a fresh token: revoking with an expired one is refused (review of #39, 4)
+   if(g!==gen||(sidNow()&&sidNow()!==sid))return false;   // another session is the device's now: not this op's to end
+   if(all)signOut();else{const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null)}
+   if(t){try{await call('/auth/v1/logout?scope=local',{},t)}catch(e){}}   // the refresh token dies with it
+   return true}};
+ return o}
+/* the session: access token, refresh token, the device token the server handed out, sid. The 4-digit code is never here. */
 function keep(j){const old=get(K.ses)||{};const s=j.session||{};
- set(K.ses,{access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at||Math.floor(Date.now()/1000)+(s.expires_in||3600),device_token:j.device_token||old.device_token,at:j.updated_at||null})}
-async function signIn(d,extra){const dev=(get(K.ses)||{}).device_token,g=gen;
+ set(K.ses,{sid:uuid(),access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at||Math.floor(Date.now()/1000)+(s.expires_in||3600),device_token:j.device_token||old.device_token,at:j.updated_at||null})}
+async function signIn(o,d,extra){const dev=(get(K.ses)||{}).device_token;
  const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{}),...(extra||{})});
- if(r.j&&r.j.ok&&g!==gen)return{ok:false,e:'net'};      // the device was signed out meanwhile: this session is not kept
- if(r.j&&r.j.ok)keep(r.j);return r.j||{ok:false,e:'net'}}
-export function signOut(){gen++;const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null);set(K.base,null);set(K.pend,null);set(K.stale,null);
- queued=null;holdUntil=0;lastWrite=0;clearTimeout(timer);timer=null}   // this device only; the next pupil starts with no wait of the last one
+ if(r.j&&r.j.ok&&!o.keep(r.j))return{ok:false,e:'net'};   // the device was signed out meanwhile: this session is not kept
+ return r.j||{ok:false,e:'net'}}
+/* everything of the pupil on this device, at once (op.end only): saves in flight stop, the next pupil starts with
+   nothing of the last one (no session, base, batch, queue, wait, or waiting save with its code) */
+function signOut(){gen++;const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null);
+ for(const k of[K.base,K.pend,K.stale,K.owner,K.stop,K.netfail])set(k,null);
+ queued=null;waiting={};lastSent=null;holdUntil=0;lastWrite=0;clearTimeout(timer);timer=null}
 /* Review of #21, B1: on a shared device the session must belong to the pupil whose progress is being saved. The device
    keeps a hash of class code and name (never the name itself); when another pupil's request comes, the old session is
    revoked on the server (best effort) and forgotten here before anything is sent. */
 async function ownerOf(d){const t=String(d&&d.c||'').trim().toUpperCase()+'|'+String(d&&d.n||'').normalize('NFC').trim().replace(/\s+/g,' ').toLowerCase();
  const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('wi-owner|'+t));return Array.from(new Uint8Array(h).slice(0,12),b=>b.toString(16).padStart(2,'0')).join('')}
-async function dropSession(keepProgress){
- if(!keepProgress)gen++;                                // saves in flight stop now, before anything is awaited
- // a fresh access token first (review of #39, 4): revoking with an expired one is refused, and the refresh token lives on
- let t=null;try{t=await token()}catch(e){}
- const s=get(K.ses)||{};
- if(t){try{await call('/auth/v1/logout?scope=local',{},t)}catch(e){}}   // the refresh token dies with it
- if(keepProgress)set(K.ses,s.device_token?{device_token:s.device_token}:null);   // the same pupil: only the session goes
- else signOut()}
-/* For js/state.js (review of #21, B1): logout forgets everything of this pupil on the device and revokes the session
-   on the server; relogin (the Sheet refused the pupil) drops only the session, so the same pupil's pending progress
-   waits for them. With no session on the device (the Sheet mode of today) nothing is sent anywhere. */
-export function forget(all){(async()=>{
- // logout (review of #39, 2): what was played since the last copy goes first, within 8 s; then the session is revoked
- if(all&&queued)await Promise.race([flush(true).catch(()=>{}),new Promise(r=>setTimeout(r,8000))]);
- await dropSession(!all)})().catch(()=>{})}
-async function sameOwner(d){if(!d||!d.c||!d.n)return true;const h=await ownerOf(d),cur=get(K.owner);
- if(cur&&cur!==h){await dropSession();set(K.stop,null)}
- set(K.owner,h);return h}
+/* the owner of the request; null when the device was signed out while it was being worked out */
+async function sameOwner(d){if(!d||!d.c||!d.n)return true;const g=gen,h=await ownerOf(d);if(g!==gen)return null;
+ const cur=get(K.owner);
+ if(cur&&cur!==h){await op().end(true);if(get(K.owner))return null}   // another pupil: the old session and all of theirs go first
+ return op().put(K.owner,h)?h:null}
+/* For js/state.js. logout (all): what was played since the last copy goes first, all within 8 s (review of #41, S1),
+   then the session is revoked and everything of the pupil leaves the device. relogin (the Sheet refused the pupil):
+   only the session goes; the same pupil's pending progress waits for them. Another pupil who signs in meanwhile waits
+   for the logout to finish (leaving), and a logout that comes late never ends their session (S2). */
+let leaving=null;
+export function forget(all){if(MODE==='sheet')return;
+ const p=(async()=>{
+  const g=gen;let owner=get(K.owner);
+  if(all){const w=waiting.save;waiting={};
+   await Promise.race([new Promise(r=>setTimeout(r,8000)),(async()=>{
+    if(busy)await busy;                                 // the copy of the last answer may be on its way: sameOwner, sign-in
+    if(g!==gen)return;
+    if(owner===null)owner=get(K.owner);                 // the pupil's first run had not claimed the device yet
+    const o=op();                                       // the pupil's session as it is now; another tab's sign-in ends it
+    if(w&&owner&&await ownerOf(w.d)===owner)o.queue(w.d.s,true);   // the save that was waiting behind it
+    if(flushP)await flushP;                             // a copy in flight finishes first
+    if(o.live()&&get(K.owner)===owner)await flush(true,true)})()]).catch(()=>{})}
+  if(owner===null)owner=get(K.owner);
+  if(g!==gen||get(K.owner)!==owner)return;              // another pupil came meanwhile (this tab or another): theirs is left alone
+  await op().end(all)})().catch(()=>{}).finally(()=>{if(leaving===p)leaving=null});
+ if(all)leaving=p}
 
 /* ---------- typed events out of two saves ----------
    The game still saves one record (pack() in js/state.js). Until every game reports its events itself, the adapter
@@ -119,39 +160,62 @@ export function events(prev,next){
    sent again keeps its id and the server counts it once */
 const partId=(id,i)=>i?id.slice(0,-4)+((parseInt(id.slice(-4),16)+i)&0xffff).toString(16).padStart(4,'0'):id;
 
+/* the larger of two records, field by field, for what events() reads: a base never goes down */
+const arr=x=>Array.isArray(x)?x:[];
+function mx(a,b){a=obj(a);b=obj(b);const r={...a};
+ r.st={...obj(a.st)};for(const w in obj(b.st)){const x=arr(r.st[w]),y=arr(b.st[w]);if(num(y[0])>num(x[0])||num(y[1])>num(x[1]))r.st[w]=[Math.max(num(x[0]),num(y[0])),Math.max(num(x[1]),num(y[1]))]}
+ for(const k of['g','m']){const st={...obj(obj(a[k]).st)};for(const l in obj(obj(b[k]).st))st[l]=Math.max(num(st[l]),num(b[k].st[l]));r[k]={...obj(a[k]),st}}
+ r.read={...obj(a.read)};for(const id in obj(b.read))r.read[id]=Math.max(num(r.read[id]),num(b.read[id]));
+ r.k={...obj(a.k),reads:Math.max(num(obj(a.k).reads),num(obj(b.k).reads))};
+ const ta=arr(obj(a.x).tries),at=new Set(ta.map(t=>t&&t.at));r.x={...obj(a.x),tries:[...ta,...arr(obj(b.x).tries).filter(t=>t&&!at.has(t.at))]};
+ return r}
+/* S3 (review of #41): a pupil with two devices. A Sheet sign-in answers with the record joined from every device; the
+   game takes it in and its next save carries what the other device played, which that device has already copied. So
+   what the Sheet has beyond what this device itself knows (ref: its last save, or else its batch or base) is added to
+   the base: counted once, by the device it was played on. */
+function lift(b,sh,ref){b=obj(b);sh=obj(sh);ref=obj(ref);const r={...b},up=(x,y,z)=>num(x)+Math.max(0,num(y)-num(z));
+ r.st={...obj(b.st)};for(const w in obj(sh.st)){const y=arr(sh.st[w]),z=arr(obj(ref.st)[w]),x=arr(r.st[w]);if(num(y[0])>num(z[0]))r.st[w]=[up(x[0],y[0],z[0]),up(x[1],y[1],z[1])]}
+ for(const k of['g','m']){const st={...obj(obj(b[k]).st)},y=obj(obj(sh[k]).st),z=obj(obj(ref[k]).st);for(const l in y)if(num(y[l])>num(z[l]))st[l]=Math.max(num(st[l]),num(y[l]));r[k]={...obj(b[k]),st}}
+ r.read={...obj(b.read)};for(const id in obj(sh.read))r.read[id]=up(r.read[id],sh.read[id],obj(ref.read)[id]);
+ r.k={...obj(b.k),reads:up(obj(b.k).reads,obj(sh.k).reads,obj(ref.k).reads)};
+ const known=new Set([...arr(obj(ref.x).tries),...arr(obj(b.x).tries)].map(t=>t&&t.at));
+ r.x={...obj(b.x),tries:[...arr(obj(b.x).tries),...arr(obj(sh.x).tries).filter(t=>t&&!known.has(t.at))]};
+ return r}
+
 /* ---------- writing a save to Supabase (shared by 'dual' and 'supabase') ----------
    Order matters for "never counted twice": the batch gets its id and is stored on the device BEFORE it is sent; if the
-   answer is lost, the same batch with the same id goes again and the server ignores the repeat. */
-async function writeSave(s,overwrite){
- const g=gen,live=()=>g===gen;
- const t=await token();                                 // one token for this whole save, taken once
- if(!live())return{ok:false,aborted:true};
+   answer is lost, the same batch with the same id goes again and the server ignores the repeat. Everything goes
+   through the op of the flush: the moment the device's session changes, nothing more is sent or kept. */
+const ABORT={ok:false,aborted:true};
+async function writeSave(o,s,overwrite){
+ const t=await o.token();                               // one token for this whole save, taken once
+ if(!o.live())return ABORT;
  if(!t)return{ok:false,status:401};
  let pend=get(K.pend);
- if(!pend){const base=get(K.base),ev=base?events(base,s):[];   // the first save on a device has nothing to compare with: it sets the base
-  pend={id:uuid(),ev,next:s,sent:0};set(K.pend,pend)}
- const ses=get(K.ses)||{};
- const rpcT=(name,args)=>call('/rest/v1/rpc/'+name,args,t);
- let r=await rpcT('save_progress',{p_state:s,p_base:ses.at||null});
- if(!live())return{ok:false,aborted:true};
+ if(!pend){const base=get(K.base);                      // the first save on a device has nothing to compare with: it sets the base
+  pend={id:uuid(),ev:base?events(base,s):[],next:base?mx(s,base):s,sent:0,size:BATCH};if(!o.put(K.pend,pend))return ABORT}
+ const size=Math.max(1,num(pend.size)||BATCH);          // a batch keeps the part size it was cut with
+ let r=await o.call('/rest/v1/rpc/save_progress',{p_state:s,p_base:(get(K.ses)||{}).at||null});
+ if(r.aborted)return ABORT;
  if(r.status===200&&r.j&&r.j.conflict){
   if(!overwrite)return{ok:false,conflict:true,state:r.j.state,at:r.j.updated_at};
-  set(K.ses,{...ses,at:r.j.updated_at});r=await rpcT('save_progress',{p_state:s,p_base:r.j.updated_at})   // shadow: the Sheet is the truth
-  if(!live())return{ok:false,aborted:true}}
+  o.put(K.ses,{...get(K.ses),at:r.j.updated_at});r=await o.call('/rest/v1/rpc/save_progress',{p_state:s,p_base:r.j.updated_at})   // shadow: the Sheet is the truth
+  if(r.aborted)return ABORT}
  // the server rations saves (5 s apart, 300 a day): not a failure, a "later" with the seconds to wait. The events still
  // go now (review of #21, B2): they do not depend on the blob, and held back they would meet the next day's caps.
  const later_=r.status===200&&r.j&&!r.j.ok&&(r.j.e==='wait'||r.j.e==='daycap')?{e:r.j.e,retry:Math.max(1,num(r.j.retry_after))}:null;
  if(!later_&&(r.status!==200||!r.j||!r.j.ok))return{ok:false,status:r.status};
- if(!later_)set(K.ses,{...(get(K.ses)||{}),at:r.j.updated_at});
+ if(!later_)o.put(K.ses,{...get(K.ses),at:r.j.updated_at});
  let points=null;
- for(let i=num(pend.sent);i*BATCH<pend.ev.length;i++){    // in parts of BATCH; each part done is remembered
-  const e=await rpcT('record_events',{p_batch:partId(pend.id,i),p_events:pend.ev.slice(i*BATCH,(i+1)*BATCH)});
-  if(!live())return{ok:false,aborted:true};
+ const mine=()=>{const c=get(K.pend);return c&&c.id===pend.id?c:pend};   // as stored: a Sheet sign-in may have lifted its next (S3)
+ for(let i=num(pend.sent);i*size<pend.ev.length;i++){   // in parts; each part done is remembered
+  const e=await o.call('/rest/v1/rpc/record_events',{p_batch:partId(pend.id,i),p_events:pend.ev.slice(i*size,(i+1)*size)});
+  if(e.aborted)return ABORT;
   if(e.status===200&&e.j&&e.j.e==='brake'){note('brake');return{ok:false,e:'brake',saved:!later_,retry:Math.max(BRAKE_RETRY,later_?later_.retry:0)}}   // the database is full for now: the rest waits on the device
   if(e.status!==200||!e.j||!e.j.ok)return later_?{ok:false,...later_}:{ok:false,status:e.status,saved:true};
   points=e.j.points;if(e.j.flagged)note('flagged',{n:e.j.flagged});
-  pend={...pend,sent:i+1};set(K.pend,pend)}
- set(K.base,pend.next);set(K.pend,null);
+  if(!o.put(K.pend,{...mine(),sent:i+1}))return ABORT}
+ if(!o.put(K.base,mine().next))return ABORT;o.put(K.pend,null);
  return later_?{ok:false,...later_,points,events:pend.ev.length}:{ok:true,points,events:pend.ev.length}}
 
 /* ---------- pacing the saves (review S8) ----------
@@ -161,48 +225,66 @@ async function writeSave(s,overwrite){
    it names. Nothing is lost: the newest state carries all of it, and the events wait in the pending batch. */
 const SAVE_EVERY=1000*Math.max(0,B.saveEveryS===undefined||!Number.isFinite(+B.saveEveryS)?30:+B.saveEveryS);
 const BRAKE_RETRY=600;
-let queued=null,qOverwrite=true,lastWrite=0,holdUntil=0,timer=null,flushing=false;
+let queued=null,qOverwrite=true,lastWrite=0,holdUntil=0,timer=null,flushP=null,flushOp=null;
 function later(){clearTimeout(timer);timer=null;if(!queued)return;
  timer=setTimeout(()=>{flush(false).catch(()=>{})},Math.max(0,Math.max(lastWrite+SAVE_EVERY,holdUntil)-Date.now()))}
-async function flush(hidden){
- if(!queued||flushing)return null;
- const now=Date.now();if(now<holdUntil||(!hidden&&now<lastWrite+SAVE_EVERY)){later();return null}
- if(!(get(K.ses)||{}).refresh_token)return null;        // no session (yet): the state waits, nothing is sent
- const s=queued,g=gen;queued=null;lastWrite=now;flushing=true;hiding=!!hidden;
- let w;try{w=await writeSave(s,qOverwrite)}catch(e){w={ok:false,status:0}}finally{flushing=false;hiding=false}
- if(g!==gen||w.aborted)return w;                        // the session changed meanwhile: nothing of this save is kept
- if(w.retry){if(!queued)queued=s;holdUntil=Date.now()+w.retry*1000}             // told to wait: keep it and try again
- else if(w.conflict&&!qOverwrite)set(K.stale,{state:w.state,at:w.at});           // 'supabase': the game joins at its next save
- if(MODE==='dual')note('save',{ok:w.ok?1:0,st:w.status||0,ev:w.events||0,...(w.e?{e:w.e}:{}),...(w.points!=null?{server:w.points}:{})});
- later();return w}
+/* hidden: the page is being hidden (keepalive, no waiting for SAVE_EVERY). force: logout, the server's "wait" too is
+   not waited for (the save is refused again, the events still go) */
+function flush(hidden,force){
+ if(!queued)return Promise.resolve(null);
+ if(flushP&&flushOp.live())return Promise.resolve(null);   // one at a time; a flush of a session that is gone holds nothing back
+ const now=Date.now();if((!force&&now<holdUntil)||(!hidden&&now<lastWrite+SAVE_EVERY)){later();return Promise.resolve(null)}
+ const o=op();if(!o.sid)return Promise.resolve(null);   // no session (yet): the state waits, nothing is sent
+ const ow=qOverwrite,s=o.take();lastWrite=now;o.hidden=!!hidden;
+ const p=(async()=>{
+  let w;try{w=await writeSave(o,s,ow)}catch(e){w={ok:false,status:0}}
+  if(!o.live()||w.aborted){later();return w}            // the session changed meanwhile: nothing of this save is kept
+  if(w.retry){if(!queued)o.queue(s,ow);holdUntil=Date.now()+w.retry*1000}       // told to wait: keep it and try again
+  else if(w.conflict&&!ow)o.put(K.stale,{state:w.state,at:w.at});                 // 'supabase': the game joins at its next save
+  if(MODE==='dual')note('save',{ok:w.ok?1:0,st:w.status||0,ev:w.events||0,...(w.e?{e:w.e}:{}),...(w.points!=null?{server:w.points}:{})});
+  later();return w})().finally(()=>{if(flushP===p){flushP=null;flushOp=null}});
+ flushP=p;flushOp=o;return p}
 if(MODE!=='sheet'&&typeof W.addEventListener==='function'){
  const away=()=>{flush(true).catch(()=>{})};
  W.addEventListener('pagehide',away);
  if(typeof document!=='undefined')document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')away()})}
+/* for the tests: resolves when no shadow run and no flush is in progress */
+export async function settled(){for(let i=0;i<20&&(busy||flushP||leaving);i++){try{await Promise.all([busy,flushP,leaving])}catch(e){}}}
 
 /* ---------- 'dual': the shadow copy. Runs after the Sheet answered; nothing here can reach the pupil. ---------- */
 /* Sign-in on the shadow side (review of #21, S-a): only when there is no session for this pupil; never again the
    same day after the server said no (a pupil Supabase does not know would otherwise count as wrong codes from the
-   school's one address and could pause sign-in for the whole class); after a network error at most every 10 minutes. */
-let busy=false,waiting=null;
+   school's one address and could pause sign-in for the whole class); after a network error at most every 10 minutes.
+   One run at a time (busy, its promise); what comes meanwhile waits (the newest save, the newest sign-in) and runs
+   after it, checked for its owner like any other. */
+let busy=null,waiting={},lastSent=null;
 const today=()=>new Date().toISOString().slice(0,10);
 function shadow(a,d,r){
  if(!r||!r.ok)return;                                   // the Sheet refused: nothing to copy
  if(a!=='login'&&a!=='register'&&a!=='save')return;     // the board, the teacher screen and reset stay on the Sheet
- if(busy){if(a==='save')waiting=d;return}             // after the run in progress, and checked for its owner like any other
- busy=true;
- (async()=>{try{
-  const owner=await sameOwner(d);                       // another pupil on this device: the old session is gone first
-  if(a==='save'){queued=d.s;qOverwrite=true}            // the newest state waits here until it may go
-  if(!(await token())){
-   const stop=get(K.stop);if(stop&&stop.owner===owner&&stop.day===today())return;
-   const nf=get(K.netfail);if(nf&&nf.owner===owner&&Date.now()-nf.at<600000)return;
-   await dropSession(true);set(K.owner,owner);
-   const j=await signIn(d);note('signin',{e:j.ok?'ok':String(j.e||'net').slice(0,12)});
-   if(!j.ok){const s0=get(K.ses)||{};set(K.ses,s0.device_token?{device_token:s0.device_token}:null);if(!j.e||j.e==='net'||j.e==='server')set(K.netfail,{owner,at:Date.now()});else set(K.stop,{owner,day:today()});return}
-   if(a==='save')queued=d.s}
-  if(a==='save'){note('sheet',{pts:num(d.s&&d.s.pts)});await flush(false)}
- }catch(e){note('error',{e:String(e&&e.name||'x').slice(0,20)})}finally{busy=false;if(waiting){const w=waiting;waiting=null;shadow('save',w,{ok:true})}}})()}
+ if(busy){if(a!=='register')waiting[a]={d,r};return}
+ const p=busy=run(a,d,r).catch(e=>{note('error',{e:String(e&&e.name||'x').slice(0,20)})}).finally(()=>{
+  if(busy===p)busy=null;
+  const w=waiting;waiting={};if(w.login)shadow('login',w.login.d,w.login.r);if(w.save)shadow('save',w.save.d,w.save.r)})}
+async function run(a,d,r){
+ if(leaving)await leaving;                              // a logout in progress finishes first (S2)
+ const owner=await sameOwner(d);if(!owner)return;       // another pupil on this device: the old session is gone first
+ let o=op();                                            // the session this run works in; checked after every await (B2)
+ if(a==='login'&&r.s&&typeof r.s==='object'){const b=get(K.base);   // S3: the record joined from the other devices
+  if(b){const p=get(K.pend),ref=lastSent||(p?p.next:b);o.put(K.base,lift(b,r.s,ref));if(p)o.put(K.pend,{...p,next:lift(p.next,r.s,ref)});lastSent=mx(ref,r.s)}}
+ if(a==='save'){lastSent=d.s;o.queue(d.s,true)}         // the newest state waits here until it may go
+ if(!(await o.token())){
+  if(!o.live())return;
+  const stop=get(K.stop);if(stop&&stop.owner===owner&&stop.day===today())return;
+  const nf=get(K.netfail);if(nf&&nf.owner===owner&&Date.now()-nf.at<600000)return;
+  const s0=get(K.ses)||{};o.put(K.ses,s0.device_token?{device_token:s0.device_token}:null);   // a session that cannot be used any more
+  o=op();
+  const j=await signIn(o,d);
+  if(!o.live()&&!j.ok)return;
+  note('signin',{e:j.ok?'ok':String(j.e||'net').slice(0,12)});
+  if(!j.ok){if(!j.e||j.e==='net'||j.e==='server')o.put(K.netfail,{owner,at:Date.now()});else o.put(K.stop,{owner,day:today()});return}
+  o=op()}                                               // the new session
+ if(a==='save'){if(!o.live())return;note('sheet',{pts:num(d.s&&d.s.pts)});await flush(false)}}
 
 /* ---------- 'supabase': the new backend alone ----------
    NOT COMPLETE. It needs screens the game does not have yet (two secret pictures at registration, at the first
@@ -210,18 +292,19 @@ function shadow(a,d,r){
    js/state.js no longer keeping the code (cred()). It is here so those can be built against real calls. */
 async function supa(a,d){
  try{
-  if(a==='login'){const j=await signIn(d,d.np?{new_code:d.np,pictures:d.pics}:null);return j.ok?{ok:true,s:j.s||{}}:{ok:false,e:j.e||'net',wait:j.wait}}
-  if(a==='register'){const r=await fn('pupil-register',{class_code:d.c,name:d.n,code:d.p,pictures:d.pics});if(r.j&&r.j.ok){keep(r.j);return{ok:true,s:{}}}return{ok:false,e:(r.j&&r.j.e)||'net'}}
-  if(a==='login'||a==='register'||a==='save')await sameOwner(d);
-  if(a==='save'){if(!(await token()))return{ok:false,e:'pin'};   // no session: the game asks to sign in again and keeps the progress
-   const st=get(K.stale);if(st){set(K.stale,null);set(K.ses,{...(get(K.ses)||{}),at:st.at});return{ok:false,e:'stale',s:st.state}}   // a kept save met another device's
-   queued=d.s;qOverwrite=false;
+  if(a==='login'||a==='register'||a==='save'){if(leaving)await leaving;if(!(await sameOwner(d)))return{ok:false,e:'net'}}
+  if(a==='login'){const j=await signIn(op(),d,d.np?{new_code:d.np,pictures:d.pics}:null);return j.ok?{ok:true,s:j.s||{}}:{ok:false,e:j.e||'net',wait:j.wait}}
+  if(a==='register'){const o=op(),r=await fn('pupil-register',{class_code:d.c,name:d.n,code:d.p,pictures:d.pics});if(r.j&&r.j.ok&&o.keep(r.j))return{ok:true,s:{}};return{ok:false,e:(r.j&&r.j.e)||'net'}}
+  if(a==='save'){const o=op();if(!(await o.token()))return{ok:false,e:o.live()?'pin':'net'};   // no session: the game asks to sign in again and keeps the progress
+   const st=get(K.stale);if(st){o.put(K.stale,null);o.put(K.ses,{...get(K.ses),at:st.at});return{ok:false,e:'stale',s:st.state}}   // a kept save met another device's
+   if(!o.queue(d.s,false))return{ok:false,e:'net'};
    const w=await flush(false);
    if(!w||w.ok||w.retry)return{ok:true};                 // written, or kept here and sent within SAVE_EVERY or when the page is hidden
-   if(w.conflict){set(K.stale,null);set(K.ses,{...(get(K.ses)||{}),at:w.at});return{ok:false,e:'stale',s:w.state}}   // another device saved first: join and save again
+   if(w.aborted)return{ok:false,e:'net'};
+   if(w.conflict){o.put(K.stale,null);o.put(K.ses,{...get(K.ses),at:w.at});return{ok:false,e:'stale',s:w.state}}   // another device saved first: join and save again
    return{ok:false,e:w.status===401?'pin':'net'}}
-  if(a==='board'){const t=await token();if(!t)return{ok:false,e:'pin'};
-   const r=await fetch(B.url+'/rest/v1/class_board?select=display_name,points,words,streak&order=points.desc',{headers:{apikey:B.key,authorization:'Bearer '+t}});
-   if(!r.ok)return{ok:false,e:'net'};return{ok:true,rows:(await r.json()).map(x=>({n:String(x.display_name),pts:num(x.points),words:num(x.words),streak:num(x.streak)}))}}
+  if(a==='board'){const o=op(),r=await o.call('/rest/v1/class_board?select=display_name,points,words,streak&order=points.desc');
+   if(r.aborted)return{ok:false,e:'net'};if(r.status===401)return{ok:false,e:'pin'};
+   if(r.status!==200||!Array.isArray(r.j))return{ok:false,e:'net'};return{ok:true,rows:r.j.map(x=>({n:String(x.display_name),pts:num(x.points),words:num(x.words),streak:num(x.streak)}))}}
   return{ok:false,e:'teacher'}                           // teacher and reset: after Google sign-in exists
  }catch(e){return{ok:false,e:'net'}}}
