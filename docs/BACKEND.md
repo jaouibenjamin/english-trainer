@@ -536,6 +536,13 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
 - The key is RSA 4096 with an encryption subkey (what pgcrypto's public-key encryption supports, to be confirmed,
   section 10). Each part is one table chunk (2,000 rows) so that no statement timeout cuts it; a table that changes
   between two parts may be a few rows off, and the restore's totals check says so.
+- **What is not in a backup**, on purpose (pre-live review S-d; `private.backup_excluded()`, and a test that the two
+  lists cover every table): the address salts and buckets (`ip_salts`, `auth_buckets`, `class_misses`: with the day's
+  salt an address hash could be reversed), the typed names of sign-in tries (`auth_attempts`, `auth_lock_events`), and
+  the Sheet's bare fast hashes (`legacy_import`). A restored database starts with every lock open.
+- **Nothing of a pupil reaches the server's log** (pre-live review B3): the tools send rows as COPY data, never inside
+  a statement, because a statement that fails is written whole into the log (on Supabase, the dashboard). A dry run
+  of the import is the same work rolled back. `tests/ops.py` greps the test server's log for every name, salt and hash.
 - **Restore drill** before the switch: the owner decrypts one export and `tools/restore.py` loads it into a second
   free project; the totals check must pass there. Repeated once a term.
 - **Summer:** GitHub switches schedules off after 60 days without repository activity and mails the owner; the

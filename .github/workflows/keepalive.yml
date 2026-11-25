@@ -1,0 +1,44 @@
+# Keeps the free Supabase project from pausing (it pauses after 7 days without activity) and takes the encrypted
+# backup export (docs/BACKEND.md section 6). Twice a week. Uses only the PUBLIC key and the export token: never the
+# server key, the database password, the pepper or the backup private key.
+# Repository secrets (checklist step 18): SUPABASE_URL, SUPABASE_ANON_KEY, BACKUP_TOKEN. Until they exist the job
+# contacts nothing and stays green.
+name: keepalive
+on:
+  schedule:
+    - cron: '23 4 * * 1,4'      # Monday and Thursday 04:23 UTC
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      BACKUP_TOKEN: ${{ secrets.BACKUP_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0, pinned by commit
+        with:
+          persist-credentials: false
+      - name: Ping (one query with the public key)
+        run: |
+          if [ -z "$SUPABASE_URL$SUPABASE_ANON_KEY$BACKUP_TOKEN" ]; then echo "not set up yet: nothing contacted"; exit 0; fi
+          # set up only in part, or an address that is not a Supabase project: a mistake, so the job goes red
+          # bash's own match on the whole value (grep would accept a value with a newline and a good line inside it)
+          if ! [[ "$SUPABASE_URL" =~ ^https://[a-z0-9-]+\.supabase\.co$ ]] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "set up only in part (SUPABASE_URL and SUPABASE_ANON_KEY must both be set, the URL https://<project>.supabase.co)"; exit 1; fi
+          curl -fsS --retry 3 -X POST "$SUPABASE_URL/rest/v1/rpc/ping" -H "apikey: $SUPABASE_ANON_KEY" \
+               -H "authorization: Bearer $SUPABASE_ANON_KEY" -H 'content-type: application/json' -d '{}' -o /dev/null
+          echo "ping ok"
+      - name: Encrypted backup export
+        run: python3 tools/backup_fetch.py backup
+      - name: Keep the export for 7 days (ciphertext only; only the owner's private key opens it)
+        if: hashFiles('backup/manifest.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2, pinned by commit
+        with:
+          name: backup
+          path: backup/
+          retention-days: 7
+          if-no-files-found: error
