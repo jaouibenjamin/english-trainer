@@ -102,12 +102,15 @@ async def run(b, w, h, errs, api, first):
                {'n': 2, 'last': [25, 20], 'first': [-1, 20], 'sc': {'words': [5, 5], 'grammar': [1e9, 5], 'evil': [1, 1]}},
                'text']
         for i, k in enumerate(d.get('kids', [])[:3]): k['mock'] = bad[i]
+        d['hard'] = [['goal', 250, 5], ['<img src=x onerror="window.__pwned=1">', 50, 5], ['constructor', 40, 5], ['kick', 'x', 3], 'junk', ['song', -20, 4]]
         await route.fulfill(content_type='application/json', body=json.dumps(d))
     await pg.route(api, hostile)
     await sign_in(pg)
     R = await pg.evaluate("({pwned:!!window.__pwned,tags:document.querySelectorAll('.kid .km img,.kid .km b:not(:first-child) *,.kid .km i').length,html:[...document.querySelectorAll('.kid .km')].map(p=>p.innerText.replace(/\\s+/g,' ').trim())})")
     check(f'[{tag}] rubbish from a backend is never drawn: no markup, no impossible number, only checked values',
           not R['pwned'] and R['tags'] == 0 and not any(x in ' '.join(R['html']) for x in ('<', '25 / 20', '1000000000', 'evil', '-1')), R)
+    H = await pg.evaluate("[...document.querySelectorAll('.hard > div')].map(d=>[d.querySelector('.en,bdi').textContent,d.querySelector('.pbar i').style.width])")
+    check(f'[{tag}] the hard words from a backend: only words of the unit are shown, and each bar is between 0 and 100% wide', H == [['goal', '100%'], ['kick', '0%'], ['song', '0%']], H)
     await pg.unroute(api)
 
     # ---- a backend that answers with an error page: the teacher is told the server failed, not to check the internet ----

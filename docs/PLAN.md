@@ -121,6 +121,23 @@ From comparing with a similar 8th-grade site (no login, device-only progress, ma
   signing in, and progress made on the device moves into the account at sign-in. Playing without sign-in already
   works when `config.js` is empty; the move of device progress into the account exists too (`merge()`).
 
+## The new world: owner's decisions, 25.11.2026
+
+- **Look:** "Arcade Lagoon" (night sea, neon glow), close to the approved concept frames: the six English islands redrawn in
+  that style, painted panel and button frames (text stays live inside them), a glowing path between islands, a few
+  background details. Approved within the 450-credit art cap.
+- **Intro video** (~30 s, first launch only, with a skip button, light enough for cheap phones): several of our
+  characters speaking, each with its own generated preset voice (never a clone). Cost estimated and approved before any
+  generation.
+- **Avatar micro-animations:** a 1–2 s loop per character with its own mood, on tap or selection (phones have no hover),
+  hover on laptops. Cost estimated first.
+- **Welcome text is generic** ("ברוכים הבאים לאיי המילים"). The school's name and the grade are not shown on the
+  public site; at most after sign-in, and only with the school's agreement.
+- **A school world, illustrated, not photographed.** No photos of the real school or classrooms anywhere in the public
+  site or repo (a public map of where the children are every day, and no photos of children, ever). Instead an
+  illustrated yard, classroom and library in the game's style, with nothing that identifies the real building. Late in
+  the plan.
+
 ## Not copying (from the navemath.com comparison)
 
 - Browser speech for content. Our recorded clips are better; browser speech stays a last fallback only.
