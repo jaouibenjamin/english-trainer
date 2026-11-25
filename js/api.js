@@ -4,6 +4,9 @@
    Which backend is chosen by window.BACKEND in config.js. With no such key (today) the mode is 'sheet' and this file
    does exactly what js/state.js did before it existed: one POST to the Google Sheet web app.
      window.BACKEND = {mode:'dual', url:'https://<project>.supabase.co', key:'<the public key>'}
+   BEFORE switching it on: add that same https://<project>.supabase.co to connect-src in the Content-Security-Policy of
+   every page (index, run, trainer, worksheet, world, ds). Without it the browser refuses every call to Supabase, and
+   in 'dual' the refusals only reach shadowLog(), so nothing would look wrong. tests/csp_check.py fails until it is there.
    (optional: saveEveryS, how often at most a save goes to Supabase, 30 by default)
    'dual' (Phase 2 of docs/PLAN.md): the Sheet is asked first and its answer is the answer; afterwards, and only when
    the Sheet said ok, the same progress is copied to Supabase in the background. A failure there is never shown to
