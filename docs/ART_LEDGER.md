@@ -21,8 +21,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | j3 | Welcome film: music bed, original, instrumental, 30 s (the platform's own theme, for the film and later the map); one take, used | elevenlabs_music_v2_5 | 1 | 4.36 | 4.36 | 156.19 | 293.81 |
 | k | Welcome film v2 (the owner's story, one continuous camera): 4 key images; 4 shots from them (gate used; path, grass, flight unused once he asked for no cuts); 5 chained shots (side, grass, faces, zoom-out, flight); narration and 2 voices for Pitzi's line (one used). Intro cap raised by the owner to 115 | gpt_image_2_5 high 9:16 (4 x 1.25); grok_video 5 s 9:16 (9 x 7.5); text2speech_v2 elevenlabs (3 x 0.75) | 16 | 74.75 | 74.75 | 230.94 | 219.06 |
 | k2 | Welcome film v3 (the owner's notes): the island rising from the sea, Pitzi's key image, Pitzi's shot x 2 (the first showed pointed teeth: unused), a closing zoom-out (a second crab appeared: unused; a digital pull-back of Pitzi's last frame instead), one narration line. Intro cap raised by the owner to 140 | grok_video 5 s (4 x 7.5); gpt_image_2_5 high (1.25); text2speech_v2 (0.75) | 6 | 32.00 | 32.00 | 262.94 | 187.06 |
+| k3 | Welcome film v4 (the owner's notes): the turn and the island rising in one camera move, Pitzi's key image in the same frame, Pitzi's lip-synced shot x 2 (the first made him a giant: unused). Intro cap raised by the owner to 160 | grok_video 5 s (3 x 7.5); gpt_image_2_5 high (1.25) | 4 | 23.75 | 23.75 | 286.69 | 163.31 |
 
-Total charged so far: **262.94** of 450. Left: 187.06. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k2: 135.11 of its 140. Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
+Total charged so far: **286.69** of 450. Left: 163.31. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k3: 158.86 of its 160. Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
 
 ## Jobs
 
@@ -157,6 +158,11 @@ Batch k2 jobs: island rising 43b94f4e-17f5-477e-b88f-fa5d5882b416 (from the face
 89744b75-fe4e-4e4c-9982-aa3636e2812f (references: Pitzi's wave pose c2effc24, the hill 5195d0a8, the grass c3ab51b6), Pitzi used
 f7ce2658-a46d-4523-8a64-a33ebc88e245, unused 2c24bc12 (teeth) and e34ffa12 (two crabs), narration "ופתאום... מתוך הים עולה אי ענק!"
 9e3d099a-f624-4dfb-a1b1-52a711fa9798. The shots' own generated sound is used as the background (no recordings of real children).
+
+Batch k3 jobs: turn and rise a13d3fa0-7c64-4219-83d8-77f472592e21 (from the faces shot's last frame), Pitzi added to its last frame
+dd2336d6-710e-4e93-a793-498bfcef58c1 (reference: Pitzi's wave pose), Pitzi speaking fdd4513c-1a7a-407c-83fc-f335f5abeb53 (used; his line
+is the shot's own generated voice, not a clone), unused 197e8c49 (he grew to giant size). v3's shots 43b94f4e, 89744b75 and f7ce2658
+and the narration line's v3 timing are no longer used.
 
 ## Review notes
 

@@ -1,4 +1,4 @@
-/* The welcome film (32 s), behind the design flag (?ds=1). js/dsflag.js imports this file only when the flag is on and
+/* The welcome film (30 s), behind the design flag (?ds=1). js/dsflag.js imports this file only when the flag is on and
    this device has not seen the film yet (localStorage wi_intro); with the flag off nothing of it is fetched or stored.
    - Nothing plays by itself: the poster shows with two buttons, "watch" and "skip". The film (with sound) starts on
      the child's tap. "Skip" is there from the first second, 48 px, and Escape closes too.
@@ -6,18 +6,18 @@
    - Closing (skip, Escape, end) stores wi_intro=1 on this device and removes everything, the video's source included.
    - Calm mode or prefers-reduced-motion: the poster and the buttons show, the film still waits for a tap.
    DOM is built with createElement and textContent only. The narration text is flagged for the teacher (docs/INTRO.md). */
-const FILM='assets/al/intro/intro.hf_20261125_154514_f7ce2658-a46d-4523-8a64-a33ebc88e245.mp4';
-const POSTER='assets/al/intro/poster.hf_20261125_154514_f7ce2658-a46d-4523-8a64-a33ebc88e245.webp';
+const FILM='assets/al/intro/intro.hf_20261125_155705_fdd4513c-1a7a-407c-83fc-f335f5abeb53.mp4';
+const POSTER='assets/al/intro/poster.hf_20261125_155705_fdd4513c-1a7a-407c-83fc-f335f5abeb53.webp';
 /* [from, to, text] in seconds of the film, from the pauses in the narration */
 const CUES=[
  [0.3,4.9,'הצלצול האחרון. נפרדים מהחברים, ויוצאים לדרך.'],
  [5.9,9.2,'הולכים יחד לאורך הים, כמו בכל יום.'],
  [11.2,14.6,'יושבים על הדשא, מדברים, צוחקים...'],
- [16.3,17.7,'ופתאום...'],
- [18.1,21.3,'מתוך הים עולה אי ענק!'],
- [22.3,25.0,'Hey kids! Are you ready for an adventure?\nהיי ילדים! מוכנים להרפתקה?'],
- [28.1,31.9,'ברוכים הבאים לניצני אופק!']];
-const TITLE_AT=28.0;
+ [16.5,17.9,'ופתאום...'],
+ [18.2,21.4,'מתוך הים עולה אי ענק!'],
+ [21.9,24.6,'Hey kids! Are you ready for an adventure?\nהיי ילדים! מוכנים להרפתקה?'],
+ [26.5,30.0,'ברוכים הבאים לניצני אופק!']];
+const TITLE_AT=26.4;
 const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e};
 
 export function showIntro(){
