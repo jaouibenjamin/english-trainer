@@ -3,7 +3,8 @@
    data each screen needs; docs/DESIGN.md describes it for the engineer who wires real state later.
    DOM is built with createElement and textContent only. */
 import {ART} from './world_art.js';
-import {AVATARS,NAME_A,NAME_B} from './world_data.js';   // the 20 characters and the two name lists
+import {AVATARS,NAME_A,NAME_B} from './world_data.js';
+import {PATHS,stone} from './worldpath.js';   // the island path, shared with the game behind ?ds=1   // the 20 characters and the two name lists
 import {playAv} from './avanim.js';   // a character's 2 s animation, once, on tap, selection or hover
 
 /* ---- flag: the page shows only with ?ds=1, or when the wi_ds flag is already set on this device (read only) ---- */
@@ -20,9 +21,7 @@ const ISLES=[
  {id:'soon1',art:'map/island-soon1',soon:1,x:76,y:60,w:30},
  {id:'soon2',art:'map/island-soon2',soon:1,x:24,y:84,w:30},
  {id:'soon3',art:'map/island-soon3',soon:1,x:70,y:88,w:30}];
-const PATHS={
- english:[[41,89],[47,79.1],[53,69.2],[52,59.3],[49,49.4],[56,39.5],[63,29.6],[66,19.7]],
- math:[[44,89],[51,79.1],[53,69.2],[52,59.3],[48,49.4],[44,39.5],[50,29.6],[58,19.7]]};
+
 
 /* ---- demo state: what the engineer's real state will provide ---- */
 const DEMO={
@@ -139,10 +138,7 @@ function drawIsland(){
  I.missions.forEach((m,k)=>{
   const state=k<cur?'done':k===cur?'current':'locked',n=k+1,[x,y]=PATHS[S.island][k];
   const li=el('li');li.style.left=x+'%';li.style.top=y+'%';
-  const b=el('button','w-st w-st--'+state);b.type='button';
-  b.setAttribute('aria-label','משימה '+n+(state==='done'?', '+STARS_HE[m.stars]:state==='current'?', כאן אתם עכשיו':', נעולה'));
-  if(state==='current')b.setAttribute('aria-current','step');
-  b.appendChild(img('ui/stone-'+state,'w-st__art'));
+  const b=stone(state,'משימה '+n+(state==='done'?', '+STARS_HE[m.stars]:state==='current'?', כאן אתם עכשיו':', נעולה'));
   const mark=el('span','w-st__mark');
   if(state==='locked')mark.appendChild(icon('i-lock'));else mark.textContent=n;
   b.appendChild(mark);

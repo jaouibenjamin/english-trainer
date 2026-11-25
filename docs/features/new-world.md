@@ -39,3 +39,13 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   small "?" badge (a 48 px tap area) that opens the picker; on a device that cannot keep one, Pitzi alone. A remembered
   island that is not open is no position. With the flag, the island played now also says "ממשיכים כאן" (or "מתחילים
   כאן") to a screen reader; without it the island's label is as today.
+- **An island as a path** (docs/DESIGN.md spec): with the flag, an island's levels are stones along the painted path
+  of the English island backdrop, in their order, joined by a dotted line (gold up to the next stone, dim after it).
+  Each stone has a label on a dark plate with the level's name and sub-line, exactly as in today's list (it wraps on a
+  narrow screen, never below 15 px), and stone and label are one button. Played stones are lit with their stars, the
+  first not played glows and pulses softly, the others are open (as today, every level of an open island can be
+  played). The character, a 52 px token, stands on the glowing stone and glides to a tapped one (0.45 s, ease-out)
+  before the level opens; a second tap ends the glide and goes at once (two quick taps open the level once), the back
+  button is never held up, and with reduced motion or calm, with no character, or on a device that cannot keep one,
+  the level opens at once and nothing pulses. If the backdrop cannot load (or takes over 2.5 s), or a stone picture fails, today's list stays (never a blank screen). The path and stones are shared with the world.html preview
+  (`js/worldpath.js`, `css/worldpath.css`). Same routes, order and unlock rules as the list.
