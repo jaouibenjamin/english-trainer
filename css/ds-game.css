@@ -1,0 +1,101 @@
+/* The new look for three screens of the existing game: title, login, settings. Loaded only by js/dsflag.js, and every
+   rule sits under html.ds, so with the flag off nothing here applies. Colours and sizes come from css/ds.css tokens.
+   Styling only: no element is added, removed or moved by this file, and the login form keeps every field and button.
+   Rules: no blur, only transform and opacity move, nothing bare on the picture (cards, plates and keylines carry
+   their own backing), targets at least 48px. */
+
+html.ds #stage[data-scr=title],html.ds #stage[data-scr=login],html.ds #stage[data-scr=settings]{
+ --ink:#FFFFFF;--ink2:var(--wi-text-dim);--paper:var(--wi-navy-900);--bad:var(--wi-fix);--good:var(--wi-good);--butter:var(--wi-gold);--coral:var(--wi-gold);
+ background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);
+ box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage[data-scr=title] .en,html.ds #stage[data-scr=login] .en,html.ds #stage[data-scr=settings] .en,
+html.ds #stage[data-scr=title] bdi[dir=ltr],html.ds #stage[data-scr=settings] bdi[dir=ltr]{font-family:var(--wi-font-en)}
+/* the night sea with the moon, behind all three (the painted glow is in the picture) */
+html.ds #stage[data-scr=title] #bg .bgl,html.ds #stage[data-scr=login] #bg .bgl,html.ds #stage[data-scr=settings] #bg .bgl{
+ background-image:url(../assets/al/bg/world.hf_20261124_204628_1e3550f7-2092-4fef-bb11-e3fd187d71bf.webp)!important;background-size:cover;background-position:center top;background-color:var(--wi-navy-900)}
+html.ds #stage[data-scr=settings] #bg .bgl{opacity:.35}
+html.ds #stage[data-scr=settings] #bg .bgl:not(.on){opacity:0}
+/* wide screens: plain dark around the board instead of the soft copy of the old picture */
+html.ds:has(#stage[data-scr=title]),html.ds:has(#stage[data-scr=login]),html.ds:has(#stage[data-scr=settings]){background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=title]) body,html.ds:has(#stage[data-scr=login]) body,html.ds:has(#stage[data-scr=settings]) body{background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=title]) #backdrop,html.ds:has(#stage[data-scr=login]) #backdrop,html.ds:has(#stage[data-scr=settings]) #backdrop{display:none}
+html.ds #stage[data-scr=title] :focus-visible,html.ds #stage[data-scr=login] :focus-visible,html.ds #stage[data-scr=settings] :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+
+/* ---- the name of the game ---- */
+html.ds .title .logo h1,html.ds .login .logo h1{color:var(--wi-gold);-webkit-text-stroke:8px var(--wi-scrim);transform:none;letter-spacing:0;font-family:var(--wi-font-ui)}
+html.ds .login .logo.sm h1{-webkit-text-stroke-width:6px}
+html.ds .title .logo p{display:inline-block;margin-top:var(--wi-s2);padding:var(--wi-s1) var(--wi-s3);background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);color:var(--wi-text);font-size:var(--wi-fs-sm)}
+
+/* ---- buttons: the painted pills become solid buttons ---- */
+html.ds .title .btn,html.ds .login .btn,html.ds .settings .btn{border:0;border-image:none;border-radius:var(--wi-r-lg);padding:0 var(--wi-s5);min-height:var(--wi-tap);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:var(--wi-e2);font-family:var(--wi-font-ui);animation:none}
+html.ds .title .btn:active,html.ds .login .btn:active,html.ds .settings .btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--wi-scrim);background:var(--wi-gold-press)}
+html.ds .title .btn span,html.ds .login .btn span,html.ds .settings .btn span{padding-bottom:0}
+html.ds .login .btn:disabled{opacity:1;background:var(--wi-navy-700);color:var(--wi-text-dim);box-shadow:inset 0 0 0 2px var(--wi-locked)}
+
+/* ---- title: three subjects to choose from, as three tiles of the same weight ---- */
+html.ds .title .label.pick{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s4);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-md);font-weight:700}
+html.ds .title .tgo{gap:var(--wi-s3);inline-size:100%}
+html.ds .title .tgo .btn.sb{inline-size:min(100%,340px);block-size:auto;min-block-size:76px;font-size:var(--wi-fs-md);padding:var(--wi-s2) var(--wi-s4);justify-content:flex-start;text-align:start;background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-inline-start:8px solid var(--wi-aqua);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds .title .tgo .btn.sb:active{background:var(--wi-navy-700);box-shadow:0 0 0 2px var(--wi-scrim),0 1px 0 var(--wi-scrim)}
+html.ds .title .tgo .btn.sb span{flex-direction:column;align-items:flex-start;gap:2px;white-space:normal}
+html.ds .title .tgo .btn.sb b{font-size:var(--wi-fs-lg);line-height:1.2}
+html.ds .title .tgo .btn.sb small{font-size:var(--wi-fs-xs);font-weight:600;color:var(--wi-text-dim);line-height:1.25}
+html.ds .title .tgo .btn.blue{border-inline-start-color:var(--wi-gold)}
+/* the mock exam stays light: a paper tile inside the dark screen */
+html.ds .title .tgo .btn.coral{background:var(--wi-paper);color:var(--wi-ink);border-color:var(--wi-paper-line);border-inline-start-color:var(--wi-ink)}
+html.ds .title .tgo .btn.coral small{color:var(--wi-ink-2)}
+html.ds .title .tgo .btn.coral:active{background:var(--wi-paper-2)}
+html.ds .title .who{background:var(--wi-navy-900);border:1px solid var(--wi-line);color:var(--wi-text);padding:var(--wi-s1) var(--wi-s3);border-radius:var(--wi-r-pill)}
+
+/* ---- Pitzi in the new look. The <img> keeps its place and size rules; its own picture is squeezed to nothing and
+        the new one is drawn as its background (no change to markup or script) ---- */
+html.ds .title .tcrab,html.ds .login .lcrab,html.ds .settings .guide img{box-sizing:border-box;block-size:0;padding-block-start:var(--pz);inline-size:var(--pz);background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat;overflow:hidden}
+html.ds .title .tcrab{--pz:118px;margin:-108px 0 0 -59px}
+html.ds .login .lcrab{--pz:78px;top:-60px;inset-inline-start:8px}
+html.ds .settings .guide img{--pz:84px;background-image:url(../assets/al/pitzi/listen.hf_20261124_210014_1f234b5a-9ec8-4fcc-b2e2-772bb152ee73.webp)}
+
+/* ---- login: one dark card on the sea. Fields, labels, order and sizes are the form's own ---- */
+html.ds .login .lcard{background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:var(--wi-r-xl);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);padding:var(--wi-s5) var(--wi-s4) var(--wi-s4);gap:2px}
+html.ds .login .lcard h3{font-size:var(--wi-fs-lg);color:var(--wi-text)}
+html.ds .login .lcard label{color:var(--wi-text);font-size:var(--wi-fs-sm);font-weight:600;margin-block-start:var(--wi-s2)}
+html.ds .login .seg{border:2px solid var(--wi-line);border-radius:var(--wi-r-md);background:var(--wi-navy-900)}
+html.ds .login .seg button{min-block-size:var(--wi-tap);color:var(--wi-text-dim);font-family:var(--wi-font-ui)}
+html.ds .login .seg button+button{border-inline-start:2px solid var(--wi-line)}
+html.ds .login .seg button[aria-selected=true]{background:var(--wi-aqua);color:var(--wi-navy-900)}
+html.ds .login .in{min-block-size:var(--wi-tap);background:var(--wi-navy-900);color:var(--wi-text);caret-color:var(--wi-aqua);border:2px solid var(--wi-line);border-radius:var(--wi-r-md);font-family:var(--wi-font-ui)}
+html.ds .login .in.en{font-family:var(--wi-font-en)}
+html.ds .login .in:focus{outline:3px solid var(--wi-focus);outline-offset:2px;border-color:var(--wi-aqua)}
+html.ds .login .lnote{color:var(--wi-text-dim)}
+html.ds .login .err{color:var(--wi-fix)}
+html.ds .login .fgl{display:inline-flex;align-items:center;min-block-size:var(--wi-tap);padding:0 var(--wi-s1);color:var(--wi-aqua)}
+html.ds .login .swl{min-block-size:var(--wi-tap);background:var(--wi-azure);color:var(--wi-text);border:0;border-radius:var(--wi-r-md);box-shadow:inset 0 0 0 2px var(--wi-aqua)}
+html.ds .login .swl .ico{stroke:currentColor}
+html.ds .login .lcard .btn{margin-block-start:var(--wi-s2);block-size:56px}
+html.ds .login .btn.tlink{block-size:var(--wi-tap);opacity:1;background:var(--wi-navy-900);color:var(--wi-aqua);box-shadow:0 0 0 1px var(--wi-line)}
+html.ds .login .btn.tlink:active{background:var(--wi-navy-700);transform:none}
+
+/* ---- settings ---- */
+html.ds .settings .rb{background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:50%}
+html.ds .settings .rb .ico{stroke:var(--wi-text)}
+html.ds .settings .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds .settings .ribbon span{padding:0}
+html.ds .settings .panel.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-xl);background:var(--wi-navy-800);padding:var(--wi-s2) var(--wi-s4);box-shadow:var(--wi-e1)}
+html.ds .settings .setrow{color:var(--wi-text);font-family:var(--wi-font-ui)}
+html.ds .settings .setrow+.setrow{border-block-start:1px solid var(--wi-navy-700)}
+html.ds .settings .setrow .sl small,html.ds .settings .prog small,html.ds .settings .acct small,html.ds .settings .credit{color:var(--wi-text-dim)}
+html.ds .settings .setrow .go{stroke:var(--wi-aqua);opacity:1}
+html.ds .settings .sw{border:2px solid var(--wi-line);border-radius:var(--wi-r-pill);background:var(--wi-navy-900)}
+html.ds .settings .sw b{color:var(--wi-text-dim)}
+html.ds .settings .sw em{background:var(--wi-text-dim);border:0;border-radius:50%;top:3px}
+html.ds .settings .sw.on{background:var(--wi-aqua);border-color:var(--wi-aqua)}
+html.ds .settings .sw.on b{color:var(--wi-navy-900)}
+html.ds .settings .sw.on em{background:var(--wi-navy-900)}
+html.ds .settings .sw.on em .ico{stroke:var(--wi-aqua)}
+html.ds .settings .credit{border-block-start:1px solid var(--wi-navy-700)}
+html.ds .settings .acct .sbad{color:var(--wi-fix)}
+html.ds .settings .acct .btn{background:var(--wi-azure);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e2)}
+html.ds .settings .guide p.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-lg);background:var(--wi-navy-900);color:var(--wi-text);padding:var(--wi-s2) var(--wi-s3)}
+
+@media (prefers-reduced-motion:reduce){html.ds .title .btn,html.ds .login .btn,html.ds .settings .btn{transition:none}}
+/* short phones: game.css drops the settings rows to 44px; the new look keeps them at 48 (there is room) */
+@media (max-height:700px){html.ds .settings .setrow{min-height:var(--wi-tap)}}

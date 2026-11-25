@@ -33,18 +33,22 @@ export async function start(host,cfg,api){
   const c=cards[i];face(i,true);g.open.push(i);if(c.side==='en')say(c.text);
   if(g.open.length<2){SND.tap();note.textContent='';return}
   g.turns++;const [a,b]=g.open,A=cards[a],B=cards[b];
-  if(A.k===B.k){SND.pop();g.found.add(A.k);g.open=[];el(a).classList.add('ok');el(b).classList.add('ok');el(a).disabled=el(b).disabled=true;head();
+  if(A.k===B.k){SND.pop();g.found.add(A.k);g.open=[];el(a).classList.add('ok');el(b).classList.add('ok');
+   /* a found pair is disabled; a keyboard user's focus moves on to the next open card instead of dropping to the page */
+   const kb=grid.contains(document.activeElement);el(a).disabled=el(b).disabled=true;head();
+   if(kb)for(let d=1;d<cards.length;d++){const j=(b+d)%cards.length;if(!g.found.has(cards[j].k)){el(j).focus({preventScroll:true});break}}
    note.innerHTML=`<p class="tfr ok">${en(ws[A.k].en)} <span>=</span> ${esc(first(ws[A.k].he))}</p>`;
    if(g.found.size===g.n){alive=false;timer=setTimeout(end,900)}}
   else{SND.bad();g.misses++;g.lock=1;el(a).classList.add('no');el(b).classList.add('no');
    /* explain: each of the two cards that were turned, with its own pair */
    note.innerHTML=[A,B].map(x=>`<p class="tfr two">${en(ws[x.k].en)} <span>=</span> ${esc(first(ws[x.k].he))}</p>`).join('');
    timer=setTimeout(()=>{if(!host.isConnected)return;for(const j of [a,b]){face(j,false);el(j).classList.remove('no')}g.open=[];g.lock=0},reduced()?SHOW+500:SHOW)}}
- function end(){SND.win();count.innerHTML='';note.innerHTML='';
+ function end(){SND.win();count.innerHTML='';note.innerHTML='';const kb=grid.contains(document.activeElement)||document.activeElement===document.body;
   grid.outerHTML=`<div class="tfend">${spr('crab_happy','bob')}<h3>מצאתם את כל הזוגות!</h3>
     <p>${num(g.turns)} ניסיונות</p>
     <div class="tfrev">${ws.map(w=>`<span>${en(w.en)} · ${esc(first(w.he))}</span>`).join('')}</div>
     <div class="tfeb">${btn('nav','עוד סיבוב','green',`data-to="extra/${cfg.island.id}/pairs" data-force="1"`)}${btn('nav','לשלבים','cream',`data-to="island/${cfg.island.id}"`)}</div></div>`;
+  if(kb){const nx=host.querySelector('.tfend [data-force]');if(nx)nx.focus({preventScroll:true})}   // the keyboard carries on from "another round"
   window.__lv.ended={turns:g.turns,misses:g.misses,n:g.n}}
  const onClick=e=>{const b=e.target.closest('.prk');if(b)turn(+b.dataset.i)};
  host.addEventListener('click',onClick);head();
