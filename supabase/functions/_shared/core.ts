@@ -52,6 +52,7 @@ async function buckets(d: Deps, body: Body, ctx: Ctx) {
   // no readable address: a bucket of its own for this request, so no two callers ever share one (review S5); the
   // per-name and per-class limits still hold for it
   const ip = ctx.ip || "unparsed:" + b64url(randomBytes(12));
+  if (!ctx.ip) await d.sql`select private.note_unreadable(${now.toISOString()}::timestamptz)`; // counted for the teacher's health row
   // the address is hashed with a random salt that lives two days; the raw address is never stored or logged
   const day = (t: Date) => t.toISOString().slice(0, 10);
   const salt = (await d.sql`select private.ip_salt(${day(now)}::date, ${hex(randomBytes(16))}) as v`)[0].v as string;

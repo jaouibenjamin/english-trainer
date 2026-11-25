@@ -25,8 +25,33 @@ function cors(req: Request, allowed: string[]): Record<string, string> {
     then gets a bucket of its own (core.ts), never one shared by everybody. */
 export function clientIp(req: Request, from = Deno.env.get("CLIENT_IP_FROM") ?? "xff-last"): string {
   const raw = from === "xff-last" ? (req.headers.get("x-forwarded-for") ?? "").split(",").pop() ?? "" : req.headers.get(from) ?? "";
-  const ip = raw.trim();
-  return /^[0-9a-fA-F:.]{3,45}$/.test(ip) && /[0-9]/.test(ip) ? ip.toLowerCase() : "";
+  return addressBucket(raw.trim());
+}
+
+/** One bucket per IPv4 address, and per /64 for IPv6 (a home or school gets a whole /64, so per address would be
+    2^64 fresh tries: review of #35). A port is dropped ("1.2.3.4:5678", "[2001:db8::1]:443"); anything else is "". */
+export function addressBucket(a: string): string {
+  let m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?::\d{1,5})?$/.exec(a);
+  if (m) return m.slice(1, 5).every((x) => Number(x) <= 255) ? m.slice(1, 5).map(Number).join(".") : "";
+  m = /^\[([0-9A-Fa-f:.]+)\](?::\d{1,5})?$/.exec(a);
+  const v6 = (m ? m[1] : a).toLowerCase();
+  if (!/^[0-9a-f:.]{2,45}$/.test(v6) || !v6.includes(":")) return "";
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(v6); // an IPv4 address written as IPv6
+  if (mapped) return addressBucket(mapped[1]);
+  const hexMapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(v6); // the same, written in hex (::ffff:cb00:7107)
+  if (hexMapped) {
+    const [hi, lo] = [parseInt(hexMapped[1], 16), parseInt(hexMapped[2], 16)];
+    return [hi >> 8, hi & 255, lo >> 8, lo & 255].join(".");
+  }
+  const halves = v6.split("::");
+  if (halves.length > 2) return "";
+  const part = (x: string) => (x ? x.split(":") : []);
+  const head = part(halves[0]), tail = halves.length === 2 ? part(halves[1]) : [];
+  if (tail.length && /\./.test(tail[tail.length - 1])) return ""; // other embedded IPv4 forms: no bucket of their own
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0;
+  const groups = [...head, ...Array(Math.max(0, fill)).fill("0"), ...tail];
+  if (groups.length !== 8 || fill < 0 || (halves.length === 2 && fill < 1) || !groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return "";
+  return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
 }
 
 export function handler(fn: (d: Deps, body: Body, ctx: Ctx) => Promise<Reply>, deps: () => Promise<Deps> | Deps, origins?: string) {
