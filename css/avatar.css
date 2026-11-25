@@ -40,9 +40,18 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .wpick__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--wi-s2)}
 .wpick__av{position:relative;aspect-ratio:1;padding:0;border:2px solid var(--wi-line);border-radius:var(--wi-r-lg);background:var(--wi-navy-800);overflow:hidden}
 .wpick__av.is-selected{border-color:var(--wi-gold);box-shadow:0 0 0 3px var(--wi-gold)}
-.wpick__av.is-locked .wpick__art{opacity:.35}
+.wpick__av.is-locked .wpick__art{opacity:.5}   /* dimmed, still recognisable above its "נפתח ברמה N" plate */
 .wpick__art{width:100%;height:100%;object-fit:cover;display:block}
-.wpick__lock{position:absolute;inset-block-end:4px;inset-inline-end:4px;font-size:16px}
+.wpick__lock{position:absolute;inset-inline:4px;inset-block-end:4px;padding:1px 4px;border-radius:var(--wi-r-sm);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-xs);font-weight:700;line-height:1.25;text-align:center}   /* "נפתח ברמה N" on a solid plate */
+/* ---- the map: a new character opened (shown once) ---- */
+.map .wnew{position:absolute;z-index:6;inset-inline:16px;bottom:calc(80px + var(--sb,0px));display:grid;grid-template-columns:72px 1fr;grid-template-areas:"p h" "p t" "b b" "l l";column-gap:var(--wi-s3);row-gap:var(--wi-s2);padding:var(--wi-s3) var(--wi-s4);border-radius:var(--wi-r-lg);background:var(--wi-navy-800);border:2px solid var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);color:var(--wi-text);font-family:var(--wi-font-ui)}
+.map .wnew__pic{grid-area:p;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--wi-gold);align-self:center}
+.map .wnew__h{grid-area:h;margin:0;font-size:var(--wi-fs-lg);color:var(--wi-gold);line-height:1.2;align-self:end}
+.map .wnew__t{grid-area:t;margin:0;font-size:var(--wi-fs-sm);color:var(--wi-text)}
+.map .wnew button{font:inherit;cursor:pointer;min-height:var(--wi-tap);border-radius:var(--wi-r-pill);font-weight:800}
+.map .wnew__ok{grid-area:b;border:0;background:var(--wi-gold);color:var(--wi-navy-900)}
+.map .wnew__later{grid-area:l;border:1px solid var(--wi-line);background:var(--wi-navy-900);color:var(--wi-text)}
+.map .wnew :focus-visible{outline:3px solid var(--wi-focus);outline-offset:2px}
 .wpick__ok,.wpick__dice{min-height:var(--wi-tap);border:0;border-radius:var(--wi-r-pill);font-weight:800}
 .wpick__ok{background:var(--wi-gold);color:var(--wi-navy-900)!important}
 .wpick__ok[aria-disabled=true]{background:var(--wi-navy-700);color:var(--wi-text)!important;box-shadow:inset 0 0 0 2px var(--wi-locked)}   /* dim but solid: the text keeps its contrast */
@@ -58,4 +67,7 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .wpick :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
 /* a narrow phone: the focus button leaves room for the character's name */
 @media (max-width:379px){.map .wd__focus{max-width:40%}.map .wd__lvw{display:none}}
+/* the narrowest phones (320 px): a smaller picture, gaps and paddings, so every name (up to "Mighty Dolphin") stays whole
+   next to today's focus; every button keeps 48 px of height */
+@media (max-width:339px){.map .wd{gap:4px}.map .wd__me{gap:4px}.map .wd__pic{width:40px;height:40px}.map .wd__en{padding:0 6px}.map .wd__focus{padding:2px 6px}}
 .map .wd__me--off{flex:1 1 auto;display:flex;align-items:center;gap:6px;padding:2px 4px;min-width:0}

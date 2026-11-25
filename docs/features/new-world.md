@@ -5,19 +5,29 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
 `css/avatar.css` are loaded only when the flag is on, and `#avatar` is an unknown address as before.
 
 - **Character:** one of the 20 in `assets/al/av` (list in `js/world_data.js`, shared with the `world.html` preview).
-  Penguin, octopus, the green robot and the pilot open at energy levels 3 to 6; the children and the other animals are
-  open from the start.
-- **Its name:** one word from each of two fixed lists (`NAME_A`, `NAME_B` in `js/world_data.js`), stored as two
-  indexes. No free text. Both lists are flagged for the teacher's review (see `docs/DESIGN.md`).
+  Eight are open from the start, a fair mix: two girls, two boys, three animals and a robot (girl with a yellow band,
+  boy with a cap, girl with braids, boy with a yellow coat, fox, cat, sea turtle, robot). The other twelve open one per
+  energy level, from level 2 to 13: the remaining kids first, the most exciting last (see the ladder below). A locked
+  tile shows the character dimmed with "נפתח ברמה N"; it cannot be chosen, and a tap says how far it is. A character
+  a pupil already chose stays theirs even if it would be locked at their level. When a level opens a character, the
+  map says once "דמות חדשה נפתחה!" with its portrait and a button to the picker ("דמויות חדשות נפתחו!" when two levels
+  came at once; a device that first opens the map at a high level is not told about old news).
+- **Its name:** a describing word and an animal, one from each of two fixed lists (`NAME_A`, `NAME_B` in
+  `js/world_data.js`), stored as two indexes and the lists' version (`nv: 2`). No free text. A name stored from the
+  earlier lists (no version) reads as "no name yet", so nobody gets a different name silently. All 144 names fit on
+  one line in the picker and one word per line on the map at 320 and 360 px (`tests/world.py`).
 - **Energy:** only goes up. Worked out from what was learned (10 per star, 5 per word known, 5 per story read) and
-  kept as the highest value seen. Levels: 0, 120, 220, 340, 480, 640, 820, 1020, then +250 each. These numbers are
-  ours, for the owner and designer to tune (`WORTH` and `LEVELS` in `js/avatar.js`).
+  kept as the highest value seen. Levels: 0, 40, 90, 150, 220, 300, 380, 460, 540, 620, 700, 760, 820, then +250
+  each. The most a pupil can earn today is 980 (66 stars, 59 words, 5 stories), so all 13 levels fit; every threshold
+  is at or below the earlier ones (0, 120, 220, 340, 480, 640, 820, 1020), so no device ever shows a lower level.
+  These numbers are ours, for the owner and designer to tune (`WORTH` and `LEVELS` in `js/avatar.js`).
 - **Today's focus:** the open island with the most words the pupil got wrong and does not know yet; up to 5. The
   button goes to that island. Hidden when there is none.
 - **Storage:** `localStorage` key `wi_world`, one record per pupil on the device. A signed-in pupil's record is
   filed under a SHA-256 digest of `wi|` + the class code in upper case + `|` + the name (trimmed, spaces collapsed),
   never under the code or the name; a device that is not signed in uses `local`. The record holds only a character
-  id, two indexes and a number. Stored energy above 100000 is read as 100000.
+  id, two indexes, the names' version, the energy and the last level announced. Stored energy above 100000 is read as
+  100000.
 - It is not in the progress record that `pack()` / `merge()` send to the sheet, and the file makes no request.
   `tests/world.py` checks all of this, including against the mock backend in class mode, a damaged or edited record,
   and the class code typed in another case.
@@ -30,3 +40,49 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   the site's data in the browser (or `localStorage.removeItem('wi_world')`) deletes them all; nothing is kept anywhere
   else.
 - **Today's focus** leaves out the bonus island (months and numbers): it is about the unit's five word lists.
+
+## The ladder (energy level → character)
+| Level | Energy from | Opens |
+|---|---|---|
+| 1 | 0 | the 8 starters |
+| 2 | 40 | girl with glasses |
+| 3 | 90 | boy with glasses |
+| 4 | 150 | girl with a ponytail |
+| 5 | 220 | boy with a scarf |
+| 6 | 300 | owl |
+| 7 | 380 | parrot |
+| 8 | 460 | penguin |
+| 9 | 540 | shark |
+| 10 | 620 | diver |
+| 11 | 700 | octopus |
+| 12 | 760 | green robot |
+| 13 | 820 | pilot (helmet) |
+
+Pace, roughly: 15 minutes a day is about two levels played, worth about 100 energy while the stars are new (up to 30
+for three stars, about 25 for words learned), so a new character every day or two at first; later the stars are
+already earned and energy comes mostly from words, so it slows down. The last one asks for about 84% of all there is.
+
+## For the teacher's review: the name words (ours, not from Unit 1)
+None of these words is in the teacher's Unit 1 list; the words and their Hebrew are ours. The describing words show
+both genders.
+
+| Describing word | Hebrew | Animal | Hebrew |
+|---|---|---|---|
+| Brave | אמיץ/ה | Fox | שועל |
+| Happy | שמח/ה | Lion | אריה |
+| Clever | חכם/ה | Tiger | טיגריס |
+| Fast | מהיר/ה | Eagle | נשר |
+| Funny | מצחיק/ה | Wolf | זאב |
+| Strong | חזק/ה | Dolphin | דולפין |
+| Kind | טוב/ת לב | Panda | פנדה |
+| Lucky | בר/בת מזל | Shark | כריש |
+| Super | סופר | Owl | ינשוף |
+| Cool | מגניב/ה | Bear | דוב |
+| Mighty | אדיר/ה | Dragon | דרקון |
+| Wild | פראי/ת | Falcon | בז |
+
+All 144 pairs were read for an unkind or silly meaning, in English and in the Hebrew under each word; none found.
+For her attention: "Wild" (פראי/ת) is meant as "full of energy"; she may prefer to drop it.
+Also ours and to be checked: "דמות חדשה נפתחה!", "דמויות חדשות נפתחו!", "(name) מחכה לכם. רוצים להחליף?", "לבחירת דמות",
+"אחר כך", "נפתח ברמה N", "(name) נפתח/ת ברמה N. עוד N רמות: מרוויחים אנרגיה כשלומדים, ואף פעם לא מפסידים אותה.",
+"בכל רמה חדשה נפתחת דמות חדשה. עכשיו אתם ברמה N."

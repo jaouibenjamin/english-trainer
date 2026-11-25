@@ -8,21 +8,28 @@
    spaces collapsed), never under the code or the name themselves; on a device that is not signed in, under 'local'.
    Every await is followed by a check that the same pupil is still signed in before anything is written (LESSONS.md 1).
    - avatar: one of the 20 ids in js/world_data.js. Locked characters open with the energy level.
-   - name: two indexes into the two fixed word lists (no free text: nothing a pupil types is stored or shown).
+   - name: two indexes into the two fixed word lists (no free text: nothing a pupil types is stored or shown), and the
+     lists' version (nv). A name kept from earlier lists (no nv, or another one) reads as "no name yet", so nobody is
+     given a different name silently.
+   - sl: the highest level whose new character the map has already announced ("דמות חדשה נפתחה!" shows once).
+   - a pupil keeps a character chosen earlier even if it would be locked at their level now: nothing is taken away.
    - energy: only goes up. It is worked out from what the pupil has learned (stars, words known, stories read) and kept
      as the highest value seen, so a word that is forgotten again never takes energy away.
    DOM is built with createElement and textContent only. */
 import {S,API,totalStars,wordsKnown,isOpen} from './state.js';
 import {ISLANDS,WORDS} from './data.js';
 import {ART} from './world_art.js';
-import {AVATARS,NAME_A,NAME_B} from './world_data.js';
+import {AVATARS,NAME_A,NAME_B,NAME_V} from './world_data.js';
 import {playAv} from './avanim.js';
 
 const KEY='wi_world';
 /* energy: what each thing learned is worth, and the level thresholds (a rule of ours, for the owner and designer to tune).
-   Level n runs from LEVELS[n-1] to LEVELS[n]; past the list every level is 250 more. */
+   Level n runs from LEVELS[n-1] to LEVELS[n]; past the list every level is 250 more.
+   The most a pupil can earn today is 980 (66 stars, 59 words, 5 stories), so the 13 levels that open the 12 characters
+   (js/world_data.js) all fit inside it: the last at 820. Every threshold is at or below the earlier ones
+   (0,120,220,340,480,640,820,1020), so a level shown on a device never goes down. */
 const WORTH={star:10,word:5,story:5};
-const LEVELS=[0,120,220,340,480,640,820,1020];
+const LEVELS=[0,40,90,150,220,300,380,460,540,620,700,760,820];
 const FOCUS_MAX=5;
 const EN_MAX=100000;   // a stored energy above this is read as this (a damaged or edited record must not freeze the map)
 
@@ -40,10 +47,13 @@ const same=id=>{const u=pupil();return id.u?!!u&&u.c===id.u.c&&u.n===id.u.n:!u};
 function readAll(){try{const o=JSON.parse(localStorage.getItem(KEY)||'null');return o&&typeof o==='object'&&o.v===1&&o.p&&typeof o.p==='object'&&!Array.isArray(o.p)?o:{v:1,p:{}}}catch(e){return{v:1,p:{}}}}
 function mine(id){const r=id.key&&Object.prototype.hasOwnProperty.call(readAll().p,id.key)?readAll().p[id.key]:null;const m=r&&typeof r==='object'?r:{};
  return{av:AVATARS.some(a=>a.id===m.av)?m.av:null,
-  nm:Array.isArray(m.nm)&&Number.isInteger(m.nm[0])&&Number.isInteger(m.nm[1])&&NAME_A[m.nm[0]]&&NAME_B[m.nm[1]]?[m.nm[0],m.nm[1]]:null,
-  en:typeof m.en==='number'&&Number.isFinite(m.en)&&m.en>0?Math.min(EN_MAX,Math.floor(m.en)):0}}
+  nm:m.nv===NAME_V&&Array.isArray(m.nm)&&Number.isInteger(m.nm[0])&&Number.isInteger(m.nm[1])&&NAME_A[m.nm[0]]&&NAME_B[m.nm[1]]?[m.nm[0],m.nm[1]]:null,
+  en:typeof m.en==='number'&&Number.isFinite(m.en)&&m.en>0?Math.min(EN_MAX,Math.floor(m.en)):0,
+  sl:Number.isInteger(m.sl)&&m.sl>0&&m.sl<1000?m.sl:0}}
 const KEY_OK=/^(local|h:[0-9a-f]{64})$/;   // the only keys a record may have; anything else is dropped on the next write
-function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=rec;localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
+/* only the known fields, and a name always with the lists' version */
+const clean=r=>{const o={av:r.av,nm:r.nm,en:r.en};if(r.nm)o.nv=NAME_V;if(r.sl)o.sl=r.sl;return o};
+function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=clean(rec);localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
 
 /* ---------- energy: only goes up ---------- */
 export const earned=()=>WORTH.star*totalStars()+WORTH.word*wordsKnown()+WORTH.story*Object.values(S.read||{}).filter(v=>v>0).length;
@@ -103,7 +113,18 @@ export async function decorateMap(view,go,live=()=>true){
   dock.appendChild(f)}
  /* .wdock on #stage lifts main.js's sync bar above the dock; main.js route() takes it off on the next screen */
  sec.classList.add('hasdock');document.getElementById('stage').classList.add('wdock');sec.append(note,dock);
- window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key};   // for the tests
+ /* a level that opened a character: said once, with its portrait and the way to the picker. The first visit only
+    remembers the level (a device that already had this level is not told about old news). */
+ let fresh=[];
+ if(id.key){const r=mine(id);
+  if(!r.sl)keep(id,{...r,sl:E.level});
+  else if(E.level>r.sl){fresh=AVATARS.filter(a=>a.open>r.sl&&a.open<=E.level);keep(id,{...r,sl:E.level})}}
+ if(fresh.length){const a=fresh[fresh.length-1],box=el('div','wnew');box.setAttribute('role','dialog');box.setAttribute('aria-labelledby','wnew-h');
+  const h=el('h2','wnew__h',fresh.length>1?'דמויות חדשות נפתחו!':'דמות חדשה נפתחה!');h.id='wnew-h';
+  const ok=btn('wnew__ok','לבחירת דמות',()=>go('avatar'));
+  box.append(pic(a.id,'wnew__pic'),h,el('p','wnew__t',a.he+' מחכה לכם. רוצים להחליף?'),ok,btn('wnew__later','אחר כך',()=>box.remove()));
+  sec.appendChild(box);ok.focus({preventScroll:true})}
+ window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,fresh:fresh.map(a=>a.id)};   // for the tests
 }
 
 /* ---------- the character picker: choose, then name ---------- */
@@ -121,13 +142,13 @@ export async function picker(view,go,live=()=>true){
  function choose(){h.textContent='בוחרים דמות';body.replaceChildren();
   body.appendChild(el('p','wpick__sub','אפשר להחליף אותה מתי שרוצים.'));
   const grid=el('div','wpick__grid');grid.setAttribute('role','group');grid.setAttribute('aria-label','הדמויות');
-  const note=el('p','wpick__note','דמויות נוספות נפתחות כשמרוויחים אנרגיה.');note.setAttribute('role','status');
-  for(const a of AVATARS){const locked=a.open>E.level,sel=pick===a.id;
+  const note=el('p','wpick__note','בכל רמה חדשה נפתחת דמות חדשה. עכשיו אתם ברמה '+E.level+'.');note.setAttribute('role','status');
+  for(const a of AVATARS){const locked=a.open>E.level&&a.id!==me.av,sel=pick===a.id;   // the character a pupil already has stays theirs
    const b=btn('wpick__av'+(locked?' is-locked':'')+(sel?' is-selected':''),null,()=>{
-    if(locked){note.textContent=a.he+': נפתחת ברמת אנרגיה '+a.open+'. עכשיו אתם ברמה '+E.level+'.';return}
+    if(locked){const n=a.open-E.level;note.textContent=a.he+' נפתח/ת ברמה '+a.open+'. עוד '+(n===1?'רמה אחת':n+' רמות')+': מרוויחים אנרגיה כשלומדים, ואף פעם לא מפסידים אותה.';return}
     pick=a.id;choose();const s=body.querySelector('.is-selected');if(s){s.focus({preventScroll:true});playAv(s.querySelector('img'),a.id)}});   // its short animation, once (js/avanim.js: nothing before a tap, nothing with reduced motion or calm)
    b.dataset.id=a.id;b.appendChild(pic(a.id,'wpick__art'));
-   if(locked){b.setAttribute('aria-label',a.he+', נפתחת ברמת אנרגיה '+a.open);b.appendChild(el('span','wpick__lock','🔒'))}
+   if(locked){b.setAttribute('aria-label',a.he+', נפתח ברמה '+a.open);b.setAttribute('aria-disabled','true');b.appendChild(el('span','wpick__lock','נפתח ברמה '+a.open))}
    else{b.setAttribute('aria-label',a.he);b.setAttribute('aria-pressed',sel?'true':'false')}
    grid.appendChild(b)}
   body.append(grid,note);
