@@ -54,6 +54,7 @@ node tests/mdata_check.mjs      # math content
 python3 tests/teacher_mock.py   # mock exam rows on the teacher screen (switch off and on, older backend, rubbish from a backend)
 python3 tests/card.py          # the progress card (js/card.js), switch off and on, local and signed in
 python3 tests/settings_fit.py   # the settings screen at six window sizes, signed in and not: all on the screen, nothing over anything
+python3 tests/extra.py         # the extra practice games (js/extra.js), switch off and on, local and signed in
 python3 tests/storage_check.py  # the asset build scripts against a made-up storage (no network): refusals, no address in messages
 python3 tests/worksheet.py     # the printable worksheet (worksheet.html), switch off and on
 python3 tests/help.py --quick   # word help and slow playback (off by default; ?help=1), switch off and on
