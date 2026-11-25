@@ -2,13 +2,13 @@
 
 Each entry is a bug class that cost us more than one review round. An engineer reads this before starting; a reviewer checks the change against it. When a review finds a new class (not just a new instance), add an entry in the same PR that fixes it.
 
-## 1. An await that outlives the pupil (PRs #21, #39, #41; gate 4 still open)
+## 1. An await that outlives the pupil (PRs #21, #39, #41, #50; gate 5)
 
-- **What happened:** on a shared device, pupil A's request was still in flight when A logged out and B signed in. When it came back, the code went on as if nothing had changed: it sent A's data with B's token, wrote A's state as B's base, or stored A's session again. Three rounds each closed one await and the review found the next.
-- **Rule:** after every `await`, the world may have changed. Anything that reads "who is signed in" (token, session, owner, base, queue) must capture an identity before the await and check it after, before any write or send.
-- **How to build it:** one guard that every storage write and every tokened call goes through. Do not patch call sites one by one. In the PR, list every `await` in the file and which guard covers it.
-- **How to test it:** hold a response, switch pupil, release the response. Also: a second tab on the same storage; logout right after the last answer; a response that arrives after logout.
-- **In memory too:** a logout must clear everything held in variables (a queued save, a code waiting for a retry), not only what is in storage.
+- **What happened:** on a shared device, pupil A's request was still in flight when A logged out and B signed in. When it came back, the code went on as if nothing had changed: it sent A's data with B's token, wrote A's state as B's base, or stored A's session again. Three rounds each closed one await and the review found the next. Gate 4 bound every operation to the session (`op()`: generation and session id); the review of #50 still found three paths, because the data was not bound to the pupil: the Sheet's late answer still carried A's request (with A's code), the in-memory queue was handed to whatever session was current when a timer or a page listener fired in another tab, and "no session yet" is the same for every pupil.
+- **Rule:** after every `await`, and in every timer and event listener, the world may have changed. Bind the operation to the session **and the data to the pupil**: anything that reads "who is signed in" (token, session, owner, base, queue) captures an identity before the await and checks it after, before any write or send; anything held for later (a queued state, a waiting request, a record of what was sent) carries its owner and is used only for that owner. An empty identity ("no session") is not an identity: check the owner too.
+- **How to build it:** one guard that every storage write and every tokened call goes through. Do not patch call sites one by one. In the PR, list every `await` in the file and which guard covers it, **and every timer, listener and callback that re-dispatches work** (they run with whatever is current when they fire).
+- **How to test it:** hold a response, switch pupil, release the response. Hold the answer of the request that starts the work too (here the Sheet's), not only the later ones. Also: a second tab on the same storage, with its timers and page listeners firing after the other tab changed pupil; two tabs signing in at the same time; logout right after the last answer; a response that arrives after logout.
+- **In memory too:** a logout must clear everything held in variables (a queued save, a code waiting for a retry), not only what is in storage; and what must survive a closed tab (what was already sent) must be in storage, not in a variable.
 
 ## 2. A test that passes because it waits
 
@@ -53,3 +53,9 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 
 - **What happened:** the backup included address salts, typed names and old hashes, and the live check could have created users.
 - **Rule:** every export has an explicit, tested exclusion list. A check against the live backend never writes.
+
+## 11. A difference of merged records counts someone else's work (gate 4, S3)
+
+- **What happened:** the adapter derives events from the difference between the last record it copied and the next one. On a second device, the game joins the other device's record into its own at sign-in, so the next difference held the other device's answers too, and they were counted twice. Lifting the base to the whole joined record would have been wrong too: it also held this device's own answers that were not copied yet, which would then never be counted.
+- **Rule:** when a count is derived from a record that is merged from several sources, subtract what the other sources brought (what the merged record holds beyond what this source itself sent), not the merged record. A base never goes down.
+- **How to test it:** two devices on two storages, one pupil: play on one, sign in on the other, play there. Also a pull that arrives while this device still holds answers it has not sent. Total counted = answers actually played.

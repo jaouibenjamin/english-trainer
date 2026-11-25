@@ -6,6 +6,7 @@
 import asyncio, os, subprocess, sys, time, socket
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import remote_guard
+from csp_wait import csp_wait
 from playwright.async_api import async_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,7 +56,7 @@ async def looks(b):
     for name in ('__proto__', 'constructor', 'toString', 'nosuchlook'):
         errs = []
         c = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=1, has_touch=True)
-        pg = await c.new_page()
+        pg = csp_wait(await c.new_page())
         watch(pg, errs)
         models = []
         pg.on('response', lambda r: models.append(r.url.split('/')[-1]) if '/assets/3d/' in r.url else None)
@@ -73,7 +74,7 @@ async def looks(b):
     for tag, url, block in (('lowpoly', BASE + '?style=lowpoly', False), ('no model', BASE, True)):
         errs = []
         c = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, has_touch=True)
-        pg = await c.new_page()
+        pg = csp_wait(await c.new_page())
         watch(pg, errs, missing_ok='assets/3d/' if block else '')
         models = []
         pg.on('response', lambda r: models.append((r.status, r.url.split('/')[-1])) if '/assets/3d/' in r.url else None)
@@ -164,12 +165,38 @@ async def ds_slow(b):
     check(not real, f'360x740 new look: no page errors or failed requests {real[:3]}')
     await c.close()
 
+BIDI = """(async()=>{const {POOL}=await import('./js/xdata.js');const tips=[...new Set(Object.values(POOL).flatMap(o=>Object.values(o).flat()).map(e=>e.tip).filter(Boolean))];
+ const box=document.createElement('div');box.className='banner';box.style.cssText='position:fixed;left:0;top:0;width:360px;visibility:hidden';document.body.appendChild(box);
+ const out={n:tips.length,text:[],stop:[],checked:0};
+ for(const t of tips){box.innerHTML=`<p class="ans">${__run.mixed(t)}</p>`;const p=box.firstChild;
+  if(p.textContent!==t)out.text.push(t);
+  /* an English sentence that ends with a full stop before a Hebrew note: the stop is drawn right after the sentence's
+     last letter (to its right), not at the far side of the line */
+  const m=t.match(/[a-z]\\. \\(/);if(!m)continue;out.checked++;
+  const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,off=0;const at=m.index;
+  while((n=w.nextNode())){if(at<off+n.length){const r=document.createRange();r.setStart(n,at-off);r.setEnd(n,at-off+1);const L=r.getBoundingClientRect();
+   const r2=document.createRange();let n2=n,o2=at-off+1;if(o2>=n.length){n2=w.nextNode();o2=0}r2.setStart(n2,o2);r2.setEnd(n2,o2+1);const D=r2.getBoundingClientRect();
+   if(!(D.left>=L.right-1&&Math.abs(D.top-L.top)<4))out.stop.push([t,Math.round(L.right),Math.round(D.left)]);break}off+=n.length}}
+ box.remove();return out})()"""
+
+async def bidi(b):
+    """explanation lines mix Hebrew and English: the words are the same as before, and an English sentence keeps its
+    full stop at its end (it used to show as ".I study English at school")"""
+    c = await b.new_context(viewport={'width': 390, 'height': 844})
+    pg = await c.new_page()
+    await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
+    await pg.goto(BASE); await pg.wait_for_selector('[data-go="run"]', timeout=15000)
+    R = await pg.evaluate(BIDI)
+    check(R['n'] > 50 and not R['text'], f'every explanation ({R["n"]}) reads the same words as before {R["text"][:2]}')
+    check(R['checked'] > 5 and not R['stop'], f'an English sentence keeps its full stop at its end ({R["checked"]} checked) {R["stop"][:2]}')
+    await c.close()
+
 async def play(b, w, h, tag, qs=''):
     """a whole run; qs='?ds=1' plays it in the new look, which must change nothing but the styling"""
     errs = []
     css = []
     c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2, has_touch=w < 700)
-    pg = await c.new_page()
+    pg = csp_wait(await c.new_page())
     watch(pg, errs)
     await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
     pg.on('request', lambda r: css.append(r.url.split('/')[-1]) if '/css/' in r.url else None)
@@ -276,6 +303,7 @@ async def main():
     try:
         async with async_playwright() as p:
             b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])
+            await bidi(b)
             await play(b, 390, 844, 'r390x844')
             await play(b, 390, 844, 'r390x844_ds', '?ds=1')
             await ds_slow(b)

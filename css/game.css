@@ -295,7 +295,8 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .teacher>.credit{border:0;margin:0;padding:0 6px;max-width:372px}
 .kids{display:flex;flex-direction:column;gap:8px;width:100%;max-width:372px;flex:none}
 .kid p{margin:0;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.kid .kn b{font-size:17.500px;font-weight:700}
+.kid .kn b{font-size:17.500px;font-weight:700;min-width:0;overflow-wrap:anywhere}
+.kid .kn bdi{white-space:normal}   /* a pupil's name may wrap (bdi is nowrap elsewhere, line 21) */
 .kid .kw{font-size:14px;font-weight:600;margin-top:3px}
 .kid .ks{font-size:12.500px;font-weight:500;color:var(--ink2);margin-top:5px;flex-wrap:wrap}
 .pbar{height:10px;border:2px solid var(--ink);border-radius:9px 7px 8px 6px;background:#fffaf0;overflow:hidden;direction:ltr;margin-top:2px}

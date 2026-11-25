@@ -12,6 +12,9 @@ import {SND,unlock} from './audio.js';
 const $=s=>document.querySelector(s);
 const cv=$('#gl'),stageEl=$('#rstage'),hud=$('#hud'),pad=$('#pad'),menu=$('#menu'),banner=$('#banner'),flashEl=$('#flash');
 if(SET.calm)document.documentElement.classList.add('calm');
+/* a menu picture that fails to load falls back to its data-fb picture (a listener, not an inline onerror: the page's
+   Content-Security-Policy allows no inline handlers). Load errors do not bubble, so it listens in the capture phase. */
+menu.addEventListener('error',e=>{const i=e.target;if(i&&i.dataset&&i.dataset.fb&&i.getAttribute('src')!==i.dataset.fb)i.src=i.dataset.fb},true);
 /* the new look ("Arcade Lagoon"), behind the same switch as js/dsflag.js: ?ds=1 turns it on for this device, ?ds=0 off.
    Off: nothing is added, written or requested. On: the class "ds" on <html> and two stylesheets (css/run-ds.css), styling only.
    The menu stays hidden until both have loaded (or failed, or 4 s passed), so the old look never flashes on slow wifi. */
@@ -216,17 +219,20 @@ function showQ(it,q){
  let h=`<div class="qrow">${pic}<div class="qtx">${tx}</div></div>`+laneChips(q);
  banner.className='banner';banner.innerHTML=h;banner.hidden=false}
 let shownLane=-1;function syncChips(){if(!G||!G.gate||G.lane===shownLane)return;shownLane=G.lane;banner.querySelectorAll('.ln').forEach((e,i)=>e.classList.toggle('cur',i===G.lane))}
+/* a line that mixes Hebrew and English (the explanation under an answer): each English stretch is its own left-to-right run,
+   so its full stop and question mark stay at its end ("I study English at school." and not ".I study English at school") */
+const mixed=t=>String(t).split(/([A-Za-z0-9](?:[^\u0590-\u05FF()]*[A-Za-z0-9.?!'\u2019\u2026])?)/).map((p,i)=>i%2&&/[A-Za-z]/.test(p)?`<bdi dir="ltr">${esc(p)}</bdi>`:esc(p)).join('');
 function judge(){const q=G.gate,lane=G.lane,pick=q.lanes[lane],ok=pick===q.it.a,ci=q.lanes.indexOf(q.it.a);G.asked++;
  if(ok){G.right++;const p=q.e.again?PTS_LATER:PTS_FIRST;if(!q.e.again)G.firstRight++;
   const r=R(),room=Math.max(0,DAY_CAP-r.dpts),got=Math.min(p,room);if(got){r.dpts+=got;G.pts+=got;award(got)}else saveLocal();
   markBoard(q,lane,'ok');burst(LANE[lane],1.6,0);flash(got?`נכון! +${got}`:'נכון!','ok');SND.star(Math.min(2,G.right%3));
-  banner.className='banner ok';banner.innerHTML=`<p class="q">נכון! ${esc(q.it.tip||'')}</p>`;
+  banner.className='banner ok';banner.innerHTML=`<p class="q">נכון! ${mixed(q.it.tip||'')}</p>`;
   if(q.e.again)R().miss=R().miss.filter(k=>k!==q.it.k);G.speed=Math.min(13.2,G.speed+.32)}
  else{markBoard(q,lane,pick==null?'':'bad');markBoard(q,ci,'ok');flash(pick==null?'צריך לבחור שלט':'כמעט!','bad');SND.bad();G.stun=.9;
   if(!G.missed.some(m=>m.k===q.it.k))G.missed.push({k:q.it.k,q:q.it.q,sent:q.it.sent||q.it.big||'',pic:q.it.pic||'',a:q.it.a,tip:q.it.tip||''});
   const r=R();if(!r.miss.includes(q.it.k))r.miss=[...r.miss,q.it.k].slice(-40);
   if(!q.e.again){G.queue.splice(Math.min(3,G.queue.length),0,{it:q.it,again:true});G.total++}
-  banner.className='banner bad';banner.innerHTML=`<p class="q">התשובה הנכונה:</p><p class="ans"><b>${esc(q.it.a)}</b></p><p class="ans">${esc(q.it.tip||'')}</p><p class="hint">השאלה הזאת תחזור עוד מעט</p>`}
+  banner.className='banner bad';banner.innerHTML=`<p class="q">התשובה הנכונה:</p><p class="ans"><b>${esc(q.it.a)}</b></p><p class="ans">${mixed(q.it.tip||'')}</p><p class="hint">השאלה הזאת תחזור עוד מעט</p>`}
  G.fb=ok?1.8:3.4;G.gate=null;G.dash=false;dashBtn.hidden=true;updHud()}
 function hit(o){if(G.inv>0||window.__runNoHit)return;G.hearts--;G.inv=1.6;shakeT=.35;SND.bad();const h=$('#hearts');h.classList.remove('hit');void h.offsetWidth;h.classList.add('hit');
  o.userData.fly=new THREE.Vector3((Math.random()-.5)*4,5,-6);updHud();if(G.hearts<=0)end(false)}
@@ -320,7 +326,7 @@ function setPause(v){if(!G||!G.on||G.ended)return;paused=v;if(v){menu.hidden=fal
 /* ---------------- menus ---------------- */
 const who=()=>API&&S.u?`<p class="who">${esc(S.u.n)} · <bdi>${S.pts}</bdi> נקודות</p>`:API?`<p class="who">לא מחוברים, אז הנקודות לא ייכנסו לטבלת הכיתה. <a href="index.html">להתחברות</a></p>`:'';
 function start(){const r=R();hud.hidden=pad.hidden=true;menu.hidden=false;
- menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" onerror="this.src='assets/sp/crab_wave.webp'"><h1>ריצת החוף</h1>
+ menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" data-fb="assets/sp/crab_wave.webp"><h1>ריצת החוף</h1>
   <p class="goal">רצים, עונים, ומתאמנים עוד ועוד. כל השאלות מהדפים שקיבלתם מהמורה.</p>
   <div class="how"><span><b>◀ ▶</b>מחליפים מסלול</span><span><b>▲</b>קופצים מעל מכשול</span><span><b>🪧</b>רצים מתחת לתשובה הנכונה</span></div><p class="pl">קצב ריצה</p>${paceRow()}<p class="who">יודעים כבר את התשובה? לחצו ⏩ והשער יגיע מהר.</p>
   <p>טעיתם? רואים את התשובה הנכונה, והשאלה חוזרת עוד מעט באותה ריצה.</p>${r.best?`<p class="who">השיא שלכם: <bdi>${r.best}</bdi> תשובות נכונות</p>`:''}${who()}</div>
@@ -333,7 +339,7 @@ function end(done){if(!G||G.ended)return;G.ended=true;G.gate=null;banner.hidden=
  setTimeout(()=>{hud.hidden=pad.hidden=true;menu.hidden=false;
   const mini=w=>{const i=PIC.indexOf(w);return i<0?'':`<span class="mpic" style="background-position:${(i%6)*20}% ${(Math.floor(i/6)*100/3).toFixed(3)}%"></span>`};
   const miss=G.missed.map(m=>`<li>${m.pic?mini(m.pic):''}${m.sent?`<bdi dir="ltr">${esc(m.sent)}</bdi>`:m.pic?'':esc(m.q)} ← <b>${esc(m.a)}</b></li>`).join('');
-  menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" onerror="this.src='assets/sp/crab_star.webp'"><h2>${done?'הגעתם לסוף המסלול!':'נגמרו הלבבות'}</h2>
+  menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" data-fb="assets/sp/crab_star.webp"><h2>${done?'הגעתם לסוף המסלול!':'נגמרו הלבבות'}</h2>
    <div class="score"><span><b>${G.firstRight}</b>נכון בפעם הראשונה</span><span><b>${G.shells}</b>צדפים</span><span><b dir="ltr">+${G.pts}</b>נקודות</span></div>
    ${G.missed.length?`<p>את אלה כדאי לחזור עליהם. הם יופיעו שוב בריצה הבאה:</p><ul class="miss">${miss}</ul>`:`<p class="goal">אף טעות! ככה מגיעים מוכנים למבחן.</p>`}
    ${R().dpts>=DAY_CAP?'<p class="who">היום כבר אספתם את כל הנקודות של ריצת החוף. אפשר להמשיך לרוץ ולהתאמן.</p>':''}${who()}</div>
@@ -342,7 +348,7 @@ menu.addEventListener('click',e=>{const pb=e.target.closest('[data-pace]');if(pb
  const b=e.target.closest('[data-go]');if(!b)return;SND.tap();if(b.dataset.go==='run')begin();else if(b.dataset.go==='resume')setPause(false)});
 
 /* test hooks */
-window.__run={G:()=>G,act,begin,lanes:()=>G&&G.gate?G.gate.lanes:null,answer:()=>G&&G.gate?G.gate.it.a:null,
+window.__run={G:()=>G,act,begin,mixed,lanes:()=>G&&G.gate?G.gate.lanes:null,answer:()=>G&&G.gate?G.gate.it.a:null,
  goLane:i=>{if(G)G.lane=i},noHit:v=>{window.__runNoHit=v},runner:()=>({hero:!!hero&&hero.root.visible,crab:crab.root.visible,clip:hero&&hero.act?hero.act.getClip().name:''})};
 /* fonts first, so the signs are drawn in the game's own hand */
 Promise.race([Promise.all([document.fonts.load('800 40px "Playpen Sans Hebrew"','אבג'),document.fonts.load('800 40px "Playpen Sans Hebrew"','Abc')]),new Promise(r=>setTimeout(r,2500))])

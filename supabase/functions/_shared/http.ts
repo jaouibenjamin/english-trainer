@@ -36,21 +36,28 @@ export function addressBucket(a: string): string {
   m = /^\[([0-9A-Fa-f:.]+)\](?::\d{1,5})?$/.exec(a);
   const v6 = (m ? m[1] : a).toLowerCase();
   if (!/^[0-9a-f:.]{2,45}$/.test(v6) || !v6.includes(":")) return "";
-  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(v6); // an IPv4 address written as IPv6
-  if (mapped) return addressBucket(mapped[1]);
-  const hexMapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(v6); // the same, written in hex (::ffff:cb00:7107)
-  if (hexMapped) {
-    const [hi, lo] = [parseInt(hexMapped[1], 16), parseInt(hexMapped[2], 16)];
-    return [hi >> 8, hi & 255, lo >> 8, lo & 255].join(".");
-  }
   const halves = v6.split("::");
   if (halves.length > 2) return "";
   const part = (x: string) => (x ? x.split(":") : []);
   const head = part(halves[0]), tail = halves.length === 2 ? part(halves[1]) : [];
-  if (tail.length && /\./.test(tail[tail.length - 1])) return ""; // other embedded IPv4 forms: no bucket of their own
+  const last = halves.length === 2 ? tail : head;
+  if (last.length && /\./.test(last[last.length - 1])) { // an IPv4 address at the end (::ffff:1.2.3.4): two groups
+    const q = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(last.pop()!);
+    if (!q || !q.slice(1, 5).every((x) => Number(x) <= 255)) return "";
+    const [w, x, y, z] = q.slice(1, 5).map(Number);
+    last.push(((w << 8) | x).toString(16), ((y << 8) | z).toString(16));
+  }
   const fill = halves.length === 2 ? 8 - head.length - tail.length : 0;
   const groups = [...head, ...Array(Math.max(0, fill)).fill("0"), ...tail];
   if (groups.length !== 8 || fill < 0 || (halves.length === 2 && fill < 1) || !groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return "";
+  const n = groups.map((g) => parseInt(g, 16));
+  // an IPv4 address written as IPv6 gets the IPv4 address's own bucket (reviews of #35, #41 and #50), in any spelling of:
+  // mapped ::ffff:a.b.c.d, translated ::ffff:0:a.b.c.d, NAT64 64:ff9b::a.b.c.d, compatible ::a.b.c.d (not :: or ::1)
+  const zero = (a: number, b: number) => n.slice(a, b).every((x) => x === 0);
+  if ((zero(0, 5) && n[5] === 0xffff) || (zero(0, 4) && n[4] === 0xffff && n[5] === 0) ||
+    (n[0] === 0x64 && n[1] === 0xff9b && zero(2, 6)) || (zero(0, 6) && n[6] !== 0)) {
+    return [n[6] >> 8, n[6] & 255, n[7] >> 8, n[7] & 255].join(".");
+  }
   return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
 }
 
