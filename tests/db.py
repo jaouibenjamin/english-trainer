@@ -102,7 +102,7 @@ def test_catalogue(db):
     ALLP = "'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'"
     eq('anon: no right on any table or view', db.admin(rel % f"has_table_privilege('anon', c.oid, {ALLP})"), [])
     eq('anon: no right on any sequence', db.admin(seq % 'anon'), [])
-    eq('anon: may run exactly one function, the keep-alive', db.admin(fn % 'anon'), [['public.ping']])
+    eq('anon: may run exactly two functions, the keep-alive and the token-guarded encrypted export', db.admin(fn % 'anon'), [['public.backup_export'], ['public.ping']])
     eq('anon: no usage on schema private or app', db.admin("select has_schema_privilege('anon', 'private', 'USAGE') or has_schema_privilege('anon', 'app', 'USAGE')"), [['f']])
     eq('authenticated: no usage on schema private', db.admin("select has_schema_privilege('authenticated', 'private', 'USAGE')"), [['f']])
     eq('authenticated: no right on any private table',

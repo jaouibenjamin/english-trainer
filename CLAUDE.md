@@ -55,6 +55,7 @@ node tests/api_check.mjs        # the backend adapter js/api.js: default = the S
 python3 tests/db.py             # Supabase backend (not live yet): access rules, points, load; needs a local PostgreSQL, no Docker (docs/BACKEND.md)
 python3 tests/functions.py      # Supabase Edge Functions (not live yet): sign-in, lockout, recovery, reset; needs Deno 2 and the local PostgreSQL
 python3 tests/secret_guard.py   # no server key in the repo (also in the security workflow)
+python3 tests/ops.py            # catalogue seed is current, Sheet import, encrypted backup export and restore drill (local PostgreSQL, node, gpg)
 ```
 
 Every suite starts its own servers on free ports and stops if it cannot; it never uses a server that is already running (`python3 tests/ports_check.py` proves it). So two runs on one machine do not mix.
