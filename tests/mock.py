@@ -140,12 +140,7 @@ async def run(b, w, h, errs, laptop=False):
 
 
 async def main():
-    procs = []
-    if not port_open(P.PORT):
-        procs.append(subprocess.Popen([sys.executable, '-m', 'http.server', str(P.PORT), '--bind', '127.0.0.1'], cwd=P.ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-        for _ in range(40):
-            if port_open(P.PORT): break
-            time.sleep(.1)
+    procs = P.start_servers()
     errs = []
     try:
         async with async_playwright() as pw:
