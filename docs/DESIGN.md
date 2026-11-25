@@ -201,6 +201,11 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=math|misland|mpla
 - The level rules of step 3 are scoped to `#stage[data-scr=play|mplay]`, so the maths levels get all of them (with #44 alone they reach only the English levels). The slingshot's caption keeps its paper label with dark ink, as in step 3.
 - Checked: flag on, `tests/math.py --quick` 21 pass, screenshots of every state (map, island, pizza ask, build, cut, eat, merge, wholes, count; sling aim and miss; sheet question, form, solution; every result) at 390x844, 360x740 and 1366x768. Flag off: `ds-game.css` is not loaded.
 
+## Rollout step 5: the mock exam, a light touch, behind the same flag
+Under `html.ds #stage[data-scr=mock|mockrun|mockprac]`. The exam stays on paper and keeps its calm: the question cards, answers, stations trail, report bars and their colours are today's. Only the shell matches the other screens: the dark surround on wide screens, the heading on a navy plate, the round back and quit buttons, the gold main button (no pulse), the navy toast, the paper focus ring (`--wi-focus-paper`), the fonts.
+- Found on the way: the exam's quit button asks for `ico('x')` (`js/mock.js`), an icon the set does not have, so the button is an empty circle today. Not fixed here, because the fix changes the live game; with the flag on, the X is drawn in CSS.
+- Checked: flag on, `tests/mock.py --quick` 12 pass, screenshots of every state (intro, the four stations, each question type, report, practice, hub) at 390x844, and the hub and a question at 1366x768.
+
 ## Rollout step 6: Beach Run HUD and menus, behind the same flag
 Files: `css/run-ds.css` (the skin), a seven-line block at the top of `js/run.js` (the same switch as `js/dsflag.js`: `?ds=1` on and remembered in `localStorage.wi_ds`, `?ds=0` off). `run.html` is unchanged, so with the flag off the page makes exactly the same requests as before and stores nothing new. Default off.
 - Styling only. The 3D scene, the signs drawn in it, the runner models, the questions, the scoring and every element, id and handler are untouched.
@@ -223,8 +228,3 @@ Files: `css/ds-teacher.css` (the skin), one more entry in the stylesheet list of
 - Toasts on this screen ("the code was reset", an error) are the same dark card with a gold edge as on the other new-look screens. A pupil name with no space (up to 20 letters) wraps inside its card.
 - Not behind the flag (teacher view only): after a confirmed reset, the 4 s disarm timer no longer writes "איפוס קוד" back over "הקוד אופס", and a tap on a disabled reset button does nothing; a pupil's name sits in a `<bdi>` (an English name keeps the card's right alignment) and may wrap, so a 20-letter name with no space stays inside its card in today's look too.
 - Checked (`tests/teacher_mock.py`, mock backend, 390x844 and 1366x768): toasts after a reset that worked and one that failed are 4.5:1 or more in both looks; with the flag on, the same cards and rows as without it, no card wider than its box, every button and field 48px or more, every text 4.5:1 or more against its own backing, the first tap on "reset code" sends nothing; `?ds=0` takes the look away.
-## Rollout step 5: the mock exam, a light touch, behind the same flag
-Under `html.ds #stage[data-scr=mock|mockrun|mockprac]`. The exam stays on paper and keeps its calm: the question cards, answers, stations trail, report bars and their colours are today's. Only the shell matches the other screens: the dark surround on wide screens, the heading on a navy plate, the round back and quit buttons, the gold main button (no pulse), the navy toast, the paper focus ring (`--wi-focus-paper`), the fonts.
-- Found on the way: the exam's quit button asks for `ico('x')` (`js/mock.js`), an icon the set does not have, so the button is an empty circle today. Not fixed here, because the fix changes the live game; with the flag on, the X is drawn in CSS.
-- Checked: flag on, `tests/mock.py --quick` 12 pass, screenshots of every state (intro, the four stations, each question type, report, practice, hub) at 390x844, and the hub and a question at 1366x768.
-
