@@ -71,7 +71,7 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
 /* the new world behind the design flag (?ds=1): js/avatar.js is fetched only on such a device; without the flag this does nothing */
 const dsOn=()=>document.documentElement.classList.contains('ds');
 const WORLD_DOCK=76;   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
-function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')m.decorateMap(view,go)}).catch(()=>{})}
+function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
 
 /* ---------- island ---------- */
 function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');preload([BG(i.bg),BG('listen'),BG('read'),BG('bridge')]);
@@ -292,7 +292,7 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
   case'extra':{const i=isl(a),G=extraGame(b);if(!extraOn()||!i||!isOpen(i)||!G)return go('map');const my=navId;setBg('paper','center');loader();
    G.load().then(m=>my===navId?m.start(view,{island:i,parts:partsOf(i)},{}):null).then(l=>{if(!l)return;if(my!==navId)l.destroy();else level=l}).catch(()=>{if(my===navId)go('island/'+i.id)});break}case'login':login();break;case'board':board();break;case'teacher':teacher();break;
   /* the character picker of the new world (js/avatar.js), behind the design flag; without the flag it is an unknown address like any other */
-  case'avatar':if(dsOn()){const my=navId;setBg('paper','center');import('./avatar.js').then(m=>{if(my===navId)m.picker(view,go)}).catch(()=>{if(my===navId)go('map')});break}   // falls through
+  case'avatar':if(dsOn()){const my=navId;setBg('paper','center');loader();import('./avatar.js').then(m=>{if(my===navId)return m.picker(view,go,()=>my===navId)}).catch(()=>{if(my===navId)go('map')});break}   // falls through
   default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
 initCard();   // the progress card (js/card.js) is behind a switch a device gets with ?card=1
 initHelp();   // word help and the slowly button: only on a device that was given them (?help=1), see js/help.js
