@@ -216,3 +216,7 @@ html.ds .map .sign.total b,html.ds .island .chips .chip:not(.wsl){border:18px so
 html.ds .map .fin{border-width:14px;border-image-width:14px;min-height:0;bottom:calc(4px + var(--sb))}
 @media (max-height:700px){html.ds #stage:is([data-scr=map],[data-scr=island]) img.pic[src*="/isl_"]{aspect-ratio:4/3}}
 html.ds .settings .panel.label{border-width:14px;border-image-width:14px}
+/* signed in with a row added (word help, the card) on a phone under 700 px: the painted frames are thinner and the rows
+   go down to 44 px like the game's look, so the sign-out button stays on the screen with room to spare
+   (tests/settings_fit.py) */
+@media (max-height:700px){html.ds .settings.more.signed .panel.label{border-width:9px;border-image-width:9px}html.ds .settings.more.signed .setrow{min-height:44px}html.ds .settings.more.signed,html.ds .settings.more.signed .fill{gap:8px}}
