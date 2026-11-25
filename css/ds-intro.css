@@ -3,7 +3,7 @@
 .wi-intro{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#050E22;color:#fff;font-family:'WI Hebrew','Rubik','Heebo','Arial Hebrew','Noto Sans Hebrew',system-ui,sans-serif}
 .wi-intro__film{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#050E22}
 .wi-intro__title{position:absolute;top:calc(14% + env(safe-area-inset-top,0px));left:16px;right:16px;margin:0;text-align:center;font-size:clamp(28px,8vw,40px);font-weight:800;line-height:1.15;color:#FFD23F;-webkit-text-stroke:6px #050E22;paint-order:stroke fill}
-.wi-intro__cap{position:absolute;left:16px;right:16px;bottom:calc(96px + env(safe-area-inset-bottom,0px));margin:0 auto;max-width:420px;padding:8px 16px;border-radius:16px;background:rgba(5,14,34,.86);border:1px solid #5C8AC6;text-align:center;font-size:18px;font-weight:700;line-height:1.35}
+.wi-intro__cap{white-space:pre-line;position:absolute;left:16px;right:16px;bottom:calc(96px + env(safe-area-inset-bottom,0px));margin:0 auto;max-width:420px;padding:8px 16px;border-radius:16px;background:rgba(5,14,34,.86);border:1px solid #5C8AC6;text-align:center;font-size:18px;font-weight:700;line-height:1.35}
 .wi-intro__cap[hidden],.wi-intro__title[hidden]{display:none}
 .wi-intro button{font:inherit;font-weight:800;cursor:pointer;border-radius:999px;min-height:48px;min-width:48px}
 .wi-intro button:focus-visible{outline:3px solid #fff;outline-offset:3px}

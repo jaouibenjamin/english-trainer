@@ -536,8 +536,8 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 
 | File | What | Made | Job id | Model |
 |---|---|---|---|---|
-| `assets/al/intro/intro.hf_20261125_135448_1ec486fb-379a-4ec2-9613-83ddce779343.mp4` | welcome film, 30 s, 390 x 694, stereo: shots 2, 3 and 5 by Grok Video (jobs 7621ea4f-5457-4816-a8dd-cd722b9e9af3, 970ab3ba-1efa-4c15-af1b-be2b890a8e29, d3df4296-1b5f-42b1-9c97-c8a8d09bb4dc), narration by ElevenLabs preset voice Kaia (job 1ec486fb-379a-4ec2-9613-83ddce779343, text with the name ניצני אופק), music bed by ElevenLabs Music (job c9f440f8-64c5-4dfe-ac0c-db1ae20e57bd, original, instrumental), shots 1, 4 and 6 made here from our pictures | 2026-11-25 | 1ec486fb-379a-4ec2-9613-83ddce779343 | grok_video + text2speech_v2 |
-| `assets/al/intro/poster.hf_20261125_131558_7621ea4f-5457-4816-a8dd-cd722b9e9af3.webp` | welcome film: poster frame (from the closing shot, made here) | 2026-11-25 | 7621ea4f-5457-4816-a8dd-cd722b9e9af3 | grok_video + text2speech_v2 |
+| `assets/al/intro/intro.hf_20261125_152954_f47c0bff-0f28-4752-80da-32d4a42b4992.mp4` | welcome film v2, 33.7 s, 390 x 710, stereo: one continuous camera from the school gate to the island. Shots by Grok Video from our key images (gpt_image_2_5 jobs 5f2c23a8, 14f86136, c3ab51b6, 5195d0a8; video jobs d69a525d, 95ba6021, 33b2a7ea, e1b88c79, 9f533fd3, f47c0bff), Pitzi's shot from v1 (970ab3ba); narration ElevenLabs preset voice Kaia (dd64b78b), Pitzi's line preset voice Archie (7e57dcd5), music c9f440f8 | 2026-11-25 | f47c0bff-0f28-4752-80da-32d4a42b4992 | grok_video + gpt_image_2_5 + text2speech_v2 |
+| `assets/al/intro/poster.hf_20261125_152813_9f533fd3-72c0-49aa-b65c-8b09bdf03b96.webp` | welcome film v2: poster (the four on the hill, the island lit; last frame of the zoom-out) | 2026-11-25 | 9f533fd3-72c0-49aa-b65c-8b09bdf03b96 | grok_video |
 
 ### Pitzi
 

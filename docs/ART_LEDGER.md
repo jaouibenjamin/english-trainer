@@ -19,8 +19,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | j | Welcome film: 3 animated shots (5 s, 5 s, 2 s) and the Hebrew narration (preset voice Kaia); shots 1, 4, 6 cut here from our pictures | grok_video 720p (7.5 + 7.5 + 3); text2speech_v2 elevenlabs (0.75) | 4 | 23.25 | 23.25 | 151.08 | 298.92 |
 | j2 | Welcome film: new narration with the platform's new name (preset voice Kaia, nikud on two words) | text2speech_v2 elevenlabs | 1 | 0.75 | 0.75 | 151.83 | 298.17 |
 | j3 | Welcome film: music bed, original, instrumental, 30 s (the platform's own theme, for the film and later the map); one take, used | elevenlabs_music_v2_5 | 1 | 4.36 | 4.36 | 156.19 | 293.81 |
+| k | Welcome film v2 (the owner's story, one continuous camera): 4 key images; 4 shots from them (gate used; path, grass, flight unused once he asked for no cuts); 5 chained shots (side, grass, faces, zoom-out, flight); narration and 2 voices for Pitzi's line (one used). Intro cap raised by the owner to 115 | gpt_image_2_5 high 9:16 (4 x 1.25); grok_video 5 s 9:16 (9 x 7.5); text2speech_v2 elevenlabs (3 x 0.75) | 16 | 74.75 | 74.75 | 230.94 | 219.06 |
 
-Total charged so far: **156.19** of 450. Left: 293.81. (Batches i and i2 together: 75.00, the cap set for the animations; j, j2 and j3, the welcome film: 28.36 of its 55.)
+Total charged so far: **230.94** of 450. Left: 219.06. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k: 103.11 of its 115. Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
 
 ## Jobs
 
@@ -141,6 +142,15 @@ no blended frames):
 
 Batch j jobs: shot 2 7621ea4f-5457-4816-a8dd-cd722b9e9af3, shot 3 970ab3ba-1efa-4c15-af1b-be2b890a8e29 (start frame: our sea picture, uploaded),
 shot 5 d3df4296-1b5f-42b1-9c97-c8a8d09bb4dc, narration b87a763d-1a3c-481d-852e-87d9a69afa0f (replaced). Batch j2: narration 1ec486fb-379a-4ec2-9613-83ddce779343. Batch j3: music c9f440f8-64c5-4dfe-ac0c-db1ae20e57bd.
+
+Batch k jobs. Key images: gate 5f2c23a8-7ac6-4f64-a6f3-ca1152e431a8, path 14f86136-3284-4ec4-b8fe-91dc0954e9a1, grass
+c3ab51b6-1bcd-4ade-ab1f-a01102901f13, hill 5195d0a8-38e7-49a4-b517-5dafea99db55 (references: the portraits of girl-braids, boy-cap,
+fox, penguin). Shots used: gate d69a525d-1314-4d96-984b-e04c7bd04658, side 95ba6021-a085-4b40-9954-04cff5e7c5da, to the grass
+33b2a7ea-c94f-4a53-ac57-522ca9bd26e4 (first 1.8 s only: later frames drift, the penguin loses his goggles), faces
+e1b88c79-d744-4a09-8724-6af2218648c1, zoom-out 9f533fd3-72c0-49aa-b65c-8b09bdf03b96, flight f47c0bff-0f28-4752-80da-32d4a42b4992.
+Unused: b2acb6fc (path), 4ae25e54 (grass), e6aade1b (hill flight), Pitzi voice Dylan 13bb7b67. Narration dd64b78b-db60-4e55-9e97-e908bb1cd35a,
+Pitzi (preset voice Archie) 7e57dcd5-6db4-4210-b861-97ad87358c78. Every shot's frames were looked at: generic illustrated gate, no
+signs, names or logos; our four avatars as their portraits; the friends at the gate are generic.
 
 ## Review notes
 

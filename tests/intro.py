@@ -41,10 +41,10 @@ def files_check():
     try:
         pr = json.loads(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_name,channels,sample_rate,width:format=duration', '-of', 'json', os.path.join(ROOT, film)], capture_output=True, text=True).stdout)
         st = {s['codec_name']: s for s in pr['streams']}
-        fmt_ok = 'h264' in st and st.get('aac', {}).get('channels') in (1, 2) and st.get('aac', {}).get('sample_rate') in ('44100', '48000') and st['h264'].get('width', 0) <= 400 and float(pr['format']['duration']) <= 31
+        fmt_ok = 'h264' in st and st.get('aac', {}).get('channels') in (1, 2) and st.get('aac', {}).get('sample_rate') in ('44100', '48000') and st['h264'].get('width', 0) <= 400 and float(pr['format']['duration']) <= 35
     except Exception as e:
         fmt_ok = False; st = str(e)
-    check('the film is H.264 at most 400 px wide with AAC at 44.1 or 48 kHz (a 96 kHz track crackled on phones, LESSONS 12), at most 31 s and under 2.2 MB', fmt_ok and size < 2.2 * 1024 * 1024, [size, list(st)])
+    check('the film is H.264 at most 400 px wide with AAC at 44.1 or 48 kHz (a 96 kHz track crackled on phones, LESSONS 12), at most 35 s and under 2.2 MB', fmt_ok and size < 2.2 * 1024 * 1024, [size, list(st)])
     return film
 
 
@@ -88,7 +88,7 @@ async def run(film):
             await pg.locator('#wi-intro .wi-intro__play').tap(); await pg.wait_for_timeout(1800)
             st = await pg.evaluate("(()=>{const v=document.querySelector('#wi-intro video');const c=document.querySelector('#wi-intro .wi-intro__cap');return {t:v.currentTime,muted:v.muted,cap:c.hidden?'':c.textContent}})()")
             check('a tap requests the film and plays it with sound', [u for u in seen if '.mp4' in u] and st['t'] > 0.5 and not st['muted'], st)
-            check('the narration shows as a live caption', st['cap'].startswith('בלילה'), st['cap'])
+            check('the narration shows as a live caption', st['cap'].startswith('הצלצול'), st['cap'])
             await pg.locator('#wi-intro .wi-intro__skip').tap(); await pg.wait_for_timeout(300)
             gone = await pg.locator('#wi-intro').count() == 0
             stored = await pg.evaluate("localStorage.getItem('wi_intro')")
