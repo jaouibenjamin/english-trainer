@@ -789,7 +789,8 @@ locks(false);
   real.on();
   const shown = [];
   const el = tag => { const e = { tag, style: {}, attrs: {}, kids: [], on: {}, textContent: '', setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.on[t] = f; }, append(...k) { this.kids.push(...k); }, focus() {} }; return e; };
-  const dom = () => Object.assign(globalThis.document, { createElement: el, getElementById: id => shown.find(x => x.id === id) || null, body: { appendChild: x => shown.push(x) } });
+  const stage = el('div');                                        // the game, behind the dialog
+  const dom = () => Object.assign(globalThis.document, { createElement: el, getElementById: id => shown.find(x => x.id === id) || null, body: { children: [stage], appendChild: x => { shown.push(x); globalThis.document.body.children.push(x); } } });
   globalThis.dispatchEvent = e => { for (const [t, f] of real.listeners) if (t === e.type) f(e); return !e.defaultPrevented; };
   reloads = 0;
   eq('D1: A signs in through state.js', await S.auth('login', A.c, A.n, A.p), null);
@@ -798,14 +799,21 @@ locks(false);
   const before = sheetSaves.length;
   const tab2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, R, real);
   dom(); real.on();                                              // the page's own document and storage again
-  await tab2.m.api('login', Bp); await idle(); await tick(100);
+  await tab2.m.api('login', Bp);
+  real.store.set('aam-unit1-v1', JSON.stringify({ u: { c: Bp.c, n: Bp.n, p: Bp.p }, who: 'B' }));   // tab 2's game keeps B's record on the device
+  await idle(); await tick(100);
   const dlg = shown.find(x => x.id === 'wi-displaced');
   const aSave = sheetSaves.slice(before).find(b => b.n === 'Testa');
   eq('D1: the displaced tab sends A\'s last answers to the Sheet at once, shows the message, and does not reload by itself',
     [!!aSave && aSave.s.st.cat[0] >= 2, !!dlg && dlg.kids[0].textContent, reloads], [true, 'מישהו אחר נכנס במכשיר הזה', 0]);
   check('the message is a dialog with one button, "המשך", 56 px high', !!dlg && dlg.attrs.role === 'alertdialog' && dlg.kids[1].tag === 'button' && dlg.kids[1].textContent === 'המשך' && /min-height:56px/.test(dlg.kids[1].style.cssText));
-  if (dlg) dlg.kids[1].on.click(); await tick(50);
-  eq('D1: the page reloads when the child taps', reloads, 1);
+  S.mark({ en: 'cat' }, true); await tick(2700); await idle();     // the game behind the dialog: a stray answer, a timer
+  const rec = JSON.parse(real.store.get('aam-unit1-v1') || '{}');
+  eq('K1: after the last save to the Sheet, the device\'s record is still B\'s (the reload will show B, not take the device back)', [rec.u && rec.u.n, rec.who], ['Probe', 'B']);
+  eq('K1: the game behind the dialog is inert (no tap, key or focus reaches it)', [stage.inert, 'inert' in stage.attrs], [true, true]);
+  const logins0 = st.logins.length;
+  if (dlg) dlg.kids[1].on.click(); await tick(50); await idle();
+  eq('D1: the page reloads when the child taps; nothing signs in again and B\'s session stays', [reloads, st.logins.length - logins0, (st.logouts || []).includes('Bearer tok-Probe')], [1, 0, false]);
   globalThis.dispatchEvent = () => {};
 }
 {
@@ -846,6 +854,31 @@ locks(false);
   eq('trial: a device without ?dual=1 stays on the Sheet; ?dual=1 turns it on and is remembered; ?dual=0 turns it off',
     [a.m.MODE, b.m.MODE, c.m.MODE, d.m.MODE, b.store.has('wi_dual')], ['sheet', 'dual', 'dual', 'sheet', false]);
   eq('trial off the class\'s devices: nothing registered on the page', a.listeners.length, 0);
+}
+{
+  // K2 (review of #73): a trial key in any spelling or case, with any value, keeps the class's devices on the Sheet
+  const variants = [{ trial: 'true' }, { trial: 1 }, { trial: 'yes' }, { Trial: true }, { trial: false }, { TRIAL: 0 }, { trial: null }];
+  globalThis.location.search = '';
+  const modes = [];
+  for (const v of variants) modes.push((await load({ mode: 'dual', url: SB, key: KEY, ...v }, sheetOk)).m.MODE);
+  eq('K2: trial as \'true\', 1, \'yes\', Trial, false, TRIAL, null: every one is a trial (sheet without ?dual=1)', modes, variants.map(() => 'sheet'));
+  eq('and without any trial key, the class is on', (await load({ mode: 'dual', url: SB, key: KEY }, sheetOk)).m.MODE, 'dual');
+}
+{
+  // ?dual=0 on a trial device ends what the device kept for the backend: the session is revoked, nothing stays
+  const st = fresh({ login: perPupil, sheet: { ok: true, s: {} } });
+  const cfg = { mode: 'dual', url: SB, key: KEY, trial: true };
+  globalThis.location.search = '?dual=1';
+  const on = await load(cfg, supabase(st));
+  globalThis.location.search = '';
+  await on.m.api('login', A); await idle();
+  await on.m.api('save', { ...A, s: { st: { cat: [1, 0] } } }); await idle();
+  globalThis.location.search = '?dual=0';
+  const off = await load(cfg, supabase(st), on);
+  globalThis.location.search = '';
+  await idle();
+  const left = [...on.store.keys()].filter(k => k.startsWith('wi-sb-') && k !== 'wi-sb-log' && k !== 'wi-sb-session');
+  eq('?dual=0: the session is revoked and the session, base, sent record and owner leave the device', [off.m.MODE, (st.logouts || []).includes('Bearer tok-Testa'), !!(JSON.parse(on.store.get('wi-sb-session') || '{}').refresh_token), left], ['sheet', true, false, []]);
 }
 {
   // a sign-in paused for the address ('locked') is tried again after its wait, not only tomorrow (G4)

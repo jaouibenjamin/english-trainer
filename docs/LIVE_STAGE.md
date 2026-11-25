@@ -14,8 +14,14 @@ gets a copy. If anything goes wrong, turning `dual` off loses nothing.
 repository. Public by design, and fine to send the lead: the project address and the publishable key (`sb_publishable_…`).
 Everything else stays in the password manager or on the laptop.
 
-In the commands below, `<ref>` is the project's id (the part before `.supabase.co`). The keys come from the
-environment of the laptop's terminal, typed there and never saved in a file inside the repository.
+In the commands below, `<ref>` is the project's id (the part before `.supabase.co`).
+
+**Type keys only with `read -rs SUPABASE_SERVICE_KEY; export SUPABASE_SERVICE_KEY`** (the same for
+`SUPABASE_ANON_KEY`, `WI_DATABASE_URL`, `TEACHER_TOKEN` and `BACKUP_TOKEN`), **never on the command line**: a key typed
+as `NAME=value` in front of a command lands in the shell's history. The commands below then use `$NAME`.
+
+**Steps that touch the live class's data or change how the children sign in need the owner's explicit yes** (his
+rule). They are marked ⚠.
 
 ---
 
@@ -34,19 +40,19 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 | A7 | 📱 Owner | Authentication → Rate limits: token verifications at least 150 per 5 minutes; sign-ups and emails at the minimum. | set back |
 | A8 | 📱 Owner | Authentication → URL configuration: site URL and redirect list = the game's address only. | set back |
 | A9 | 📱 Owner | Settings → API: exposed schemas `public` only. Database → Extensions: `pg_graphql` off, `pgcrypto` on, `pg_cron` on. Realtime off for every table. | set back |
-| A10 | 💻 Owner | Check the settings: `SUPABASE_URL=https://<ref>.supabase.co SUPABASE_ANON_KEY=sb_publishable_… python3 tests/live_check.py --stage 1`. **All green before going on.** | fix the red setting and run it again |
+| A10 | 💻 Owner | Check the settings: `export SUPABASE_URL=https://<ref>.supabase.co`, the publishable key with `read -rs SUPABASE_ANON_KEY; export SUPABASE_ANON_KEY`, then `python3 tests/live_check.py --stage 1`. **All green before going on.** | fix the red setting and run it again |
 
 ## B. Database, functions, keys, class (💻, owner's laptop)
 
 | # | Who | Step | Rollback |
 |---|---|---|---|
 | B1 | 💻 Owner | `supabase link --project-ref <ref>`, then `supabase db push` (migrations `0001` to `0005`). Then run `supabase/seed/catalog.sql` in the SQL editor. The output must say **"maintenance is scheduled: every night at 02:17 UTC"**; if it says "NOT scheduled", stop. | Nothing depends on the project yet. Delete the project and create it again (free), then start at A. |
-| B2 | 💻 Owner | The pepper, never shown or pasted: `supabase secrets set PUPIL_PEPPER="$(openssl rand -base64 32)"`. Then `supabase secrets set ALLOWED_ORIGINS=https://jaouibenjamin.github.io`. | Set it again. Only before any pupil is copied: a new pepper invalidates every copied code. |
+| B2 | 💻 Owner | The pepper, never shown or pasted: `supabase secrets set PUPIL_PEPPER="$(openssl rand -base64 32)"`. Then `supabase secrets set ALLOWED_ORIGINS=https://jaouibenjamin.github.io`. **Run B2 exactly once.** | Before C3 only: run it again. **If the pepper ever changes after C3, every copied code is broken: stop and tell the lead** (the import never stages a code again). |
 | B3 | 💻 Owner | `supabase functions deploy` (all six: `pupil-login`, `pupil-register`, `pupil-recover`, `teacher-reset`, `admin-class`, `admin-wrap-legacy`). | Deploy the previous version, or delete the function. |
 | B4 | 💻 Owner | Backup keys, `docs/BACKEND.md` section 9 step 14: an RSA 4096 pair with `gpg`; the public key into `private.settings`; the private key on the laptop plus one offline copy. The export token: `openssl rand -hex 32`, its sha256 into `private.settings`, the token itself into the password manager. | Generate them again. |
 | B5 | 💻 Owner | The teacher: Authentication → Users → create her user with her Google address, auto-confirmed, with a 64-character random password thrown away at once. Insert her row in `teachers` (SQL editor). | Delete the user and the row. |
-| B6 | 💻 Owner | The class: `curl -s -X POST https://<ref>.supabase.co/functions/v1/admin-class -H "authorization: Bearer $SUPABASE_SERVICE_KEY" -H "apikey: $SUPABASE_SERVICE_KEY" -H "content-type: application/json" -d '{"action":"create","name":"ה׳1","grade":"5"}'`. It prints `class_id` and the 8-character `class_code` **once**: both go into the password manager. | `{"action":"rotate","class_id":"…"}` gives the class a new code. |
-| B7 | 💻 Owner | The full check: `SUPABASE_URL=… SUPABASE_ANON_KEY=… SUPABASE_SERVICE_KEY=… python3 tests/live_check.py` (stage 2). Add `TEACHER_TOKEN` and `BACKUP_TOKEN` for their items. **All green.** Each MANUAL item it prints is done by hand once, including the restore drill (item 15). | Stop, and send the lead the item number and its line only, never a key. |
+| B6 | 💻 Owner | The class, **once**: `curl -s -X POST https://<ref>.supabase.co/functions/v1/admin-class -H "authorization: Bearer $SUPABASE_SERVICE_KEY" -H "apikey: $SUPABASE_SERVICE_KEY" -H "content-type: application/json" -d '{"action":"create","name":"ה׳1","grade":"5"}'`. It prints `class_id` and the 8-character `class_code` **once**: both go into the password manager. | `{"action":"rotate","class_id":"…"}` gives the class a new code. |
+| B7 | 💻 Owner | The full check, with the keys read as above: `python3 tests/live_check.py` (stage 2). Add `TEACHER_TOKEN` and `BACKUP_TOKEN` for their items. **All green.** Each MANUAL item it prints is done by hand once, including the restore drill (item 15). | Stop, and send the lead the item number and its line only, never a key. |
 | B8 | 📱 Owner | GitHub → Settings → Secrets and variables → Actions: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `BACKUP_TOKEN`. **Not** the server key, the database password, the pepper or the backup private key. Then Actions → keepalive → Run workflow: it must be green. | Delete the secrets; the workflow goes back to its "not set up" note. |
 
 ## C. The copy of the class (💻)
@@ -54,8 +60,8 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 | # | Who | Step | Rollback |
 |---|---|---|---|
 | C1 | 💻 Owner | Download the Sheet's pupils tab as CSV (File → Download → CSV) into a folder **outside** the repository. | Delete the file. |
-| C2 | 💻 Owner | Dry run: `WI_DATABASE_URL=postgresql://… python3 tools/migrate_sheet.py <file>.csv --class <class_id>`. Read the counts; they must match the class list. | Nothing was written. |
-| C3 | 💻 Owner | The same command with `--apply`. Then `SUPABASE_URL=… SUPABASE_SERVICE_KEY=… python3 tools/migrate_sheet.py --wrap`. Then delete the CSV. | Safe to run again: the Sheet's record replaces the copy. |
+| C2 | 💻 Owner | Dry run, with `WI_DATABASE_URL` read as above: `python3 tools/migrate_sheet.py <file>.csv --class <class_id>`. Read the counts; they must match the class list. | Nothing was written. |
+| C3 | 💻 Owner | The same command with `--apply`. Then `python3 tools/migrate_sheet.py --wrap` (with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in the environment). Then delete the CSV. | Safe to run again: the Sheet's record replaces the copy. |
 | C4 | 💻 Owner | Copy phase on: `admin-class` with `{"action":"shadow_on"}` (same `curl` as B6). | `{"action":"shadow_off"}`, which ends every copy session at once. |
 
 ## D. The client (engineer and lead)
@@ -70,19 +76,23 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 
 | # | Who | Step | Rollback |
 |---|---|---|---|
-| E1 | 📱 Owner | The test pupil: on the game, sign up a pupil named e.g. "Test" (it goes to the Sheet), then re-run C2 and C3 so it is copied too. | The teacher removes the pupil in the Sheet; it is removed from Supabase at the next C3. |
-| E2 | 📱 Owner | On the test device, open `https://jaouibenjamin.github.io/english-trainer/?dual=1` once (the device remembers it). Sign in as the test pupil. | Open the address with `?dual=0`. |
-| E3 | 📱 Owner | Play exactly 10 answers. Close the tab right after the last answer. Open the game again. | — |
-| E4 | 💻 Owner | Check that 10 answers are counted for the test pupil (the SQL at the end of this file, "counted"). | If it is not 10, stop and send the lead the two numbers. |
-| E5 | 📱 Owner | Two tabs on the same device: sign another test pupil in, in the second tab. The first tab must show "מישהו אחר נכנס במכשיר הזה" with the button "המשך", and reload only when tapped. | — |
+| E1 | 📱 Owner ⚠ | **Touches the live class's data: needs the owner's explicit yes.** A test pupil named "Test" in the **live** class: first add the name to the roster tab of the Sheet, then sign it up in the game (it goes to the Sheet), then re-run C2 and C3 so it is copied too. Test is visible on the leaderboard and on the teacher's screen. E5 needs a second test pupil ("Test2"), added the same way. | Remove Test (and Test2) from the Sheet and the roster tab. On Supabase they stay until removed by hand (lead: `teacher_delete_pupil`). |
+| E2 | 📱 Owner | On the test device, open `https://jaouibenjamin.github.io/english-trainer/?dual=1` once (the device remembers it). Sign in as Test. | Open the address with `?dual=0`: the device's session is ended and nothing of it stays. |
+| E3 | 📱 Owner | Play exactly 10 answers, then close the tab right after the last one. Open the game again and give 1 more answer, then switch to another app for a few seconds and back. Do the same on one iPhone and one Android phone: there, switch app instead of closing, and also reload the page once. | — |
+| E4 | 💻 Owner | Check the answers counted for Test today (the SQL "counted" at the end of this file): **11** after the test device, **22** after the iPhone, **33** after the Android (the same pupil, so the count adds up). | If a number is not right, stop and send the lead the two numbers. |
+| E5 | 📱 Owner ⚠ | **Touches the live class's data (Test2): needs the owner's explicit yes.** Two tabs on the same device. Test plays in the first; leave it in the background for a minute; then sign Test2 in, in the second. The first tab must show "מישהו אחר נכנס במכשיר הזה" with the button "המשך" and reload only when tapped. **After the tap, the first tab shows Test2, and the second tab does NOT show the message.** | — |
 | E6 | 📱 Owner | The devices' browsers: on every kind of device the class uses, the iOS version is 15.4 or later (Settings → General → About), or Chrome or Edge is up to date. That gives Web Locks (`docs/BACKEND.md` section 10, item 21). | — |
 
 ## F. The class
 
 | # | Who | Step | Rollback |
 |---|---|---|---|
-| F1 | Lead | After the school day ends: remove `trial:true` from `config.js` on `main`. From the next page load, every device copies to Supabase. | Put `trial:true` back (only the test device keeps copying), or remove the `BACKEND` line (everyone is back to the Sheet alone). Nothing is lost either way: the Sheet is the truth. |
+| F1 | Lead ⚠ | **Changes what happens when the children sign in: needs the owner's explicit yes.** From this step on, each pupil's 4-digit code is also sent to Supabase's sign-in function at every sign-in (not only to the Sheet). After the school day ends: remove the `trial` key from `config.js` on `main` (the whole key: any `trial` key, whatever its value, keeps the class off). From the next page load, every device copies to Supabase. | Put `trial:true` back (only the test device keeps copying), or remove the `BACKEND` line (everyone is back to the Sheet alone). Nothing is lost either way: the Sheet is the truth. |
 | F2 | 💻 Owner | The same evening: the baseline for day 1 (SQL "baseline" below). From now until G1, do not run C3 (it would replace the copied records). | Drop the table. |
+
+**During `dual`:** a teacher reset of a pupil's code in the Sheet must also be done on Supabase (`teacher-reset`, the
+teacher signed in with Google), or that pupil is not counted from then on (their copy cannot sign in with the new code).
+Tell the lead the same day.
 
 ## G. Day 1: what to watch
 
@@ -101,9 +111,9 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 | 2. Real GoTrue: refresh rotation and reuse window; `logout?scope=local`; a revoked access token until expiry | A6, B7 (items 3 and 6) |
 | 3. The client address on the real Edge runtime; `ip_hour` 120 with the whole class on one address | B7 (item 10), G2 |
 | 4. Web Locks on every kind of class device | E6 |
-| 5. iOS and Android: tab close, app switch, reload, keepalive, the 64 KiB budget, bfcache | E3, E4 |
+| 5. iOS and Android: tab close, app switch, reload, keepalive, the 64 KiB budget, bfcache | E3, E4 (on the test device, one iPhone, one Android) |
 | 6. `storage` events and the reload on displacement across two real tabs | E5 |
-| 7. iOS suspending a background tab that holds the lock | E5 with the first tab in the background for a minute; then G1 |
+| 7. iOS suspending a background tab that holds the lock | E5 (its minute in the background); then G1 |
 | 8. Free-plan headroom | G3 |
 | 9. A real Apps Script cold start | E2 (the first sign-in of the morning), then G1 |
 | 10. After day 1: counted equals played, server points against the Sheet's | G1, G4 |
@@ -115,7 +125,7 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 ```sql
 select count(*) as counted
 from public.answers a join public.pupils p on p.id = a.pupil_id
-where p.display_name = 'Test' and a.at >= date_trunc('day', now());
+where p.display_name = 'Test' and a.at >= date_trunc('day', now());   -- E4: 11, then 22, then 33
 ```
 
 **baseline**: the evening before day 1 (F2). It keeps, per pupil, the number of tries in the copied record:
@@ -152,4 +162,5 @@ After week 1: `drop table private.day1_baseline;`
 **Known limits** (`docs/BACKEND.md` section 8):
 - A pupil whose tab was displaced by another pupil on the same device: their last answers reach the Sheet but not the
   server count. G1 can then show a small `diff` for that pupil on that day.
-- Without Web Locks (Safari before 15.4), one pupil in two tabs can count a few answers twice. E6 rules this out.
+- Without Web Locks (Safari before 15.4), one pupil in two tabs can count answers twice, and not only a few: one test
+  run in three counted 11 for 6 answers. E6 rules this out.
