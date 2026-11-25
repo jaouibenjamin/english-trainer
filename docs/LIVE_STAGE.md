@@ -60,8 +60,8 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 | # | Who | Step | Rollback |
 |---|---|---|---|
 | C1 | 💻 Owner | Download the Sheet's pupils tab as CSV (File → Download → CSV) into a folder **outside** the repository. | Delete the file. |
-| C2 | 💻 Owner | Dry run, with `WI_DATABASE_URL` read as above: `python3 tools/migrate_sheet.py <file>.csv --class <class_id>`. Read the counts; they must match the class list. | Nothing was written. |
-| C3 | 💻 Owner | The same command with `--apply`. Then `python3 tools/migrate_sheet.py --wrap` (with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in the environment). Then delete the CSV. | Safe to run again: the Sheet's record replaces the copy. |
+| C2 | 💻 Owner ⚠ | **Copies the class's names and code hashes into Supabase (the dry run reads them all): needs the owner's explicit yes.** Dry run, with `WI_DATABASE_URL` read as above: `python3 tools/migrate_sheet.py <file>.csv --class <class_id>`. Read the counts; they must match the class list. | Nothing was written. |
+| C3 | 💻 Owner ⚠ | **Copies the class's names and code hashes into Supabase: needs the owner's explicit yes.** The same command with `--apply`. Then `python3 tools/migrate_sheet.py --wrap` (with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in the environment). Then delete the CSV. | Safe to run again: the Sheet's record replaces the copy. |
 | C4 | 💻 Owner | Copy phase on: `admin-class` with `{"action":"shadow_on"}` (same `curl` as B6). | `{"action":"shadow_off"}`, which ends every copy session at once. |
 
 ## D. The client (engineer and lead)
@@ -70,7 +70,7 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 |---|---|---|---|
 | D1 | Engineer → Lead | A pull request that adds `https://<ref>.supabase.co` to `connect-src` in the Content-Security-Policy of every page (`index.html`, `run.html`, `ds.html` and the others that carry it). Merged to `game`, then shipped to `main`. Without it the browser blocks every copy; the game itself goes on, on the Sheet. | Revert the commit. |
 | D2 | Lead | **Must be true before `dual`:** A10 and B7 all green; the restore drill done; D1 on `main`; every suite green on `game` (`python3 tests/all.py --quick`); the owner has approved section 3 of `docs/BACKEND.md` (the sign-in flow). | — |
-| D3 | Lead | On `main`, `config.js` gets `window.BACKEND={mode:'dual',url:'https://<ref>.supabase.co',key:'sb_publishable_…',trial:true}`. With `trial:true`, **no pupil's device changes**: only a device that opened the game once with `?dual=1` copies to Supabase. Pages updates in about a minute. | Remove the line (one commit). Pages updates in about a minute, and the game is exactly as today. |
+| D3 | Lead | On `main`, `config.js` gets `window.BACKEND={mode:'dual',url:'https://<ref>.supabase.co',key:'sb_publishable_…'}`. With a project and no `everyone` key, the default is a trial: **no pupil's device changes**; only a device that opened the game once with `?dual=1` copies to Supabase. Pages updates in about a minute. | Remove the line (one commit). Pages updates in about a minute, and the game is exactly as today. |
 
 ## E. One test device
 
@@ -78,7 +78,7 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 |---|---|---|---|
 | E1 | 📱 Owner ⚠ | **Touches the live class's data: needs the owner's explicit yes.** A test pupil named "Test" in the **live** class: first add the name to the roster tab of the Sheet, then sign it up in the game (it goes to the Sheet), then re-run C2 and C3 so it is copied too. Test is visible on the leaderboard and on the teacher's screen. E5 needs a second test pupil ("Test2"), added the same way. | Remove Test (and Test2) from the Sheet and the roster tab. On Supabase they stay until removed by hand (lead: `teacher_delete_pupil`). |
 | E2 | 📱 Owner | On the test device, open `https://jaouibenjamin.github.io/english-trainer/?dual=1` once (the device remembers it). Sign in as Test. | Open the address with `?dual=0`: the device's session is ended and nothing of it stays. |
-| E3 | 📱 Owner | Play exactly 10 answers, then close the tab right after the last one. Open the game again and give 1 more answer, then switch to another app for a few seconds and back. Do the same on one iPhone and one Android phone: there, switch app instead of closing, and also reload the page once. | — |
+| E3 | 📱 Owner | On each phone, first do E2 there (open the address with `?dual=1` once and sign in as Test). Then play exactly 10 answers, then close the tab right after the last one. Open the game again and give 1 more answer, then switch to another app for a few seconds and back. Do the same on one iPhone and one Android phone: there, switch app instead of closing, and also reload the page once. | — |
 | E4 | 💻 Owner | Check the answers counted for Test today (the SQL "counted" at the end of this file): **11** after the test device, **22** after the iPhone, **33** after the Android (the same pupil, so the count adds up). | If a number is not right, stop and send the lead the two numbers. |
 | E5 | 📱 Owner ⚠ | **Touches the live class's data (Test2): needs the owner's explicit yes.** Two tabs on the same device. Test plays in the first; leave it in the background for a minute; then sign Test2 in, in the second. The first tab must show "מישהו אחר נכנס במכשיר הזה" with the button "המשך" and reload only when tapped. **After the tap, the first tab shows Test2, and the second tab does NOT show the message.** | — |
 | E6 | 📱 Owner | The devices' browsers: on every kind of device the class uses, the iOS version is 15.4 or later (Settings → General → About), or Chrome or Edge is up to date. That gives Web Locks (`docs/BACKEND.md` section 10, item 21). | — |
@@ -87,18 +87,18 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 
 | # | Who | Step | Rollback |
 |---|---|---|---|
-| F1 | Lead ⚠ | **Changes what happens when the children sign in: needs the owner's explicit yes.** From this step on, each pupil's 4-digit code is also sent to Supabase's sign-in function at every sign-in (not only to the Sheet). After the school day ends: remove the `trial` key from `config.js` on `main` (the whole key: any `trial` key, whatever its value, keeps the class off). From the next page load, every device copies to Supabase. | Put `trial:true` back (only the test device keeps copying), or remove the `BACKEND` line (everyone is back to the Sheet alone). Nothing is lost either way: the Sheet is the truth. |
+| F1 | Lead ⚠ | **Changes what happens when the children sign in: needs the owner's explicit yes.** From this step on, each pupil's 4-digit code is also sent to Supabase's sign-in function at every sign-in (not only to the Sheet). After the school day ends: add `everyone:true` to the `BACKEND` line of `config.js` on `main`, exactly that key and exactly the value `true` (anything else, a typo, `'true'` in quotes, `1`, keeps the class off). From the next page load, every device copies to Supabase. | Remove `everyone:true` (only the test devices keep copying), or remove the `BACKEND` line (everyone is back to the Sheet alone). Nothing is lost either way: the Sheet is the truth. |
 | F2 | 💻 Owner | The same evening: the baseline for day 1 (SQL "baseline" below). From now until G1, do not run C3 (it would replace the copied records). | Drop the table. |
 
-**During `dual`:** a teacher reset of a pupil's code in the Sheet must also be done on Supabase (`teacher-reset`, the
-teacher signed in with Google), or that pupil is not counted from then on (their copy cannot sign in with the new code).
-Tell the lead the same day.
+**During `dual`:** a teacher reset of a pupil's code in the Sheet must also be done on Supabase, or that pupil is not
+counted from then on (their copy cannot sign in with the new code). **Tell the lead the same day; the lead resets it on
+Supabase** (the game has no teacher screen for Supabase yet).
 
 ## G. Day 1: what to watch
 
 | # | When | What | If it is wrong |
 |---|---|---|---|
-| G1 | after school | **Counted equals played, per pupil**: SQL "day 1" below. Every row's `diff` is 0. | Any row not 0: put `trial:true` back (F1 rollback) and send the lead the row numbers (no names). |
+| G1 | after school | **Counted equals played, per pupil**: SQL "day 1" below. Every row's `diff` is 0. | Any row not 0: remove `everyone:true` (F1 rollback) and send the lead the row numbers (no names). |
 | G2 | during the lesson | **Sign-in headroom from the school's one address**: SQL "ip_hour" below. The highest count stays well under `ip_hour` (120). | Above 100: tell the lead the same day. A pause stops only the copy, never the game. |
 | G3 | after school | **Free plan**: Supabase → Reports / Usage: database size under 350 MB (where the brake starts); Edge Function calls and monthly active users far below the free limits. Also `select * from public.backend_health` as the teacher: `warn` is false. | Above half of any limit after one day: tell the lead before day 2. |
 | G4 | end of week 1 | `docs/BACKEND.md` section 8 step 2: per pupil, points per source against the Sheet's. | As G1. |
