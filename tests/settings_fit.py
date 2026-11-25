@@ -22,6 +22,7 @@ SIZES = [(390, 844), (412, 780), (360, 740), (360, 700), (360, 640), (1366, 768)
 ROWS = {'help': 'help=1', 'card': 'card=1'}
 LOOKS = ['', 'ds']   # the new look is a per-device flag too (js/dsflag.js)
 MIXES = [()] + [(k,) for k in ROWS] + ([tuple(ROWS)] if len(ROWS) > 1 else [])
+ROOM = 4   # px between the account panel and the bottom of the screen, at the least
 FAKE = f'http://127.0.0.1:{P.PORT}/no-backend'
 MEASURE = """(()=>{const s=document.getElementById('stage').getBoundingClientRect(),out=[];
  const parts=[...document.querySelectorAll('.settings>.top,.settings .panel,.settings>.guide')].filter(e=>e.getBoundingClientRect().height).map(e=>[e.className,e.getBoundingClientRect()]);
@@ -51,6 +52,9 @@ async def one(b, w, h, signed, errs, mix=(), look=''):
     check(f'[{tag}] settings: the account panel is {"there" if signed else "not there"}', m['panels'] == (4 if signed else 3), m['panels'])
     if signed:
         check(f'[{tag}] settings: the sign-out button is whole and can be pressed', await pg.evaluate("(()=>{const b=document.querySelector('[data-a=logout]').getBoundingClientRect(),s=document.getElementById('stage').getBoundingClientRect();return b.bottom<=s.bottom&&b.top>=s.top})()"))
+        # and with room to spare: a few pixels of font or art (a thicker painted frame, a longer save line) must not push it off
+        room = await pg.evaluate("(()=>{const a=document.querySelector('.settings .acct').getBoundingClientRect(),s=document.getElementById('stage').getBoundingClientRect();return Math.round(s.bottom-a.bottom)})()")
+        check(f'[{tag}] settings: the account panel ends at least {ROOM} px above the bottom', room >= ROOM, room)
     await P.shot(pg, f"settings-{'signed-in' if signed else 'local'}-{w}x{h}{'-' + '-'.join(mix) if mix else ''}{'-' + look if look else ''}")
     await c.close()
 

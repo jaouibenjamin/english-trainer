@@ -580,5 +580,5 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
    above shows the same number), the rows and gaps are a little lower, and under 700 px the title ribbon too */
 @media (max-height:800px){.settings.more.signed .acct .aw{display:none}.settings.more.signed,.settings.more.signed .fill{gap:6px}}
 @media (min-height:701px) and (max-height:800px){.settings.more.signed .setrow{min-height:46px}}
-@media (max-height:700px){.settings.more.signed .ribbon{height:52px;font-size:21px}.settings.more.signed .credit{font-size:12px;line-height:1.2}.settings.more.signed,.settings.more.signed .fill{gap:3px}}
+@media (max-height:700px){.settings.more.signed .prog .pi,.settings.more.signed .prog p>.st{display:none}.settings.more.signed .ribbon{height:52px;font-size:21px}.settings.more.signed .credit{font-size:12px;line-height:1.2}.settings.more.signed,.settings.more.signed .fill{gap:3px}}
 @media (max-height:700px){.settings.more .prog .pi,.settings.more .prog p>.st{width:22px;height:22px}}
