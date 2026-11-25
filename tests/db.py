@@ -113,7 +113,7 @@ def test_catalogue(db):
        db.admin(rel % "has_table_privilege('authenticated', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE')"), [['public.roster']])
     eq('authenticated: no right on any sequence', db.admin(seq % 'authenticated'), [])
     eq('authenticated: may run exactly the listed functions', [r[0] for r in db.admin(fn % 'authenticated')],
-       ['app.class_id', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.safe_int', 'app.teaches', 'app.teaches_pupil',
+       ['app.class_id', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.reads_class', 'app.reads_pupil', 'app.safe_int', 'app.shadow', 'app.teaches', 'app.teaches_pupil',
         'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil'])
     eq('row level security is on for every table in public and private',
        db.admin("""select n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
