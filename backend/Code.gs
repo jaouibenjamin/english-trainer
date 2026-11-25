@@ -156,22 +156,28 @@ function mockOf(x) {
   } catch (e) { return null; }   // one record must never take the whole teacher screen down
 }
 
+/* A key of the class's hard-words list: written by the pupil's own browser, so only something that looks like an
+   English word or short phrase is counted there (letters, spaces, apostrophes, hyphens; at most 40 characters). */
+function wordKey(w) { return typeof w === 'string' && /^[A-Za-z][A-Za-z' -]{0,39}$/.test(w); }
 function teacherView(rows) {
-  const agg = {};
+  const agg = Object.create(null);   // no inherited keys: a pupil's "__proto__" or "constructor" is just another key, and is not a word
   const kids = rows.map(function (x) {
     const state = parse(x[10]), st = state.st || {}, lv = (state.g && state.g.st) || {};
     let tries = 0, miss = 0, stars = 0, levels = 0;
     Object.keys(st).forEach(function (w) {
       if (!Array.isArray(st[w])) return;   // one damaged record must not take the whole screen down
-      const a = agg[w] || (agg[w] = [0, 0]), t = nv(st[w][0]) || 0, m = nv(st[w][1]) || 0;   // nv(): Number() of a pupil-written object can throw
-      a[0] += t; a[1] += m; tries += t; miss += m;
+      const t = nv(st[w][0]) || 0, m = nv(st[w][1]) || 0;   // nv(): Number() of a pupil-written object can throw
+      tries += t; miss += m;
+      if (!wordKey(w)) return;   // the pupil's own counts above still include it; the class list does not
+      const a = agg[w] || (agg[w] = [0, 0]);
+      a[0] += t; a[1] += m;
     });
     Object.keys(lv).forEach(function (k) { const v = Math.min(3, Math.floor(nv(lv[k]) || 0)); if (v > 0) { stars += v; levels++; } });
     return { n: String(x[0]), pts: Number(x[3]) || 0, words: Number(x[4]) || 0, reads: Number(x[5]) || 0, streak: Number(x[6]) || 0, day: dayStr(x[7]),
       stars: stars, levels: levels, tries: tries, miss: miss, mock: mockOf(state.x) };
   }).sort(function (a, b) { return b.stars - a.stars || b.words - a.words; });
   const hard = Object.keys(agg).filter(function (w) { return agg[w][0] >= 3 && agg[w][1] > 0; })
-    .map(function (w) { return [w, Math.round(agg[w][1] / agg[w][0] * 100), agg[w][0]]; })
+    .map(function (w) { return [w, Math.min(100, Math.round(agg[w][1] / agg[w][0] * 100)), agg[w][0]]; })   // more misses than tries cannot pass 100%
     .sort(function (a, b) { return b[1] - a[1]; }).slice(0, 9);
   return { ok: true, kids: kids, hard: hard };
 }
