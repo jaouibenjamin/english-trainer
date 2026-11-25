@@ -125,14 +125,15 @@ function collection(){setBg('paper','center');const tot=totalStars(),nxt=BALLS.f
 function settings(){setBg('paper','center');
  const tog=(k,label,icon)=>`<button class="setrow" data-a="toggle" data-k="${k}" role="switch" aria-checked="${SET[k]}">${spr(icon,'si')}<span class="sl">${label}</span><i class="sw${SET[k]?' on':''}"><em>${SET[k]?ico('check'):''}</em><b>${SET[k]?'פועל':'כבוי'}</b></i></button>`;
  const lnk=(inner,icon,t,d)=>`<${inner} class="setrow link">${spr(icon,'si')}<span class="sl">${t}<small>${d}</small></span>${ico('next','go')}</${inner.split(' ')[0]}>`;
- view.innerHTML=`<section class="scr settings${cardOn()?' hascard':''}">${top('הגדרות')}
+ /* "more": a switch added a row (word help, the card); "signed": the account panel is there. game.css fits the screen to both */
+ view.innerHTML=`<section class="scr settings${helpKnown()||cardOn()?' more':''}${API&&S.u?' signed':''}">${top('הגדרות')}
   <div class="fill">
   <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}${tog('calm','תצוגה רגועה<small>בלי תנועה וקונפטי</small>','ic_check')}${helpKnown()?tog('help','עזרה במילים<small>לחיצה על מילה מראה פירוש, ו־🐢 משמיע לאט</small>','ic_book'):''}</div>
   <div class="panel label">${lnk('button data-a="nav" data-to="help"','ic_buoy','איך משחקים?','הסבר קצר על ארבעת השלבים')}
    ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}${cardOn()?lnk('button data-a="nav" data-to="card"','trophy','הכרטיס שלי','להראות או לשמור כתמונה'):''}</div>
   <div class="panel label"><div class="prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter(v=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
    <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p></div>
-  ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br>${num(wordsKnown())} מילים שנלמדו<br>${syncLine()}</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
+  ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br><span class="aw">${num(wordsKnown())} מילים שנלמדו<br></span>${syncLine()}</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
   </div>
   ${API&&S.u?'':`<div class="guide">${spr('crab_listen','bob')}<p class="label">ההתקדמות נשמרת במכשיר הזה</p></div>`}</section>`}   // signed in, the account panel takes the note's place
 function help(){setBg('paper','center');

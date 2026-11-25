@@ -526,11 +526,12 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .rcf span{flex:1;display:flex;flex-direction:column;align-items:center;line-height:1.2}.rcf b{font-size:22px;font-weight:800}.rcf small{font-size:13px;color:var(--ink2)}
 .rcbtns{display:flex;gap:10px;justify-content:center;flex:none}
 .rcard .credit{margin:0;border:0;padding:0;text-align:center;font-size:13px;color:var(--ink2);max-width:340px}
-/* the settings screen has one more row on such a device: its rows are a little lower so the screen is as tall as before,
-   and on shorter screens the crab's note makes room */
-.settings.hascard .setrow{min-height:50px}
-@media (max-height:800px){.settings.hascard .guide{display:none}}
-@media (max-height:700px){.settings.hascard .credit{margin-top:2px;padding-top:3px}.settings.hascard .panel{gap:0}.settings.hascard,.settings.hascard .fill{gap:3px}.settings.hascard .setrow{min-height:44px}.settings.hascard .setrow .sl small{display:none}}
+/* the settings screen has one or two more rows on a device given word help or the card (.more): its rows are a little
+   lower, and on shorter screens the crab's note makes room. Signed in (.signed) there is no note at all, so on a short
+   phone the air kept under the panels for it goes to the panels instead (tests/settings_fit.py draws every mix) */
+.settings.more .setrow{min-height:50px}
+@media (max-height:800px){.settings.more .guide{display:none}}
+@media (max-height:700px){.settings.more .credit{margin-top:2px;padding-top:3px}.settings.more .panel{gap:0}.settings.more,.settings.more .fill{gap:3px}.settings.more .setrow{min-height:44px}.settings.more .setrow .sl small{display:none}}
 .rck{margin:0;font-size:15px;font-weight:700;color:var(--ink2);text-align:center}
 /* settings on short phones: the crab's note needs about 810 px of height to sit clear of the progress panel, and with
    the account panel the screen needs a little less air to keep the sign-out button on it */
@@ -575,4 +576,9 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .listen .prompt .hslow{pointer-events:auto;position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);margin:0;height:44px;font-size:17px}
 .listen .prompt .hslow[hidden]{display:none}
 /* with the card row and the account panel a 640 px screen is 2 px short (#24 took the rest): the progress icons are smaller there */
-@media (max-height:700px){.settings.hascard .prog .pi,.settings.hascard .prog p>.st{width:22px;height:22px}}
+/* signed in with a row added, on a short screen: the account panel leaves out its words line (the progress panel just
+   above shows the same number), the rows and gaps are a little lower, and under 700 px the title ribbon too */
+@media (max-height:800px){.settings.more.signed .acct .aw{display:none}.settings.more.signed,.settings.more.signed .fill{gap:6px}}
+@media (min-height:701px) and (max-height:800px){.settings.more.signed .setrow{min-height:46px}}
+@media (max-height:700px){.settings.more.signed .ribbon{height:52px;font-size:21px}.settings.more.signed .credit{font-size:12px;line-height:1.2}.settings.more.signed,.settings.more.signed .fill{gap:3px}}
+@media (max-height:700px){.settings.more .prog .pi,.settings.more .prog p>.st{width:22px;height:22px}}
