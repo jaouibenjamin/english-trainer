@@ -3,7 +3,9 @@
    that needs it, and then a new paper. Content: xdata.js. Progress: S.x, saved with the account. */
 import {XSKILL,XORDER,XPASS,PIC,POOL,KIDS,TRIP,INVITE,WRITE_CHECK,RULES,paper,practice,shuf} from './xdata.js';
 import {S,save,award,esc} from './state.js';
+import {WORDS} from './data.js';
 import {SND} from './audio.js';
+import {helpOn,words,sentBtn} from './help.js';
 import {view,stage,setBg,preload,SP,ico,spr,rb,btn,en,num,toast,confetti,clearFx,sleep} from './ui.js';
 
 /* ---------- progress ---------- */
@@ -27,7 +29,7 @@ const top=(title,back)=>`<header class="top">${rb('nav',ico('back'),'חזרה',1
 /* ---------- the narrator: Pitzi the crab, in the gentle voice the pupils know from the English game ----------
    Short Hebrew lines at the start and the end, so a low first score reads as the start of practice, not as a failure.
    The words appear as she says them; the crab replays the line. Each line plays by itself once per visit. */
-const VB='https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/hf_20261121_';
+const VB='assets/voice/he/hf_20261121_';   // our own copies, served next to the game (sources: assets/voice/sources.tsv)
 const NARR={
  intro:['173415_4c4e2d50-9e11-4134-bee4-95c2e6957987','היי! ברוכים הבאים למבחן הדמו. המטרה שלנו פשוטה: שתגיעו מוכנים למבחן ביום רביעי. כל השאלות כאן מבוססות רק על הדפים שקיבלתם מהמורה בכיתה. זה לא מבחן אמיתי, והוא לא נכנס לשום ציון. עונים, רואים במה אתם כבר חזקים ובמה כדאי עוד להתאמן, מתאמנים, ומנסים שוב. טעות זה בסדר גמור, כי כל טעות מראה לנו מה ללמוד. בהצלחה!'],
  again:['171203_3790986f-c9d9-421d-b2fa-f6bebc6bee6b','ברוכים השבים! התאמנתם, ועכשיו זה הזמן לראות כמה השתפרתם. לאט ובנחת, אני כאן איתכם.'],
@@ -164,18 +166,24 @@ export async function prac(k,ctx){if(!XSKILL[k])return ctx.go('mock');setBg('pap
 const fmt=l=>esc(l).replace(/([A-Za-z][A-Za-z' .,?!\/…()·→]*[A-Za-z.?!)])/g,m=>`<bdi dir="ltr" class="en">${m}</bdi>`);
 
 /* ---------- one question on the screen ---------- */
+const NUMW=WORDS.filter(w=>w.p===7).map(w=>w.en.toLowerCase());
 function question(it,mode){
+ /* word help is for practice, not for the paper: the paper is the rehearsal of the real test. Off, or in the paper, the
+    lines are drawn exactly as before. A word that is the answer of this question is never a help button. */
+ const H=helpOn()&&mode==='prac',skip=[String(it.a||'').toLowerCase(),...(it.type==='who'?NUMW:[])],   // in "who is it?" a number word would give the age on the card away
+ tx=l=>H?words(l,skip):esc(l),bl=s=>H?tx(s).replace('___','<i class="gap">&nbsp;</i>'):blank(s),
+  sb=s=>H?sentBtn(it.a&&/^(am|is|are)$/.test(it.a)?s.replace('___',it.a):s):'';   // the Hebrew of a whole sentence: only when the data has it; with a gap only when the gap is am / is / are (the Hebrew does not give that away)
  let body='';
  if(it.type==='who')body=`<div class="xkids">${KIDS.map(c=>`<span class="xkid"><b>${c.em}</b><span class="xkn">${en(c.n)}</span><span class="xkf" dir="ltr">🎂 age <b>${c.age}</b></span>${c.month?`<span class="xkf" dir="ltr">📅 <b>${esc(c.month)}</b></span>`:''}</span>`).join('')}</div>
-  <div class="xdesc" dir="ltr">${it.lines.map(l=>`<p>${esc(l)}</p>`).join('')}</div>`;
- else if(it.type==='read')body=`<details class="xtext" ${mode==='prac'||it.k==='trip:0'?'open':''} dir="ltr"><summary dir="rtl">📄 הקטע: ${en(TRIP.title)}</summary>${TRIP.lines.map((l,j)=>`<p class="${mode==='prac'&&j===it.line?'ev':''}" data-l="${j}">${esc(l)}</p>`).join('')}</details>
-  <p class="xsent" dir="ltr">${blank(it.sent)}</p>`;
- else body=`${it.pic?pic(it.pic,'big'):''}${it.big?`<p class="xbigw" dir="ltr">${esc(it.big)}</p>`:''}${it.card==='invite'?invite():''}${it.sent?`<p class="xsent" dir="ltr">${blank(it.sent)}</p>`:''}${it.raw?`<p class="xraw" dir="ltr">${esc(it.raw)}</p>`:''}`;
+  <div class="xdesc" dir="ltr">${it.lines.map(l=>`<p>${tx(l)}</p>`).join('')}</div>`;
+ else if(it.type==='read')body=`<details class="xtext" ${mode==='prac'||it.k==='trip:0'?'open':''} dir="ltr"><summary dir="rtl">📄 הקטע: ${en(TRIP.title)}</summary>${TRIP.lines.map((l,j)=>`<p class="${mode==='prac'&&j===it.line?'ev':''}" data-l="${j}">${tx(l)}</p>`).join('')}</details>
+  <p class="xsent" dir="ltr">${bl(it.sent)}</p>`;
+ else body=`${it.pic?pic(it.pic,'big'):''}${it.big?`<p class="xbigw" dir="ltr">${esc(it.big)}</p>`:''}${it.card==='invite'?invite():''}${it.sent?`<p class="xsent" dir="ltr">${bl(it.sent)}</p>${sb(it.sent)}`:''}${it.raw?`<p class="xraw" dir="ltr">${tx(it.raw)}</p>`:''}`;
  let ans='';
  if(it.type==='choice'||it.type==='who'||it.type==='read')ans=`<div class="xopts ${it.o.length>3?'four':''} ${it.o.some(o=>o.length>14)?'long':''}">${it.o.map((o,j)=>`<button class="xo" data-a="mockpick" data-j="${j}" dir="${/[א-ת]/.test(o)?'rtl':'ltr'}">${esc(o)}</button>`).join('')}</div>`;
  else if(it.type==='order')ans=`<div class="xans" dir="ltr" id="xl"><span class="xph">לחצו על המילים לפי הסדר</span></div><div class="xtiles" dir="ltr">${shuf(it.tiles).map(w=>`<button class="xtile" data-a="mocktile" data-w="${esc(w)}">${esc(w)}</button>`).join('')}<span class="xq">?</span></div>${btn('mockcheck','בדיקה','green')}`;
  else ans=`<div class="xtype"><input id="xi" class="in en" dir="ltr" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${it.type==='sentence'?'Write the sentence here':'Write here'}">${btn('mockcheck','בדיקה','green')}</div>`;
- return`<div class="xq label"><p class="xqt">${esc(it.q)}</p>${body}</div>${ans}<div class="xfb" id="xfb" role="status" aria-live="polite"></div>`}
+ return`<div class="xq label"${H?` data-hk="mock:${esc(it.k)}"`:''}><p class="xqt">${esc(it.q)}</p>${body}</div>${ans}<div class="xfb" id="xfb" role="status" aria-live="polite"></div>`}
 
 export function invite(){const d=INVITE;
  return`<div class="xinv" dir="ltr"><span class="xi1">🎈 <b>${esc(d.name)}'s Birthday!</b></span><span class="xi2"><span style="font-size:34px">🎂</span> <b style="font-size:30px">${d.age}</b></span>

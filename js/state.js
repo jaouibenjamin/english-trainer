@@ -1,6 +1,7 @@
 /* State, class backend client (same contract as the classic trainer) and speech. */
 import {WORDS,TEXTS,ISLANDS,T,levelKey} from './data.js';
 import {clipOf,HAS_CLIPS} from './voice.js';
+import {stretch} from './stretch.js';
 import {voiceCtx,voiceOut,duck} from './audio.js';
 
 export const KEY='aam-unit1-v1';          // shared with trainer.html so both keep one progress record
@@ -16,14 +17,16 @@ load();
 export const saveLocal=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 export const save=()=>{saveLocal();touch()};
 
-export const SET={music:true,sfx:true,calm:false};   // calm: the game's own "reduce motion" switch, for pupils who are sensitive to movement
+export const SET={music:true,sfx:true,calm:false};   // help (word help and the slowly button) is absent until a device is given it (js/help.js). calm: the game's own "reduce motion" switch, for pupils who are sensitive to movement
 try{Object.assign(SET,JSON.parse(localStorage.getItem(SET_KEY))||{})}catch(e){}
 export const saveSet=()=>{try{localStorage.setItem(SET_KEY,JSON.stringify(SET))}catch(e){}};
 
 /* ---------- class backend (Google Sheet via Apps Script) ---------- */
 export const API=(window.API_URL||'').trim();
-export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסודי לא נכון. נסו שוב.',nouser:'לא מצאנו את השם הזה בכיתה. עוד לא נרשמתם?',taken:'השם הזה כבר רשום. לא אתם? הוסיפו אות אחת אחרי השם. זה אתם?',roster:'השם לא נמצא ברשימת הכיתה.\nכתבו את השם הפרטי, או בקשו מהמורה להוסיף אתכם.',locked:'יותר מדי ניסיונות.\nחכו 5 דקות ונסו שוב.',full:'הכיתה מלאה. פנו למורה.',input:'צריך קוד כיתה, שם באותיות\nוקוד סודי של 4 ספרות.',teacher:'קוד המורה לא נכון.',setup:'המערכת עוד לא הוגדרה.',net:'אין חיבור כרגע.\nבדקו את האינטרנט ונסו שוב.'};
-export async function api(a,d){const r=await fetch(API,{method:'POST',body:JSON.stringify({a,...d}),keepalive:a==='save'});return r.json()}
+export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסודי לא נכון. נסו שוב.',nouser:'לא מצאנו את השם הזה בכיתה. עוד לא נרשמתם?',taken:'השם הזה כבר רשום. לא אתם? הוסיפו אות אחת אחרי השם. זה אתם?',roster:'השם לא נמצא ברשימת הכיתה.\nכתבו את השם הפרטי, או בקשו מהמורה להוסיף אתכם.',locked:'יותר מדי ניסיונות.\nחכו 5 דקות ונסו שוב.',full:'הכיתה מלאה. פנו למורה.',input:'צריך קוד כיתה, שם באותיות\nוקוד סודי של 4 ספרות.',teacher:'קוד המורה לא נכון.',setup:'המערכת עוד לא הוגדרה.',net:'אין חיבור כרגע.\nבדקו את האינטרנט ונסו שוב.',server:'משהו השתבש בשרת. נסו שוב מאוחר יותר.'};
+/* a failed request (no connection) throws, as before. A server that answered with something that is not JSON (an Apps
+   Script error page) gives {e:'server'}, so the pupil is not told to check an internet connection that works. */
+import {api,forget} from './api.js';export {api};   // the backend adapter; with today's config.js it makes the very same request this line used to make
 export const cred=()=>({c:S.u.c,n:S.u.n,p:S.u.p});
 export const wordsKnown=()=>WORDS.filter(w=>w.p<6&&(S.w[w.en]||0)>=2).length;
 const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,m:S.m,x:S.x,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
@@ -102,10 +105,11 @@ const norm=x=>String(x||'').trim().replace(/\s+/g,' ');
 export const sameKid=(a,b)=>{a=norm(a);b=norm(b);return!!a&&(a===b||a.split(' ')[0]===b.split(' ')[0])};
 const hasProgress=s=>!!s&&((+s.pts||0)>0);
 /* sign in again after a refusal: what this device earned is put aside and joined in when the same pupil signs in */
-export function relogin(){const u=S.u;if(!u)return null;S.stash={n:u.n,s:pack()};clearTimeout(syncT);clearTimeout(retryT);const e=(S.sync&&S.sync.err)||'';S.u=null;dirty=0;fatal=false;delete S.sync;saveLocal();onSync();return{c:u.c,n:u.n,e}}
+export function relogin(){const u=S.u;if(!u)return null;forget(false);S.stash={n:u.n,s:pack()};clearTimeout(syncT);clearTimeout(retryT);const e=(S.sync&&S.sync.err)||'';S.u=null;dirty=0;fatal=false;delete S.sync;saveLocal();onSync();return{c:u.c,n:u.n,e}}
 /* resolves false, and keeps the pupil signed in, while progress is still waiting to be saved (no connection):
    signing out would erase it. A record the server refuses for good (the teacher removed the pupil) does not hold anyone back. */
 export async function logout(){const ok=await push();if(!ok&&!fatal)return false;
+ forget(true);   // the backend adapter forgets this pupil's session on the device (and revokes it, when there is one)
  clearTimeout(syncT);clearTimeout(retryT);const c=S.lastC,keep=fatal&&hasProgress(pack())?{n:S.u.n,s:pack()}:S.stash||null;   // a refused record is not thrown away: it waits for its owner to sign in
  S=Object.assign(blank(),{lastC:c},keep?{stash:keep}:{});dirty=0;fatal=false;saveLocal();onSync();return true}
 
@@ -172,6 +176,11 @@ function loadClip(c,urgent){let p=BUF.get(c.url);if(p){BUF.delete(c.url);BUF.set
  p.jump=()=>{const i=queue.indexOf(go);if(i>=0){queue.splice(i,1);active++;go().then(()=>{active--;pump()})}};   // the word needed now does not wait in line
  BUF.set(c.url,p);for(const k of BUF.keys()){if(BUF.size<=CAP)break;BUF.delete(k)}
  if(urgent)p.jump();else pump();return p}
+/* the "slowly" button: the same recorded clip at SLOW of its pace and at its own pitch (js/stretch.js), made once per clip */
+export const SLOW=.75;
+const SLOWBUF=new WeakMap();
+function slowOf(buf){let b=SLOWBUF.get(buf);if(b)return b;
+ try{const ctx=voiceCtx(),y=stretch(buf.getChannelData(0),buf.sampleRate,SLOW);b=ctx.createBuffer(1,y.length,buf.sampleRate);b.getChannelData(0).set(y);b.clip=buf.clip;b.slow=SLOW;SLOWBUF.set(buf,b);return b}catch(e){return buf}}
 let stopClip=null,seq=0,misses=0,retryAt=0;
 /* 'end' = played to the end, 'stop' = hushed or replaced by newer speech, 'fail' = could not play */
 function playBuf(buf){return new Promise(res=>{
@@ -192,7 +201,7 @@ const SILENCE='data:audio/wav;base64,UklGRkQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAA
 const START_MS=2500;   // a clip that has not started by then is given up and the browser voice speaks instead
 let player=null,audioOpen=0;
 function getPlayer(){if(!player){player=new Audio();player.preload='auto';player.playsInline=true;player.setAttribute('playsinline','')}return player}
-function playEl(c){return new Promise(res=>{
+function playEl(c,rate=1){return new Promise(res=>{
  if(stopClip)stopClip();
  let a;try{a=getPlayer()}catch(e){return res('fail')}
  const from=Math.max(0,(c.s||0)-LEAD),to=c.e>c.s?c.e+TAIL:0;
@@ -201,12 +210,15 @@ function playEl(c){return new Promise(res=>{
    if(stopClip===stop)stopClip=null;if(v!=='end'||to)try{a.pause()}catch(e){}res(v)},
   onEnd=()=>fin('end'),onErr=()=>fin('fail'),stop=()=>fin('stop'),onTime=()=>{if(to&&a.currentTime>=to)fin('end')},
   /* once it plays, only a stalled stream can keep the end away: do not let a level wait for ever */
-  onPlay=()=>{audioOpen=1;clearTimeout(t);t=setTimeout(()=>fin('end'),((to?to-from:isFinite(a.duration)&&a.duration>0?a.duration:20)+4)*1000)};
+  onPlay=()=>{audioOpen=1;clearTimeout(t);t=setTimeout(()=>fin('end'),((to?to-from:isFinite(a.duration)&&a.duration>0?a.duration:20)/rate+4)*1000)};
  stopClip=stop;a.addEventListener('ended',onEnd);a.addEventListener('error',onErr);a.addEventListener('playing',onPlay);a.addEventListener('timeupdate',onTime);
  t=setTimeout(()=>fin('fail'),START_MS);
- try{a.src=c.url+(to?'#t='+from.toFixed(2)+','+to.toFixed(2):'');const p=a.play();if(p&&p.catch)p.catch(()=>fin('fail'))}catch(e){fin('fail')}})}
+ try{a.src=c.url+(to?'#t='+from.toFixed(2)+','+to.toFixed(2):'');
+  /* slowly: the element keeps the pitch by itself; the pace is set after the source (a new source resets it), and back to normal for the next clip */
+  if(rate!==1||a.playbackRate!==1){a.preservesPitch=a.webkitPreservesPitch=a.mozPreservesPitch=true;a.defaultPlaybackRate=rate;a.playbackRate=rate}
+  const p=a.play();if(p&&p.catch)p.catch(()=>fin('fail'))}catch(e){fin('fail')}})}
 /* Web Audio first; if the clip cannot be fetched or decoded within 3 s, or the context is not running, the <audio> element */
-async function playClip(c,my){
+async function playClip(c,my,slow){
  if(stopClip)stopClip();
  const ctx=voiceCtx();
  if(ctx){
@@ -214,27 +226,29 @@ async function playClip(c,my){
   if(my===seq&&ctx.state==='running'){
    const buf=await Promise.race([loadClip(c,true),wait(LOAD_MS).then(()=>null)]);
    if(my!==seq)return 'stop';
-   if(buf){const r=await playBuf(buf);if(r!=='fail')return r}}}
+   if(buf){const r=await playBuf(slow?slowOf(buf):buf);if(r!=='fail')return r}}}
  if(my!==seq)return 'stop';
- return playEl(c)}
+ return playEl(c,slow?SLOW:1)}
 /* after two clips in a row could not play (offline, storage gone) go straight to the browser voice for a while */
 const clipFor=text=>misses>=2&&Date.now()<retryAt?null:clipOf(text);
 const missed=()=>{misses++;retryAt=Date.now()+30000};
 /* speak one text. Resolves true when it was spoken (a clip: when it ended or was interrupted; browser voice: when it started),
    false if this device could not say it (used by the listening level). */
-export async function say(text,rate){const my=++seq;
+export async function say(text,rate,slow){const my=++seq;
  const c=clipFor(text);
- if(c){synthStop();const r=await playClip(c,my);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed()}
+ if(slow&&!c){if(stopClip)stopClip();return false}   // slowly is for recorded clips only, never the browser voice
+ if(c){synthStop();const r=await playClip(c,my,slow);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed();
+  if(slow)return false}   // a slow replay that failed stays silent: slowly is the recorded voice or nothing, never the browser voice
  else if(stopClip)stopClip();
  return synth(text,rate)}
 /* speak several texts in order with a short breath between them ("read to me"); hush() or any newer speech stops it.
    A part without a clip (or whose clip fails) is read by the browser voice, then the clips carry on. */
-export async function sayAll(parts,rate,gap=380){const my=++seq;if(stopClip)stopClip();synthStop();
+export async function sayAll(parts,rate,gap=380,slow){const my=++seq;if(stopClip)stopClip();synthStop();
  for(const part of parts){
-  const c=clipFor(part);let r=c?await playClip(c,my):'none';
+  const c=clipFor(part);let r=c?await playClip(c,my,slow):'none';
   if(my!==seq||r==='stop')return true;
   if(r==='fail')missed();else if(r==='end')misses=0;
-  if(r!=='end'){await synth(part,rate,true);if(my!==seq)return true}
+  if(r!=='end'&&!slow){await synth(part,rate,true);if(my!==seq)return true}
   await wait(gap);if(my!==seq)return true}
  return true}
 export function hush(){seq++;if(stopClip)stopClip();synthStop()}
@@ -257,3 +271,5 @@ export const weakest=(ws,n)=>shuffle(ws).sort((a,b)=>(S.w[a.en]||0)-(S.w[b.en]||
 export const reduced=()=>SET.calm||matchMedia('(prefers-reduced-motion:reduce)').matches;
 export const applyCalm=()=>document.documentElement.classList.toggle('calm',!!SET.calm);
 applyCalm();
+/* is there a recorded clip for this text? (the slowly button shows only then) */
+export const hasClip=text=>!!clipFor(text);   // false too while the recordings are out of reach (two misses in a row): the slowly button hides until they are back

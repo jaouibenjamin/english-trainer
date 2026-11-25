@@ -12,14 +12,25 @@ import {SND,unlock} from './audio.js';
 const $=s=>document.querySelector(s);
 const cv=$('#gl'),stageEl=$('#rstage'),hud=$('#hud'),pad=$('#pad'),menu=$('#menu'),banner=$('#banner'),flashEl=$('#flash');
 if(SET.calm)document.documentElement.classList.add('calm');
+/* a menu picture that fails to load falls back to its data-fb picture (a listener, not an inline onerror: the page's
+   Content-Security-Policy allows no inline handlers). Load errors do not bubble, so it listens in the capture phase. */
+menu.addEventListener('error',e=>{const i=e.target;if(i&&i.dataset&&i.dataset.fb&&i.getAttribute('src')!==i.dataset.fb)i.src=i.dataset.fb},true);
+/* the new look ("Arcade Lagoon"), behind the same switch as js/dsflag.js: ?ds=1 turns it on for this device, ?ds=0 off.
+   Off: nothing is added, written or requested. On: the class "ds" on <html> and two stylesheets (css/run-ds.css), styling only. */
+(()=>{let q=null,on=false;try{q=new URLSearchParams(location.search).get('ds')}catch(e){}
+ try{if(q==='1')localStorage.setItem('wi_ds','1');else if(q==='0')localStorage.removeItem('wi_ds');on=localStorage.getItem('wi_ds')==='1'}catch(e){on=q==='1'}
+ if(!on)return;document.documentElement.classList.add('ds');
+ for(const h of['css/ds.css','css/run-ds.css']){const l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l)}})();
 /* two looks: anime cel-shading (default) and low-poly (?style=lowpoly) */
-const CF='https://d8j0ntlcm91z4.cloudfront.net/user_3JLupmCBnVeyPDnR08kyxJxINCO/';
+/* the runner models and their menu pictures are ours, served next to the game (relative URLs; sources: assets/sources.tsv) */
+const M3D='assets/3d/',HPIC='assets/x/';
 const LOOKS={
  anime:{sky:['#3d9be9','#bfe6ff','#fff6e0'],fog:0xd6efff,hemi:[0xffffff,0x9cc7e8,1.3],sea:'#3aa7e0',sand:'#f7e2b0',green:0x55c46a,trunk:0xa0703e,umb:[0xf25c54,0xf6c64a,0x3d8be0,0xffffff],post:0x3d8be0,beam:0xf25c54,
-  hero:CF+'hf_20261122_113604_02d63541-4d63-4dff-a4b5-8682f1cdf94e.glb',pic:CF+'hf_20261122_091647_8388a3bd-9f46-4847-aab0-386dae7019a4.png',cel:true},
+  hero:M3D+'hf_20261122_113604_02d63541-4d63-4dff-a4b5-8682f1cdf94e.glb',pic:HPIC+'hf_20261122_091647_8388a3bd-9f46-4847-aab0-386dae7019a4.webp',cel:true},
  lowpoly:{sky:['#5d4fa3','#f6a77f','#ffd7a6'],fog:0xf3b08c,hemi:[0xffe6d0,0x6a5acd,1.35],sea:'#2bb3b1',sand:'#f4c99a',green:0x3fae7a,trunk:0xb07a4f,umb:[0xf2785c,0xf6c64a,0x8a6fd1,0xffffff],post:0x2bb3b1,beam:0x8a6fd1,
-  hero:CF+'hf_20261122_091919_b439053f-4747-4a22-8aa0-0a67974a1928.glb',pic:CF+'hf_20261122_091647_e1c4af42-4710-4261-b59c-e0dd1df63c87.png',cel:false}};
-const LOOK=LOOKS[new URLSearchParams(location.search).get('style')]||LOOKS.anime;
+  hero:M3D+'hf_20261122_091919_b439053f-4747-4a22-8aa0-0a67974a1928.glb',pic:HPIC+'hf_20261122_091647_e1c4af42-4710-4261-b59c-e0dd1df63c87.webp',cel:false}};
+/* only a look we define: ?style=__proto__ or constructor must not reach an inherited property (hasOwnProperty.call: old iPhones have no Object.hasOwn) */
+const STYLE=new URLSearchParams(location.search).get('style'),LOOK=Object.prototype.hasOwnProperty.call(LOOKS,STYLE)?LOOKS[STYLE]:LOOKS.anime;
 document.documentElement.classList.add(LOOK.cel?'anime':'lowpoly');
 
 /* ---------------- questions ---------------- */
@@ -95,7 +106,7 @@ const crab=makeCrab();scene.add(crab.root);scene.add(crab.shadow);
 const HERO_PIC=LOOK.pic;
 const HERO_URL=LOOK.hero.includes('__')?'':LOOK.hero;
 let hero=null;
-if(HERO_URL.startsWith('https://'))new GLTFLoader().load(HERO_URL,g=>{const m=g.scene;
+if(HERO_URL)new GLTFLoader().load(HERO_URL,g=>{const m=g.scene;
   const b=new THREE.Box3().setFromObject(m),sz=b.getSize(new THREE.Vector3()),k=1.95/(sz.y||1);m.scale.setScalar(k);
   const b2=new THREE.Box3().setFromObject(m),c=b2.getCenter(new THREE.Vector3());m.position.set(-c.x,-b2.min.y,-c.z);
   const inks=[];m.traverse(o=>{if(o.isMesh){o.frustumCulled=false;const mt=o.material;if(mt&&mt.map)mt.map.colorSpace=THREE.SRGBColorSpace;
@@ -310,7 +321,7 @@ function setPause(v){if(!G||!G.on||G.ended)return;paused=v;if(v){menu.hidden=fal
 /* ---------------- menus ---------------- */
 const who=()=>API&&S.u?`<p class="who">${esc(S.u.n)} · <bdi>${S.pts}</bdi> נקודות</p>`:API?`<p class="who">לא מחוברים, אז הנקודות לא ייכנסו לטבלת הכיתה. <a href="index.html">להתחברות</a></p>`:'';
 function start(){const r=R();hud.hidden=pad.hidden=true;menu.hidden=false;
- menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" onerror="this.src='assets/sp/crab_wave.webp'"><h1>ריצת החוף</h1>
+ menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" data-fb="assets/sp/crab_wave.webp"><h1>ריצת החוף</h1>
   <p class="goal">רצים, עונים, ומתאמנים עוד ועוד. כל השאלות מהדפים שקיבלתם מהמורה.</p>
   <div class="how"><span><b>◀ ▶</b>מחליפים מסלול</span><span><b>▲</b>קופצים מעל מכשול</span><span><b>🪧</b>רצים מתחת לתשובה הנכונה</span></div><p class="pl">קצב ריצה</p>${paceRow()}<p class="who">יודעים כבר את התשובה? לחצו ⏩ והשער יגיע מהר.</p>
   <p>טעיתם? רואים את התשובה הנכונה, והשאלה חוזרת עוד מעט באותה ריצה.</p>${r.best?`<p class="who">השיא שלכם: <bdi>${r.best}</bdi> תשובות נכונות</p>`:''}${who()}</div>
@@ -323,7 +334,7 @@ function end(done){if(!G||G.ended)return;G.ended=true;G.gate=null;banner.hidden=
  setTimeout(()=>{hud.hidden=pad.hidden=true;menu.hidden=false;
   const mini=w=>{const i=PIC.indexOf(w);return i<0?'':`<span class="mpic" style="background-position:${(i%6)*20}% ${(Math.floor(i/6)*100/3).toFixed(3)}%"></span>`};
   const miss=G.missed.map(m=>`<li>${m.pic?mini(m.pic):''}${m.sent?`<bdi dir="ltr">${esc(m.sent)}</bdi>`:m.pic?'':esc(m.q)} ← <b>${esc(m.a)}</b></li>`).join('');
-  menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" onerror="this.src='assets/sp/crab_star.webp'"><h2>${done?'הגעתם לסוף המסלול!':'נגמרו הלבבות'}</h2>
+  menu.innerHTML=`<div class="card"><img class="crabhead hero" src="${HERO_PIC}" alt="" data-fb="assets/sp/crab_star.webp"><h2>${done?'הגעתם לסוף המסלול!':'נגמרו הלבבות'}</h2>
    <div class="score"><span><b>${G.firstRight}</b>נכון בפעם הראשונה</span><span><b>${G.shells}</b>צדפים</span><span><b dir="ltr">+${G.pts}</b>נקודות</span></div>
    ${G.missed.length?`<p>את אלה כדאי לחזור עליהם. הם יופיעו שוב בריצה הבאה:</p><ul class="miss">${miss}</ul>`:`<p class="goal">אף טעות! ככה מגיעים מוכנים למבחן.</p>`}
    ${R().dpts>=DAY_CAP?'<p class="who">היום כבר אספתם את כל הנקודות של ריצת החוף. אפשר להמשיך לרוץ ולהתאמן.</p>':''}${who()}</div>
@@ -333,7 +344,7 @@ menu.addEventListener('click',e=>{const pb=e.target.closest('[data-pace]');if(pb
 
 /* test hooks */
 window.__run={G:()=>G,act,begin,lanes:()=>G&&G.gate?G.gate.lanes:null,answer:()=>G&&G.gate?G.gate.it.a:null,
- goLane:i=>{if(G)G.lane=i},noHit:v=>{window.__runNoHit=v}};
+ goLane:i=>{if(G)G.lane=i},noHit:v=>{window.__runNoHit=v},runner:()=>({hero:!!hero&&hero.root.visible,crab:crab.root.visible,clip:hero&&hero.act?hero.act.getClip().name:''})};
 /* fonts first, so the signs are drawn in the game's own hand */
 Promise.race([Promise.all([document.fonts.load('800 40px "Playpen Sans Hebrew"','אבג'),document.fonts.load('800 40px "Playpen Sans Hebrew"','Abc')]),new Promise(r=>setTimeout(r,2500))])
  .finally(()=>{start();requestAnimationFrame(frame)});

@@ -8,17 +8,45 @@ jobs:
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0, pinned by commit
         with:
           fetch-depth: 0
+          persist-credentials: false
+      # gitleaks v8.30.1, pinned by digest so the scanner cannot change under us. To update: pick a released version,
+      # take its digest from the registry, and change both the tag and the digest here.
       - name: Scan for secrets (gitleaks)
         run: |
-          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect --source /repo --redact --verbose
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f detect --source /repo --redact --verbose
   personal-data:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: No pupil data or server keys in the repo
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0, pinned by commit
+        with:
+          persist-credentials: false
+      # Looks for key material, not for the name of Supabase's server role (the migrations must name that role in
+      # their grants): a JWT that is not the anon key, a Supabase secret key, a value assigned to a server-key, pepper
+      # or database-URL variable, a private key, a database URL with a password. The script tests itself on every run.
+      - name: No server keys in the repo
+        run: python3 tests/secret_guard.py
+      # The address of the owner's asset storage (its host, the account folder) stays out of the repo; the build scripts get
+      # it at run time. -a: binary files are searched too. -l: only the file names are printed, not the address.
+      - name: No storage address in the repo
         run: |
-          set -e
-          ! grep -rInE "service_role|SUPABASE_SERVICE|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY" --exclude-dir=.git --exclude-dir=vendor --exclude-dir=.github . || (echo "possible server key in repo" && exit 1)
+          rc=0; grep -rlaiE "user_[A-Za-z0-9]{16,}|[a-z0-9-]+[.]cloudfront[.]net" --exclude-dir=.git . || rc=$?
+          if [ "$rc" -eq 0 ]; then echo "the storage address is written in the files above"; exit 1; fi
+          if [ "$rc" -ne 1 ]; then echo "the search itself failed (grep exit $rc)"; exit 1; fi
+  own-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0, pinned by commit
+        with:
+          persist-credentials: false
+      # Needs only python3, no browser. Fails on any URL of another host in js/, css/, the pages and the tools (only the
+      # class backend URL in config.js is allowed), on a model, picture or font that differs from its sha256, and when
+      # assets/CREDITS.md is out of date or does not name every file under assets/ and vendor/.
+      - name: Everything the game loads is ours and is credited
+        run: python3 tests/remote_guard.py
+      # A made-up storage on the runner itself: a redirect, an error, wrong bytes or an oversized file must be refused
+      # without keeping anything and without printing any part of the storage's address.
+      - name: The download code refuses a misbehaving storage and leaks no address
+        run: python3 tests/storage_check.py

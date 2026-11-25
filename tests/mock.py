@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: quick=--quick   # picked up by tests/all.py
 """Play-through of the mock exam (מבחן דמו): exam with one try per question, the check-in report, practice for the
 weak skill, the locked and then unlocked retake, and a clean second paper.
 
@@ -140,12 +141,7 @@ async def run(b, w, h, errs, laptop=False):
 
 
 async def main():
-    procs = []
-    if not port_open(P.PORT):
-        procs.append(subprocess.Popen([sys.executable, '-m', 'http.server', str(P.PORT), '--bind', '127.0.0.1'], cwd=P.ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-        for _ in range(40):
-            if port_open(P.PORT): break
-            time.sleep(.1)
+    procs = P.start_servers()
     errs = []
     try:
         async with async_playwright() as pw:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: quick=--quick   # picked up by tests/all.py
 """End-to-end play-through for Fraction Bay (מפרץ השברים), the math world (headless Chrome via Playwright).
 
     python3 tests/math.py              # every level of every math island, at 390x844 and 360x740, plus a laptop pass
@@ -206,12 +207,7 @@ async def run(b, w, h, full, errs, laptop=False):
 
 
 async def main():
-    procs = []
-    if not port_open(P.PORT):
-        procs.append(subprocess.Popen([sys.executable, '-m', 'http.server', str(P.PORT), '--bind', '127.0.0.1'], cwd=P.ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-        for _ in range(40):
-            if port_open(P.PORT): break
-            time.sleep(.1)
+    procs = P.start_servers()
     errs = []
     try:
         async with async_playwright() as pw:

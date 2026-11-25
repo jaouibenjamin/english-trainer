@@ -4,7 +4,7 @@ Practice games for one 5th-grade class (ה׳1). English (Fantastic 5, Unit 1 "Al
 Built by a parent for his daughter's class, free, no profit. It may later grow to other classes in the grade.
 Live: https://jaouibenjamin.github.io/english-trainer/
 
-Read this file and `docs/PLAN.md` before changing anything.
+Read this file, `docs/PLAN.md` and `docs/LESSONS.md` before changing anything.
 
 ## Who works on this
 
@@ -32,8 +32,9 @@ Read this file and `docs/PLAN.md` before changing anything.
 - Backend: Google Apps Script + Google Sheet (`backend/Code.gs`), URL in `config.js`. Actions register, login, save, board, teacher, reset. Salted SHA-256 PIN, lockouts, roster tab. The whole pupil state is stored as one JSON blob per pupil (`pack()` / `merge()` in `js/state.js`). Being replaced, see `docs/PLAN.md`.
 - Pages:
   - `index.html` + `js/main.js`: the island game (English), Fraction Bay (math, `js/math.js`, `mdata.js`, `msling.js`, `mui.js`), and the mock exam (`js/mock.js`, `js/xdata.js`).
-  - `run.html` + `js/run.js`: Beach Run, a three.js runner (vendored in `vendor/`). Looks: anime (default) and `?style=lowpoly`. The runner models are Higgsfield GLBs loaded at runtime from cloudfront; the procedural crab Pitzi is the fallback.
+  - `run.html` + `js/run.js`: Beach Run, a three.js runner (vendored in `vendor/`). Looks: anime (default) and `?style=lowpoly`. The runner models are Higgsfield GLBs served from the repo (`assets/3d/`, built by `tests/assets_local.py` from `assets/sources.tsv`); the procedural crab Pitzi is the fallback.
   - `trainer.html`: the older quiz trainer.
+  - `worksheet.html` + `js/worksheet.js`: a printable worksheet of an island, light paper. Behind a device switch (`?sheet=1` once, `?sheet=0` to remove); off by default.
 - Voice: recorded clips (Higgsfield; English via seed_audio, Hebrew narration via ElevenLabs, preset voice Kaia). Never browser speech for content.
 
 ## Branches and deploy
@@ -45,12 +46,15 @@ Read this file and `docs/PLAN.md` before changing anything.
 ## Tests (run before every ship)
 
 ```
-python3 tests/play.py --quick   # English islands, class login against the mock backend (tests/mock.js)
-python3 tests/math.py --quick   # Fraction Bay
-python3 tests/mock.py --quick   # mock exam
-python3 tests/run.py            # Beach Run, phone and laptop sizes (needs WebGL: swiftshader flags inside)
-node tests/mdata_check.mjs      # math content
+python3 tests/all.py --quick    # every suite, short form; one line per suite, exit code non-zero on any failure
+python3 tests/all.py            # the full forms (play.py alone takes about 10 minutes)
+python3 tests/all.py --list     # what is run, with each suite's one-line description
 ```
+
+New suites are picked up automatically: a file in `tests/` with a `# suite:` (or `// suite:`) line near its top is a
+suite (see `tests/all.py`). Do not add test commands to this file; describe a suite in its own docstring.
+
+Every suite starts its own servers on free ports and stops if it cannot; it never uses a server that is already running (`python3 tests/ports_check.py` proves it). So two runs on one machine do not mix.
 
 Playwright with Chrome. Look at the screenshots (`--shots DIR`), don't only trust green.
 

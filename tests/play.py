@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: quick=--quick   # picked up by tests/all.py
 """End-to-end play-through for Word Islands (headless Chrome via Playwright).
 
     python3 tests/play.py            # full: every level of every island (local mode), island 1 at a second
@@ -10,8 +11,9 @@
 It starts its own static server for the repo and, for class mode, the mock Apps Script backend
 (tests/mock.js, a small Node stand-in for the Apps Script runtime that runs backend/Code.gs unchanged). Exits non-zero on any failed check or page error.
 """
-import asyncio, math, os, subprocess, sys, time, socket
+import asyncio, math, os, subprocess, sys, time, socket, urllib.parse
 from playwright.async_api import async_playwright
+from csp_wait import csp_wait
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOCK = os.environ.get('MOCK', os.path.join(ROOT, 'tests', 'mock.js'))
@@ -20,7 +22,16 @@ QUICK = '--quick' in sys.argv
 VOICE_ONLY = '--voice' in sys.argv
 LAPTOP = '--laptop' in sys.argv   # island 1 with a mouse (no touch) at two laptop window sizes
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else None
-PORT, API_PORT = 8791, 8765
+def free_port():
+    """a port nobody listens on"""
+    with socket.socket() as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
+# Every run starts its own servers on ports nobody uses and never talks to one that is already listening: a server
+# left over from another run may serve another checkout, and the suite would then test that one without saying so.
+PORT, API_PORT = free_port(), free_port()
 BASE = f'http://127.0.0.1:{PORT}/index.html'
 fails, shot_n = [], [0]
 
@@ -39,25 +50,21 @@ SPEECH_NONE = """(()=>{window.__spoken=[];
  Object.defineProperty(window,'speechSynthesis',{configurable:true,get:()=>stub});
  window.SpeechSynthesisUtterance=function(t){this.text=t}})()"""
 
-# The recorded voice (js/voice.js) plays through an <audio> element from Higgsfield's storage, which the test machine
-# cannot reach. play() is replaced by a stand-in that records the requested URL and then behaves like a clip:
-# 'ok' fires playing + ended, 'error' fires error, 'mute' never starts (the game must give up after 2.5 s).
-# Real (trusted) load errors of the unreachable host are kept away from the game so only the stand-in decides what the clip does.
-CLIPS_HOST = 'cloudfront.net'
+# The recorded voice (js/voice.js) lives next to the game (assets/voice/en/, served by the test's own static server), so in
+# 'ok' mode the real MP3 files are fetched and decoded by Chrome. The stand-in only records what is requested and can make the
+# clips fail: 'error' (fetch and <audio> both fail), 'mute' (nothing ever answers: the game must give up), 'nofetch' (fetch
+# fails, <audio> works). <audio>.play() is always a stand-in that records the URL and fires playing + ended (or error), so the
+# tests do not sit through whole sentences. Load errors of the clip <audio> element are kept away from the game.
+CLIPS_HOST = 'assets/voice/'
 def clip_stub(mode='ok'):
     return """(()=>{const clips=[],plays=[];window.__clips=clips;window.__plays=plays;window.__fetched=[];window.__clipMode='%s';
- const HOST=/cloudfront\\.net/;
- /* Web Audio path: the clip host answers with a small real WAV (8 s, 8 kHz, a quiet tone), so fetch + decodeAudioData run for real.
-    modes: ok | error (fetch and <audio> both fail) | mute (nothing ever answers) | nofetch (fetch fails, <audio> works) */
- const wav=()=>{const sr=8000,n=sr*8,b=new ArrayBuffer(44+n),v=new DataView(b),w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
-  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);
-  for(let i=0;i<n;i++)v.setUint8(44+i,128+Math.round(40*Math.sin(i*.35)));return b};
+ const HOST=/(^|\\/)assets\\/voice\\//;
  const realFetch=window.fetch;
  window.fetch=function(u,o){const url=String(u&&u.url||u);if(!HOST.test(url))return realFetch.apply(this,arguments);
   window.__fetched.push(url);const m=window.__clipMode;
   if(m==='mute')return new Promise(()=>{});
   if(m!=='ok')return Promise.reject(new TypeError('offline'));
-  return Promise.resolve(new Response(wav(),{status:200,headers:{'Content-Type':'audio/wav'}}))};
+  return realFetch.apply(this,arguments)};
  /* a scheduled clip is logged with its stretch and cut short, so the tests do not sit through whole sentences */
  const S=AudioBufferSourceNode.prototype,start=S.start;
  S.start=function(when,off,dur){const c=this.buffer&&this.buffer.clip;
@@ -68,7 +75,7 @@ def clip_stub(mode='ok'):
  const add=P.addEventListener,rem=P.removeEventListener;   // the elements are not in the document, so their listeners are wrapped directly
  P.addEventListener=function(t,f,o){if(t!=='error')return add.call(this,t,f,o);f.__w=f.__w||(e=>{if(!e.isTrusted)f.call(this,e)});return add.call(this,t,f.__w,o)};
  P.removeEventListener=function(t,f,o){return rem.call(this,t,(t==='error'&&f.__w)||f,o)};
- P.play=function(){const src=this.getAttribute('src')||'',n=this.__n=(this.__n||0)+1,real=/^https?:/.test(src),m=window.__clipMode,mode=real?(m==='nofetch'?'ok':m):'ok',
+ P.play=function(){const src=this.getAttribute('src')||'',n=this.__n=(this.__n||0)+1,real=HOST.test(src),m=window.__clipMode,mode=real?(m==='nofetch'?'ok':m):'ok',
    fire=(t,ms)=>setTimeout(()=>{if(this.__n===n)this.dispatchEvent(new Event(t))},ms);
   if(real){clips.push(src.split('#')[0]);plays.push({via:'el',url:src.split('#')[0],frag:src.split('#')[1]||'',t:performance.now()})}
   if(mode==='error')fire('error',20);else if(mode==='ok'){fire('playing',20);fire('ended',160)}
@@ -95,6 +102,41 @@ def port_open(p):
         return False
     finally:
         s.close()
+
+
+def voice_files():
+    """The voice is ours: no clip URL may point to another host again, and every file the game can ask for is on disk."""
+    import json, re
+    vj = open(os.path.join(ROOT, 'js', 'voice.js'), encoding='utf-8').read()
+    mj = open(os.path.join(ROOT, 'js', 'mock.js'), encoding='utf-8').read()
+    audio_url = re.compile(r"(https?:)?//[^'\"`\s]*\.(mp3|wav|ogg|oga|m4a|aac|webm|opus|flac)\b|cloudfront\.net", re.I)
+    check('voice: js/voice.js names no remote host (no cloudfront, no http/https at all)', 'cloudfront' not in vj and not re.search(r'https?:|//[a-z0-9.-]+\.[a-z]{2,}/', vj, re.I))
+    check('voice: js/mock.js loads no remote audio (no cloudfront, no http(s) audio URL)', not audio_url.search(mj), (audio_url.search(mj) or [''])[0])
+    base = json.loads(re.search(r'const BASE=(".*?");', vj).group(1))
+    rows = json.loads('[' + re.search(r'const ROWS=\[\n(.*?)\];\n', vj, re.S).group(1) + ']')
+    vb = re.search(r"const VB='(.*?)';", mj).group(1)
+    narr = re.findall(r"\n (\w+):\['([^']+)','", mj)
+    check('voice: clip paths are relative to the page and inside assets/voice/', base.startswith('assets/voice/en/') and vb.startswith('assets/voice/he/'), [base, vb])
+    def ok(rel):
+        f = os.path.join(ROOT, rel)
+        if not os.path.isfile(f) or os.path.getsize(f) < 1000: return False
+        b = open(f, 'rb').read(3)
+        return b == b'ID3' or (b[0] == 0xFF and b[1] & 0xE0 == 0xE0)
+    en = {base + r[1] + '.mp3' for r in rows}
+    he = {vb + k + '.mp3' for _, k in narr}
+    miss = sorted(f for f in en | he if not ok(f))
+    check(f'voice: all {len(rows)} English rows ({len(en)} files) and {len(narr)} Hebrew lines point to a real, non-empty MP3 on disk', len(rows) > 300 and len(narr) == 7 and not miss, miss[:5])
+    disk = {f'assets/voice/{d}/{f}' for d in ('en', 'he') if os.path.isdir(os.path.join(ROOT, 'assets', 'voice', d)) for f in os.listdir(os.path.join(ROOT, 'assets', 'voice', d))}
+    check('voice: no stray files in assets/voice/en and he (every file is used)', disk == en | he, sorted(disk ^ (en | he))[:5])
+    rows_ok = all(isinstance(r[2], int) and isinstance(r[3], int) and 0 <= r[2] < r[3] for r in rows)
+    check('voice: every row has a stretch inside its file (start < end, in ms)', rows_ok)
+    # the manifest pins every served file: a clip that was swapped, re-encoded or damaged is caught here
+    import hashlib
+    lines = open(os.path.join(ROOT, 'assets', 'voice', 'sources.tsv'), encoding='utf-8').read().split('\n')
+    head, man = lines[0].split('\t'), [dict(zip(lines[0].split('\t'), ln.split('\t'))) for ln in lines[1:-1]]
+    pinned = {'assets/voice/' + r['file']: r['sha256'] for r in man}
+    wrong = sorted(f for f in en | he if not re.fullmatch(r'[0-9a-f]{64}', pinned.get(f, '')) or hashlib.sha256(open(os.path.join(ROOT, f), 'rb').read()).hexdigest() != pinned[f])
+    check(f'voice: every served file is listed in assets/voice/sources.tsv with its sha256, and the {len(pinned)} files on disk match', 'sha256' in head and set(pinned) == en | he and not wrong, (sorted(set(pinned) ^ (en | he)) + wrong)[:5])
 
 
 async def shot(pg, name):
@@ -279,13 +321,29 @@ async def play_level(pg, isl, typ, **kw):
 
 async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=1 if LAPTOP else 2, has_touch=not LAPTOP, locale='he-IL')
-    pg = await c.new_page()
+    pg = csp_wait(await c.new_page())
     await pg.add_init_script(speech)
     await pg.add_init_script(clip_stub(clips))
     pg.on('pageerror', lambda e: errs.append('pageerror: ' + str(e)))
+    # anything the Content-Security-Policy blocks is an error (the browser also logs it; this names the directive)
+    await pg.add_init_script("document.addEventListener('securitypolicyviolation',e=>console.error('CSP violation: '+e.violatedDirective+' '+e.blockedURI+' '+(e.sourceFile||'')+':'+e.lineNumber))")
     pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
-    pg.on('requestfailed', lambda r: errs.append('requestfailed: ' + r.url) if 'fonts.g' not in r.url and CLIPS_HOST not in r.url else None)   # the classic trainer uses Google Fonts and the voice clips live on a CDN; offline CI cannot reach either
-    pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 and CLIPS_HOST not in r.url else None)
+    # An <audio> element aborts the download of its clip
+    # when the next clip replaces it: only that (a media request under assets/voice/, net::ERR_ABORTED) is tolerated.
+    # Likewise a picture of our own (assets/) whose screen was replaced before it finished loading: the browser stops
+    # that download (net::ERR_ABORTED). It happens on a busy machine (tests/all.py --jobs). A missing picture is still
+    # an error: it answers 404, which the response check below catches.
+    aborted_clip = lambda r: CLIPS_HOST in r.url and r.resource_type == 'media' and r.failure == 'net::ERR_ABORTED'
+    aborted_pic = lambda r: r.resource_type == 'image' and r.failure == 'net::ERR_ABORTED' and urllib.parse.urlsplit(r.url).hostname == '127.0.0.1' and urllib.parse.urlsplit(r.url).path.startswith('/assets/')
+    # The tab icon: Chrome fetches it as resource type "other" and drops it when the test navigates on at once (ERR_ABORTED).
+    aborted_icon = lambda r: r.failure == 'net::ERR_ABORTED' and urllib.parse.urlsplit(r.url).hostname == '127.0.0.1' and urllib.parse.urlsplit(r.url).path.startswith('/assets/icons/favicon-')
+    pg.on('requestfailed', lambda r: errs.append(f'requestfailed: {r.url} ({r.resource_type}, {r.failure})') if not (aborted_clip(r) or aborted_pic(r) or aborted_icon(r)) else None)
+    pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 else None)   # a missing voice file is an error
+    # Everything the pages load is ours: a request to any other host is an error. Allowed: the test's own static server,
+    # the mock backend when the page was given one, and data: / blob: URLs. (The real class backend is never contacted:
+    # see below.) This also covers tests/math.py and tests/mock.py, which open their pages here.
+    own = (f'http://127.0.0.1:{PORT}/', 'data:', 'blob:') + ((api,) if api else ())
+    pg.on('request', lambda r: errs.append('request to another host: ' + r.url) if not r.url.startswith(own) else None)
     # config.js in the repository carries the real class backend: a test page never talks to it (local mode = no backend at all)
     # (pinned from an init script, not by intercepting the file: interception switches the browser cache off for the page)
     if api:
@@ -462,12 +520,13 @@ async def voice_run(b, w, h, errs):
     await pg.wait_for_function("__clips.length>0", timeout=5000)
     ans = await pg.evaluate("__lv.answer()"); want = await pg.evaluate(CLIP_OF, ans)
     R = await pg.evaluate("({clips:[...__clips],spoken:[...__spoken],tts:__lv.g.tts})")
-    check(f'[{tag}] a word with a clip requests exactly its clip URL and the browser voice stays silent', bool(want) and want.startswith('https://') and R['clips'][-1] == want and ans not in R['spoken'] and R['tts'], {'want': want, **R})
+    check(f'[{tag}] a word with a clip requests exactly its clip URL and the browser voice stays silent', bool(want) and want.startswith('assets/voice/en/') and want.endswith('.mp3') and R['clips'][-1] == want and ans not in R['spoken'] and R['tts'], {'want': want, **R})
     await pg.wait_for_function("__lv.g.said>0", timeout=3000)
     # the new path: Web Audio, only the measured stretch of the file, scheduled a moment ahead on a running context
     P = await pg.evaluate("(async()=>{const c=(await import('/js/voice.js')).clipOf(__lv.answer()),p=__plays[__plays.length-1];return {c,p,n:__plays.length}})()")
     c0, p0 = P['c'], P['p']
-    span = (min(8, c0['e'] + .08) - max(0, c0['s'] - .03)) if c0['e'] > c0['s'] else 8
+    D = await pg.evaluate("(async u=>{const ab=await (await fetch(u)).arrayBuffer();return (await new OfflineAudioContext(1,1,24000).decodeAudioData(ab)).duration})", c0['url'])
+    span = (min(D, c0['e'] + .08) - max(0, c0['s'] - .03)) if c0['e'] > c0['s'] else D
     check(f'[{tag}] the word plays through Web Audio: its own stretch of the file (30 ms before, 80 ms after), about 80 ms ahead, on a running context',
           p0['via'] == 'buf' and p0['url'] == c0['url'] and c0['e'] > c0['s'] and abs(p0['dur'] - span) < .01 and .05 < p0['when'] < .12 and p0['state'] == 'running' and P['n'] == 1, P)
     check(f'[{tag}] the level waited for its first word and then a quarter of a second before speaking', await pg.evaluate("__plays[0].t-__lv.t") >= 240, await pg.evaluate("__plays[0].t-__lv.t"))
@@ -652,17 +711,40 @@ async def class_run(b, w, h, errs):
     await c.close(); await c2.close()
 
 
-async def main():
+def start_servers(mock=False):
+    """Start this run's own static server on this checkout (and the mock backend when asked), each on its own free
+    port. Returns the processes, for the caller to terminate. Stops the run, saying why, if a port is already taken or
+    a server does not come up: a suite must never go on against a server it did not start."""
+    # the static server adds the mock backend's origin to the pages' Content-Security-Policy when it runs (tests/static_server.py)
+    want = [('the test server', PORT, [sys.executable, os.path.join(ROOT, 'tests', 'static_server.py'), str(PORT)] + ([f'http://127.0.0.1:{API_PORT}'] if mock else []), None)]
+    if mock:
+        want.append(('the mock backend', API_PORT, ['node', MOCK], dict(os.environ, MOCK_PORT=str(API_PORT))))
     procs = []
-    if not port_open(PORT):
-        procs.append(subprocess.Popen([sys.executable, '-m', 'http.server', str(PORT), '--bind', '127.0.0.1'], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+
+    def stop(why):
+        for p in procs: p.terminate()
+        sys.exit(why)
+    for name, port, cmd, env in want:
+        if port_open(port):
+            stop(f'port {port} is already in use: {name} was not started, and the suite does not use a server it did not start')
+        try:
+            procs.append(subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        except OSError as e:
+            stop(f'{name} could not be started: {e}')
+    for (name, port, _, _), proc in zip(want, procs):
+        for _ in range(100):
+            if port_open(port) or proc.poll() is not None: break
+            time.sleep(.1)
+        if proc.poll() is not None or not port_open(port):
+            stop(f'{name} did not start on port {port}')
+    return procs
+
+
+async def main():
     have_mock = os.path.exists(MOCK)
-    if have_mock and not port_open(API_PORT):
-        procs.append(subprocess.Popen(['node', MOCK], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-    for _ in range(40):
-        if port_open(PORT) and (not have_mock or port_open(API_PORT)): break
-        time.sleep(.1)
+    procs = start_servers(mock=have_mock)
     errs = []
+    voice_files()
     try:
         async with async_playwright() as p:
             b = await p.chromium.launch(executable_path=CHROME, args=['--no-sandbox', '--autoplay-policy=no-user-gesture-required'])

@@ -1,0 +1,10 @@
+name,salt,hash,points,words,reads,streak,lastDay,fails,lockUntil,state,updated
+Testa,made-up-salt-0001,HASH:Testa,1200,10,1,3,2026-11-20,0,0,"{""pts"":1200,""st"":{""goal"":[3,1]},""g"":{""st"":{""1-sling"":2}}}",2026-11-20
+Probe,made-up-salt-0002,HASH:Probe,900,8,0,2,2026-11-20,0,0,"{""pts"":900}",2026-11-20
+Sample Two,made-up-salt-0003,HASH:Sample Two,1000,9,0,1,2026-11-19,0,0,"{""pts"":1000}",2026-11-19
+Dummy,made-up-salt-0004,HASH:Dummy,8000,40,5,30,2026-11-20,0,0,"{""pts"":8000}",2026-11-20
+Mocky,,,0,0,0,0,,0,0,{},2026-11-18
+<b>x</b>,made-up-salt-0005,HASH:x,50,0,0,0,,0,0,{},2026-11-18
+Fixty,made-up-salt-0006,HASH:Fixty,99999999,0,0,0,,0,0,not json,2026-11-18
+Nully,,,10,0,0,0,,0,0,"{""a"":""x\u0000y""}",2026-11-18
+Huge,,,1e999,0,0,0,,0,0,"{""n"":1e999}",2026-11-18

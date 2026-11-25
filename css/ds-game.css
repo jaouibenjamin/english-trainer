@@ -1,0 +1,222 @@
+/* The new look for screens of the existing game: title, login, settings (step 1); the English map and level list (step 2). Loaded only by js/dsflag.js, and every
+   rule sits under html.ds, so with the flag off nothing here applies. Colours and sizes come from css/ds.css tokens.
+   Styling only: no element is added, removed or moved by this file, and the login form keeps every field and button.
+   Rules: no blur, only transform and opacity move, nothing bare on the picture (cards, plates and keylines carry
+   their own backing), targets at least 48px. */
+
+html.ds #stage[data-scr=title],html.ds #stage[data-scr=login],html.ds #stage[data-scr=settings]{
+ --ink:#FFFFFF;--ink2:var(--wi-text-dim);--paper:var(--wi-navy-900);--bad:var(--wi-fix);--good:var(--wi-good);--butter:var(--wi-gold);--coral:var(--wi-gold);
+ background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);
+ box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage[data-scr=title] .en,html.ds #stage[data-scr=login] .en,html.ds #stage[data-scr=settings] .en,
+html.ds #stage[data-scr=title] bdi[dir=ltr],html.ds #stage[data-scr=settings] bdi[dir=ltr]{font-family:var(--wi-font-en)}
+/* the night sea with the moon, behind all three (the painted glow is in the picture) */
+html.ds #stage[data-scr=title] #bg .bgl,html.ds #stage[data-scr=login] #bg .bgl,html.ds #stage[data-scr=settings] #bg .bgl{
+ background-image:url(../assets/al/bg/world.hf_20261124_204628_1e3550f7-2092-4fef-bb11-e3fd187d71bf.webp)!important;background-size:cover;background-position:center top;background-color:var(--wi-navy-900)}
+html.ds #stage[data-scr=settings] #bg .bgl{opacity:.35}
+html.ds #stage[data-scr=settings] #bg .bgl:not(.on){opacity:0}
+/* wide screens: plain dark around the board instead of the soft copy of the old picture */
+html.ds:has(#stage[data-scr=title]),html.ds:has(#stage[data-scr=login]),html.ds:has(#stage[data-scr=settings]){background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=title]) body,html.ds:has(#stage[data-scr=login]) body,html.ds:has(#stage[data-scr=settings]) body{background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=title]) #backdrop,html.ds:has(#stage[data-scr=login]) #backdrop,html.ds:has(#stage[data-scr=settings]) #backdrop{display:none}
+html.ds #stage[data-scr=title] :focus-visible,html.ds #stage[data-scr=login] :focus-visible,html.ds #stage[data-scr=settings] :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+
+/* ---- the name of the game ---- */
+html.ds .title .logo h1,html.ds .login .logo h1{color:var(--wi-gold);-webkit-text-stroke:8px var(--wi-scrim);transform:none;letter-spacing:0;font-family:var(--wi-font-ui)}
+html.ds .login .logo.sm h1{-webkit-text-stroke-width:6px}
+html.ds .title .logo p{display:inline-block;margin-top:var(--wi-s2);padding:var(--wi-s1) var(--wi-s3);background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);color:var(--wi-text);font-size:var(--wi-fs-sm)}
+
+/* ---- buttons: the painted pills become solid buttons ---- */
+html.ds .title .btn,html.ds .login .btn,html.ds .settings .btn{border:0;border-image:none;border-radius:var(--wi-r-lg);padding:0 var(--wi-s5);min-height:var(--wi-tap);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:var(--wi-e2);font-family:var(--wi-font-ui);animation:none}
+html.ds .title .btn:active,html.ds .login .btn:active,html.ds .settings .btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--wi-scrim);background:var(--wi-gold-press)}
+html.ds .title .btn span,html.ds .login .btn span,html.ds .settings .btn span{padding-bottom:0}
+html.ds .login .btn:disabled{opacity:1;background:var(--wi-navy-700);color:var(--wi-text-dim);box-shadow:inset 0 0 0 2px var(--wi-locked)}
+
+/* ---- title: three subjects to choose from, as three tiles of the same weight ---- */
+html.ds .title .label.pick{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s4);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-md);font-weight:700}
+html.ds .title .tgo{gap:var(--wi-s3);inline-size:100%}
+html.ds .title .tgo .btn.sb{inline-size:min(100%,340px);block-size:auto;min-block-size:76px;font-size:var(--wi-fs-md);padding:var(--wi-s2) var(--wi-s4);justify-content:flex-start;text-align:start;background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-inline-start:8px solid var(--wi-aqua);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds .title .tgo .btn.sb:active{background:var(--wi-navy-700);box-shadow:0 0 0 2px var(--wi-scrim),0 1px 0 var(--wi-scrim)}
+html.ds .title .tgo .btn.sb span{flex-direction:column;align-items:flex-start;gap:2px;white-space:normal}
+html.ds .title .tgo .btn.sb b{font-size:var(--wi-fs-lg);line-height:1.2}
+html.ds .title .tgo .btn.sb small{font-size:var(--wi-fs-xs);font-weight:600;color:var(--wi-text-dim);line-height:1.25}
+html.ds .title .tgo .btn.blue{border-inline-start-color:var(--wi-gold)}
+/* the mock exam stays light: a paper tile inside the dark screen */
+html.ds .title .tgo .btn.coral{background:var(--wi-paper);color:var(--wi-ink);border-color:var(--wi-paper-line);border-inline-start-color:var(--wi-ink)}
+html.ds .title .tgo .btn.coral small{color:var(--wi-ink-2)}
+html.ds .title .tgo .btn.coral:active{background:var(--wi-paper-2)}
+html.ds .title .who{background:var(--wi-navy-900);border:1px solid var(--wi-line);color:var(--wi-text);padding:var(--wi-s1) var(--wi-s3);border-radius:var(--wi-r-pill)}
+
+/* ---- Pitzi in the new look. The <img> keeps its place and size rules; its own picture is squeezed to nothing and
+        the new one is drawn as its background (no change to markup or script) ---- */
+html.ds .title .tcrab,html.ds .login .lcrab,html.ds .settings .guide img{box-sizing:border-box;block-size:0;padding-block-start:var(--pz);inline-size:var(--pz);background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat;overflow:hidden}
+html.ds .title .tcrab{--pz:118px;margin:-108px 0 0 -59px}
+html.ds .login .lcrab{--pz:78px;top:-60px;inset-inline-start:8px}
+html.ds .settings .guide img{--pz:84px;background-image:url(../assets/al/pitzi/listen.hf_20261124_210014_1f234b5a-9ec8-4fcc-b2e2-772bb152ee73.webp)}
+
+/* ---- login: one dark card on the sea. Fields, labels, order and sizes are the form's own ---- */
+html.ds .login .lcard{background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:var(--wi-r-xl);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);padding:var(--wi-s5) var(--wi-s4) var(--wi-s4);gap:2px}
+html.ds .login .lcard h3{font-size:var(--wi-fs-lg);color:var(--wi-text)}
+html.ds .login .lcard label{color:var(--wi-text);font-size:var(--wi-fs-sm);font-weight:600;margin-block-start:var(--wi-s2)}
+html.ds .login .seg{border:2px solid var(--wi-line);border-radius:var(--wi-r-md);background:var(--wi-navy-900)}
+html.ds .login .seg button{min-block-size:var(--wi-tap);color:var(--wi-text-dim);font-family:var(--wi-font-ui)}
+html.ds .login .seg button+button{border-inline-start:2px solid var(--wi-line)}
+html.ds .login .seg button[aria-selected=true]{background:var(--wi-aqua);color:var(--wi-navy-900)}
+html.ds .login .in{min-block-size:var(--wi-tap);background:var(--wi-navy-900);color:var(--wi-text);caret-color:var(--wi-aqua);border:2px solid var(--wi-line);border-radius:var(--wi-r-md);font-family:var(--wi-font-ui)}
+html.ds .login .in.en{font-family:var(--wi-font-en)}
+html.ds .login .in:focus{outline:3px solid var(--wi-focus);outline-offset:2px;border-color:var(--wi-aqua)}
+html.ds .login .lnote{color:var(--wi-text-dim)}
+html.ds .login .err{color:var(--wi-fix)}
+html.ds .login .fgl{display:inline-flex;align-items:center;min-block-size:var(--wi-tap);padding:0 var(--wi-s1);color:var(--wi-aqua)}
+html.ds .login .swl{min-block-size:var(--wi-tap);background:var(--wi-azure);color:var(--wi-text);border:0;border-radius:var(--wi-r-md);box-shadow:inset 0 0 0 2px var(--wi-aqua)}
+html.ds .login .swl .ico{stroke:currentColor}
+html.ds .login .lcard .btn{margin-block-start:var(--wi-s2);block-size:56px}
+html.ds .login .btn.tlink{block-size:var(--wi-tap);opacity:1;background:var(--wi-navy-900);color:var(--wi-aqua);box-shadow:0 0 0 1px var(--wi-line)}
+html.ds .login .btn.tlink:active{background:var(--wi-navy-700);transform:none}
+
+/* ---- settings ---- */
+html.ds .settings .rb{background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:50%}
+html.ds .settings .rb .ico{stroke:var(--wi-text)}
+html.ds .settings .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds .settings .ribbon span{padding:0}
+html.ds .settings .panel.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-xl);background:var(--wi-navy-800);padding:var(--wi-s2) var(--wi-s4);box-shadow:var(--wi-e1)}
+html.ds .settings .setrow{color:var(--wi-text);font-family:var(--wi-font-ui)}
+html.ds .settings .setrow+.setrow{border-block-start:1px solid var(--wi-navy-700)}
+html.ds .settings .setrow .sl small,html.ds .settings .prog small,html.ds .settings .acct small,html.ds .settings .credit{color:var(--wi-text-dim)}
+html.ds .settings .setrow .go{stroke:var(--wi-aqua);opacity:1}
+html.ds .settings .sw{border:2px solid var(--wi-line);border-radius:var(--wi-r-pill);background:var(--wi-navy-900)}
+html.ds .settings .sw b{color:var(--wi-text-dim)}
+html.ds .settings .sw em{background:var(--wi-text-dim);border:0;border-radius:50%;top:3px}
+html.ds .settings .sw.on{background:var(--wi-aqua);border-color:var(--wi-aqua)}
+html.ds .settings .sw.on b{color:var(--wi-navy-900)}
+html.ds .settings .sw.on em{background:var(--wi-navy-900)}
+html.ds .settings .sw.on em .ico{stroke:var(--wi-aqua)}
+html.ds .settings .credit{border-block-start:1px solid var(--wi-navy-700)}
+html.ds .settings .acct .sbad{color:var(--wi-fix)}
+html.ds .settings .acct .btn{background:var(--wi-azure);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e2)}
+html.ds .settings .guide p.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-lg);background:var(--wi-navy-900);color:var(--wi-text);padding:var(--wi-s2) var(--wi-s3)}
+
+@media (prefers-reduced-motion:reduce){html.ds .title .btn,html.ds .login .btn,html.ds .settings .btn{transition:none}}
+
+/* ======== Rollout step 2: the English island map (#map) and an island's level list (#island/N) ========
+   Same rules as above: styling only, every rule under html.ds and the map or island screen. The six painted islands,
+   the boat, the whale, the compass and the level icons keep their pictures (no new art); Pitzi, the stars, the lock
+   and the gear get the new ones. A swapped picture keeps its <img> and its size: the old picture is moved out of the
+   box (object-position) and the new one is drawn as the background. */
+html.ds #stage[data-scr=map],html.ds #stage[data-scr=island]{
+ --ink:#FFFFFF;--ink2:var(--wi-text-dim);--paper:var(--wi-navy-900);--butter:var(--wi-gold);
+ background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage[data-scr=map] .en,html.ds #stage[data-scr=island] .en{font-family:var(--wi-font-en)}
+html.ds #stage[data-scr=map] :focus-visible,html.ds #stage[data-scr=island] :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+/* the map: the sea from above, no painted islands in it. The level list: the English island backdrop, dimmed */
+html.ds #stage[data-scr=map] #bg .bgl{background-image:url(../assets/al/bg/sea.hf_20261124_210013_f6e9010a-f742-47cc-a849-a034fbb86389.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900)}
+html.ds #stage[data-scr=island] #bg .bgl{background-image:url(../assets/al/bg/english.hf_20261124_204750_bfb9c336-44b5-4c94-bda9-e8cea4054138.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900);opacity:.3}
+html.ds #stage[data-scr=island] #bg .bgl:not(.on){opacity:0}
+html.ds:has(#stage[data-scr=map]),html.ds:has(#stage[data-scr=island]),html.ds:has(#stage[data-scr=map]) body,html.ds:has(#stage[data-scr=island]) body{background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=map]) #backdrop,html.ds:has(#stage[data-scr=island]) #backdrop{display:none}
+
+/* new pictures in the old <img> boxes */
+html.ds .map img.st,html.ds .island img.st,html.ds .map .isl .lk,html.ds .map .here .bc,html.ds .map .fin .fc,html.ds .island .guide img,html.ds .map .mb .rb.t1 .rbi{object-position:-9999px 0;background:center/contain no-repeat}
+html.ds .map img.st[src$="/star.webp"],html.ds .island img.st[src$="/star.webp"]{background-image:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp)}
+html.ds .map img.st[src$="/star_off.webp"],html.ds .island img.st[src$="/star_off.webp"]{background-image:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp);opacity:.5;filter:grayscale(1)}
+html.ds .map .isl .lk{background-image:url(../assets/al/ui/lock.hf_20261124_204751_addbed5a-f8d3-44ba-a8a6-199048276867.webp);transform:translate(-50%,-50%)}
+html.ds .map .here .bc,html.ds .island .guide img{background-image:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp)}
+html.ds .map .fin .fc{background-image:url(../assets/al/pitzi/star.hf_20261124_204534_0bba02d5-095c-4463-82a0-a38d364fea44.webp)}
+html.ds .map .mb .rb.t1 .rbi{background-image:url(../assets/al/ui/gear.hf_20261124_204754_5c2c044b-27ad-4163-bd88-d7a7167def82.webp)}
+
+/* ---- the top row: round glass buttons with a plate under each name, the star count as a chip ---- */
+html.ds .map .rb,html.ds .island .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds .map .rb .ico,html.ds .island .rb .ico{stroke:var(--wi-text)}
+html.ds .map .mb small{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);margin-top:2px;padding:0 var(--wi-s2)}
+html.ds .map .sign.total{background:none;aspect-ratio:auto;padding:0;top:var(--wi-s1)}
+html.ds .map .sign.total b{background:var(--wi-navy-900);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s4);min-block-size:40px;box-shadow:var(--wi-e1)}
+html.ds .map .subjpill{top:calc(84px + var(--st));min-block-size:var(--wi-tap);padding:0 var(--wi-s4);background:var(--wi-navy-900);color:var(--wi-aqua);border:2px solid var(--wi-line);border-radius:var(--wi-r-pill);box-shadow:var(--wi-e1)}
+html.ds .map .subjpill .ico{stroke:var(--wi-aqua)}
+
+/* ---- the route and the islands: the dashed route glows aqua, each name is a dark plate, the next island has a gold ring ---- */
+html.ds .map .route path{stroke:var(--wi-aqua);opacity:.7;stroke-width:3}
+html.ds .map .isl .tag{background:var(--wi-navy-900);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-md);box-shadow:var(--wi-e1)}
+html.ds .map .isl .tag small{color:var(--wi-text-dim)}
+html.ds .map .isl .tag .bn{color:var(--wi-text-dim)}
+html.ds .map .isl.locked .tag{background:var(--wi-navy-800);border:2px dashed var(--wi-locked-line);color:var(--wi-locked)}
+html.ds .map .isl.locked .tag small{color:var(--wi-locked)}
+html.ds .map .isl.locked .pic{filter:grayscale(1) brightness(.55)}
+html.ds .map .isl.cur .tag,html.ds .map .isl.todo .tag{background:var(--wi-navy-800);border-color:var(--wi-gold);box-shadow:0 0 0 3px var(--wi-scrim),0 0 14px 2px rgba(255,210,63,.45)}
+html.ds .map .isl.cur .pic{filter:drop-shadow(0 0 10px rgba(46,230,197,.55))}
+html.ds .map .isl.full .tag{border-color:var(--wi-good)}
+html.ds .map .isl .tag .hb{inline-size:max-content;background:var(--wi-gold);color:var(--wi-navy-900);border:2px solid var(--wi-scrim);border-radius:var(--wi-r-pill)}
+html.ds .map .compass,html.ds .map .deco{opacity:.75}
+/* the banner when every island has been played */
+html.ds .map .fin{border:2px solid var(--wi-gold);border-image:none;border-radius:var(--wi-r-xl);background:var(--wi-navy-800);color:var(--wi-text);padding:var(--wi-s2) var(--wi-s3);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds .map .fin small,html.ds .map .fin .fs i{color:var(--wi-text-dim)}
+
+/* ---- an island's level list: four dark rows, each with its own colour edge ---- */
+html.ds .island .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds .island .ribbon span{padding:0}
+html.ds .island .isub{background:var(--wi-navy-900);color:var(--wi-text-dim);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s3);margin:0}
+html.ds .island .isub .en{color:var(--wi-text)}
+html.ds .island .chip{background:var(--wi-navy-900);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-pill);box-shadow:var(--wi-e1)}
+html.ds .island .ihero .pic{filter:drop-shadow(0 0 12px rgba(46,230,197,.35))}
+html.ds .island .lvrow{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-inline-start:8px solid var(--wi-aqua);border-radius:var(--wi-r-lg);padding:var(--wi-s2) var(--wi-s4);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds .island .lvrow.p1{border-inline-start-color:var(--wi-gold)}
+html.ds .island .lvrow.p2{border-inline-start-color:var(--wi-magenta)}
+html.ds .island .lvrow.p3{border-inline-start-color:var(--wi-good)}
+html.ds .island .lvrow:active{background:var(--wi-navy-700);transform:translateY(2px);box-shadow:0 0 0 2px var(--wi-scrim),0 1px 0 var(--wi-scrim)}
+html.ds .island .lvrow small{color:var(--wi-text-dim)}
+html.ds .island .lvrow .lic{background:var(--wi-navy-900);border-radius:var(--wi-r-md)}
+html.ds .island .guide p.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-lg);background:var(--wi-navy-900);color:var(--wi-text);padding:var(--wi-s2) var(--wi-s3)}
+
+@media (prefers-reduced-motion:reduce){html.ds .map .isl .pw,html.ds .island .lvrow{transition:none}}
+/* short phones: game.css drops the settings rows to 44px; the new look keeps them at 48 (there is room) */
+@media (max-height:700px){html.ds .settings .setrow{min-height:var(--wi-tap)}}
+/* short phones: the crab's tip on the level list would cover the last row (as #24 did on settings, it goes) */
+@media (max-height:700px){html.ds .island .guide{display:none}}
+
+/* ---- shared by every screen in the new look: the toast (a locked island, a hint, a sign-out note) is a dark card ---- */
+html.ds #stage:is([data-scr=title],[data-scr=login],[data-scr=settings],[data-scr=map],[data-scr=island]) .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);font-family:var(--wi-font-ui)}
+/* ---- the level list with the other switches on: worksheet link (?sheet=1) and the extra games (?games=1) ---- */
+html.ds .island .chips .wsl{min-block-size:var(--wi-tap);color:var(--wi-aqua);border-color:var(--wi-line)}
+html.ds .island .xtr small{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s3);font-size:var(--wi-fs-xs)}
+html.ds .island .xtb{min-block-size:var(--wi-tap);padding:0 var(--wi-s4);background:var(--wi-navy-900);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-pill);box-shadow:var(--wi-e1);font-family:var(--wi-font-ui)}
+html.ds .island .xtb:active{background:var(--wi-navy-700)}
+
+/* ======== Painted art for the new look (batch h): the six English islands, a locked version of each, the sea with quiet
+   details, and painted frames (panel, gold button, HUD pill) used as border-image so all text stays live ======== */
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_1.webp"]{background-image:url(../assets/al/map/isl-1.hf_20261125_075120_f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_1.webp"]{background-image:url(../assets/al/map/isl-1-locked.hf_20261125_075120_f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_2.webp"]{background-image:url(../assets/al/map/isl-2.hf_20261125_075122_015dc5a7-8cf0-4957-9a08-a0b036734301.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_2.webp"]{background-image:url(../assets/al/map/isl-2-locked.hf_20261125_075122_015dc5a7-8cf0-4957-9a08-a0b036734301.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_3.webp"]{background-image:url(../assets/al/map/isl-3.hf_20261125_075120_b74f0f8d-8612-409a-9938-2d53629d4086.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_3.webp"]{background-image:url(../assets/al/map/isl-3-locked.hf_20261125_075120_b74f0f8d-8612-409a-9938-2d53629d4086.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_4.webp"]{background-image:url(../assets/al/map/isl-4.hf_20261125_075118_2c5654f8-c012-4de6-ab90-f80dd20c6f40.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_4.webp"]{background-image:url(../assets/al/map/isl-4-locked.hf_20261125_075118_2c5654f8-c012-4de6-ab90-f80dd20c6f40.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_5.webp"]{background-image:url(../assets/al/map/isl-5.hf_20261125_075121_4417a597-d43d-4c75-afbc-86525a35ac92.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_5.webp"]{background-image:url(../assets/al/map/isl-5-locked.hf_20261125_075121_4417a597-d43d-4c75-afbc-86525a35ac92.webp)}
+html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_6.webp"]{background-image:url(../assets/al/map/isl-6.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp)}
+html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_6.webp"]{background-image:url(../assets/al/map/isl-6-locked.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp)}
+/* the island pictures: the old <img> keeps its place; its picture moves out of the box and the new one is drawn in it.
+   The new islands are taller (trees), so the box gets a little more height, anchored at the bottom */
+html.ds #stage:is([data-scr=map],[data-scr=island]) img.pic[src*="/isl_"]{object-position:-9999px 0;background-position:center bottom;background-size:contain;background-repeat:no-repeat;aspect-ratio:7/6;height:auto}
+html.ds .map .isl.locked .pic{filter:none}
+html.ds .map .isl.cur .pic{filter:none}
+/* the map sea: the same sea with a whale, two lantern boats, a lighthouse and jellyfish painted near the edges */
+html.ds #stage[data-scr=map] #bg .bgl{background-image:url(../assets/al/bg/sea-details.hf_20261125_075052_17486f52-96ee-4372-9033-9dd45cfa5736.webp)!important}
+html.ds .map .deco{display:none}
+/* the route: round glowing dots (a bright stroke on the dark sea, no blur) */
+html.ds .map .route path{stroke:#8FF7E6;stroke-width:4;stroke-dasharray:.1 11;stroke-linecap:round;opacity:.85}
+
+/* painted frames as border-image; the fill keeps the dark middle under the text */
+html.ds .login .lcard,html.ds .settings .panel.label,html.ds .map .fin{border:22px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 22px / 4px round;background:none;box-shadow:none}
+html.ds .login .lcard{padding:var(--wi-s2) var(--wi-s2) var(--wi-s1)}
+html.ds .settings .panel.label{padding:0 var(--wi-s1)}
+html.ds .map .fin{padding:0}
+html.ds .login .lcard .btn:not(:disabled),html.ds .settings .acct .btn.gold{border:24px solid transparent;border-image:url(../assets/al/ui/button.hf_20261125_075122_cc6e3e5f-f91a-4a1a-84fa-df545ab8aa3f.webp) 46 60 fill / 24px 30px stretch;background:none;box-shadow:none;padding:0 6px;color:var(--wi-navy-900)}
+html.ds .login .lcard .btn:not(:disabled):active{filter:brightness(.92)}
+html.ds .map .sign.total b,html.ds .island .chips .chip:not(.wsl){border:18px solid transparent;border-image:url(../assets/al/ui/pill.hf_20261125_075119_050c516b-9715-499a-b981-3306dd6a4694.webp) 46 60 fill / 18px 24px stretch;background:none;box-shadow:none;padding:0 4px}
+html.ds .map .fin{border-width:14px;border-image-width:14px;min-height:0;bottom:calc(4px + var(--sb))}
+@media (max-height:700px){html.ds #stage:is([data-scr=map],[data-scr=island]) img.pic[src*="/isl_"]{aspect-ratio:4/3}}
+html.ds .settings .panel.label{border-width:14px;border-image-width:14px}
+/* signed in with a row added (word help, the card) on a phone under 700 px: the painted frames are thinner and the rows
+   go down to 44 px like the game's look, so the sign-out button stays on the screen with room to spare
+   (tests/settings_fit.py) */
+@media (max-height:700px){html.ds .settings.more.signed .panel.label{border-width:9px;border-image-width:9px}html.ds .settings.more.signed .setrow{min-height:44px}html.ds .settings.more.signed,html.ds .settings.more.signed .fill{gap:8px}}

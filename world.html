@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<!-- Content-Security-Policy: the same on every page (tests/csp_check.py holds them to it). Scripts only from this site (the
+     one inline script allowed is run.html's import map, by its hash); requests only to this site and the class's Apps Script
+     (script.google.com answers through script.googleusercontent.com). SUPABASE: when BACKEND mode 'dual' is switched on, its
+     project host (https://<project>.supabase.co) is added to connect-src on every page; until then it stays out. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-6p13ug9Y/2TWPZMF0aIT0xv2TqxNkp62hhuZFDN2uAM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com data: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; manifest-src 'self'">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0B1E3F">
+<link rel="icon" href="data:,">
+<title>איי המילים: העולם החדש (תצוגה)</title>
+<link rel="stylesheet" href="css/ds.css">
+<link rel="stylesheet" href="css/world.css">
+</head>
+<!-- Static preview of the three new-world screens. Not linked from the game. Shows only with ?ds=1 (or the wi_ds flag).
+     No saving, no backend, no speech. The data each screen needs is written down in docs/DESIGN.md. -->
+<body class="wi-root">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+ <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></symbol>
+ <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2L4 14h6l-1.5 8L20 9.5h-6.5z"/></symbol>
+ <symbol id="i-lock" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M7 10V8a5 5 0 0110 0v2h1a1 1 0 011 1v9a1 1 0 01-1 1H6a1 1 0 01-1-1v-9a1 1 0 011-1zm2 0h6V8a3 3 0 00-6 0z"/></symbol>
+ <symbol id="i-check" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></symbol>
+ <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 11h12.2l-5.6-5.6L12 4l8 8-8 8-1.4-1.4 5.6-5.6H4z"/></symbol>
+ <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" stroke-width="3.6" stroke-dasharray="3.4 2.9"/></symbol>
+ <symbol id="i-q" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1 15v-2h2v2zm2.1-4.2c-.7.6-1.1.9-1.1 1.7h-2c0-1.6.9-2.2 1.6-2.8.6-.5.9-.8.9-1.4a1.4 1.4 0 00-2.8 0H8a3.5 3.5 0 017 0c0 1.2-.8 1.9-1.9 2.5z"/></symbol>
+ <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8.5 8.5 0 010 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+ <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+ <symbol id="i-dice" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M6 3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3zm2.5 4a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM12 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM8.5 14a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></symbol>
+</svg>
+
+<!-- shown when the flag is off, and when scripts do not run -->
+<main class="w-gate" id="gate">
+ <div class="wi-card wi-stack">
+  <h1 class="wi-h1">המסך הזה עוד בבנייה</h1>
+  <p class="wi-body">בינתיים משחקים במשחק הרגיל.</p>
+  <a class="wi-btn wi-btn--block" href="index.html">חזרה למשחק</a>
+ </div>
+</main>
+
+<div class="w-app" id="app" hidden>
+
+ <!-- ============ 1. character picker, two steps ============ -->
+ <section class="w-screen w-picker" id="s-picker" aria-labelledby="pk-h" hidden>
+  <div class="w-step" id="pk-a">
+   <header class="wi-stack w-tight">
+    <h1 class="wi-h1" id="pk-h" tabindex="-1">בוחרים דמות</h1>
+    <p class="wi-small">אפשר להחליף אותה מתי שרוצים.</p>
+   </header>
+   <div class="wi-grid-av w-grid" id="avgrid" role="group" aria-label="הדמויות"></div>
+   <p class="wi-small w-note" id="pk-note" role="status"><svg class="wi-icon"><use href="#i-lock"/></svg><span id="pk-note-t">דמויות נוספות נפתחות כשעולים ברמת האנרגיה.</span></p>
+   <div class="w-foot">
+    <button class="wi-btn wi-btn--block" id="pk-next" type="button" aria-disabled="true" aria-describedby="pk-why">הלאה: בוחרים שם</button>
+    <p class="wi-small w-why" id="pk-why">קודם בוחרים דמות.</p>
+   </div>
+  </div>
+
+  <div class="w-step" id="pk-b" hidden>
+   <header class="wi-stack w-tight">
+    <h1 class="wi-h1" id="nm-h" tabindex="-1">איך קוראים לדמות?</h1>
+    <p class="wi-small">בוחרים מילה אחת מכל רשימה. השם באנגלית.</p>
+   </header>
+   <div class="w-who">
+    <span class="w-who__pic"><img id="nm-pic" alt="" width="256" height="256"></span>
+    <p class="w-who__name" aria-live="polite"><bdi dir="ltr" id="nm-name"></bdi></p>
+   </div>
+   <div class="wi-stack w-tight">
+    <div class="w-spin" role="group" aria-labelledby="sp1-l">
+     <span class="wi-small w-spin__l" id="sp1-l">מילה ראשונה</span>
+     <button class="wi-chip wi-chip--btn" type="button" id="sp1-prev" aria-label="המילה הקודמת"><svg class="wi-icon"><use href="#i-arrow"/></svg></button>
+     <span class="w-spin__w"><bdi dir="ltr" id="sp1-en"></bdi><small id="sp1-he"></small></span>
+     <button class="wi-chip wi-chip--btn" type="button" id="sp1-next" aria-label="המילה הבאה"><svg class="wi-icon wi-icon--mirror"><use href="#i-arrow"/></svg></button>
+    </div>
+    <div class="w-spin" role="group" aria-labelledby="sp2-l">
+     <span class="wi-small w-spin__l" id="sp2-l">מילה שנייה</span>
+     <button class="wi-chip wi-chip--btn" type="button" id="sp2-prev" aria-label="המילה הקודמת"><svg class="wi-icon"><use href="#i-arrow"/></svg></button>
+     <span class="w-spin__w"><bdi dir="ltr" id="sp2-en"></bdi><small id="sp2-he"></small></span>
+     <button class="wi-chip wi-chip--btn" type="button" id="sp2-next" aria-label="המילה הבאה"><svg class="wi-icon wi-icon--mirror"><use href="#i-arrow"/></svg></button>
+    </div>
+    <button class="wi-btn wi-btn--secondary wi-btn--block" type="button" id="nm-dice"><svg class="wi-icon"><use href="#i-dice"/></svg>הפתעה</button>
+   </div>
+   <div class="w-foot">
+    <button class="wi-btn wi-btn--block" id="nm-ok" type="button">זה השם שלי</button>
+    <button class="wi-btn wi-btn--quiet wi-btn--block" id="nm-back" type="button">חזרה לדמויות</button>
+   </div>
+  </div>
+ </section>
+
+ <!-- ============ 2. world map ============ -->
+ <section class="w-screen w-map" id="s-map" aria-labelledby="mp-h" hidden>
+  <h1 class="wi-sr" id="mp-h" tabindex="-1">מפת האיים</h1>
+  <div class="wi-hud w-hud">
+   <button class="wi-chip wi-chip--btn w-me" type="button" id="mp-me" aria-label="הדמות שלי, להחלפה"><img class="w-me__pic" id="mp-pic" alt="" width="256" height="256"></button>
+   <span class="wi-hud__grow"></span>
+   <span class="wi-chip wi-chip--energy"><svg class="wi-icon wi-chip__ico"><use href="#i-bolt"/></svg><span class="wi-sr">רמת אנרגיה</span><span id="mp-lv"></span></span>
+   <span class="wi-chip wi-chip--star"><svg class="wi-icon wi-chip__ico"><use href="#i-star"/></svg><span class="wi-sr">כוכבים</span><span id="mp-st"></span></span>
+   <button class="wi-chip wi-chip--btn js-mute" type="button" aria-pressed="false" aria-label="מוזיקה"><svg class="wi-icon"><use href="#i-sound"/></svg></button>
+   <button class="wi-chip wi-chip--btn js-gear" type="button" aria-label="הגדרות"><svg class="wi-icon"><use href="#i-gear"/></svg></button>
+  </div>
+  <p class="wi-plate w-hello">שלום, <bdi dir="ltr" class="wi-en" id="mp-name"></bdi>! לאן מפליגים היום?</p>
+  <div class="w-sea" id="sea" role="group" aria-label="האיים"></div>
+  <p class="wi-plate wi-small w-hint" id="mp-hint" role="status" hidden></p>
+  <div class="wi-banner w-focus" id="mp-focus">
+   <img class="w-focus__ico" id="mp-focus-ico" alt="" width="128" height="128">
+   <div class="wi-banner__txt"><p class="wi-banner__title">המיקוד להיום</p><p class="wi-banner__body" id="mp-focus-t"></p></div>
+   <button class="wi-btn wi-btn--block" type="button" id="mp-go">מתחילים</button>
+  </div>
+ </section>
+
+ <!-- ============ 3. island mission path ============ -->
+ <section class="w-screen w-isl" id="s-island" aria-labelledby="is-h" hidden>
+  <div class="w-top">
+   <div class="wi-row wi-plate">
+    <button class="wi-chip wi-chip--btn" type="button" id="is-back" aria-label="חזרה למפה"><svg class="wi-icon"><use href="#i-arrow"/></svg></button>
+    <div class="w-top__t"><h1 class="wi-h2" id="is-h" tabindex="-1"></h1><p class="wi-small" id="is-sub"></p></div>
+    <button class="wi-chip wi-chip--btn js-mute" type="button" aria-pressed="false" aria-label="מוזיקה"><svg class="wi-icon"><use href="#i-sound"/></svg></button>
+   </div>
+   <div class="wi-bar w-en" id="is-bar" role="progressbar" aria-valuemin="0">
+    <img class="w-en__ico" id="is-bolt" alt="" width="128" height="128">
+    <span class="w-en__lv" id="is-lv"></span>
+    <span class="wi-bar__track"><span class="wi-bar__fill" id="is-fill"></span></span>
+    <button class="wi-bar__help js-energy" type="button" aria-label="מה זו אנרגיה?"><svg class="wi-icon" style="inline-size:28px;block-size:28px"><use href="#i-q"/></svg></button>
+   </div>
+   <p class="wi-plate wi-small w-next" id="is-next"></p>
+  </div>
+  <div class="w-stagewrap">
+   <div class="w-stage" id="stage">
+    <ol class="w-path" id="path"></ol>
+   </div>
+  </div>
+  <div class="w-foot w-foot--isl">
+   <p class="wi-plate wi-small w-hint" id="is-hint" role="status" hidden></p>
+   <button class="wi-btn wi-btn--block" type="button" id="is-play"></button>
+  </div>
+ </section>
+
+ <!-- dialogs -->
+ <div class="wi-scrim" id="dlg-energy" hidden>
+  <div class="wi-dialog" role="dialog" aria-modal="true" aria-labelledby="de-t">
+   <div class="wi-row"><svg class="wi-icon" style="color:var(--wi-aqua);inline-size:32px;block-size:32px"><use href="#i-bolt"/></svg><h2 class="wi-h2" id="de-t" tabindex="-1">מה זו אנרגיה?</h2></div>
+   <p class="wi-body">מרוויחים אנרגיה כשלומדים, והיא אף פעם לא נגמרת.</p>
+   <p class="wi-small">מתקנים טעות, חוזרים למילה קשה או משחקים עוד קצת. כשעולים רמה נפתחים דברים חדשים. מה שכבר נפתח נשאר פתוח תמיד.</p>
+   <div class="wi-dialog__actions"><button class="wi-btn wi-btn--block js-close" type="button">הבנתי</button></div>
+  </div>
+ </div>
+ <div class="wi-scrim" id="dlg-set" hidden>
+  <div class="wi-dialog" role="dialog" aria-modal="true" aria-labelledby="ds-t">
+   <h2 class="wi-h2" id="ds-t" tabindex="-1">הגדרות</h2>
+   <button class="wi-tag wi-tag--btn w-set" type="button" id="set-calm" aria-pressed="false">מצב רגוע: בלי תנועה ובלי מוזיקה</button>
+   <p class="wi-small">אפשר להפעיל ולכבות מתי שרוצים.</p>
+   <div class="wi-dialog__actions"><button class="wi-btn wi-btn--block js-close" type="button">סגירה</button></div>
+  </div>
+ </div>
+
+</div>
+<script type="module" src="js/world.js"></script>
+</body>
+</html>

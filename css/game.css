@@ -295,7 +295,8 @@ label{font-size:14px;font-weight:600;margin-top:5px}
 .teacher>.credit{border:0;margin:0;padding:0 6px;max-width:372px}
 .kids{display:flex;flex-direction:column;gap:8px;width:100%;max-width:372px;flex:none}
 .kid p{margin:0;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.kid .kn b{font-size:17.500px;font-weight:700}
+.kid .kn b{font-size:17.500px;font-weight:700;min-width:0;overflow-wrap:anywhere}
+.kid .kn bdi{white-space:normal}   /* a pupil's name may wrap (bdi is nowrap elsewhere, line 21) */
 .kid .kw{font-size:14px;font-weight:600;margin-top:3px}
 .kid .ks{font-size:12.500px;font-weight:500;color:var(--ink2);margin-top:5px;flex-wrap:wrap}
 .pbar{height:10px;border:2px solid var(--ink);border-radius:9px 7px 8px 6px;background:#fffaf0;overflow:hidden;direction:ltr;margin-top:2px}
@@ -512,3 +513,73 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .treset{margin-inline-start:auto;font:inherit;font-size:12.500px;font-weight:700;color:#8a4a2e;background:#fff3d6;border:1.5px solid rgba(138,74,46,.45);border-radius:10px;padding:3px 9px;min-height:30px}
 .treset[data-arm]{background:#fde3d6;border-color:#b9503c;color:#7a2f22}
 .treset:disabled{opacity:.6}
+
+/* the progress card (js/card.js; only on a device that was given the switch) */
+.rcard{align-items:center;gap:10px}
+.rc{width:100%;max-width:372px;background:#fffaf0;border:2px solid rgba(90,69,52,.5);border-radius:18px;padding:12px 16px;display:flex;flex-direction:column;gap:8px;flex:none}
+.rch{margin:0;display:flex;align-items:center;gap:10px}.rch .rcc{width:58px;flex:none}
+.rch span{display:flex;flex-direction:column;line-height:1.2;min-width:0}.rch b{font-size:26px;font-weight:800;overflow-wrap:anywhere}.rch small{font-size:14px;color:var(--ink2)}
+.rct{margin:0;display:flex;align-items:center;gap:8px;border-top:2px dashed rgba(90,69,52,.22);padding-top:8px}.rct .rs{width:34px}.rct b{font-size:28px;font-weight:800}.rct small{font-size:15px;color:var(--ink2)}
+.rcl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.rcl li{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700}.rcl li bdi{min-width:58px;text-align:left;flex:none}.rcl li span{flex:1;min-width:0}
+.rcb{width:84px;height:10px;border-radius:5px;background:#eadfc8;overflow:hidden;flex:none;display:block}.rcb em{display:block;height:100%;background:#f2b632;border-radius:5px}
+.rcf{margin:0;display:flex;gap:10px;border-top:2px dashed rgba(90,69,52,.22);padding-top:8px}
+.rcf span{flex:1;display:flex;flex-direction:column;align-items:center;line-height:1.2}.rcf b{font-size:22px;font-weight:800}.rcf small{font-size:13px;color:var(--ink2)}
+.rcbtns{display:flex;gap:10px;justify-content:center;flex:none}
+.rcard .credit{margin:0;border:0;padding:0;text-align:center;font-size:13px;color:var(--ink2);max-width:340px}
+/* the settings screen has one or two more rows on a device given word help or the card (.more): its rows are a little
+   lower, and on shorter screens the crab's note makes room. Signed in (.signed) there is no note at all, so on a short
+   phone the air kept under the panels for it goes to the panels instead (tests/settings_fit.py draws every mix) */
+.settings.more .setrow{min-height:50px}
+@media (max-height:800px){.settings.more .guide{display:none}}
+@media (max-height:700px){.settings.more .credit{margin-top:2px;padding-top:3px}.settings.more .panel{gap:0}.settings.more,.settings.more .fill{gap:3px}.settings.more .setrow{min-height:44px}.settings.more .setrow .sl small{display:none}}
+.rck{margin:0;font-size:15px;font-weight:700;color:var(--ink2);text-align:center}
+/* settings on short phones: the crab's note needs about 810 px of height to sit clear of the progress panel, and with
+   the account panel the screen needs a little less air to keep the sign-out button on it */
+@media (max-height:810px) and (max-width:699px){.settings .guide{display:none}}
+@media (max-height:700px){.settings,.settings .fill{gap:6px}.settings .setrow{min-height:44px}}
+
+/* link to the printable worksheet on an island (only on a device that was given the switch) */
+.chips .wsl{text-decoration:none;color:inherit;min-height:44px;display:inline-flex;align-items:center;cursor:pointer}
+.chips .wsl:focus-visible{outline:3px solid #2d6f8e;outline-offset:2px}
+
+/* the mock exam rows on a pupil's card of the teacher screen (only with the switch, and only when the backend sends them) */
+.kid .km{border-top:2px dashed rgba(90,69,52,.22);padding-top:5px;justify-content:flex-start;gap:4px 14px}
+.kid .km.sk{border-top:0;padding-top:0;margin-top:2px}
+
+/* ---------- word help (js/help.js): only drawn on a device that was given the switch ---------- */
+.hw{font:inherit;color:inherit;letter-spacing:inherit;background:none;border:0;margin:0;padding:0 1px;cursor:pointer;border-bottom:2px dotted rgba(90,69,52,.55);border-radius:3px;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* The place to tap is larger than the letters: at least 32 px wide for "I" and "a", 44 px high in a sentence and as
+   high as its line in a passage. The sentence keeps its own line height, so the dotted line and the gap stay right
+   under their words; only the place to tap grows. The lines of a passage are set a little further apart instead,
+   so a tap there never opens a word of the line above or below. */
+.hw::after{content:"";position:absolute;top:50%;left:50%;width:max(100%,32px);height:calc(100% + 8px);transform:translate(-50%,-50%)}
+@supports (height:1lh){.hw::after{height:max(100% + 8px,min(44px,1lh))}}
+[data-hk] .xsent .hw::after,[data-hk] .xraw .hw::after{height:max(100% + 8px,44px)}
+[data-hk] .xdesc p,[data-hk] .xtext p{line-height:30px}
+.slot .hw::after{height:44px}
+/* a word that is not offered here (the answer of the question) looks the same and is not a button */
+.hw.hx{cursor:default}.hw.hx::after{content:none}
+.hw.on{background:#ffe9a8;border-bottom-color:var(--ink)}
+.hw:focus-visible,.hsb:focus-visible,.hslow:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.hsb{font:inherit;font-size:15px;font-weight:700;color:var(--ink);background:rgba(255,250,240,.92);border:2px solid rgba(90,69,52,.5);border-radius:14px;min-height:44px;padding:6px 16px;margin:6px auto 0;display:block;cursor:pointer;touch-action:manipulation}
+.hsb.on{background:#ffe9a8;border-color:var(--ink)}
+.hbub{position:absolute;z-index:9;width:max-content;max-width:min(300px,calc(100% - 16px));background:#fffdf4;color:var(--ink);border:2.5px solid var(--ink);border-radius:14px 16px 13px 15px;padding:7px 14px 8px;font-size:19px;font-weight:700;line-height:1.3;text-align:center;box-shadow:0 3px 0 rgba(90,69,52,.35);pointer-events:none}
+.hbub[hidden]{display:none}
+/* a small pointer towards the word: hpd = the bubble is below the word, hpu = above it */
+.hbub.hpd::before,.hbub.hpu::before{content:"";position:absolute;left:var(--px,50%);width:12px;height:12px;margin-left:-6px;background:#fffdf4;border:solid var(--ink);transform:rotate(45deg)}
+.hbub.hpd::before{top:-8px;border-width:2.5px 0 0 2.5px}.hbub.hpu::before{bottom:-8px;border-width:0 2.5px 2.5px 0}
+.hslow.sm1{min-width:56px;padding:0}.read .row:has(.hslow) .btn{min-width:0}
+.hbub .eq{opacity:.6;font-weight:600}
+.hslow{min-width:44px;min-height:44px}
+.hslow i{font-style:normal}
+/* hangs under the sign like a tag, so the sign keeps its size; the bubbles start below it (place() in js/listen.js) */
+.listen .prompt .hslow{pointer-events:auto;position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);margin:0;height:44px;font-size:17px}
+.listen .prompt .hslow[hidden]{display:none}
+/* with the card row and the account panel a 640 px screen is 2 px short (#24 took the rest): the progress icons are smaller there */
+/* signed in with a row added, on a short screen: the account panel leaves out its words line (the progress panel just
+   above shows the same number), the rows and gaps are a little lower, and under 700 px the title ribbon too */
+@media (max-height:800px){.settings.more.signed .acct .aw{display:none}.settings.more.signed,.settings.more.signed .fill{gap:6px}}
+@media (min-height:701px) and (max-height:800px){.settings.more.signed .setrow{min-height:46px}}
+@media (max-height:700px){.settings.more.signed .prog .pi,.settings.more.signed .prog p>.st{display:none}.settings.more.signed .ribbon{height:52px;font-size:21px}.settings.more.signed .credit{font-size:12px;line-height:1.2}.settings.more.signed,.settings.more.signed .fill{gap:3px}}
+@media (max-height:700px){.settings.more .prog .pi,.settings.more .prog p>.st{width:22px;height:22px}}
