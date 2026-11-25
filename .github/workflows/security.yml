@@ -28,6 +28,13 @@ jobs:
       # or database-URL variable, a private key, a database URL with a password. The script tests itself on every run.
       - name: No server keys in the repo
         run: python3 tests/secret_guard.py
+      # The address of the owner's asset storage (its host, the account folder) stays out of the repo; the build scripts get
+      # it at run time. -a: binary files are searched too. -l: only the file names are printed, not the address.
+      - name: No storage address in the repo
+        run: |
+          rc=0; grep -rlaiE "user_[A-Za-z0-9]{16,}|[a-z0-9-]+[.]cloudfront[.]net" --exclude-dir=.git . || rc=$?
+          if [ "$rc" -eq 0 ]; then echo "the storage address is written in the files above"; exit 1; fi
+          if [ "$rc" -ne 1 ]; then echo "the search itself failed (grep exit $rc)"; exit 1; fi
   own-assets:
     runs-on: ubuntu-latest
     steps:
@@ -39,3 +46,7 @@ jobs:
       # assets/CREDITS.md is out of date or does not name every file under assets/ and vendor/.
       - name: Everything the game loads is ours and is credited
         run: python3 tests/remote_guard.py
+      # A made-up storage on the runner itself: a redirect, an error, wrong bytes or an oversized file must be refused
+      # without keeping anything and without printing any part of the storage's address.
+      - name: The download code refuses a misbehaving storage and leaks no address
+        run: python3 tests/storage_check.py

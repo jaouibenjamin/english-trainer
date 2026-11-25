@@ -3,9 +3,9 @@
    only transform/opacity animate, calm setting (html.calm) and prefers-reduced-motion stop all motion.
    Every class is prefixed wi- so it can sit next to game.css without clashes. */
 
-/* ---- fonts: self-hosted only, same files the game already ships ---- */
+/* ---- fonts: self-hosted only, files already in assets/font. Hebrew: Fredoka. English: Rubik (variable weight) ---- */
 @font-face{font-family:'WI Hebrew';font-style:normal;font-weight:300 800;font-display:swap;src:url(../assets/font/fredoka-hebrew.woff2) format('woff2');unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
-@font-face{font-family:'WI Latin';font-style:normal;font-weight:300 800;font-display:swap;src:url(../assets/font/playpen-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'WI Latin';font-style:normal;font-weight:300 800;font-display:swap;src:url(../assets/font/rubik-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 
 :root{
  /* ---- colour: surfaces (dark shell) ---- */
@@ -13,7 +13,8 @@
  --wi-navy-800:#11295A;   /* card / panel */
  --wi-navy-700:#18376B;   /* raised, tiles, disabled button */
  --wi-line:#5C8AC6;       /* borders and control outlines: 3.3 to 4.6 on all navy surfaces (3:1 non-text) */
- --wi-scrim:#050E22;      /* behind dialogs, solid edge shadows */
+ --wi-scrim:#050E22;      /* behind dialogs, solid edge shadows, keyline around anything that sits on art */
+ --wi-sea-hi:#14407A;     /* reference only: the lightest sea the placeholders show. Real art may be brighter, so nothing relies on it */
  /* ---- colour: text on dark ---- */
  --wi-text:#FFFFFF;       /* on navy 900/800/700 */
  --wi-text-dim:#A9BCD9;   /* secondary text, on navy 900/800/700 */
@@ -28,22 +29,23 @@
  --wi-magenta-press:#A22660;
  --wi-good:#5BE08F;       /* "right" on dark */
  --wi-fix:#FF8A7A;        /* "let's fix it" on dark: warm, never an alarm red */
- --wi-locked:#7F93B5;     /* lock icon and locked label on navy-800 */
- --wi-locked-line:#5F76A0;
+ --wi-locked:#7F93B5;     /* lock icon, locked label, locked and disabled rings. On navy-900/800; on navy-700 as a shape only */
+ --wi-locked-line:#5F76A0; /* quiet outline, only inside a navy-800/900 panel (empty star, locked avatar). Never on art, never on navy-700 */
+ --wi-gold-deep:#5A4300;  /* fill of a done stone, gold on top */
  /* ---- colour: light "paper" (mock exam, printable) ---- */
  --wi-paper:#FFF4DE;
  --wi-paper-2:#F3E3C0;
  --wi-paper-line:#D9C393;
  --wi-ink:#1B2A41;        /* text on paper */
  --wi-ink-2:#4A5568;      /* secondary text on paper */
- --wi-good-ink:#1E7A46;
+ --wi-good-ink:#1A6B3D;
  --wi-fix-ink:#A8402B;
  /* ---- focus ---- */
  --wi-focus:#FFFFFF;       /* on dark */
  --wi-focus-paper:#134B8A; /* on paper */
  /* ---- type ---- */
  --wi-font-ui:'WI Hebrew','Rubik','Heebo','Arial Hebrew','Noto Sans Hebrew',system-ui,sans-serif;
- --wi-font-en:'WI Latin','Segoe UI',system-ui,sans-serif;  /* English runs. See docs/DESIGN.md: swap candidate */
+ --wi-font-en:'WI Latin','Rubik','Segoe UI',system-ui,sans-serif;  /* English runs: Rubik */
  --wi-fs-xs:14px;--wi-fs-sm:16px;--wi-fs-md:18px;--wi-fs-lg:22px;--wi-fs-xl:28px;--wi-fs-2xl:36px;
  --wi-lh:1.45;--wi-lh-tight:1.2;
  /* ---- space, radius ---- */
@@ -89,7 +91,7 @@
 .wi-btn--quiet:active,.wi-btn--quiet.is-pressed{background:var(--wi-navy-700);transform:none;box-shadow:none}
 .wi-btn--special{background:var(--wi-magenta);color:var(--wi-text)}
 .wi-btn--special:active,.wi-btn--special.is-pressed{background:var(--wi-magenta-press)}
-.wi-btn[disabled],.wi-btn[aria-disabled=true]{background:var(--wi-navy-700);color:var(--wi-text-dim);box-shadow:inset 0 0 0 2px var(--wi-locked-line);cursor:not-allowed;transform:none}
+.wi-btn[disabled],.wi-btn[aria-disabled=true]{background:var(--wi-navy-700);color:var(--wi-text-dim);box-shadow:inset 0 0 0 2px var(--wi-locked);cursor:not-allowed;transform:none}
 .wi-btn--quiet[disabled]{background:transparent;box-shadow:none}
 .wi-btn--paper{background:var(--wi-ink);color:var(--wi-paper);box-shadow:none}
 .wi-btn--paper:active{background:#000;transform:none}
@@ -115,6 +117,9 @@
 .wi-bar__fill{display:block;block-size:100%;inline-size:calc(var(--p,50) * 1%);background:var(--wi-aqua);border-radius:var(--wi-r-pill);transition:inline-size var(--wi-dur-slow) var(--wi-ease)}
 .wi-bar--gold .wi-bar__fill{background:var(--wi-gold)}
 .wi-bar--gold .wi-bar__ico{color:var(--wi-gold)}
+/* the "what is energy?" button at the end of the bar: a full 48px target */
+.wi-bar__help{display:grid;place-items:center;flex:none;inline-size:var(--wi-tap);block-size:var(--wi-tap);margin-inline-end:calc(-1 * var(--wi-s3));padding:0;border:0;border-radius:50%;background:transparent;color:var(--wi-text);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.wi-bar__help:active{background:var(--wi-navy-700)}
 .wi-bar__txt{font-size:var(--wi-fs-sm);font-weight:700;color:var(--wi-text);min-inline-size:3ch;text-align:end}
 
 /* ---- stars (display) ---- */
@@ -122,14 +127,17 @@
 .wi-star{inline-size:20px;block-size:20px;fill:var(--wi-gold)}
 .wi-star--off{fill:none;stroke:var(--wi-locked-line);stroke-width:1.5}
 
-/* ---- mission stone: a button, 72px disc, label under it ---- */
+/* ---- mission stone: a button, 72px disc, label under it.
+   Stones sit on art, so nothing here leans on the colour behind it: the disc is solid, its ring has a solid dark
+   keyline outside it, and the label and stars sit on a solid plate. ---- */
 .wi-stone{display:flex;flex-direction:column;align-items:center;gap:var(--wi-s2);background:none;border:0;padding:0;color:var(--wi-text);font-family:var(--wi-font-ui);cursor:pointer;min-inline-size:88px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.wi-stone__disc{display:grid;place-items:center;inline-size:72px;block-size:72px;border-radius:50%;background:var(--wi-navy-800);border:3px solid var(--wi-locked-line);color:var(--wi-locked);box-shadow:var(--wi-e2);transition:transform var(--wi-dur-fast) var(--wi-ease)}
+.wi-stone__disc{display:grid;place-items:center;inline-size:72px;block-size:72px;border-radius:50%;background:var(--wi-navy-800);border:3px solid var(--wi-locked);color:var(--wi-locked);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);transition:transform var(--wi-dur-fast) var(--wi-ease)}
 .wi-stone:active .wi-stone__disc{transform:translateY(3px) scale(.97)}
 .wi-stone__num{font:700 var(--wi-fs-lg)/1 var(--wi-font-ui)}
-.wi-stone__label{font-size:var(--wi-fs-sm);font-weight:600;line-height:1.2;text-align:center;max-inline-size:120px}
-.wi-stone--done .wi-stone__disc{background:#5A4300;border-color:var(--wi-gold);color:var(--wi-gold)}
-.wi-stone--current .wi-stone__disc{background:var(--wi-navy-700);border-color:var(--wi-aqua);color:var(--wi-aqua);box-shadow:var(--wi-ring-aqua),var(--wi-e2)}
+.wi-stone__label{font-size:var(--wi-fs-sm);font-weight:600;line-height:1.2;text-align:center;max-inline-size:120px;padding:var(--wi-s1) var(--wi-s3);border-radius:var(--wi-r-md);background:var(--wi-navy-900)}
+.wi-stone .wi-stars{padding:3px var(--wi-s2);border-radius:var(--wi-r-pill);background:var(--wi-navy-900)}
+.wi-stone--done .wi-stone__disc{background:var(--wi-gold-deep);border-color:var(--wi-gold);color:var(--wi-gold)}
+.wi-stone--current .wi-stone__disc{background:var(--wi-navy-700);border-color:var(--wi-aqua);color:var(--wi-aqua);box-shadow:0 0 0 2px var(--wi-scrim),0 0 0 6px rgba(46,230,197,.35),var(--wi-e2)}
 .wi-stone--current .wi-stone__label{color:var(--wi-aqua)}
 .wi-stone--locked .wi-stone__label{color:var(--wi-locked)}
 .wi-stone--locked{cursor:help}
@@ -173,6 +181,9 @@
 .wi-scrim--static{position:relative;inset:auto;min-block-size:320px;border-radius:var(--wi-r-xl);place-items:center}   /* preview page only */
 .wi-dialog{inline-size:100%;max-inline-size:420px;background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:var(--wi-r-xl);padding:var(--wi-s5);display:flex;flex-direction:column;gap:var(--wi-s4);box-shadow:var(--wi-e3)}
 .wi-dialog__actions{display:flex;flex-direction:column;gap:var(--wi-s2)}
+
+/* ---- plate: a solid backing for any text or icon row that sits straight on art ---- */
+.wi-plate{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-lg);padding:var(--wi-s2) var(--wi-s3)}
 
 /* ---- layout helpers ---- */
 .wi-stack{display:flex;flex-direction:column;gap:var(--wi-s4)}
