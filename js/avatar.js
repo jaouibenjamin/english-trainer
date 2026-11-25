@@ -41,7 +41,8 @@ function mine(id){const r=id.key&&Object.prototype.hasOwnProperty.call(readAll()
  return{av:AVATARS.some(a=>a.id===m.av)?m.av:null,
   nm:Array.isArray(m.nm)&&Number.isInteger(m.nm[0])&&Number.isInteger(m.nm[1])&&NAME_A[m.nm[0]]&&NAME_B[m.nm[1]]?[m.nm[0],m.nm[1]]:null,
   en:typeof m.en==='number'&&Number.isFinite(m.en)&&m.en>0?Math.min(EN_MAX,Math.floor(m.en)):0}}
-function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll();all.p[id.key]=rec;localStorage.setItem(KEY,JSON.stringify(all));return true}catch(e){return false}}
+const KEY_OK=/^(local|h:[0-9a-f]{64})$/;   // the only keys a record may have; anything else is dropped on the next write
+function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=rec;localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
 
 /* ---------- energy: only goes up ---------- */
 export const earned=()=>WORTH.star*totalStars()+WORTH.word*wordsKnown()+WORTH.story*Object.values(S.read||{}).filter(v=>v>0).length;
@@ -81,15 +82,16 @@ export async function decorateMap(view,go,live=()=>true){
  style();
  const me=mine(id),E=energyOf(id),F=focus();
  const dock=el('div','wd');
- const meB=btn('wd__me',null,()=>go('avatar'));
+ /* without a digest (a browser with no crypto.subtle) a character could not be kept: say so instead of offering one */
+ const meB=id.key?btn('wd__me',null,()=>go('avatar')):el('span','wd__me wd__me--off');
  if(me.av)meB.appendChild(pic(me.av,'wd__pic'));else meB.appendChild(el('span','wd__pic wd__pic--none','?'));
  const txt=el('span','wd__txt');
  if(me.av&&me.nm){const hi=el('span','wd__hi');for(const w of nameText(me.nm).split(' '))hi.appendChild(ltr(w));txt.appendChild(hi)}   // one word per line
- else txt.appendChild(el('span','wd__hi',me.av?'שלום!':'בוחרים דמות'));
- meB.setAttribute('aria-label',me.av?'הדמות שלי'+(me.nm?': '+nameText(me.nm):''):'בוחרים דמות');
+ else txt.appendChild(el('span','wd__hi',!id.key?'במכשיר הזה אי אפשר לשמור דמות':me.av?'שלום!':'בוחרים דמות'));
+ if(id.key)meB.setAttribute('aria-label',me.av?'הדמות שלי'+(me.nm?': '+nameText(me.nm):''):'בוחרים דמות');
  meB.appendChild(txt);
  const en=btn('wd__en',null,()=>{note.hidden=!note.hidden;en.setAttribute('aria-expanded',note.hidden?'false':'true')});
- en.append(el('b',null,'⚡'),el('span',null,'רמה '+E.level));
+ en.append(el('b',null,'⚡'),el('span','wd__lvw','רמה'),el('span',null,String(E.level)));   // the word goes on narrow phones (css/avatar.css); the label keeps it
  en.setAttribute('aria-label','רמת אנרגיה '+E.level+'. מה זו אנרגיה?');en.setAttribute('aria-expanded','false');
  const note=el('p','wd__note','מרוויחים אנרגיה כשלומדים, והיא אף פעם לא נגמרת. עוד '+(E.next-E.points)+' אנרגיה לרמה '+(E.level+1)+': '+E.opens+'.');
  note.hidden=true;note.setAttribute('role','status');
@@ -98,7 +100,8 @@ export async function decorateMap(view,go,live=()=>true){
   f.append(el('b',null,'המיקוד להיום'),el('span',null,F.count+' מילים לחזק'));
   f.setAttribute('aria-label','המיקוד להיום: '+F.count+' מילים מ־'+F.he+' שכדאי לחזק. כמה דקות וזהו. מתחילים');
   dock.appendChild(f)}
- sec.classList.add('hasdock');sec.append(note,dock);
+ /* .wdock on #stage lifts main.js's sync bar above the dock; main.js route() takes it off on the next screen */
+ sec.classList.add('hasdock');document.getElementById('stage').classList.add('wdock');sec.append(note,dock);
  window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key};   // for the tests
 }
 
@@ -106,6 +109,7 @@ export async function decorateMap(view,go,live=()=>true){
 export async function picker(view,go,live=()=>true){
  const id=await ident();
  if(!live()||!same(id))return;
+ if(!id.key)return go('map');   // nothing could be kept on this device: the dock says so
  style();
  const me=mine(id),E=energyOf(id);let pick=me.av,nm=me.nm?[...me.nm]:[0,0];
  const sec=el('section','scr wpick');view.replaceChildren(sec);document.getElementById('stage').dataset.scr='avatar';

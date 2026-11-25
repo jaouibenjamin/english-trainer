@@ -44,7 +44,8 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
  /* every level of every island has been played: a banner along the beach. "Finished" is said only at full stars;
     until then it says how many stars are missing, and every island that still has stars to collect is ringed */
  const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),finH=(played?84:0)+(dsOn()?WORLD_DOCK:0);   // with the design flag, room for the new world's dock (js/avatar.js)
- const iw=Math.min(W*.37,150,H*.19),cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
+ const iw=worldIw(Math.min(W*.37,150,(H-(dsOn()?WORLD_DOCK:0))*.19),H,mt,finH),   // with the design flag, sized from the height left after the dock
+  cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
  /* the crab waits on the newest island that is open and still has stars to collect */
  const curI=ISLANDS.filter(i=>isOpen(i)&&islandStars(i)<i.levels.length*3).sort((a,b)=>b.id-a.id)[0]||null;
 
@@ -70,7 +71,15 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
  </section>`;worldMap()}
 /* the new world behind the design flag (?ds=1): js/avatar.js is fetched only on such a device; without the flag this does nothing */
 const dsOn=()=>document.documentElement.classList.contains('ds');
-const WORLD_DOCK=76;   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
+const WORLD_DOCK=76;
+/* With the design flag, the island pictures are 7:6 (4:3 under 700px; css/ds-game.css) and the labels a little taller,
+   so an island and its label need more height than the game's own layout gives them. Islands in one column are two
+   rows apart: shrink them until a picture and its label fit in that space (the bonus island's label has three lines).
+   Without the flag the size is returned unchanged. */
+function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=H<=700?.75:6/7,TAG=74;
+ const room=w=>2*(H-mt-(w*.76+48)-14-finH)/5;
+ while(iw>64&&iw*pr+TAG>room(iw))iw-=2;
+ return iw}   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
 function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
 
 /* ---------- island ---------- */
@@ -279,7 +288,8 @@ document.addEventListener('contextmenu',e=>{if(!e.target.closest('input'))e.prev
 document.addEventListener('touchmove',e=>{if(e.target.closest('.lv canvas'))e.preventDefault()},{passive:false});
 
 /* ---------- router ---------- */
-function route(){navId++;document.getElementById('toast').classList.remove('on');if(level){level.destroy();level=null}clearFx();hush();
+function route(){navId++;if(stage.classList.contains('wdock'))stage.classList.remove('wdock');   // the new world's dock class (js/avatar.js), only when it is there: without the flag #stage is not touched
+ document.getElementById('toast').classList.remove('on');if(level){level.destroy();level=null}clearFx();hush();
  let h=location.hash.slice(1),[n,a,b]=h.split('/');
  if(API&&!S.u&&n!=='teacher')n='login';
  if(!API&&(n==='login'||n==='board'))n='map';
