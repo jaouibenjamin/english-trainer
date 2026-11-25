@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: needs=psql,node,gpg   # picked up by tests/all.py
 """Operations tools against the local PostgreSQL (docs/BACKEND.md sections 5, 6, 8). One command from the repo root:
 
     python3 tests/ops.py
