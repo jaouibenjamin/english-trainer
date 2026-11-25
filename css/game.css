@@ -524,13 +524,13 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 
 /* ---------- word help (js/help.js): only drawn on a device that was given the switch ---------- */
 .hw{font:inherit;color:inherit;letter-spacing:inherit;background:none;border:0;margin:0;padding:0 1px;cursor:pointer;border-bottom:2px dotted rgba(90,69,52,.55);border-radius:3px;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-/* The place to tap is larger than the letters: as high as its line, and at least 32 px wide for "I" and "a". It
-   must not reach into the line above or below, or a tap there would open the wrong word. So with help on, the lines
-   themselves are set further apart: 44 px for a sentence, 30 px for the lines of a passage (a whole passage at 44
-   would push the answers off a small screen). */
+/* The place to tap is larger than the letters: at least 32 px wide for "I" and "a", 44 px high in a sentence and as
+   high as its line in a passage. The sentence keeps its own line height, so the dotted line and the gap stay right
+   under their words; only the place to tap grows. The lines of a passage are set a little further apart instead,
+   so a tap there never opens a word of the line above or below. */
 .hw::after{content:"";position:absolute;top:50%;left:50%;width:max(100%,32px);height:calc(100% + 8px);transform:translate(-50%,-50%)}
 @supports (height:1lh){.hw::after{height:max(100% + 8px,min(44px,1lh))}}
-[data-hk] .xsent,[data-hk] .xraw{line-height:44px}
+[data-hk] .xsent .hw::after,[data-hk] .xraw .hw::after{height:max(100% + 8px,44px)}
 [data-hk] .xdesc p,[data-hk] .xtext p{line-height:30px}
 .slot .hw::after{height:44px}
 /* a word that is not offered here (the answer of the question) looks the same and is not a button */

@@ -187,14 +187,16 @@ async def on(b, w, h, errs):
                 seen['who'] += 1
                 if any(n in numbers for n in names): problems.append(('a number word can be tapped in "who is it?"', it['k'], names))
             # one stop for the Tab key in each line; a place to tap is as high as its line (44 px in a sentence, 30 px in
-            # a passage), at least 32 px wide, and never lies over another word
+            # a passage), at least 32 px wide, never lies over another word, and the dotted line and the gap stay under the letters
             T = await pg.evaluate("""(()=>{const g={},small=[];for(const b of document.querySelectorAll('div.xq button.hw')){(g[b.dataset.hg]=g[b.dataset.hg]||[]).push(b.tabIndex);
               const a=getComputedStyle(b,'::after'),r=b.getBoundingClientRect(),need=b.closest('.xsent,.xraw')?43.5:29.5;if(!r.width)continue;
               if(parseFloat(a.height)<need||parseFloat(a.width)<31.5)small.push([b.dataset.hw,a.width,a.height]);
               const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);if(top!==b&&r.top>=0&&r.bottom<=innerHeight&&!(top&&top.closest('#hbub')))small.push(['covered: '+b.dataset.hw,top&&(top.dataset.hw||top.className)])}
-              return {lines:Object.keys(g).length,bad:Object.values(g).filter(v=>v.filter(x=>x===0).length!==1).length,small:small.slice(0,3),lang:[...document.querySelectorAll('div.xq .hw')].every(b=>b.lang==='en')}})()""")
+              /* the dotted line of a word and the gap of a sentence sit right under the letters, not a line height below */
+              const loose=[...document.querySelectorAll('div.xq .xsent .hw,div.xq .xraw .hw,div.xq .xsent .gap')].filter(e=>{const r=e.getBoundingClientRect(),f=parseFloat(getComputedStyle(e).fontSize);return r.height>f*1.6}).map(e=>e.dataset.hw||'gap');
+              return {lines:Object.keys(g).length,bad:Object.values(g).filter(v=>v.filter(x=>x===0).length!==1).length,small:small.slice(0,3),loose,lang:[...document.querySelectorAll('div.xq .hw')].every(b=>b.lang==='en')}})()""")
             seen['lines'] += T['lines']
-            if T['bad'] or T['small'] or not T['lang']: problems.append(('targets', it['k'], T))
+            if T['bad'] or T['small'] or T['loose'] or not T['lang']: problems.append(('targets', it['k'], T))
             if hws:
                 await hws[0].click(); await pg.wait_for_timeout(150)
                 B = await pg.evaluate(BUB); wd = await hws[0].get_attribute('data-hw'); want = await pg.evaluate(MEANING, wd)
