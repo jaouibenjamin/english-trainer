@@ -6,7 +6,8 @@
     python3 tests/world.py --shots DIR  # also save PNGs of the map dock and the picker
 
 Flag off: nothing of it is fetched, drawn or stored, and #avatar is an unknown address as before (the title screen). Flag on: the map has the dock;
-the picker shows the 20 characters with the four rewards locked at level 1; the choice and the name (two indexes into
+the picker shows the 20 characters, 8 open at level 1 and one more per level up to 13 (a chosen one is kept);
+a newly opened character is announced once on the map; names come only from the two fixed lists (version 2); the choice and the name (two indexes into
 the fixed lists, never text) are kept in the wi_world key on the device only, never in the progress record and never
 in a request to the backend (checked against the mock backend in class mode); energy only goes up; today's focus names
 the open island with the most words to fix and takes the pupil there."""
@@ -17,6 +18,9 @@ import play as P
 from play import check, new_page, fails
 
 CLASS = 'EN-1234'      # the mock backend's own test class
+STARTERS = ['girl-curls', 'boy-cap', 'girl-braids', 'boy-curls', 'girl-glasses', 'boy-blond', 'girl-ponytail', 'boy-scarf']   # the human kids: always open
+LADDER = ['fox', 'cat', 'turtle', 'owl', 'parrot', 'robot-box', 'diver', 'penguin', 'shark', 'octopus', 'robot-bell', 'pilot']   # levels 2 to 13
+LEVELS = [0, 40, 90, 150, 220, 300, 380, 460, 540, 620, 700, 760, 820]   # js/avatar.js
 POST = "async ([api,d])=>(await fetch(api,{method:'POST',body:JSON.stringify(d)})).json()"
 WORLD_FILES = ('js/avatar.js', 'css/avatar.css', 'js/world_data.js', 'js/world_art.js', 'js/avanim.js')
 LS = "Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)]))"
@@ -62,23 +66,28 @@ async def flag_on(b, w, h, errs):
     check(f'[{tag}] the dock is on the screen and no island lies under it', box['inside'] and box['over'] == 0, box)
     await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid')
     av = await pg.evaluate("[...document.querySelectorAll('.wpick__av')].map(b=>({id:b.dataset.id,locked:b.classList.contains('is-locked')}))")
-    check(f'[{tag}] picker: the 20 characters, the four rewards locked at level 1', len(av) == 20 and sorted(a['id'] for a in av if a['locked']) == ['octopus', 'penguin', 'pilot', 'robot-bell'], av)
+    check(f'[{tag}] picker: the 20 characters, the 8 human kids open at level 1, the other 12 locked', len(av) == 20 and [a['id'] for a in av if not a['locked']] == STARTERS and [a['id'] for a in av if a['locked']] == LADDER, av)
+    lab = await pg.evaluate("[...document.querySelectorAll('.wpick__av.is-locked')].map(b=>[b.querySelector('.wpick__lock').textContent,b.getAttribute('aria-disabled'),/אפשר לפתוח ברמה/.test(b.getAttribute('aria-label')),!!b.querySelector('.wpick__key')])")
+    check(f'[{tag}] a locked tile shows a lock and "רמה N", says the whole sentence to a screen reader, and is not selectable', lab == [[f'רמה {n}', 'true', True, True] for n in range(2, 14)], lab)
+    seen = await pg.evaluate(BADGES)
+    check(f'[{tag}] the character on a locked tile is in view (0.7) and its badge is one line inside the tile, nothing cut off', not seen['bad'] and seen['op'] == ['0.7'], seen)
     await P.shot(pg, f'world-picker-{w}x{h}')
-    await pg.click('.wpick__av[data-id=penguin]'); await pg.wait_for_timeout(100)
-    check(f'[{tag}] a locked character explains when it opens and is not chosen', 'ברמת אנרגיה 3' in await pg.inner_text('.wpick__note') and await pg.locator('.wpick__av.is-selected').count() == 0)
+    await pg.click('.wpick__av[data-id=penguin]', force=True); await pg.wait_for_timeout(100)   # aria-disabled: a tap still reaches it, and it explains
+    t = await pg.inner_text('.wpick__note')
+    check(f'[{tag}] a tap on a locked character says kindly how to get there (one neutral form, no gender slash), and does not choose it', 'אפשר לפתוח ברמה 9' in t and 'עוד 8 רמות' in t and 'אף פעם לא מפסידים' in t and '/' not in t and await pg.locator('.wpick__av.is-selected').count() == 0, t)
     await pg.click('.wpick__ok', force=True); await pg.wait_for_timeout(100)      # aria-disabled: still pressable, it explains
     check(f'[{tag}] "next" without a character asks for one first', await pg.locator('.wpick__spin').count() == 0 and 'קודם בוחרים דמות' in await pg.inner_text('.wpick__why'))
-    await pg.click('.wpick__av[data-id=fox]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+    await pg.click('.wpick__av[data-id=girl-curls]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
     await pg.locator('.wpick__spin').nth(0).locator('.wpick__arrow').nth(1).click()
     await pg.locator('.wpick__spin').nth(1).locator('.wpick__arrow').nth(1).click(); await pg.locator('.wpick__spin').nth(1).locator('.wpick__arrow').nth(1).click()
-    check(f'[{tag}] name: the arrows step through the two lists', (await pg.inner_text('.wpick__name')).strip() == 'Sweet Piano', await pg.inner_text('.wpick__name'))
+    check(f'[{tag}] name: the arrows step through the two lists', (await pg.inner_text('.wpick__name')).strip() == 'Happy Tiger', await pg.inner_text('.wpick__name'))
     await P.shot(pg, f'world-name-{w}x{h}')
     await pg.click('.wpick__ok'); await pg.wait_for_selector('.wd__pic'); await pg.wait_for_timeout(300)
     ls = await pg.evaluate(LS)
     rec = json.loads(ls.get('wi_world', 'null') or 'null')
-    check(f'[{tag}] the choice is kept in wi_world as an id and two indexes', rec == {'v': 1, 'p': {'local': {'av': 'fox', 'nm': [1, 2], 'en': 0, 'at': 1}}}, rec)
-    check(f'[{tag}] and not in the progress record', 'fox' not in ls.get('aam-unit1-v1', '') and 'Piano' not in ls.get('aam-unit1-v1', ''))
-    check(f'[{tag}] the map shows the character and its name (one word per line)', 'Sweet Piano' in ' '.join((await pg.inner_text('.wd__hi')).split()))
+    check(f'[{tag}] the choice is kept in wi_world as an id, two indexes and the lists\' version (and the level already announced, and the island it stands on)', rec == {'v': 1, 'p': {'local': {'av': 'girl-curls', 'nm': [1, 2], 'nv': 2, 'en': 0, 'sl': 1, 'at': 1}}}, rec)
+    check(f'[{tag}] and not in the progress record', 'girl-curls' not in ls.get('aam-unit1-v1', '') and 'Tiger' not in ls.get('aam-unit1-v1', ''))
+    check(f'[{tag}] the map shows the character and its name (one word per line)', 'Happy Tiger' in ' '.join((await pg.inner_text('.wd__hi')).split()))
     clip = await pg.evaluate("[...document.querySelectorAll('.wd__hi bdi')].map(e=>e.scrollWidth>e.clientWidth+1)")
     check(f'[{tag}] neither word of the name is cut off', clip and not any(clip), clip)
     await pg.click('.wd__en'); await pg.wait_for_timeout(100)
@@ -89,14 +98,14 @@ async def flag_on(b, w, h, errs):
     c, pg, reqs = await page(b, w, h, errs, SEED)
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(400)
     W = await pg.evaluate('window.__world')
-    check(f'[{tag}] energy: 10 per star, 5 per word known, 5 per story read (11 stars, 1 word, 1 story = 120, level 2)', W['energy']['points'] == 120 and W['energy']['level'] == 2, W['energy'])
+    check(f'[{tag}] energy: 10 per star, 5 per word known, 5 per story read (11 stars, 1 word, 1 story = 120, level 3)', W['energy']['points'] == 120 and W['energy']['level'] == 3, W['energy'])
     check(f'[{tag}] focus: island 1, the three words of its list got wrong and not known yet', W['focus'] and W['focus']['island'] == 1 and W['focus']['count'] == 3, W['focus'])
     await P.shot(pg, f'world-map-{w}x{h}')
     # energy only goes up: the pupil forgets a word and loses stars on this device; the energy stays
     await pg.evaluate("(()=>{const S=__game.S();S.w.song=0;S.g.st['2-sling']=0;S.read={}})()")
     await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings'); await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     W2 = await pg.evaluate('window.__world')
-    check(f'[{tag}] energy never goes down', W2['energy']['points'] == 120 and W2['energy']['level'] == 2, W2['energy'])
+    check(f'[{tag}] energy never goes down', W2['energy']['points'] == 120 and W2['energy']['level'] == 3, W2['energy'])
     await pg.click('.wd__focus'); await pg.wait_for_selector('.w-path .w-st')      # with the flag the island is a path of stones
     check(f'[{tag}] today\'s focus takes the pupil to that island', await pg.evaluate('location.hash') == '#island/1')
     await c.close()
@@ -129,7 +138,7 @@ async def all_switches(b, w, h, errs):
     await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid'); await pg.wait_for_timeout(300)
     a = await pg.evaluate(AUDIT)
     check(f'[{tag}] picker: every text at least 4.5:1, every button at least 44 px', not a['bad'] and not a['small'], a)
-    await pg.click('.wpick__av[data-id=owl]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+    await pg.click('.wpick__av[data-id=girl-braids]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
     a = await pg.evaluate(AUDIT)
     check(f'[{tag}] name step: every text at least 4.5:1, every button at least 44 px', not a['bad'] and not a['small'], a)
     await P.shot(pg, f'world-name-all-{w}x{h}')
@@ -145,18 +154,18 @@ async def class_mode(b, errs):
     await c.close()
     c, pg, reqs = await page(b, 390, 844, errs, SEED, api=api, user={'c': CLASS, 'n': 'נועה', 'p': '1357'})
     await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid')
-    await pg.click('.wpick__av[data-id=owl]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+    await pg.click('.wpick__av[data-id=girl-braids]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
     await pg.click('.wpick__ok'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     await pg.evaluate('__game.push()'); await pg.wait_for_timeout(800)
     ls = await pg.evaluate(LS)
     rec = json.loads(ls.get('wi_world', 'null') or 'null')
     key = 'h:' + hashlib.sha256(f'wi|{CLASS}|נועה'.encode()).hexdigest()
-    check('class: the record is kept per pupil, under a SHA-256 of class and name', rec and list(rec['p']) == [key] and rec['p'][key]['av'] == 'owl', rec)
+    check('class: the record is kept per pupil, under a SHA-256 of class and name', rec and list(rec['p']) == [key] and rec['p'][key]['av'] == 'girl-braids', rec)
     raw = ls.get('wi_world', '')
     check('class: neither the class code nor the name is in the stored record', CLASS not in raw and 'נועה' not in raw and CLASS.lower() not in raw, raw[:120])
     sent = [(u, d) for u, d in reqs if u.startswith(api)]
     check('class: the game talked to the backend (a save went out)', any('"save"' in d for _, d in sent), [d[:60] for _, d in sent])
-    bad = [d[:120] for _, d in sent if any(x in d for x in ('owl', 'wi_world', '"av"', '"nm"', '"en"'))]
+    bad = [d[:120] for _, d in sent if any(x in d for x in ('girl-braids', 'wi_world', '"av"', '"nm"', '"en"'))]
     check('class: nothing of the character, its name or the energy reaches the backend', not bad, bad)
     await c.close()
     # the same pupil, the class code typed in lower case and the name with stray spaces: the same record
@@ -164,7 +173,7 @@ async def class_mode(b, errs):
     await pg.add_init_script("if(!sessionStorage.getItem('w2')){sessionStorage.setItem('w2','1');localStorage.setItem('wi_world',%s)}" % json.dumps(raw))
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     W = await pg.evaluate('window.__world')
-    check('class: the same pupil with the code in another case finds the same character', W['key'] == key and W['avatar'] == 'owl', W)
+    check('class: the same pupil with the code in another case finds the same character', W['key'] == key and W['avatar'] == 'girl-braids', W)
     await c.close()
 
 
@@ -173,13 +182,14 @@ async def damaged(b, errs):
     for name, raw in (('not JSON', '{oops'), ('records in a list', '{"v":1,"p":[1,2]}'),
                       ('wrong values', '{"v":1,"p":{"local":{"av":"<img src=x onerror=alert(1)>","nm":["a",99],"en":"999"}}}'),
                       ('huge energy', '{"v":1,"p":{"local":{"av":"fox","nm":[0,0],"en":1e300}}}'),
-                      ('prototype key', '{"v":1,"p":{"__proto__":{"av":"fox"},"constructor":1}}')):
+                      ('prototype key', '{"v":1,"p":{"__proto__":{"av":"fox"},"constructor":1}}'),
+                      ('bad version and level', '{"v":1,"p":{"local":{"nv":"2","nm":[1,1],"sl":"<b>x</b>"}}}')):
         c, pg, reqs = await page(b, 390, 844, errs, SEED)
         await pg.add_init_script("if(!sessionStorage.getItem('w')){sessionStorage.setItem('w','1');localStorage.setItem('wi_world',%s)}" % json.dumps(raw))
         await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd', timeout=5000); await pg.wait_for_timeout(200)
         W = await pg.evaluate('window.__world')
         if name == 'huge energy':
-            check(f'damaged wi_world ({name}): the map opens, energy read as the cap 100000, level worked out (403)', W['energy']['points'] == 100000 and W['energy']['level'] == 403 and W['avatar'] == 'fox', W['energy'])
+            check(f'damaged wi_world ({name}): the map opens, energy read as the cap 100000, level worked out (409)', W['energy']['points'] == 100000 and W['energy']['level'] == 409 and W['avatar'] == 'fox', W['energy'])
         else:
             check(f'damaged wi_world ({name}): the map opens with no character, energy from what was learned', W['avatar'] is None and W['name'] is None and W['energy']['points'] == 120 and not await pg.evaluate('window.__pwned||false'), W)
         await c.close()
@@ -202,13 +212,13 @@ async def no_digest(b, errs):
 async def name_with_focus(b, errs):
     """the longest name next to today's focus on a narrow phone; a stray record key is dropped on the next write;
     the sync bar's class comes and goes with the dock"""
-    rec = {'v': 1, 'p': {'local': {'av': 'fox', 'nm': [1, 6], 'en': 0}, 'c:EN-1234|נועה': {'av': 'owl'}, 'junk': 1}}
+    rec = {'v': 1, 'p': {'local': {'av': 'fox', 'nm': [10, 5], 'nv': 2, 'en': 0}, 'c:EN-1234|נועה': {'av': 'owl'}, 'junk': 1}}
     for w, h in ((360, 740), (390, 844)):
         c, pg, reqs = await page(b, w, h, errs, SEED)
         await pg.add_init_script("if(!sessionStorage.getItem('w')){sessionStorage.setItem('w','1');localStorage.setItem('wi_world',%s)}" % json.dumps(json.dumps(rec, ensure_ascii=False)))
         await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd__focus'); await pg.wait_for_timeout(300)
         clip = await pg.evaluate("[...document.querySelectorAll('.wd__hi bdi')].map(e=>[e.textContent,e.scrollWidth>e.clientWidth+1])")
-        check(f'[{w}x{h}] with the focus showing, "Sweet Present" is whole', [x[0] for x in clip] == ['Sweet', 'Present'] and not any(x[1] for x in clip), clip)
+        check(f'[{w}x{h}] with the focus showing, the longest name "Mighty Dolphin" is whole', [x[0] for x in clip] == ['Mighty', 'Dolphin'] and not any(x[1] for x in clip), clip)
         check(f'[{w}x{h}] the dock marks #stage for the sync bar', await pg.evaluate("document.getElementById('stage').classList.contains('wdock')"))
         await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings')
         check(f'[{w}x{h}] and the mark is gone on the next screen', not await pg.evaluate("document.getElementById('stage').classList.contains('wdock')"))
@@ -217,6 +227,197 @@ async def name_with_focus(b, errs):
             await pg.click('.wpick__ok'); await pg.wait_for_selector('.map .wd')
             keys = list(json.loads((await pg.evaluate(LS))['wi_world'])['p'])
             check('a write keeps only well-formed record keys (local, h:...), the stray ones are dropped', keys == ['local'], keys)
+        await c.close()
+
+
+async def goto_hash(pg, h, sel):
+    """go to a screen again (through settings, so the same address draws afresh)"""
+    await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings')
+    await pg.evaluate(f"location.hash='{h}'"); await pg.wait_for_selector(sel); await pg.wait_for_timeout(250)
+
+
+async def set_world(pg, rec):
+    await pg.evaluate("r=>localStorage.setItem('wi_world',JSON.stringify({v:1,p:{local:r}}))", rec)
+
+
+async def notice_clear(b, errs):
+    """the new-character notice never covers the character on the map (or Pitzi's "?" badge): for the island played now
+    from 1 to 6, one and several new characters, with and without a chosen character, at 390, 360, 320x640 and 320x568.
+    It stays between the map's header and the dock, its buttons are 48 px, and on the island screen (the path) there is
+    no notice at all"""
+    LOOK = """(()=>{const n=document.querySelector('.wnew'),t=document.querySelector('.wtok,.wask');if(!n||!t)return {n:!!n,t:!!t};
+      const a=n.getBoundingClientRect(),c=t.getBoundingClientRect(),d=document.querySelector('.wd').getBoundingClientRect();
+      let top=0;for(const e of document.querySelectorAll('.maphead,.subjpill'))top=Math.max(top,e.getBoundingClientRect().bottom);
+      return {n:true,t:true,hit:!(a.right<=c.left||a.left>=c.right||a.bottom<=c.top||a.top>=c.bottom),band:a.top>=top-0.5&&a.bottom<=d.top+0.5,
+        btn:[...n.querySelectorAll('button')].every(x=>x.getBoundingClientRect().height>=48),h:!!n.querySelector('.wnew__h').getBoundingClientRect().height,
+        island:(window.__world.token||{}).island,tight:n.classList.contains('wnew--tight')}})()"""
+    bad, seen, tight = [], set(), []
+    for w, h in ((390, 844), (360, 740), (320, 640), (320, 568)):
+        for done in range(0, 6):
+            st = {f'{i}-{t}': 3 for i in range(1, done + 1) for t in ('sling', 'listen', 'read', 'bridge')}
+            for av in ('girl-curls', None):
+                for sl, en in ((1, LEVELS[1]), (1, LEVELS[5])):   # one new character, then several (3 portraits and "ועוד 2")
+                    r = {'en': en, 'sl': sl}
+                    if av: r.update({'av': av, 'nm': [0, 0], 'nv': 2})
+                    c, pg, reqs = await page(b, w, h, errs, {'g': {'st': st}})
+                    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(json.dumps({'v': 1, 'p': {'local': r}})))
+                    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wnew'); await pg.wait_for_timeout(400)
+                    L = await pg.evaluate(LOOK)
+                    seen.add(L.get('island'))
+                    if L.get('tight'): tight.append((w, h, L.get('island'), av))
+                    if not (L['n'] and L['t'] and not L['hit'] and L['band'] and L['btn'] and L['h']): bad.append((w, h, done, av, sl, en, L))
+                    if (w, h, done, av, en) == (320, 568, 1, None, LEVELS[5]): await P.shot(pg, 'world-notice-320x568-tight')
+                    if (w, h, done, av, en) == (390, 844, 0, 'girl-curls', LEVELS[1]): await P.shot(pg, 'world-notice-390x844-top')
+                    await c.close()
+    check(f'the notice never covers the character (or the "?" badge), stays between header and dock, 48 px buttons (islands {sorted(x for x in seen if x)})', not bad and {1, 2, 4, 6} <= seen, bad[:3])
+    check('it drops its sentence only where nothing else fits (a short screen)', all(x[1] < 640 for x in tight), tight)
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(json.dumps({'v': 1, 'p': {'local': {'av': 'girl-curls', 'nm': [0, 0], 'nv': 2, 'en': LEVELS[5], 'sl': 1}}})))
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(300)
+    check('the island screen (the path and its walker) never shows the notice', await pg.locator('.wnew').count() == 0 and await pg.locator('.w-walker').count() == 1)
+    await c.close()
+
+
+async def ladder(b, errs):
+    """8 characters at level 1, and each level from 2 to 13 opens exactly the next one; the map says so once, with the
+    new character's portrait and a way to the picker; two levels at once say "characters" and show the newest; a device
+    that first opens the map at a high level is not told about old news"""
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+    bad, shown_twice = [], []
+    for L in range(1, 14):
+        await set_world(pg, {'en': LEVELS[L - 1], 'sl': max(1, L - 1)})
+        await goto_hash(pg, 'map', '.map .wd')
+        W = await pg.evaluate('window.__world')
+        n = await pg.locator('.wnew').count()
+        want = [] if L == 1 else [LADDER[L - 2]]
+        if W['energy']['level'] != L or W['fresh'] != want or n != (1 if want else 0): bad.append([L, W['energy']['level'], W['fresh'], n])
+        if want:
+            if L == 2:
+                t = await pg.inner_text('.wnew'); src = await pg.get_attribute('.wnew__pic', 'src')
+                check('level 2: the map says "דמות חדשה נפתחה!" with the new character\'s portrait and a button to the picker', 'דמות חדשה נפתחה!' in t and LADDER[0] in src and await pg.locator('.wnew__ok').count() == 1, [t, src])
+                await P.shot(pg, 'world-new-character-390x844')
+                a = await pg.evaluate(AUDIT.replace(".wd *,.wd__note,.wpick *", ".wnew,.wnew *"))
+                check('the notice: every text at least 4.5:1, every button at least 44 px', not a['bad'] and not a['small'], a)
+            await goto_hash(pg, 'map', '.map .wd')
+            if await pg.locator('.wnew').count(): shown_twice.append(L)
+        await pg.evaluate("location.hash='avatar'"); await pg.wait_for_selector('.wpick__grid')
+        open_ = await pg.evaluate("[...document.querySelectorAll('.wpick__av:not(.is-locked)')].map(b=>b.dataset.id)")
+        if open_ != STARTERS + LADDER[:L - 1]: bad.append([L, 'open', open_])
+        await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wd')
+    check('each level from 1 to 13 opens exactly the next character (8 at level 1, all 20 at 13), and the map says it once', not bad, bad)
+    check('the notice shows only once for each level', not shown_twice, shown_twice)
+    # the notice's buttons
+    await set_world(pg, {'en': LEVELS[1], 'sl': 1}); await goto_hash(pg, 'map', '.wnew')
+    await pg.click('.wnew__later'); check('"later" closes the notice and stays on the map', await pg.locator('.wnew').count() == 0 and await pg.evaluate('location.hash') == '#map')
+    await set_world(pg, {'en': LEVELS[2], 'sl': 2}); await goto_hash(pg, 'map', '.wnew')
+    await pg.click('.wnew__ok'); await pg.wait_for_selector('.wpick__grid')
+    check('the notice\'s button opens the picker', await pg.evaluate('location.hash') == '#avatar')
+    # two levels at once
+    await set_world(pg, {'en': LEVELS[4], 'sl': 3}); await goto_hash(pg, 'map', '.wnew')
+    W = await pg.evaluate('window.__world')
+    check('two levels at once: "דמויות חדשות נפתחו!" with the newest one', W['fresh'] == LADDER[2:4] and 'דמויות חדשות נפתחו!' in await pg.inner_text('.wnew') and LADDER[3] in await pg.get_attribute('.wnew__pic', 'src'), W['fresh'])
+    # a jump from level 2 to 7: five new characters, the newest three shown and "ועוד 2"
+    await set_world(pg, {'en': LEVELS[6], 'sl': 2}); await goto_hash(pg, 'map', '.wnew')
+    J = await pg.evaluate("(()=>({fresh:__world.fresh,pics:[...document.querySelectorAll('.wnew__pic')].map(i=>i.getAttribute('src').split('/').pop().split('.')[0]),more:(document.querySelector('.wnew__more')||{}).textContent||'',t:document.querySelector('.wnew').innerText}))()")
+    check('a jump from level 2 to 7: the newest three portraits, "ועוד 2", and how many are waiting', J['fresh'] == LADDER[1:6] and J['pics'] == LADDER[5:2:-1] and J['more'] == 'ועוד 2' and '5 דמויות חדשות מחכות לכם' in J['t'], J)
+    a = await pg.evaluate(AUDIT.replace(".wd *,.wd__note,.wpick *", ".wnew,.wnew *"))
+    box = await pg.evaluate("(()=>{const r=document.querySelector('.wnew').getBoundingClientRect(),d=document.querySelector('.wd').getBoundingClientRect(),s=document.getElementById('stage').getBoundingClientRect();return {top:r.top>=s.top,clear:r.bottom<=d.top+1}})()")
+    check('the notice with several portraits reads (4.5:1, 44 px), is whole on the screen and above the dock', not a['bad'] and not a['small'] and box['top'] and box['clear'], [a, box])
+    await P.shot(pg, 'world-new-characters-390x844')
+    # first map visit at a high level: no notice, the level is remembered
+    await set_world(pg, {'en': LEVELS[6]}); await goto_hash(pg, 'map', '.map .wd')
+    rec = json.loads((await pg.evaluate(LS))['wi_world'])['p']['local']
+    check('a device that first opens the map at level 7 is not told about old news; level 7 is remembered', await pg.locator('.wnew').count() == 0 and rec.get('sl') == 7, rec)
+    await c.close()
+
+
+async def reachable(b, errs):
+    """the ladder fits what a pupil can earn: the level that opens the last character is reachable with today's content
+    (js/avatar.js MAX_ENERGY; when content adds energy, the ladder is to be revisited)"""
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+    R = await pg.evaluate("async()=>{const A=await import('./js/avatar.js'),D=await import('./js/world_data.js');const top=Math.max(...D.AVATARS.map(a=>a.open));return {max:A.MAX_ENERGY,levels:A.LEVELS,top,need:A.LEVELS[top-1]}}")
+    check(f'the last character (level {R["top"]}) opens at {R["need"]} energy, within the {R["max"]} a pupil can earn today', R['top'] <= len(R['levels']) and R['need'] is not None and R['need'] <= R['max'], R)
+    check('the ladder in the test is the one in js/avatar.js', R['levels'] == LEVELS, R['levels'])
+    await c.close()
+
+
+async def kept(b, errs):
+    """a pupil who already has a character that would now be locked keeps it (picker and map), and nothing is taken away"""
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.add_init_script("if(!sessionStorage.getItem('w')){sessionStorage.setItem('w','1');localStorage.setItem('wi_world',JSON.stringify({v:1,p:{local:{av:'pilot',nm:[0,0],nv:2,en:0}}}))}")
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd__pic'); await pg.wait_for_timeout(300)
+    W = await pg.evaluate('window.__world')
+    check('kept: level 1 with the pilot (opens at 13): the map still shows the pilot and its name', W['avatar'] == 'pilot' and W['energy']['level'] == 1 and 'pilot' in await pg.get_attribute('.wd__pic', 'src') and 'Brave Fox' in ' '.join((await pg.inner_text('.wd__hi')).split()), W)
+    await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid')
+    r = await pg.evaluate("(()=>{const b=document.querySelector('.wpick__av[data-id=pilot]');return [b.classList.contains('is-locked'),b.classList.contains('is-selected'),document.querySelectorAll('.wpick__av:not(.is-locked)').length]})()")
+    check('kept: in the picker the pilot is chosen and not locked; the other locked ones stay locked', r == [False, True, 9], r)
+    await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.map .wd')
+    rec = json.loads((await pg.evaluate(LS))['wi_world'])['p']['local']
+    check('kept: saving again keeps the pilot', rec['av'] == 'pilot', rec)
+    await c.close()
+
+
+async def old_names(b, errs):
+    """a name kept from the earlier lists (no version) reads as "no name yet": nobody gets a different name silently"""
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.add_init_script("if(!sessionStorage.getItem('w')){sessionStorage.setItem('w','1');localStorage.setItem('wi_world',JSON.stringify({v:1,p:{local:{av:'fox',nm:[6,8],en:0}}}))}")
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+    W = await pg.evaluate('window.__world')
+    t = ' '.join((await pg.inner_text('.wd__hi')).split())
+    check('old name: the character stays, the name reads as "no name yet" (the dock says hello)', W['avatar'] == 'fox' and W['name'] is None and t == 'שלום!', [W, t])
+    rec = json.loads((await pg.evaluate(LS))['wi_world'])['p']['local']
+    check('old name: and is dropped from the record on the next write', 'nm' not in rec or rec['nm'] is None, rec)
+    await c.close()
+
+
+BADGES = """(()=>{const bad=[],op=new Set();for(const b of document.querySelectorAll('.wpick__av.is-locked')){const t=b.getBoundingClientRect(),g=b.querySelector('.wpick__lock'),r=g.getBoundingClientRect();
+ op.add(getComputedStyle(b.querySelector('.wpick__art')).opacity);
+ if(g.scrollWidth>g.clientWidth+1||r.height>28||r.left<t.left-0.5||r.right>t.right+0.5)bad.push([b.dataset.id,g.textContent,Math.round(r.width),Math.round(r.height),g.scrollWidth-g.clientWidth])}
+ return {bad,op:[...op]}})()"""
+FIT = """async()=>{const {NAME_A,NAME_B}=await import('./js/world_data.js');const out=[];
+ const hi=document.querySelector('.wd__hi');const bd=[...hi.querySelectorAll('bdi')];
+ for(const a of NAME_A)for(const b of NAME_B){bd[0].textContent=a.en;bd[1].textContent=b.en;
+  for(const e of bd)if(e.scrollWidth>e.clientWidth+1)out.push('map '+a.en+' '+b.en)}
+ return out}"""
+FIT_PICK = """async()=>{const {NAME_A,NAME_B}=await import('./js/world_data.js');const out=[];
+ const n=document.querySelector('.wpick__name bdi'),box=document.querySelector('.wpick__name'),body=document.querySelector('.wpick__body').getBoundingClientRect();
+ const ws=[...document.querySelectorAll('.wpick__w')];
+ for(const a of NAME_A)for(const b of NAME_B){n.textContent=a.en+' '+b.en;const r=box.getBoundingClientRect();
+  if(box.scrollWidth>box.clientWidth+1||r.left<body.left-1||r.right>body.right+1||r.height>60)out.push('name '+a.en+' '+b.en+' '+Math.round(r.width)+'x'+Math.round(r.height))}
+ for(const [k,L] of [[0,NAME_A],[1,NAME_B]])for(const x of L){const w=ws[k];w.querySelector('bdi').textContent=x.en;w.querySelector('small').textContent=x.he;
+  if(w.scrollWidth>w.clientWidth+1)out.push('word '+x.en)}
+ return out}"""
+
+
+async def names(b, errs):
+    """all 144 names fit, one word per line on the map and on one line in the picker, at 360 and 320 px; the surprise
+    button and the arrows only ever give names from the two lists"""
+    for w, h in ((360, 740), (320, 640), (320, 568)):
+        c, pg, reqs = await page(b, w, h, errs, SEED)
+        await pg.add_init_script("if(!sessionStorage.getItem('w')){sessionStorage.setItem('w','1');localStorage.setItem('wi_world',JSON.stringify({v:1,p:{local:{av:'fox',nm:[0,0],nv:2,en:0}}}))}")
+        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd__focus'); await pg.wait_for_timeout(300)
+        bad = await pg.evaluate(FIT)
+        check(f'[{w}x{h}] all 144 names fit in the map dock next to today\'s focus, one word per line, nothing cut off', not bad, bad[:6])
+        await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid')
+        seen = await pg.evaluate(BADGES)
+        check(f'[{w}x{h}] every locked tile: the character in view and "רמה N" whole on one line inside the tile', not seen['bad'], seen)
+        await pg.evaluate("document.querySelector('.scr.wpick').scrollTop=1e5")   # as after scrolling down to the button
+        await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+        bad = await pg.evaluate(FIT_PICK)
+        check(f'[{w}x{h}] all 144 names fit on one line in the picker, and every word with its Hebrew under it', not bad, bad[:6])
+        top = await pg.evaluate("document.querySelector('.wpick__h').getBoundingClientRect().top")
+        check(f'[{w}x{h}] the name step starts at its heading (on the screen, even after the picker scrolled to its button)', top >= 0, top)
+        if w == 320:
+            seen = set()
+            for _ in range(40):
+                await pg.click('.wpick__dice'); seen.add(' '.join((await pg.inner_text('.wpick__name')).split()))
+            for _ in range(13):
+                await pg.locator('.wpick__spin').nth(1).locator('.wpick__arrow').nth(0).click(); seen.add(' '.join((await pg.inner_text('.wpick__name')).split()))
+            ok = await pg.evaluate("async s=>{const {NAME_A,NAME_B}=await import('./js/world_data.js');const A=new Set(NAME_A.map(x=>x.en)),B=new Set(NAME_B.map(x=>x.en));return s.filter(n=>{const [a,b]=n.split(' ');return !(A.has(a)&&B.has(b))})}", sorted(seen))
+            check('the surprise button and the arrows only give names from the two lists (adjective + animal)', len(seen) > 20 and not ok, [len(seen), ok])
+            await P.shot(pg, 'world-name-320x640')
         await c.close()
 
 
@@ -494,21 +695,21 @@ async def anim(b, errs):
             await pg.emulate_media(reduced_motion='reduce')
         await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid'); await pg.wait_for_timeout(500)
         before = [u for u, _ in reqs if '/avanim/' in u]
-        await pg.click('.wpick__av[data-id=fox]'); await pg.wait_for_timeout(600)
+        await pg.click('.wpick__av[data-id=girl-curls]'); await pg.wait_for_timeout(600)
         after = [u for u, _ in reqs if '/avanim/' in u]
         if reduce:
             check('reduced motion: tapping a character requests no animation', not before and not after, after)
         else:
             check('no animation file is requested before a tap', not before, before)
-            check('tapping a character plays its animation (one file, that character\'s)', len(after) == 1 and 'fox' in after[0], after)
+            check('tapping a character plays its animation (one file, that character\'s)', len(after) == 1 and 'girl-curls' in after[0], after)
         await c.close()
     # a missing animation file: straight back to the still portrait, never a broken picture
     c, pg, reqs = await page(b, 390, 844, [])
     await pg.route('**/assets/al/avanim/**', lambda r: r.fulfill(status=404, body=''))
     await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid')
-    await pg.click('.wpick__av[data-id=fox]'); await pg.wait_for_timeout(400)
+    await pg.click('.wpick__av[data-id=girl-curls]'); await pg.wait_for_timeout(400)
     r = await pg.evaluate("(()=>{const i=document.querySelector('.wpick__av.is-selected img');return {src:i.getAttribute('src'),ok:i.complete&&i.naturalWidth>0}})()")
-    check('a missing animation file falls back to the still portrait at once (no broken picture)', '/av/fox.' in r['src'] and r['ok'], r)
+    check('a missing animation file falls back to the still portrait at once (no broken picture)', '/av/girl-curls.' in r['src'] and r['ok'], r)
     await c.close()
     # the title screen on a short phone: the crab never sits on a subject button
     c, pg, reqs = await page(b, 320, 568, errs)
@@ -589,6 +790,12 @@ async def main():
             await finished(b, errs)
             await brand(b, errs)
             await anim(b, errs)
+            await ladder(b, errs)
+            await notice_clear(b, errs)
+            await reachable(b, errs)
+            await kept(b, errs)
+            await old_names(b, errs)
+            await names(b, errs)
             await fin_logout(b, errs)
             await map_token(b, errs)
             await island_path(b, errs)
