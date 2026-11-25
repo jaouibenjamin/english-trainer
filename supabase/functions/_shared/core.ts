@@ -186,12 +186,14 @@ export async function teacherReset(d: Deps, body: Body, ctx: Ctx): Promise<Reply
   }
   // not her pupil: answered before the slow hash, so a stranger's token cannot make the function work (review N3)
   if (!(await d.sql`select private.teacher_has_pupil(${teacher}::uuid, ${body.pupil_id}::uuid) as v`)[0].v) return fail("forbidden");
+  // her daily cap of new codes (review of #86, S7), before the slow hash too; teacher_reset enforces it under a lock
+  if ((await d.sql`select private.teacher_resets_left(${teacher}::uuid, ${d.now().toISOString()}::timestamptz) as v`)[0].v < 1) return fail("limit");
   const iter = (await d.sql`select kdf_iter from private.settings`)[0].kdf_iter as number;
   const otc = randomDigits(6);
   const salt = randomBytes(16);
   const hash = await kdf(d.pepper, "otc", body.pupil_id, otc, salt, iter);
   const r = (await d.sql`select private.teacher_reset(${teacher}::uuid, ${body.pupil_id}::uuid, ${hex(salt)}, ${hash}, ${iter}::int, ${d.now().toISOString()}::timestamptz) as v`)[0].v;
-  if (!r.ok) return fail("forbidden"); // not her pupil and "no such pupil" look the same
+  if (!r.ok) return fail(r.e === "limit" ? "limit" : "forbidden"); // not her pupil and "no such pupil" look the same
   if (r.old_auth_user) await d.sessions.remove(r.old_auth_user);
   return { ok: true, otc, expires_at: r.expires_at, name: r.name }; // shown to the teacher once; only its hash is stored
 }

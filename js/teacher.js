@@ -23,7 +23,7 @@ try{const q=new URLSearchParams(location.search).get('tsb');if(q==='1')localStor
 const STATUS=r=>[r.locked_today>0?`ננעל היום ${r.locked_today} פעמים`:'',r.code_status==='waiting'?'מחכה לקוד חדש':'',r.recovery_status==='closed'?'השחזור סגור':r.recovery_status==='locked'?'השחזור נעול לזמן קצר':'',r.flags_week>0?'לבדיקה':''].filter(Boolean).join(' · ');
 const num=x=>Number.isFinite(+x)?String(Math.round(+x)):'0';
 const txt=x=>x==null?'':String(x);                          // a missing name is empty, never "null"
-function clearScreen(){const sc=$('#screen');if(!sc)return;sc.hidden=true;$('main').classList.remove('wide');$('#class tbody').replaceChildren();$('#hard').replaceChildren();$('#roster').replaceChildren();$('#health').hidden=true;$('#health').textContent='';$('#load').textContent='';$('#act').textContent=''}
+function clearScreen(){const sc=$('#screen');if(!sc)return;sc.hidden=true;$('main').classList.remove('wide');$('#class tbody').replaceChildren();$('#hard').replaceChildren();$('#roster').replaceChildren();$('#health').hidden=true;$('#health').textContent='';$('#quota').textContent='';$('#load').textContent='';$('#act').textContent=''}
 function cell(tr,text,cls){const td=document.createElement('td');td.textContent=text;if(cls)td.className=cls;tr.append(td);return td}
 function btn(text,onClick,cls){const b=document.createElement('button');b.type='button';b.className='small act'+(cls?' '+cls:'');b.textContent=text;b.disabled=busy;b.addEventListener('click',onClick);return b}
 const byName=(a,b)=>txt(a).localeCompare(txt(b),'he');
@@ -40,6 +40,7 @@ function render(view,items,health,classes,roster){
   const li=document.createElement('li'),w=document.createElement('span');w.className='en';w.textContent=txt(it.item_key);
   li.append(w,document.createTextNode(` · ${num(it.wrong)} טעויות מתוך ${num(it.tries)} (${num(it.error_pct)}%)`));hard.append(li)}
  const h=health[0],warn=$('#health');warn.hidden=!(h&&h.warn);
+ $('#quota').textContent=h&&Number.isFinite(+h.resets_cap)&&+h.resets_cap>0?`קודים חדשים ב־24 השעות האחרונות: ${num(h.resets_day)} מתוך ${num(h.resets_cap)}`:'';
  warn.textContent=h&&h.warn?'שימו לב: המערכת צריכה בדיקה (התחזוקה של הלילה לא רצה, או שהמאגר מתמלא). ספרו למנהל המערכת.':'';
  $('#load').textContent=view.length?'':'אין עדיין תלמידים בכיתה הזאת, או שהחשבון הזה אינו חשבון של מורה.'}
 /* the class list (roster): who may register. Per class she teaches: the names, "remove" on each, a field to add one,
@@ -63,7 +64,7 @@ async function load(){
  if(!tsb||!auth||!auth.signedIn())return;
  const my=++loading;$('#screen').hidden=false;$('main').classList.add('wide');$('#load').textContent='טוען…';
  const[v,i,h,c,ro]=await Promise.all([auth.read('/rest/v1/teacher_view?select=pupil_id,class_id,display_name,points,answers,error_pct,stars,locked_today,code_status,recovery_status,flags_week'),
-  auth.read('/rest/v1/teacher_items?select=item_key,tries,wrong,error_pct'),auth.read('/rest/v1/backend_health?select=warn'),
+  auth.read('/rest/v1/teacher_items?select=item_key,tries,wrong,error_pct'),auth.read('/rest/v1/backend_health?select=warn,resets_day,resets_cap'),
   auth.read('/rest/v1/classes?select=id,name'),auth.read('/rest/v1/roster?select=class_id,name_key,display_name')]);
  if(my!==loading||!auth.signedIn()||!v||!i||!h||!c||!ro)return;   // signed out, left or another load since: nothing of it is shown
  if(v.error||i.error||h.error||c.error||ro.error){$('#load').textContent='לא הצלחנו לטעון. נסו שוב.';return}
@@ -91,19 +92,25 @@ async function act(question,yes,run){
 /* a new code: the old one stops working. The six digits are shown once, in a dialog, and are kept nowhere else: not in
    storage, the address bar or the console, and no variable keeps them once the dialog is filled; closing the dialog,
    signing out, leaving the page or 10 minutes wipe them from the screen. */
-const SAFE=/^[0-9]{6}$/;
-let shown=0;
-function hideCode(){shown++;const d=$('#code');$('#code-digits').textContent='';$('#code-name').textContent='';$('#code-exp').textContent='';if(d.open)d.close()}
+/* six digits, checked without a regular expression: a regexp run on the code leaves it in the page's RegExp statics
+   (RegExp.$_, RegExp.lastMatch) until the next match, readable from the console after the dialog is closed
+   (review of #86, B4; docs/LESSONS.md entry 14) */
+const sixDigits=x=>{if(typeof x!=='string'||x.length!==6)return false;for(let i=0;i<6;i++){const c=x.charCodeAt(i);if(c<48||c>57)return false}return true};
+const CODE_MS=10*60000;
+let shown=0,shownAt=0;
+/* the 10 minutes are counted by the clock too: a timer sleeps with the laptop (S8) */
+function codeClock(){if(shownAt&&Date.now()-shownAt>=CODE_MS)hideCode()}
+function hideCode(){shown++;shownAt=0;const d=$('#code');$('#code-digits').textContent='';$('#code-name').textContent='';$('#code-exp').textContent='';if(d.open)d.close()}
 function showCode(name,otc,exp){
- const my=++shown;$('#code-name').textContent=`הקוד החדש של ${name}:`;$('#code-digits').textContent=otc.slice(0,3)+' '+otc.slice(3);
+ const my=++shown;shownAt=Date.now();$('#code-name').textContent=`הקוד החדש של ${name}:`;$('#code-digits').textContent=otc.slice(0,3)+' '+otc.slice(3);
  const t=new Date(exp);$('#code-exp').textContent=Number.isFinite(t.getTime())?'תקף עד '+t.toLocaleString('he-IL',{timeZone:'Asia/Jerusalem',weekday:'long',hour:'2-digit',minute:'2-digit'})+'. הקוד מוצג רק עכשיו: רשמו אותו ומסרו לתלמיד/ה.':'';
  $('#code').showModal();$('#code-done').focus();
- setTimeout(()=>{if(my===shown)hideCode()},10*60000)}
+ setTimeout(()=>{if(my===shown)hideCode()},CODE_MS)}
 const reset=(id,name)=>act(`לתת ל${name} קוד חדש? הקוד הישן יפסיק לעבוד, והקוד החדש יוצג פעם אחת בלבד.`,'כן, קוד חדש',async e=>{
  const r=await auth.write('/functions/v1/teacher-reset',{action:'reset',pupil_id:id});
  if(!r||e!==epoch)return;
- if(r.status===200&&r.j&&r.j.ok===true&&SAFE.test(String(r.j.otc))){say('');showCode(typeof r.j.name==='string'?r.j.name:name,String(r.j.otc),r.j.expires_at);load()}
- else say(fail(r))});
+ if(r.status===200&&r.j&&r.j.ok===true&&sixDigits(r.j.otc)){say('');showCode(typeof r.j.name==='string'?r.j.name:name,r.j.otc,r.j.expires_at);r.j.otc='';load()}
+ else say(r.j&&r.j.e==='limit'?'הגעתם למספר הקודים החדשים שמותר ב־24 שעות. אפשר שוב מחר (או לבקש ממנהל המערכת להגדיל אותו).':fail(r))});
 const unlock=(id,name)=>act(`לשחרר את הנעילה של ${name}? אפשר לשחרר עד פעמיים ביום.`,'כן, לשחרר',async e=>{
  const r=await auth.write('/functions/v1/teacher-reset',{action:'unlock',pupil_id:id});
  if(!r||e!==epoch)return;
@@ -153,8 +160,8 @@ else{
  $('#ask-no').addEventListener('click',()=>$('#ask').close('no'));
  $('#code-done').addEventListener('click',hideCode);
  $('#code').addEventListener('cancel',e=>{e.preventDefault()});     // Escape does not hide the code by accident: the button does
- for(const t of['pointerdown','keydown'])window.addEventListener(t,()=>auth.touch(),{passive:true});
- document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')auth.wake()});
+ for(const t of['pointerdown','keydown'])window.addEventListener(t,()=>{codeClock();auth.touch()},{passive:true});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){codeClock();auth.wake()}});
  window.addEventListener('pagehide',()=>{auth.left()});                       // leaving the page ends the session
  window.addEventListener('pageshow',e=>{if(e.persisted&&!auth.signedIn())show('out')});   // the back button shows nothing of her
  const back=new URLSearchParams(location.search).has('code');

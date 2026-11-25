@@ -29,7 +29,7 @@ ROWS = {'teacher_view': [dict(pupil_id=P1, class_id=C1, display_name='פלוני
                          dict(pupil_id=P2, class_id=C1, display_name=EVIL, points=10, answers=1, error_pct=0, stars=0, locked_today=0, code_status='waiting', recovery_status='closed', flags_week=1)],
         'classes': [dict(id=C1, name='ה׳1')],
         'teacher_items': [dict(item_key='hobby', tries=9, wrong=6, error_pct=67), dict(item_key='kick', tries=5, wrong=1, error_pct=20)],
-        'backend_health': [dict(warn=True)]}
+        'backend_health': [dict(warn=True, resets_day=2, resets_cap=15)]}
 CORS = {'access-control-allow-origin': '*', 'access-control-allow-headers': 'apikey, authorization, content-type, prefer', 'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS'}
 
 
@@ -176,6 +176,22 @@ async def run(b, w, h, tag):
     await c.close()
 
 
+async def traces(pg):
+    """Where else the code could still be read after it is wiped: the page's RegExp statics (RegExp.$_, lastMatch: what a
+    regexp last ran on, readable from the console) and the whole JavaScript heap after a garbage collection (what any
+    variable, closure or answer object still holds). Returns the places where OTC is found."""
+    found = []
+    if OTC in await pg.evaluate('String(RegExp.$_) + "|" + String(RegExp.lastMatch) + "|" + String(RegExp.input)'):
+        found.append('RegExp statics')
+    cdp = await pg.context.new_cdp_session(pg); chunks = []
+    cdp.on('HeapProfiler.addHeapSnapshotChunk', lambda e: chunks.append(e['chunk']))
+    await cdp.send('HeapProfiler.enable'); await cdp.send('HeapProfiler.collectGarbage')
+    await cdp.send('HeapProfiler.takeHeapSnapshot', {'reportProgress': False}); await cdp.detach()
+    if OTC in json.loads(''.join(chunks))['strings']:
+        found.append('the heap')
+    return found
+
+
 def fn_calls(log, n):
     return [dict(x, body=json.loads(x['body'] or 'null')) for x in log[n:] if x['path'] == '/functions/v1/teacher-reset']
 
@@ -202,6 +218,7 @@ async def actions(pg, tag, log, said, st):
     calls = fn_calls(log, n)
     check(f'[{tag}] reset: one call to teacher-reset, her token, this pupil only', len(calls) == 1 and calls[0]['method'] == 'POST' and calls[0]['auth'].startswith('Bearer acc-')
           and calls[0]['body'] == dict(action='reset', pupil_id=P1), calls)
+    check(f'[{tag}] while it is shown, the code is not in the RegExp statics (checked without a regexp)', 'RegExp statics' not in await traces(pg))
     check(f'[{tag}] the new code is shown, once, in big digits, with the name', await pg.text_content('#code-digits') == '482 913' and 'פלונית' in await pg.text_content('#code-name'))
     store = await pg.evaluate('JSON.stringify([sessionStorage,localStorage,location.href,history.length])')
     check(f'[{tag}] the code is in no storage and not in the address bar', OTC not in store and '482' not in pg.url, store)
@@ -210,6 +227,14 @@ async def actions(pg, tag, log, said, st):
     check(f'[{tag}] Escape does not hide the code by accident', await pg.text_content('#code-digits') == '482 913')
     await pg.click('#code-done')
     check(f'[{tag}] "written down": the code is wiped from the page', not await pg.is_visible('#code') and OTC not in await pg.content() and await pg.text_content('#code-digits') == '')
+    check(f'[{tag}] and from everything else: not in the RegExp statics, not anywhere in the heap', await traces(pg) == [], await traces(pg))
+    # S8: the 10 minutes are counted by the clock: a laptop that slept 11 minutes hides it at the first tap
+    await (await row_button(pg, 'פלונית', 'קוד חדש')).click(); await answer(pg, True); await pg.wait_for_selector('#code[open]')
+    await pg.evaluate("window.__now=Date.now; Date.now=()=>window.__now()+11*60000")
+    await pg.mouse.click(5, 5)
+    await pg.wait_for_selector('#code', state='hidden')
+    check(f'[{tag}] the code is hidden at the first tap after 11 minutes asleep (the clock, not only a timer)', await pg.text_content('#code-digits') == '')
+    await pg.evaluate("Date.now=window.__now")
 
     n = len(log)
     await (await row_button(pg, 'פלונית', 'שחרור נעילה')).click(); await answer(pg, True)
@@ -249,6 +274,10 @@ async def actions(pg, tag, log, said, st):
     check(f'[{tag}] remove: one DELETE of exactly that name in that class, the rows asked back', len(dels) == 1 and dels[0]['path'] == f'/rest/v1/roster?class_id=eq.{C1}&name_key=eq.dana%20lee'
           and dels[0]['prefer'] == 'return=representation' and 'Dana Lee' not in await pg.eval_on_selector_all('#roster li span', 'e=>e.map(x=>x.textContent)'), dels)
 
+    st['reply'] = dict(ok=False, e='limit')
+    await (await row_button(pg, 'פלונית', 'קוד חדש')).click(); await answer(pg, True)
+    await pg.wait_for_function("document.querySelector('#act').textContent.includes('24 שעות')")
+    check(f'[{tag}] S7: her daily cap of new codes is told plainly, and the screen shows how many she made', not await pg.is_visible('#code') and '2 מתוך 15' in await pg.text_content('#quota'))
     st['reply'] = dict(ok=False, e='forbidden')
     await (await row_button(pg, 'פלונית', 'קוד חדש')).click(); await answer(pg, True)
     await pg.wait_for_function("document.querySelector('#act').textContent.includes('לא אושרה')")
@@ -262,11 +291,15 @@ async def actions(pg, tag, log, said, st):
     await pg.click('#out'); await pg.wait_for_timeout(1300)
     check(f'[{tag}] a code that comes back after she signed out is never shown', len(fn_calls(log, n)) == 1 and not await pg.is_visible('#code') and await pg.text_content('#code-digits') == '')
     st.pop('delay')
+    await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')              # the next teacher at this computer
+    check(f'[{tag}] S9: once the next teacher is signed in, that late code is nowhere: not in the RegExp statics, not in the heap', await traces(pg) == [], await traces(pg))
+    await pg.click('#out'); await pg.wait_for_selector('#in:not([hidden])')
 
     await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
     await (await row_button(pg, 'פלונית', 'קוד חדש')).click(); await answer(pg, True); await pg.wait_for_selector('#code[open]')
     await pg.evaluate("dispatchEvent(new PageTransitionEvent('pagehide',{persisted:false}))"); await pg.wait_for_timeout(300)
     check(f'[{tag}] leaving the page with a code on the screen: wiped', not await pg.is_visible('#code') and await pg.text_content('#code-digits') == '')
+    check(f'[{tag}] and nowhere else either (RegExp statics, heap)', await traces(pg) == [], await traces(pg))
     check(f'[{tag}] the code was never written to the console', not any(OTC in m for m in said), [m for m in said if OTC in m])
     await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
 

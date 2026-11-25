@@ -14,7 +14,10 @@ alter table private.settings
   add column code_unlock_day   int not null default 2,       -- unlocks of one name in 24 hours
   add column code_lift_allow   int not null default 30,      -- wrong codes from strangers in a class after a brake lift
   add column class_lift_day    int not null default 2,       -- brake lifts of one class in 24 hours (review S7)
-  add column class_miss_hour   int not null default 2000;    -- wrong class codes from all addresses together in an hour
+  add column class_miss_hour   int not null default 2000,    -- wrong class codes from all addresses together in an hour
+  -- new one-time codes one teacher may make in 24 hours (review of #86, S7): each costs a slow hash on the server and
+  -- signs the pupil out everywhere; a class needs a few a week
+  add column reset_teacher_day int not null default 15 check (reset_teacher_day between 1 and 200);
 -- Wrong class codes (review S3): a counter per address bucket and clock hour, not a row per try, so forged addresses
 -- cannot grow the database: once class_miss_hour wrong codes arrived in an hour, no new bucket is opened that hour.
 create table private.class_misses (
@@ -25,6 +28,13 @@ create table private.class_misses (
 );
 alter table private.class_misses enable row level security;
 create index class_misses_hour on private.class_misses (hour);
+-- every new one-time code a teacher made: who and when only (no pupil, no name), for her daily cap; 2 days kept
+create table private.teacher_resets (
+  teacher uuid not null,
+  at      timestamptz not null
+);
+alter table private.teacher_resets enable row level security;
+create index teacher_resets_by on private.teacher_resets (teacher, at);
 -- a wrong try the teacher lifted: it no longer counts towards the per-name, per-address and class limits, but still
 -- towards the name's daily ceiling, so a lift never hands out a fresh day
 alter table private.auth_attempts add column lifted boolean not null default false;
@@ -453,6 +463,11 @@ create function private.pupil_state(p_pupil uuid) returns jsonb language sql sec
 -- is this a pupil of her class: asked before any slow hashing (review N3), and asked again inside teacher_reset
 create function private.teacher_has_pupil(p_teacher uuid, p_pupil uuid) returns boolean language sql stable security definer set search_path = '' as
   $$ select exists (select 1 from public.pupils pu join public.teachers t on t.class_id = pu.class_id where pu.id = p_pupil and t.user_id = p_teacher) $$;
+-- how many new codes she may still make now: asked before the slow hashing, and enforced again inside teacher_reset
+create function private.teacher_resets_left(p_teacher uuid, p_now timestamptz) returns int language sql stable security definer set search_path = '' as
+  $$ select greatest(0, s.reset_teacher_day - (select count(*)::int from private.teacher_resets r
+                                               where r.teacher = p_teacher and r.at > p_now - interval '24 hours'))
+     from private.settings s $$;
 
 create function private.teacher_reset(p_teacher uuid, p_pupil uuid, p_salt text, p_hash text, p_iter int, p_now timestamptz) returns jsonb
 language plpgsql security definer set search_path = '' as $$
@@ -462,6 +477,10 @@ begin
   select pu.* into p from public.pupils pu join public.teachers t on t.class_id = pu.class_id
    where pu.id = p_pupil and t.user_id = p_teacher;
   if p.id is null or s.shadow_mode then return jsonb_build_object('ok', false); end if;      -- during the copy phase resets happen on the Sheet
+  -- her daily cap, counted under a lock of her own (two resets at once cannot both take the last one), then the name
+  perform pg_advisory_xact_lock(hashtextextended('resets/' || p_teacher::text, 42));
+  if private.teacher_resets_left(p_teacher, p_now) < 1 then return jsonb_build_object('ok', false, 'e', 'limit'); end if;
+  insert into private.teacher_resets (teacher, at) values (p_teacher, p_now);
   perform private.name_lock(p.class_id, p.name_key);
   v_exp := p_now + make_interval(hours => s.otc_hours);
   insert into private.pupil_secrets (pupil_id) values (p.id) on conflict do nothing;
@@ -649,7 +668,11 @@ create or replace view public.backend_health with (security_barrier = true) as
          (l.at is null or l.at < now() - interval '36 hours' or not coalesce((l.result ->> 'ok')::boolean, false)
           or coalesce((l.result ->> 'db_mb')::int, 0) >= (select storage_brake_mb from private.settings)
           or u.n > 0) as warn,
-         u.n as unreadable_day
+         u.n as unreadable_day,
+         -- her own new codes in the last 24 hours and her cap (review of #86, S7): the screen shows how many are left
+         -- (counted here, not with private.teacher_resets_left: a view's caller needs the right to run its functions)
+         (select count(*)::int from private.teacher_resets r where r.teacher = auth.uid() and r.at > now() - interval '24 hours') as resets_day,
+         (select s.reset_teacher_day from private.settings s) as resets_cap
   from (select 1) one
   left join lateral (select at, result from private.maintenance_log order by at desc limit 1) l on true
   cross join lateral (select coalesce(sum(m.n), 0)::int as n from private.class_misses m
