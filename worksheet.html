@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>דף עבודה · איי המילים</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+<link rel="stylesheet" href="css/worksheet.css">
+</head>
+<body>
+<div id="bar" class="bar">
+  <a class="bk" data-back href="index.html">חזרה למשחק</a>
+  <label class="pk">אי: <select id="pick"></select></label>
+  <label class="ky"><input type="checkbox" id="key-on"> להוסיף דף תשובות</label>
+  <button type="button" id="go">להדפיס</button>
+</div>
+<div id="off" class="off" hidden>
+  <p>דף העבודה עוד לא פתוח במכשיר הזה.</p>
+  <a data-back href="index.html">חזרה למשחק</a>
+</div>
+<main id="sheet"></main>
+<noscript><p style="text-align:center;padding:40px">כדי לראות את דף העבודה צריך להפעיל JavaScript בדפדפן.</p></noscript>
+<script type="module" src="js/worksheet.js"></script>
+</body>
+</html>
