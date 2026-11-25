@@ -34,8 +34,11 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   a small shadow on the ground, on the island played now (the one marked "ממשיכים כאן"; when every island is full, the
   last one), in the crab's place at the island's lower edge, beside the tag and never over it. When that island changes
   it hops once from the island it stood on before (`at` in the record): an arc, 0.9 s, a squash on landing; any tap or
-  key ends it and still does what it would have done; none with reduced motion or calm mode. With no character yet, or
-  on a device that cannot keep one, Pitzi stands there as today.
+  key ends it and still does what it would have done; none with reduced motion or calm mode. On a small island (a short
+  phone) the token is at most 60% of the island's picture. With no character yet, Pitzi stands there as today with a
+  small "?" badge (a 48 px tap area) that opens the picker; on a device that cannot keep one, Pitzi alone. A remembered
+  island that is not open is no position. With the flag, the island played now also says "ממשיכים כאן" (or "מתחילים
+  כאן") to a screen reader; without it the island's label is as today.
 - **An island as a path** (docs/DESIGN.md spec): with the flag, an island's levels are stones along the painted path
   of the English island backdrop, in their order, joined by a dotted line (gold up to the next stone, dim after it).
   Each stone has a label on a dark plate with the level's name and sub-line, exactly as in today's list (it wraps on a

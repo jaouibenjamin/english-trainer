@@ -44,7 +44,7 @@ function mine(id){const r=id.key&&Object.prototype.hasOwnProperty.call(readAll()
  return{av:AVATARS.some(a=>a.id===m.av)?m.av:null,
   nm:Array.isArray(m.nm)&&Number.isInteger(m.nm[0])&&Number.isInteger(m.nm[1])&&NAME_A[m.nm[0]]&&NAME_B[m.nm[1]]?[m.nm[0],m.nm[1]]:null,
   en:typeof m.en==='number'&&Number.isFinite(m.en)&&m.en>0?Math.min(EN_MAX,Math.floor(m.en)):0,
-  at:Number.isInteger(m.at)&&m.at>=1&&m.at<=ISLANDS.length?m.at:0}}   // the island the character last stood on (for the hop)
+  at:Number.isInteger(m.at)&&ISLANDS.some(i=>i.id===m.at&&isOpen(i))?m.at:0}}   // the island the character last stood on (for the hop); an island not open (yet) is no position
 const KEY_OK=/^(local|h:[0-9a-f]{64})$/;   // the only keys a record may have; anything else is dropped on the next write
 function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=rec;localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
 
@@ -106,7 +106,7 @@ export async function decorateMap(view,go,live=()=>true){
   dock.appendChild(f)}
  /* .wdock on #stage lifts main.js's sync bar above the dock; main.js route() takes it off on the next screen */
  sec.classList.add('hasdock');document.getElementById('stage').classList.add('wdock');sec.append(note,dock);
- const tok=token(sec,id,me);
+ const tok=token(sec,id,me,go);
  window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,token:tok};   // for the tests
 }
 
@@ -114,31 +114,40 @@ export async function decorateMap(view,go,live=()=>true){
    The chosen character stands on the island the pupil plays now (the one marked "ממשיכים כאן"; when every island is
    full, the last open one), as a small framed portrait in place of the crab. When that island changes, it hops once
    from the island it stood on before, along the dotted line's direction: short, any tap ends it at once, and with
-   reduced motion or calm mode it is simply there. With no character yet, Pitzi stands there as today. A device that
-   cannot keep a character shows Pitzi too. */
+   reduced motion or calm mode it is simply there. With no character yet, Pitzi stands there as today, with a small
+   "?" badge that opens the picker. A device that cannot keep a character shows Pitzi alone. */
+/* no character yet: Pitzi stands on the island as today, with a small "?" badge on him that opens the picker (a
+   22 px badge in a 48 px tap area; never a block, the island stays the island's button) */
+function ask(sec,isl,go){const c=isl.querySelector('.here');if(!c)return null;const r=c.getBoundingClientRect(),s=sec.getBoundingClientRect();if(!r.width)return null;
+ const b=btn('wask',null,()=>go('avatar'));b.setAttribute('aria-label','בוחרים דמות שתצא לדרך');b.appendChild(el('span','wask__dot','?'));
+ b.style.left=(r.left-s.left+r.width/2)+'px';b.style.top=(r.top-s.top+r.height*.1)+'px';sec.appendChild(b);
+ return{island:idOf(isl),hop:null,ask:true}}
 const HOP_MS=900;   // docs/DESIGN.md "the character on the map": an arc, 900 ms, a squash on landing
 function islandEl(sec,i){return sec.querySelector('.isl.i'+i)}
 function hereOf(sec){const c=sec.querySelector('.isl.cur');if(c)return c;const open=[...sec.querySelectorAll('.isl:not(.locked)')];return open[open.length-1]||null}
 const idOf=el=>+([...el.classList].find(c=>/^i\d+$/.test(c))||'i0').slice(1);
 /* the spot where the token stands, in the map section's own coordinates: Pitzi's place on the island played now (at the
    island's side, standing on its lower edge, never over the tag); on another island, the same place worked out */
-function spot(sec,isl){const s=sec.getBoundingClientRect(),c=isl.querySelector('.here');
- if(c){const r=c.getBoundingClientRect();if(r.width)return{x:r.left-s.left+r.width/2,y:r.bottom-s.top-TOK/2}}
+function spot(sec,isl,tok=TOK){const s=sec.getBoundingClientRect(),c=isl.querySelector('.here');
+ if(c){const r=c.getBoundingClientRect();if(r.width)return{x:r.left-s.left+r.width/2,y:r.bottom-s.top-tok/2}}
  const p=(isl.querySelector('.pw')||isl).getBoundingClientRect(),lc=isl.classList.contains('lc'),rtl=getComputedStyle(isl).direction==='rtl';
  const right=lc?!rtl:rtl;   // .here sits at the inline start (-15%), or the inline end on an island left of centre
- return{x:p.left-s.left+(right?p.width*.97:p.width*.03),y:p.top-s.top+p.height*.76-TOK/2}}
+ return{x:p.left-s.left+(right?p.width*.97:p.width*.03),y:p.top-s.top+p.height*.76-tok/2}}
 const TOK=44;
-function token(sec,id,me){
- const isl=hereOf(sec);if(!isl||!id.key||!me.av)return null;   // no character yet: Pitzi stands there, as today
- const at=spot(sec,isl),to=idOf(isl);
+/* 44 px, smaller on a small island (a short phone): never more than 60% of the island's picture */
+const tokSize=isl=>Math.round(Math.min(TOK,(isl.querySelector('.pw')||isl).getBoundingClientRect().width*.6));
+function token(sec,id,me,go){
+ const isl=hereOf(sec);if(!isl||!id.key)return null;   // a device that cannot keep a character: Pitzi as today, nothing more
+ if(!me.av)return ask(sec,isl,go);
+ const sz=tokSize(isl),at=spot(sec,isl,sz),to=idOf(isl);
  const t=el('span','wtok');t.setAttribute('aria-hidden','true');t.appendChild(pic(me.av,'wtok__pic'));   // a picture only: the island under it stays the button
- t.style.left=at.x+'px';t.style.top=at.y+'px';
+ t.style.left=at.x+'px';t.style.top=at.y+'px';t.style.width=t.style.height=sz+'px';
  sec.classList.add('hastok');sec.appendChild(t);
- const info={island:to,hop:null};
+ const info={island:to,hop:null,ask:false};
  const prev=me.at,from=prev&&prev!==to?islandEl(sec,prev):null;
  if(prev!==to)keep(id,{...mine(id),at:to});   // remembered at once: the hop is shown once, even if it is cut short
  if(from&&canMove()&&t.animate){
-  const a=spot(sec,from),dx=a.x-at.x,dy=a.y-at.y,lift=Math.min(60,Math.hypot(dx,dy)/3),T=(x,y,sx=1,sy=1)=>`translate(calc(-50% + ${x}px),calc(-50% + ${y}px)) scale(${sx},${sy})`;
+  const a=spot(sec,from,sz),dx=a.x-at.x,dy=a.y-at.y,lift=Math.min(60,Math.hypot(dx,dy)/3),T=(x,y,sx=1,sy=1)=>`translate(calc(-50% + ${x}px),calc(-50% + ${y}px)) scale(${sx},${sy})`;
   const anim=t.animate([{transform:T(dx,dy)},{transform:T(dx/2,dy/2-lift),offset:.45},{transform:T(0,0,1.14,.84),offset:.85},{transform:T(0,0)}],{duration:HOP_MS,easing:'ease-in-out'});
   /* any tap or key ends it at once and still does what it would have done (nothing is stopped or held) */
   const skip=()=>anim.finish(),off=()=>{document.removeEventListener('pointerdown',skip,true);document.removeEventListener('keydown',skip,true)};
