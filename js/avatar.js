@@ -106,7 +106,7 @@ export async function decorateMap(view,go,live=()=>true){
   dock.appendChild(f)}
  /* .wdock on #stage lifts main.js's sync bar above the dock; main.js route() takes it off on the next screen */
  sec.classList.add('hasdock');document.getElementById('stage').classList.add('wdock');sec.append(note,dock);
- const tok=token(sec,id,me,go);
+ const tok=token(sec,id,me);
  window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,token:tok};   // for the tests
 }
 
@@ -114,34 +114,36 @@ export async function decorateMap(view,go,live=()=>true){
    The chosen character stands on the island the pupil plays now (the one marked "ממשיכים כאן"; when every island is
    full, the last open one), as a small framed portrait in place of the crab. When that island changes, it hops once
    from the island it stood on before, along the dotted line's direction: short, any tap ends it at once, and with
-   reduced motion or calm mode it is simply there. With no character yet, a small "?" on that island invites a choice
-   (never a block). A device that cannot keep a character shows neither. */
-const HOP_MS=700;
+   reduced motion or calm mode it is simply there. With no character yet, Pitzi stands there as today. A device that
+   cannot keep a character shows Pitzi too. */
+const HOP_MS=900;   // docs/DESIGN.md "the character on the map": an arc, 900 ms, a squash on landing
 function islandEl(sec,i){return sec.querySelector('.isl.i'+i)}
 function hereOf(sec){const c=sec.querySelector('.isl.cur');if(c)return c;const open=[...sec.querySelectorAll('.isl:not(.locked)')];return open[open.length-1]||null}
 const idOf=el=>+([...el.classList].find(c=>/^i\d+$/.test(c))||'i0').slice(1);
-/* the spot on an island where the token stands, in the map section's own coordinates */
-function spot(sec,isl){const s=sec.getBoundingClientRect(),p=(isl.querySelector('.pw')||isl).getBoundingClientRect();
- return{x:p.left-s.left+p.width*.5,y:p.top-s.top+p.height*.42}}
-function token(sec,id,me,go){
- const isl=hereOf(sec);if(!isl||!id.key)return null;
- /* the "?" stands where the crab stood, at the island's side, so a tap on the island still opens the island */
- const crab=isl.querySelector('.here'),cr=crab&&crab.getBoundingClientRect(),s=sec.getBoundingClientRect();
- const to=idOf(isl),at=!me.av&&cr&&cr.width?{x:cr.left-s.left+cr.width/2,y:cr.top-s.top+cr.height/2}:spot(sec,isl);
- let t;
- if(me.av){t=el('span','wtok');t.setAttribute('aria-hidden','true');t.appendChild(pic(me.av,'wtok__pic'))}   // a picture only: the island under it stays the button
- else{t=btn('wtok wtok--ask','?',()=>go('avatar'));t.setAttribute('aria-label','בוחרים דמות שתצא לדרך')}
+/* the spot where the token stands, in the map section's own coordinates: Pitzi's place on the island played now (at the
+   island's side, standing on its lower edge, never over the tag); on another island, the same place worked out */
+function spot(sec,isl){const s=sec.getBoundingClientRect(),c=isl.querySelector('.here');
+ if(c){const r=c.getBoundingClientRect();if(r.width)return{x:r.left-s.left+r.width/2,y:r.bottom-s.top-TOK/2}}
+ const p=(isl.querySelector('.pw')||isl).getBoundingClientRect(),lc=isl.classList.contains('lc'),rtl=getComputedStyle(isl).direction==='rtl';
+ const right=lc?!rtl:rtl;   // .here sits at the inline start (-15%), or the inline end on an island left of centre
+ return{x:p.left-s.left+(right?p.width*.97:p.width*.03),y:p.top-s.top+p.height*.76-TOK/2}}
+const TOK=44;
+function token(sec,id,me){
+ const isl=hereOf(sec);if(!isl||!id.key||!me.av)return null;   // no character yet: Pitzi stands there, as today
+ const at=spot(sec,isl),to=idOf(isl);
+ const t=el('span','wtok');t.setAttribute('aria-hidden','true');t.appendChild(pic(me.av,'wtok__pic'));   // a picture only: the island under it stays the button
  t.style.left=at.x+'px';t.style.top=at.y+'px';
  sec.classList.add('hastok');sec.appendChild(t);
- const info={island:to,hop:null,ask:!me.av};
- if(!me.av)return info;
+ const info={island:to,hop:null};
  const prev=me.at,from=prev&&prev!==to?islandEl(sec,prev):null;
  if(prev!==to)keep(id,{...mine(id),at:to});   // remembered at once: the hop is shown once, even if it is cut short
  if(from&&canMove()&&t.animate){
-  const a=spot(sec,from),dx=a.x-at.x,dy=a.y-at.y,lift=Math.min(60,Math.hypot(dx,dy)/3);
-  const anim=t.animate([{transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`},{transform:`translate(calc(-50% + ${dx/2}px),calc(-50% + ${dy/2-lift}px))`,offset:.5},{transform:'translate(-50%,-50%)'}],{duration:HOP_MS,easing:'ease-in-out'});
-  const skip=()=>anim.finish();document.addEventListener('pointerdown',skip,{capture:true,once:true});
-  anim.onfinish=()=>document.removeEventListener('pointerdown',skip,{capture:true});
+  const a=spot(sec,from),dx=a.x-at.x,dy=a.y-at.y,lift=Math.min(60,Math.hypot(dx,dy)/3),T=(x,y,sx=1,sy=1)=>`translate(calc(-50% + ${x}px),calc(-50% + ${y}px)) scale(${sx},${sy})`;
+  const anim=t.animate([{transform:T(dx,dy)},{transform:T(dx/2,dy/2-lift),offset:.45},{transform:T(0,0,1.14,.84),offset:.85},{transform:T(0,0)}],{duration:HOP_MS,easing:'ease-in-out'});
+  /* any tap or key ends it at once and still does what it would have done (nothing is stopped or held) */
+  const skip=()=>anim.finish(),off=()=>{document.removeEventListener('pointerdown',skip,true);document.removeEventListener('keydown',skip,true)};
+  document.addEventListener('pointerdown',skip,true);document.addEventListener('keydown',skip,true);
+  anim.onfinish=off;anim.oncancel=off;
   info.hop={from:prev,to,anim:true};window.__hop=anim;
  }else if(from)info.hop={from:prev,to,anim:false};
  return info}
