@@ -144,8 +144,20 @@ export async function decorateMap(view,go,live=()=>true){
  window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,fresh:fresh.map(a=>a.id),token:tok};   // for the tests
  preload(sec);
 }
+/* The map's own art is in: every <img> it shows has arrived and every picture its style draws (the new look draws most
+   of its art as backgrounds and frames) is in the browser's list of finished downloads. Checked every 250 ms, at most
+   QUIET_MAX, so the path's pictures never share a slow line with the map's own. */
+const QUIET_MAX=8000;
+function mapArtIn(){try{const got=new Set(performance.getEntriesByType('resource').filter(e=>e.responseEnd>0).map(e=>e.name)),W=innerWidth,H=innerHeight;
+ const urls=v=>[...String(v||'').matchAll(/url\("?([^")]+)"?\)/g)].map(m=>new URL(m[1],location.href).href).filter(u=>!u.startsWith('data:'));
+ for(const e of document.querySelectorAll('#stage *')){const r=e.getBoundingClientRect();if(!r.width||!r.height||r.bottom<=0||r.right<=0||r.top>=H||r.left>=W)continue;
+  if(e.tagName==='IMG'&&!e.complete)return false;const cs=getComputedStyle(e);
+  for(const u of [...urls(cs.backgroundImage),...urls(cs.borderImageSource)])if(!got.has(u))return false}
+ return true}catch(e){return true}}
+function quiet(){const t0=Date.now();return new Promise(r=>{(function tick(){if(mapArtIn()||Date.now()-t0>QUIET_MAX)r();else setTimeout(tick,250)})()})}
 /* The island path's pictures, fetched from the map so an island opens straight onto its path: they start once the
-   page and the map's own pictures are in (so they never hold up the map or a first tap), at low priority, and are
+   page and the map's own pictures are in, those its style draws included (so they never hold up the map or a first
+   tap; at most 8 s), at low priority, and are
    decoded before they count as ready. If the child goes anywhere but an island before they are in, they are dropped
    (and fetched again on the next map). window.__world.pathArt is the promise of it, for the tests. */
 const PATH_ART=['bg/english','ui/stone-done','ui/stone-current'];
@@ -158,7 +170,7 @@ function preload(sec){
   const leave=()=>{if(P.ok||/^#island\//.test(location.hash))return;stop=true;for(const im of Object.values(P.imgs))if(!im.complete)im.removeAttribute('src');end(false)};
   addEventListener('hashchange',leave);
   const after=document.readyState==='complete'?Promise.resolve():new Promise(r=>addEventListener('load',r,{once:true}));
-  const own=()=>Promise.all([...sec.querySelectorAll('img')].map(i=>i.complete?0:i.decode().catch(()=>0)));
+  const own=()=>Promise.all([...sec.querySelectorAll('img')].map(i=>i.complete?0:i.decode().catch(()=>0))).then(quiet);
   after.then(own).then(()=>stop?false:Promise.all(PATH_ART.map(k=>{const im=new Image();im.decoding='async';im.fetchPriority='low';
     im.src=ART[k];P.imgs[k]=im;return im.decode().then(()=>true,()=>false)})).then(a=>a.every(Boolean)&&!stop)).catch(()=>false).then(end)}
  window.__world.pathArt=pre.done}

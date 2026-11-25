@@ -755,6 +755,31 @@ async def island_path(b, errs):
         span = (max(empty) - min(empty)) if empty else 0
         check(f'CPU x{rate}, pictures already in: the list never shows before the path, the area is empty at most about 0.35 s, then the path for good', isl and 'list' not in [k for _, k in isl] and isl[-1][1] == 'path' and span <= 350, (span, ''.join(k[0] for _, k in isl)))
         await c.close()
+    # on a slow line (tests/slow_net.py's profile), the path's pictures are asked for only once the map is usable: they
+    # never share the line with the map's own art
+    import slow_net as SN, time as _t
+    c, pg, reqs = await page(b, 390, 844, [], st)
+    await pg.add_init_script(seed)
+    cdp = await c.new_cdp_session(pg); await cdp.send('Network.enable')
+    await cdp.send('Network.emulateNetworkConditions', {'offline': False, 'latency': SN.PROFILE['latency'], 'downloadThroughput': SN.PROFILE['down'], 'uploadThroughput': SN.PROFILE['up']})
+    sent = []; T0 = _t.monotonic()
+    cdp.on('Network.requestWillBeSent', lambda e: sent.append((_t.monotonic() - T0, e['request']['url'])))
+    # from the title screen, after the page has loaded (the load event no longer holds anything back): then the map
+    await pg.goto(P.BASE + '?ds=1#', wait_until='commit')
+    while _t.monotonic() - T0 < 150 and not await pg.evaluate(f"({SN.USABLE})(()=>!!document.querySelector('.scr.title .btn'))"):
+        await asyncio.sleep(0.2)
+    await pg.wait_for_function("document.readyState==='complete'", timeout=60000)
+    T0 = _t.monotonic(); sent.clear()
+    await pg.evaluate("location.hash='map'")
+    usable = None
+    while _t.monotonic() - T0 < 150:
+        if await pg.evaluate(f"({SN.USABLE})(()=>!!document.querySelector('.scr.map .isl'))"):
+            usable = _t.monotonic() - T0; break
+        await asyncio.sleep(0.2)
+    ok = await pg.evaluate('window.__world.pathArt')
+    first = min([t for t, u in sent if '/assets/al/bg/english.' in u or '/assets/al/ui/stone-' in u], default=None)
+    check('slow line, title then map: the path\'s pictures are asked for only once the map is usable (its own art first), and still arrive', usable is not None and first is not None and first >= usable - 0.3 and ok is True, {'usable': round(usable or 0, 1), 'first path request': round(first or 0, 1), 'ok': ok})
+    await c.close()
     # leaving the map for anything but an island drops a preload still under way; the next map fetches again
     c, pg, reqs = await page(b, 390, 844, [], st)
     await pg.add_init_script(seed)
