@@ -8,6 +8,9 @@ MASTER is assets/al/intro/master.*.mp4 (540 x 982, the final sound mix, no title
 about 1.8 Mbit/s, the default) and OUTDIR/light.mp4 (390 x 710, about 3 MB, for phones on slow or saved-data
 connections), and prints their sizes and sha256 for assets/al/sources.tsv.
 
+A master at another width (the native 704 x 1280 one, kept outside the repo because of its size) gives OUTDIR/share.mp4
+instead: the same film at that size, for sharing (the teacher, a presentation); the title scales with the width.
+
 The title: "ברוכים הבאים" in Rubik Bubbles (aqua, glowing), "לניצני אופק!" in Rubik Moonrocks (gold with moon craters),
 each letter popping in, then a glint passing over them. Fonts: Google Fonts, SIL Open Font License, loaded at render
 time; only pictures of them end up in the film. Needs ffmpeg, Playwright and Chrome (/usr/bin/google-chrome).
@@ -66,8 +69,18 @@ def main():
     html = TPL.replace('L1', spans(o.l1, 'a', 0, 0.05)).replace('L2', spans(o.l2, 'b', 0.55, 0.07))
     with tempfile.TemporaryDirectory() as td:
         asyncio.run(frames(html, td))
-        y = int(982 * 0.2 - 165)
-        ov = f"[1:v]format=rgba,setpts=PTS-STARTPTS+{o.at}/TB[t];[0:v][t]overlay=0:{y}:eof_action=repeat:format=auto,format=yuv420p"
+        W, H = map(int, subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', o.master],
+                                       capture_output=True, text=True, check=True).stdout.strip().split(','))
+        k = W / 540; y = int(H * 0.2 - 165 * k)
+        sc = '' if W == 540 else f',scale={round(540 * k / 2) * 2}:-2'
+        ov = f"[1:v]format=rgba{sc},setpts=PTS-STARTPTS+{o.at}/TB[t];[0:v][t]overlay=0:{y}:eof_action=repeat:format=auto,format=yuv420p"
+        if W != 540:
+            share = os.path.join(o.outdir, 'share.mp4')
+            run('-i', o.master, '-framerate', '30', '-i', os.path.join(td, '%03d.png'), '-filter_complex', ov + '[v]', '-map', '[v]', '-map', '0:a',
+                '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', '19', '-maxrate', '4500k', '-bufsize', '9000k',
+                '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-ac', '2', '-movflags', '+faststart', share)
+            print(share, os.path.getsize(share), hashlib.sha256(open(share, 'rb').read()).hexdigest())
+            return
         full = os.path.join(o.outdir, 'full.mp4'); light = os.path.join(o.outdir, 'light.mp4')
         run('-i', o.master, '-framerate', '30', '-i', os.path.join(td, '%03d.png'), '-filter_complex', ov + '[v]', '-map', '[v]', '-map', '0:a',
             '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', '21', '-maxrate', '1800k', '-bufsize', '3600k',

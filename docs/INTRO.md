@@ -19,6 +19,8 @@ The platform is **ניצני אופק**. The closing title is live text, "ברו
 - `tools/intro_film.py MASTER OUTDIR [--l1 ... --l2 ...]` renders the title and writes the two played files:
   `intro.*.mp4` (540 x 982, about 1.8 Mbit/s, the default) and `intro-light.*.mp4` (390 x 710, about 3 MB).
   A rename is a re-run of this script: no credits.
+- A share version for the teacher or a presentation (704 x 1280, the clips' native size, about 20 MB) is built the same
+  way from a native-size master; it is not in the repo (too large, not played).
 - The player (`js/intro.js`) plays the light one when the connection reports saved data or 2G/3G, the full one otherwise.
 
 ## Story (version 7, the owner's notes)
