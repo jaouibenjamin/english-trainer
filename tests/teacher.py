@@ -22,9 +22,10 @@ from play import check, fails
 SB, KEY = 'https://abcdefghijklmnop.supabase.co', 'public-key-for-tests-0123456789'
 PAGE = f'http://127.0.0.1:{P.PORT}/teacher.html'
 EVIL = '<img src=x onerror="window.__pwned=1">'
-C1, P1, P2 = '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333'
+C1, P1, P2, P3 = '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', '44444444-4444-4444-8444-444444444444'
 OTC = '482913'
-ROWS = {'teacher_view': [dict(pupil_id=P1, class_id=C1, display_name='נועה', points=44, answers=4, error_pct=25, stars=3, locked_today=2, code_status='set', recovery_status='open', flags_week=0),
+ROWS = {'teacher_view': [dict(pupil_id=P1, class_id=C1, display_name='פלונית', points=44, answers=4, error_pct=25, stars=3, locked_today=2, code_status='set', recovery_status='open', flags_week=0),
+                         dict(pupil_id=P3, class_id=C1, display_name=None, points=0, answers=0, error_pct=0, stars=0, locked_today=0, code_status='set', recovery_status='open', flags_week=0),
                          dict(pupil_id=P2, class_id=C1, display_name=EVIL, points=10, answers=1, error_pct=0, stars=0, locked_today=0, code_status='waiting', recovery_status='closed', flags_week=1)],
         'classes': [dict(id=C1, name='ה׳1')],
         'teacher_items': [dict(item_key='hobby', tries=9, wrong=6, error_pct=67), dict(item_key='kick', tries=5, wrong=1, error_pct=20)],
@@ -34,7 +35,7 @@ CORS = {'access-control-allow-origin': '*', 'access-control-allow-headers': 'api
 
 def standin(log, st):
     codes, live = {}, set()
-    roster = [dict(class_id=C1, name_key='נועה', display_name='נועה'), dict(class_id=C1, name_key='<b>x</b>', display_name=EVIL)]
+    roster = [dict(class_id=C1, name_key='פלונית', display_name='פלונית'), dict(class_id=C1, name_key='<b>x</b>', display_name=EVIL)]
 
     async def route(r):
         req = r.request; u = urllib.parse.urlparse(req.url); q = urllib.parse.parse_qs(u.query)
@@ -48,6 +49,8 @@ def standin(log, st):
             return await r.fulfill(status=302, headers={'location': q['redirect_to'][0] + '?code=' + code})
         body = json.loads(req.post_data or 'null')
         if u.path == '/auth/v1/token' and q.get('grant_type') == ['pkce']:
+            if st.get('slow'):
+                await asyncio.sleep(st['slow'])
             c = codes.pop(body['auth_code'], None)
             ok = c and c['method'] == 's256' and base64.urlsafe_b64encode(hashlib.sha256(body['code_verifier'].encode()).digest()).rstrip(b'=').decode() == c['challenge']
             if not ok:
@@ -67,7 +70,7 @@ def standin(log, st):
             if rep_:
                 return await r.fulfill(status=200, headers=CORS, json=rep_)
             if a == 'reset' and body.get('pupil_id') in (P1, P2):
-                return await r.fulfill(status=200, headers=CORS, json=dict(ok=True, otc=OTC, expires_at='2026-11-26T15:00:00Z', name='נועה' if body['pupil_id'] == P1 else EVIL))
+                return await r.fulfill(status=200, headers=CORS, json=dict(ok=True, otc=OTC, expires_at='2026-11-26T15:00:00Z', name='פלונית' if body['pupil_id'] == P1 else EVIL))
             if a == 'unlock' and body.get('pupil_id') in (P1, P2):
                 st['unlocks'] = st.get('unlocks', 0) + 1
                 return await r.fulfill(status=200, headers=CORS, json=dict(ok=True) if st['unlocks'] <= 2 else dict(ok=False, e='limit'))
@@ -100,6 +103,12 @@ async def run(b, w, h, tag):
     c = await b.new_context(viewport={'width': w, 'height': h}, bypass_csp=True)
     await c.route('**/config.js', lambda r: r.fulfill(status=200, content_type='text/javascript', body=f"window.API_URL='';window.BACKEND={{url:'{SB}',key:'{KEY}'}};"))
     await c.route(SB + '/**', standin(log, st))
+    # a request made while the page goes into the back-forward cache does not pass Playwright's routing (nor its request
+    # events): the page's own calls are recorded instead, and such a request never reaches a real host (the browser has
+    # no proxy here, and the project's made-up name resolves to nowhere). That the browser then delivers it is checked
+    # on a real device (docs/PHASE3.md, step 4).
+    await c.add_init_script("addEventListener('pageshow', e => { if (e.persisted) window.__restored = true });"
+                            "window.__calls = []; const f = window.fetch; window.fetch = function (u, o) { window.__calls.push([String(u), !!(o && o.keepalive), document.visibilityState]); return f.apply(this, arguments) }")
     pg = await c.new_page()
     pg.on('console', lambda m: (said.append(m.text), errs.append(m.text) if m.type == 'error' else None))
     pg.on('pageerror', lambda e: errs.append(str(e)))
@@ -113,7 +122,7 @@ async def run(b, w, h, tag):
     check(f'[{tag}] the sign-in went to the project for Google, with PKCE, back to this page only', q.get('provider') == ['google'] and q.get('code_challenge_method') == ['s256'] and q.get('redirect_to') == [PAGE], q)
     check(f'[{tag}] back on the page: signed in, and the code is gone from the address bar', await pg.text_content('#who') == 'teacher.one@example.org' and '?code' not in pg.url and pg.url == PAGE, pg.url)
     names = await pg.eval_on_selector_all('#class tbody td.name', 'e=>e.map(x=>x.textContent)')
-    check(f'[{tag}] the screen: her class, in name order', names == sorted(['נועה', EVIL], key=lambda s: s) or set(names) == {'נועה', EVIL}, names)
+    check(f'[{tag}] the screen: her class, a missing name empty (never "null")', set(names) == {'פלונית', EVIL, ''} and 'null' not in names, names)
     check(f'[{tag}] a name that is HTML is shown as text: no element made of it, nothing ran', await pg.evaluate('window.__pwned') is None and await pg.locator('#class img').count() == 0)
     status = await pg.eval_on_selector_all('#class tbody tr', 'e=>e.map(r=>r.cells[5].textContent)')
     check(f'[{tag}] the status column: locks today, a code waiting, recovery closed, flagged', any('ננעל היום 2' in s for s in status) and any('מחכה לקוד חדש' in s and 'השחזור סגור' in s and 'לבדיקה' in s for s in status), status)
@@ -123,8 +132,8 @@ async def run(b, w, h, tag):
     rest = [x for x in log if x['path'].startswith('/rest/v1/')]
     check(f'[{tag}] every read went with her token and the publishable key, and only to her views and her class list', len(rest) == 5 and all(x['auth'].startswith('Bearer acc-') and x['apikey'] == KEY and x['method'] == 'GET' for x in rest)
           and sorted(x['path'].split('?')[0] for x in rest) == ['/rest/v1/backend_health', '/rest/v1/classes', '/rest/v1/roster', '/rest/v1/teacher_items', '/rest/v1/teacher_view'], rest)
-    check(f'[{tag}] the class list: her names, the HTML one as text', await pg.eval_on_selector_all('#roster li span', 'e=>e.map(x=>x.textContent)') == sorted(['נועה', EVIL], key=lambda x: x) or
-          set(await pg.eval_on_selector_all('#roster li span', 'e=>e.map(x=>x.textContent)')) == {'נועה', EVIL}) 
+    check(f'[{tag}] the class list: her names, the HTML one as text', await pg.eval_on_selector_all('#roster li span', 'e=>e.map(x=>x.textContent)') == sorted(['פלונית', EVIL], key=lambda x: x) or
+          set(await pg.eval_on_selector_all('#roster li span', 'e=>e.map(x=>x.textContent)')) == {'פלונית', EVIL}) 
     store = await pg.evaluate('JSON.stringify([Object.keys(sessionStorage),Object.keys(localStorage)])')
     check(f'[{tag}] nothing of the session in storage (only the device switch)', json.loads(store) == [[], ['wi_tsb']], store)
     await P.shot(pg, f'teacher-{tag}')
@@ -143,14 +152,26 @@ async def run(b, w, h, tag):
     check(f'[{tag}] leaving the page (pagehide): the screen is emptied and her session revoked', await pg.is_hidden('#screen') and await pg.locator('#class tbody tr').count() == 0
           and any(x['path'] == '/auth/v1/logout?scope=local' for x in log[n:]), log[n:])
     await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
+    m = await pg.evaluate('window.__calls.length')
     await pg.goto(f'http://127.0.0.1:{P.PORT}/index.html'); await pg.wait_for_timeout(300)        # a real navigation to the game
-    await pg.go_back(); await pg.wait_for_selector('#in:not([hidden])')
+    await pg.go_back(wait_until='commit'); await pg.wait_for_selector('#in:not([hidden])')   # from the cache: no load event
+    cached = await pg.evaluate('window.__restored === true')
+    check(f'[{tag}] the back button brings the page back from the back-forward cache (the browser runs with it on)', cached)
     check(f'[{tag}] the back button: nobody signed in, nothing of her class on the screen', await pg.is_hidden('#out') and await pg.locator('#class tbody tr').count() == 0 and await pg.text_content('#who') == '')
+    calls = json.loads(await pg.evaluate('JSON.stringify(window.__calls.slice(m))'.replace('m', str(m))))
+    check(f'[{tag}] and the page revoked her session as it went into the cache (logout, keepalive), and asked nothing else', calls == [[SB + '/auth/v1/logout?scope=local', True, 'visible']], calls)
 
+    st['slow'] = 1.5                                                    # slow wifi: the code exchange takes a while
+    await pg.goto(PAGE); await pg.wait_for_selector('#in:not([hidden])'); await pg.click('#in')
+    await pg.wait_for_function("document.querySelector('#msg').textContent==='מתחברים…'")
+    check(f'[{tag}] back from Google on slow wifi: "signing in…" and no button to tap again until the exchange answers', await pg.is_hidden('#in') and await pg.is_hidden('#out'))
+    await pg.wait_for_selector('#out:not([hidden])'); st['slow'] = 0
+    await pg.click('#out'); await pg.wait_for_selector('#in:not([hidden])')
     await pg.goto(PAGE + '?tsb=0'); await pg.wait_for_selector('#in:not([hidden])')
     await pg.click('#in'); await pg.wait_for_selector('#out:not([hidden])'); await pg.wait_for_timeout(300)
     check(f'[{tag}] without the switch (?tsb=0) there is no screen after sign-in', await pg.is_hidden('#screen') and await pg.locator('#class tbody tr').count() == 0)
     errs = [e for e in errs if 'status of 409' not in e]     # the browser's own line for the stand-in's "already on the list"
+    errs = [e for e in errs if 'ERR_NAME_NOT_RESOLVED' not in e]   # that keepalive revoke, to the stand-in's made-up host
     check(f'[{tag}] no error in the console', not errs, errs[:3])
     await c.close()
 
@@ -171,17 +192,17 @@ async def answer(pg, yes):
 
 async def actions(pg, tag, log, said, st):
     n = len(log)
-    await (await row_button(pg, 'נועה', 'קוד חדש')).click()
-    check(f'[{tag}] a new code is asked first, with her pupil\'s name in the question', 'לתת לנועה קוד חדש' in await pg.text_content('#ask-text'))
+    await (await row_button(pg, 'פלונית', 'קוד חדש')).click()
+    check(f'[{tag}] a new code is asked first, with her pupil\'s name in the question', 'לתת לפלונית קוד חדש' in await pg.text_content('#ask-text'))
     await answer(pg, False); await pg.wait_for_timeout(200)
     check(f'[{tag}] cancel sends nothing', fn_calls(log, n) == [] and not await pg.is_visible('#code'))
 
-    await (await row_button(pg, 'נועה', 'קוד חדש')).click(); await answer(pg, True)
+    await (await row_button(pg, 'פלונית', 'קוד חדש')).click(); await answer(pg, True)
     await pg.wait_for_selector('#code[open]')
     calls = fn_calls(log, n)
     check(f'[{tag}] reset: one call to teacher-reset, her token, this pupil only', len(calls) == 1 and calls[0]['method'] == 'POST' and calls[0]['auth'].startswith('Bearer acc-')
           and calls[0]['body'] == dict(action='reset', pupil_id=P1), calls)
-    check(f'[{tag}] the new code is shown, once, in big digits, with the name', await pg.text_content('#code-digits') == '482 913' and 'נועה' in await pg.text_content('#code-name'))
+    check(f'[{tag}] the new code is shown, once, in big digits, with the name', await pg.text_content('#code-digits') == '482 913' and 'פלונית' in await pg.text_content('#code-name'))
     store = await pg.evaluate('JSON.stringify([sessionStorage,localStorage,location.href,history.length])')
     check(f'[{tag}] the code is in no storage and not in the address bar', OTC not in store and '482' not in pg.url, store)
     await P.shot(pg, f'teacher-code-{tag}')
@@ -191,12 +212,12 @@ async def actions(pg, tag, log, said, st):
     check(f'[{tag}] "written down": the code is wiped from the page', not await pg.is_visible('#code') and OTC not in await pg.content() and await pg.text_content('#code-digits') == '')
 
     n = len(log)
-    await (await row_button(pg, 'נועה', 'שחרור נעילה')).click(); await answer(pg, True)
+    await (await row_button(pg, 'פלונית', 'שחרור נעילה')).click(); await answer(pg, True)
     await pg.wait_for_function("document.querySelector('#act').textContent.includes('שוחררה')")
     check(f'[{tag}] unlock: her pupil, the screen says so', [c['body'] for c in fn_calls(log, n)] == [dict(action='unlock', pupil_id=P1)])
     check(f'[{tag}] an HTML name has no unlock button (not locked) but its own reset', await (await row_button(pg, 'img', 'שחרור נעילה')).count() == 0 and await (await row_button(pg, 'img', 'קוד חדש')).count() == 1)
     st['unlocks'] = 2
-    await (await row_button(pg, 'נועה', 'שחרור נעילה')).click(); await answer(pg, True)
+    await (await row_button(pg, 'פלונית', 'שחרור נעילה')).click(); await answer(pg, True)
     await pg.wait_for_function("document.querySelector('#act').textContent.includes('פעמיים')")
     check(f'[{tag}] unlock a third time: the server\'s daily limit is told plainly', 'אפשר לתת קוד חדש' in await pg.text_content('#act'))
 
@@ -229,13 +250,13 @@ async def actions(pg, tag, log, said, st):
           and dels[0]['prefer'] == 'return=representation' and 'Dana Lee' not in await pg.eval_on_selector_all('#roster li span', 'e=>e.map(x=>x.textContent)'), dels)
 
     st['reply'] = dict(ok=False, e='forbidden')
-    await (await row_button(pg, 'נועה', 'קוד חדש')).click(); await answer(pg, True)
+    await (await row_button(pg, 'פלונית', 'קוד חדש')).click(); await answer(pg, True)
     await pg.wait_for_function("document.querySelector('#act').textContent.includes('לא אושרה')")
     check(f'[{tag}] the server refuses: said so, no code shown', not await pg.is_visible('#code'))
     st.pop('reply')
 
     st['delay'] = 1.0; n = len(log)
-    await (await row_button(pg, 'נועה', 'קוד חדש')).click(); await answer(pg, True)
+    await (await row_button(pg, 'פלונית', 'קוד חדש')).click(); await answer(pg, True)
     await pg.wait_for_timeout(200)
     check(f'[{tag}] one action at a time: every action button waits', await pg.evaluate("[...document.querySelectorAll('button.act')].every(b=>b.disabled)"))
     await pg.click('#out'); await pg.wait_for_timeout(1300)
@@ -243,7 +264,7 @@ async def actions(pg, tag, log, said, st):
     st.pop('delay')
 
     await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
-    await (await row_button(pg, 'נועה', 'קוד חדש')).click(); await answer(pg, True); await pg.wait_for_selector('#code[open]')
+    await (await row_button(pg, 'פלונית', 'קוד חדש')).click(); await answer(pg, True); await pg.wait_for_selector('#code[open]')
     await pg.evaluate("dispatchEvent(new PageTransitionEvent('pagehide',{persisted:false}))"); await pg.wait_for_timeout(300)
     check(f'[{tag}] leaving the page with a code on the screen: wiped', not await pg.is_visible('#code') and await pg.text_content('#code-digits') == '')
     check(f'[{tag}] the code was never written to the console', not any(OTC in m for m in said), [m for m in said if OTC in m])
@@ -254,7 +275,9 @@ async def main():
     procs = P.start_servers()
     try:
         async with async_playwright() as p:
-            b = await p.chromium.launch()
+            # the browser of the other suites, with the back-forward cache ON (Playwright turns it off by default): the
+            # back button must find a page that let her go, not one frozen with her session (review of #82, B1)
+            b = await p.chromium.launch(executable_path=P.CHROME, args=['--no-sandbox', '--no-proxy-server', '--host-resolver-rules=MAP abcdefghijklmnop.supabase.co ~NOTFOUND'], ignore_default_args=['--disable-back-forward-cache'])
             await run(b, 390, 844, 'phone')
             await run(b, 1366, 768, 'laptop')
             await b.close()

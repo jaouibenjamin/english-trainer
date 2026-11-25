@@ -3,35 +3,41 @@
    js/teacher_auth.js; this file only wires it to the page. Without a project in config.js the page says so and does
    nothing else: no request, no listener. The words are ours, for the teacher's review. */
 import {teacherAuth,projectOf} from './teacher_auth.js';
-const P=projectOf(window.BACKEND);
+/* captured as the module loads, before anything else on the page could replace it (pages of the owner's other
+   projects share this origin) */
+const FETCH=window.fetch,P=projectOf(window.BACKEND);
 const $=s=>document.querySelector(s);
 const SAY={
  off:'כניסת המורים עוד לא פועלת: המערכת החדשה עוד לא מחוברת.',
- out:'כניסה למורים בלבד, עם חשבון Google.',
+ framed:'פתחו את הדף הזה ישירות, בלשונית משלו.',
+ out:'כניסה למורים בלבד, עם חשבון Google. במחשב משותף: היכנסו בחלון גלישה בסתר, ובסוף לחצו "יציאה" וסגרו את החלון (היציאה מכאן לא מוציאה מחשבון Google).',
+ going:'מתחברים…',
  in:'מחוברים בתור',
  e:{flow:'הכניסה לא הושלמה. נסו שוב.',code:'הכניסה לא הושלמה. נסו שוב.',denied:'הכניסה בוטלה.',net:'אין חיבור לאינטרנט. נסו שוב.',
-    idle:'יצאנו אוטומטית אחרי 30 דקות בלי פעילות.',expired:'החיבור פג. היכנסו שוב.',storage:'הדפדפן לא מאפשר כניסה (אחסון חסום).'}};
+    idle:'יצאנו אוטומטית אחרי 30 דקות בלי פעילות.',expired:'החיבור פג. היכנסו שוב.',storage:'הדפדפן לא מאפשר כניסה (אחסון חסום).',
+    path:'הכניסה פועלת רק מהכתובת של דף המורים.',stale:'',forbidden:'השרת סירב לחשבון הזה, ולכן יצאנו. אם זו טעות, פנו למנהל המערכת.'}};
 /* the screen (docs/PHASE3.md step 2): read only for now, behind a switch this device gets with ?tsb=1 and loses with
    ?tsb=0. Every value is put in with textContent: pupils' names are text a child typed, never HTML. */
 let tsb=false;
 try{const q=new URLSearchParams(location.search).get('tsb');if(q==='1')localStorage.setItem('wi_tsb','1');else if(q==='0')localStorage.removeItem('wi_tsb');tsb=localStorage.getItem('wi_tsb')==='1'}catch(e){}
 const STATUS=r=>[r.locked_today>0?`ננעל היום ${r.locked_today} פעמים`:'',r.code_status==='waiting'?'מחכה לקוד חדש':'',r.recovery_status==='closed'?'השחזור סגור':r.recovery_status==='locked'?'השחזור נעול לזמן קצר':'',r.flags_week>0?'לבדיקה':''].filter(Boolean).join(' · ');
 const num=x=>Number.isFinite(+x)?String(Math.round(+x)):'0';
+const txt=x=>x==null?'':String(x);                          // a missing name is empty, never "null"
 function clearScreen(){const sc=$('#screen');if(!sc)return;sc.hidden=true;$('main').classList.remove('wide');$('#class tbody').replaceChildren();$('#hard').replaceChildren();$('#roster').replaceChildren();$('#health').hidden=true;$('#health').textContent='';$('#load').textContent='';$('#act').textContent=''}
 function cell(tr,text,cls){const td=document.createElement('td');td.textContent=text;if(cls)td.className=cls;tr.append(td);return td}
 function btn(text,onClick,cls){const b=document.createElement('button');b.type='button';b.className='small act'+(cls?' '+cls:'');b.textContent=text;b.disabled=busy;b.addEventListener('click',onClick);return b}
-const byName=(a,b)=>String(a).localeCompare(String(b),'he');
+const byName=(a,b)=>txt(a).localeCompare(txt(b),'he');
 function render(view,items,health,classes,roster){
  const body=$('#class tbody'),hard=$('#hard');body.replaceChildren();hard.replaceChildren();
  for(const r of view.slice().sort((a,b)=>byName(a.display_name,b.display_name))){
-  const tr=document.createElement('tr'),name=String(r.display_name),id=String(r.pupil_id);
+  const tr=document.createElement('tr'),name=txt(r.display_name),id=String(r.pupil_id);
   cell(tr,name,'name');cell(tr,num(r.points),'num');cell(tr,num(r.answers),'num');cell(tr,num(r.error_pct)+'%','num');cell(tr,num(r.stars),'num');cell(tr,STATUS(r));
   const td=cell(tr,'','acts');td.append(btn('קוד חדש',()=>reset(id,name)));
   if(r.locked_today>0||r.recovery_status==='locked')td.append(btn('שחרור נעילה',()=>unlock(id,name)));
   body.append(tr)}
  renderRoster(classes,roster);
  for(const it of items.slice().sort((a,b)=>(+b.error_pct-+a.error_pct)||(+b.tries-+a.tries)).slice(0,10)){
-  const li=document.createElement('li'),w=document.createElement('span');w.className='en';w.textContent=String(it.item_key);
+  const li=document.createElement('li'),w=document.createElement('span');w.className='en';w.textContent=txt(it.item_key);
   li.append(w,document.createTextNode(` · ${num(it.wrong)} טעויות מתוך ${num(it.tries)} (${num(it.error_pct)}%)`));hard.append(li)}
  const h=health[0],warn=$('#health');warn.hidden=!(h&&h.warn);
  warn.textContent=h&&h.warn?'שימו לב: המערכת צריכה בדיקה (התחזוקה של הלילה לא רצה, או שהמאגר מתמלא). ספרו למנהל המערכת.':'';
@@ -41,12 +47,12 @@ function render(view,items,health,classes,roster){
 function renderRoster(classes,roster){
  const box=$('#roster');box.replaceChildren();
  for(const c of classes.slice().sort((a,b)=>byName(a.name,b.name))){
-  const cid=String(c.id),cname=String(c.name),sec=document.createElement('section');sec.className='cls';
+  const cid=String(c.id),cname=txt(c.name),sec=document.createElement('section');sec.className='cls';
   const bar=document.createElement('div'),h=document.createElement('h3');bar.className='bar';h.textContent=`רשימת הכיתה ${cname}`;
   bar.append(h,btn('שחרור נעילות לכל הכיתה',()=>unlockClass(cid,cname)));
   const ul=document.createElement('ul');ul.className='names';
   for(const n of roster.filter(x=>String(x.class_id)===cid).sort((a,b)=>byName(a.display_name,b.display_name))){
-   const li=document.createElement('li'),s=document.createElement('span'),name=String(n.display_name),k=String(n.name_key);
+   const li=document.createElement('li'),s=document.createElement('span'),name=txt(n.display_name),k=txt(n.name_key);
    s.textContent=name;li.append(s,btn('הסרה',()=>remove(cid,cname,k,name)));ul.append(li)}
   const add=document.createElement('div'),inp=document.createElement('input'),lab=document.createElement('label');add.className='add';
   inp.type='text';inp.maxLength=20;inp.autocomplete='off';inp.spellcheck=false;inp.id='add-'+cid;lab.htmlFor=inp.id;lab.textContent='שם פרטי או כינוי:';
@@ -123,19 +129,24 @@ const remove=(cid,cname,key,name)=>act(`להסיר את "${name}" מרשימת �
  else say(r.status===200?'השם כבר לא ברשימה.':fail(r))});
 function show(state,user,why){
  const msg=$('#msg'),who=$('#who'),note=$('#note');
- $('#in').hidden=state!=='out';$('#out').hidden=state!=='in';
- msg.textContent=state==='off'?SAY.off:state==='in'?SAY.in:SAY.out;
+ $('#in').hidden=state!=='out';$('#out').hidden=state!=='in';$('#in').disabled=false;
+ msg.textContent=SAY[state]||SAY.out;
  who.textContent=state==='in'&&user?user.email:'';
  note.textContent=why&&SAY.e[why]||'';
  if(state!=='in'){loading++;epoch++;setBusy(false);hideCode();const a=$('#ask');if(a&&a.open)a.close();clearScreen()}}
-if(!P)show('off');
+/* in a frame, or opened by another page that keeps a handle on it: the page refuses to run */
+const framed=(()=>{try{return window.top!==window.self||!!window.opener}catch(e){return true}})();
+/* the one address on the sign-in's redirect list is …/teacher.html; Pages also serves …/teacher */
+if(/\/teacher$/.test(location.pathname))location.replace(location.pathname+'.html'+location.search);
+else if(!P)show('off');
+else if(framed)show('framed');
 else{
  let store=null;try{store=window.sessionStorage}catch(e){}
- auth=teacherAuth({url:P.url,key:P.key,fetch:(u,o)=>window.fetch(u,o),crypto:window.crypto,location:window.location,history:window.history,
+ auth=teacherAuth({url:P.url,key:P.key,fetch:(u,o)=>FETCH.call(window,u,o),crypto:window.crypto,location:window.location,history:window.history,
   store:store||{getItem:()=>null,setItem:()=>{throw new Error('no storage')},removeItem:()=>{}},
   now:()=>Date.now(),setTimeout:(f,ms)=>window.setTimeout(f,ms),clearTimeout:t=>window.clearTimeout(t),
   onOut:why=>show('out',null,why==='out'||why==='left'||why==='switch'?'':why)});
- $('#in').addEventListener('click',()=>{auth.begin().then(r=>{if(r==='storage')show('out',null,'storage')})});
+ $('#in').addEventListener('click',()=>{$('#in').disabled=true;auth.begin().then(r=>{if(r!=='going')show('out',null,r)})});
  $('#out').addEventListener('click',()=>{auth.signOut('out')});
  $('#reload').addEventListener('click',()=>{load()});
  $('#ask-yes').addEventListener('click',()=>$('#ask').close('yes'));
@@ -146,5 +157,6 @@ else{
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')auth.wake()});
  window.addEventListener('pagehide',()=>{auth.left()});                       // leaving the page ends the session
  window.addEventListener('pageshow',e=>{if(e.persisted&&!auth.signedIn())show('out')});   // the back button shows nothing of her
- show('out');
+ const back=new URLSearchParams(location.search).has('code');
+ show(back?'going':'out');                                  // back from Google: no button until the exchange has answered
  auth.finish().then(r=>{show(r.state,r.user,r.e);if(r.state==='in')load()})}
