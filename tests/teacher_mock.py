@@ -17,7 +17,7 @@ from play import check, new_page, port_open, fails
 CLASS, TEACHER = 'EN-1234', '654321'      # the mock backend's own test values
 TRY1 = {'at': 1000, 'total': [9, 20], 'sc': {'words': [3, 5], 'grammar': [2, 5], 'reading': [2, 5], 'writing': [2, 5]}, 'miss': ['a:1'], 'wrong': [['a:1', 'zzz']]}
 TRY2 = {'at': 2000, 'total': [15, 20], 'sc': {'words': [5, 5], 'grammar': [4, 5], 'reading': [3, 5], 'writing': [3, 5]}, 'miss': [], 'wrong': []}
-PUPILS = {'אביגיל': [TRY1, TRY2], 'בארי': [], 'גילי': [TRY1]}
+PUPILS = {'אביגיל': [TRY1, TRY2], 'בארי': [], 'גילי': [TRY1], 'דליה': [dict(TRY1, at=1000 + i) for i in range(19)] + [TRY2]}   # 20 papers: the device keeps only the last 20
 POST = "async ([api,d])=>(await fetch(api,{method:'POST',body:JSON.stringify(d)})).json()"
 CARDS = """(()=>Object.fromEntries([...document.querySelectorAll('.kid')].map(k=>[k.querySelector('.kn b').textContent,{km:[...k.querySelectorAll('.km')].map(p=>p.innerText.replace(/\\s+/g,' ').trim()),rows:k.querySelectorAll('p').length,wide:k.scrollWidth>k.clientWidth+1}])))()"""
 
@@ -73,6 +73,8 @@ async def run(b, w, h, errs, api, first):
     check(f'[{tag}] on: and the last paper by skill, in the exam\'s order', len(a) == 2 and a[1] == 'מילים 5 / 5 דקדוק 4 / 5 קריאה 3 / 5 כתיבה 3 / 5', a)
     check(f'[{tag}] on: a pupil without a paper is marked "not yet"', bb == ['מבחן דמו: עוד לא ניסה/תה'], bb)
     check(f'[{tag}] on: one paper shows no "first" result', len(g) == 2 and 'ניסיון אחד' in g[0] and 'אחרון 9 / 20' in g[0] and 'ראשון' not in g[0], g)
+    d20 = cards['דליה']['km']
+    check(f'[{tag}] on: with 20 papers the oldest score is called the oldest of the last 20, not the first', len(d20) == 2 and '20 ניסיונות' in d20[0] and 'הוותיק מ־20 האחרונים 9 / 20' in d20[0] and 'ראשון' not in d20[0], d20)
     check(f'[{tag}] on: no card is wider than its box', not any(v['wide'] for v in cards.values()))
     text = await pg.inner_text('.kids')
     check(f'[{tag}] on: what a pupil typed in the exam is not on the screen', 'zzz' not in text and 'a:1' not in text)
@@ -105,6 +107,15 @@ async def run(b, w, h, errs, api, first):
     R = await pg.evaluate("({pwned:!!window.__pwned,tags:document.querySelectorAll('.kid .km img,.kid .km b:not(:first-child) *,.kid .km i').length,html:[...document.querySelectorAll('.kid .km')].map(p=>p.innerText.replace(/\\s+/g,' ').trim())})")
     check(f'[{tag}] rubbish from a backend is never drawn: no markup, no impossible number, only checked values',
           not R['pwned'] and R['tags'] == 0 and not any(x in ' '.join(R['html']) for x in ('<', '25 / 20', '1000000000', 'evil', '-1')), R)
+    await pg.unroute(api)
+
+    # ---- a backend that answers with an error page: the teacher is told the server failed, not to check the internet ----
+    await pg.route(api, lambda route: route.fulfill(content_type='text/html', body='<html><body>Error</body></html>'))
+    await pg.wait_for_load_state('networkidle'); await pg.goto('about:blank'); await pg.goto(P.BASE + '#teacher'); await pg.wait_for_selector('#tt')
+    await pg.fill('#tc', CLASS); await pg.fill('#tt', TEACHER); await pg.click('[data-a=tlogin]')
+    await pg.wait_for_function("document.querySelector('.err')&&document.querySelector('.err').textContent.length>3")
+    err = await pg.inner_text('.err')
+    check(f'[{tag}] a server that answers with an error page: the message says the server failed, not the internet', err.startswith('משהו השתבש בשרת') and 'אינטרנט' not in err, err)
     await pg.unroute(api)
 
     # ---- read-only ----

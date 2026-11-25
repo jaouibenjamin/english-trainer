@@ -206,10 +206,10 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
     sends it. An older deployment sends no "mock" field at all: then the card is drawn exactly as before.
     Every number is checked before it is shown; nothing from the backend is drawn as text. */
  const pr=p=>Array.isArray(p)&&p.length===2&&p.every(v=>Number.isInteger(v)&&v>=0&&v<1000)&&p[1]>0&&p[0]<=p[1]?p:null,frac=p=>num(p[0]+' / '+p[1]);
- const mockRow=d=>{if(SET.tmock!==true||!('mock' in d))return'';const m=d.mock,last=m&&pr(m.last);
+ const mockRow=d=>{if(SET.tmock!==true||!d||typeof d!=='object'||!('mock' in d))return'';const m=d.mock,last=m&&pr(m.last);
   if(!last)return`<p class="ks km"><span>מבחן דמו: עוד לא ניסה/תה</span></p>`;
   const n=Number.isInteger(m.n)&&m.n>0&&m.n<100?m.n:1,first=pr(m.first),sc=XORDER.map(k=>[k,pr(m.sc&&m.sc[k])]).filter(x=>x[1]);
-  return`<p class="ks km"><span><b>מבחן דמו</b> ${n===1?'ניסיון אחד':num(n)+' ניסיונות'}</span><span>אחרון ${frac(last)}</span>${n>1&&first?`<span>ראשון ${frac(first)}</span>`:''}</p>
+  return`<p class="ks km"><span><b>מבחן דמו</b> ${n===1?'ניסיון אחד':num(n)+' ניסיונות'}</span><span>אחרון ${frac(last)}</span>${n>1&&first?`<span>${n>=20?'הוותיק מ־20 האחרונים':'ראשון'} ${frac(first)}</span>`:''}</p>
    ${sc.length?`<p class="ks km sk">${sc.map(([k,p])=>`<span>${XSKILL[k].he} ${frac(p)}</span>`).join('')}</p>`:''}`};
  view.innerHTML=`<section class="scr teacher wide">${top('מסך המורה',back)}
   <div class="panel label"><h3>המילים הקשות לכיתה</h3>${D.hard.length?`<div class="hard">${D.hard.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]]||'')}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
