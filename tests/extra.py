@@ -43,12 +43,15 @@ async def press(pg, yes, how):
 async def local(b, w, h, errs, full):
     tag = f'{w}x{h}'
     c, pg = await new_page(b, w, h, errs=errs)
+    fetched = []
+    pg.on('request', lambda r: fetched.append(r.url))
 
     # ---- switch off ----
     await pg.goto(P.BASE + '#island/1'); await pg.wait_for_selector('.scr.island')
     check(f'[{tag}] off: the island has no extra games', await pg.locator('.xtr,.xtb').count() == 0)
     await pg.goto(P.BASE + '#extra/1/tf'); await pg.wait_for_selector('.scr.map,.map .isl')
     check(f'[{tag}] off: the game\'s address leads to the map', await pg.locator('#tfk').count() == 0)
+    check(f'[{tag}] off: no game and no games stylesheet is fetched', not any(x in u for u in fetched for x in ('/tf.js', '/pairs.js', '/scramble.js', '/extra.css')), [u for u in fetched if 'extra' in u or 'tf.js' in u])
     check(f'[{tag}] off: the switch is not stored', await pg.evaluate(f"!('games' in (JSON.parse(localStorage.getItem('{SET_KEY}'))||{{}}))"))
 
     # ---- switch on ----
@@ -65,6 +68,9 @@ async def local(b, w, h, errs, full):
     check(f'[{tag}] on: an island that is still closed cannot be practised', await pg.locator('#tfk').count() == 0)
     await pg.goto(P.BASE + '#extra/1/nosuch'); await pg.wait_for_selector('.scr.map,.map .isl')
     check(f'[{tag}] on: an unknown game leads to the map', await pg.locator('#tfk').count() == 0)
+    for k in ('__proto__', 'constructor', 'toString', 'hasOwnProperty'):
+        await pg.goto(P.BASE + '#extra/1/' + k); await pg.wait_for_selector('.scr.map,.map .isl')
+        check(f'[{tag}] on: "{k}" is not a game and leads to the map, with no error', await pg.locator('#tfk').count() == 0)
 
     await pg.goto(P.BASE + '#island/1'); await pg.wait_for_selector('.xtb')
     stored = await pg.evaluate("JSON.stringify(Object.entries(localStorage).sort())")
@@ -79,6 +85,11 @@ async def local(b, w, h, errs, full):
 
     # ---- a wrong answer explains, and the word comes back ----
     first = await pg.evaluate(CARD)
+    live = await pg.inner_text('#tfl')
+    check(f'[{tag}] a screen reader is told the new card: the word and the meaning', first['en'] in live and first['he'].split(',')[0] in live, live)
+    # (Alt+Left would also take the browser back a page, which is the browser's own business: Alt+Right has nowhere to go)
+    await pg.keyboard.press('Alt+ArrowRight'); await pg.keyboard.press('Control+ArrowLeft'); await pg.keyboard.press('Meta+ArrowRight'); await pg.wait_for_timeout(150)
+    check(f'[{tag}] an arrow key with Alt, Ctrl or Meta does not answer', await pg.locator('.tfe,.tfr').count() == 0 and await pg.evaluate('window.__lv.g.done') == 0)
     n = await pg.evaluate('window.__lv.g.n')
     check(f'[{tag}] a round has 8 words', n == 8, n)
     await press(pg, not first['truth'], 'button'); await pg.wait_for_selector('.tfe')

@@ -9,7 +9,7 @@ import * as read from './read.js';
 import * as bridge from './bridge.js';
 import * as M from './math.js';
 import * as X from './mock.js';
-import {EXTRA,extraOn,initExtra,extraRow,partsOf} from './extra.js';
+import {extraGame,extraOn,initExtra,extraRow,partsOf} from './extra.js';
 
 const LEVELS={sling,listen,read,bridge};
 const BGFIT={sling:'bottom',listen:'bottom',read:'bottom',bridge:'bridge'};
@@ -268,8 +268,8 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
   case'mock':X.hub();break;case'mockrun':{const my=navId;X.run({go,live:()=>my===navId,setLevel:l=>{level=l}});break}case'mockprac':{const my=navId;X.prac(a,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
   case'help':help();break;
   /* extra practice games (js/extra.js): only on a device that was given the switch, only for an open island */
-  case'extra':{const i=isl(a),G=EXTRA[b];if(!extraOn()||!i||!isOpen(i)||!G)return go('map');const my=navId;setBg('paper','center');
-   G.mod.start(view,{island:i,parts:partsOf(i)},{}).then(l=>{if(my!==navId)l.destroy();else level=l});break}case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
+  case'extra':{const i=isl(a),G=extraGame(b);if(!extraOn()||!i||!isOpen(i)||!G)return go('map');const my=navId;setBg('paper','center');loader();
+   G.load().then(m=>my===navId?m.start(view,{island:i,parts:partsOf(i)},{}):null).then(l=>{if(!l)return;if(my!==navId)l.destroy();else level=l}).catch(()=>{if(my===navId)go('island/'+i.id)});break}case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
 initExtra();   // extra practice games are behind a switch a device gets with ?games=1
 addEventListener('hashchange',route);
 /* a pupil who also plays on another device: bring that progress in when the game opens or comes back to the front.
