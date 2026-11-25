@@ -178,6 +178,17 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=map|island]`. No 
 - Painted frames as `border-image` (9-slice), text stays live on top: panel (login card, settings panels, the all-played banner; in `world.html` the cards and the focus banner), gold button (the login button; the primary buttons of `world.html`), HUD pill (the star count, the island chip; the HUD chips of `world.html`). Disabled and secondary buttons keep their flat look, so "not yet" still reads differently.
 
 
+## Rollout step 6: Beach Run HUD and menus, behind the same flag
+Files: `css/run-ds.css` (the skin), a seven-line block at the top of `js/run.js` (the same switch as `js/dsflag.js`: `?ds=1` on and remembered in `localStorage.wi_ds`, `?ds=0` off). `run.html` is unchanged, so with the flag off the page makes exactly the same requests as before and stores nothing new. Default off.
+- Styling only. The 3D scene, the signs drawn in it, the runner models, the questions, the scoring and every element, id and handler are untouched.
+- HUD: hearts, the question count and the shells as navy chips with a gold (count, shells) or line (hearts) edge and a scrim keyline, so they read on sky and sand. The hit shake is off in the new look.
+- Question card: navy-800 with a keyline, still compact so the road stays in view. Lane answers are navy tiles; the current lane has an aqua ring; an empty lane is a dashed "—". Right: green edge and title; wrong: the warm "fix" edge and title, the right answer in gold, "השאלה הזאת תחזור עוד מעט" in aqua. The speaker is a 48px target (negative margin, so the card is not taller).
+- "נכון!" / "כמעט!" over the road: green / fix colour with a solid dark edge; a miss only fades, it does not pop.
+- Touch pad and "יודע/ת!": solid navy and azure, no blur (the old pad used `backdrop-filter`), 48px or more.
+- Start, pause and end menus: the painted panel frame, the painted gold button for the one main action, "חזרה למשחק" as an azure secondary button (48px), pace choice with an aqua ring, scores in gold.
+- Checked: `tests/run.py` plays the whole run with the flag on at 390x844 (and 1366x768 in the full form): same scoring checks, every visible button and link 48px or more on the start menu, the HUD, the question card and the end menu; with the flag off it checks no class, nothing stored and only `css/run.css` requested. Computed styles of the start menu with the flag off match `game` at both sizes.
+- Known seams: the signs on the gate are drawn in the 3D scene in today's hand font and colours; the copy "נגמרו הלבבות" is unchanged (copy is the designer's).
+
 ## Rollout step 7: the teacher screen, behind the same flag
 Files: `css/ds-teacher.css` (the skin), one more entry in the stylesheet list of `js/dsflag.js`. Styling only, every rule under `html.ds #stage[data-scr=teacher]` or `.teacher`. No markup, script, request or saving change; pupil names still come from the backend at run time, escaped by `js/main.js`.
 - Dark shell, flat navy cards with a line edge (the painted frame is not used: many cards, small data). No paper picture behind.

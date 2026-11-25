@@ -12,6 +12,12 @@ import {SND,unlock} from './audio.js';
 const $=s=>document.querySelector(s);
 const cv=$('#gl'),stageEl=$('#rstage'),hud=$('#hud'),pad=$('#pad'),menu=$('#menu'),banner=$('#banner'),flashEl=$('#flash');
 if(SET.calm)document.documentElement.classList.add('calm');
+/* the new look ("Arcade Lagoon"), behind the same switch as js/dsflag.js: ?ds=1 turns it on for this device, ?ds=0 off.
+   Off: nothing is added, written or requested. On: the class "ds" on <html> and two stylesheets (css/run-ds.css), styling only. */
+(()=>{let q=null,on=false;try{q=new URLSearchParams(location.search).get('ds')}catch(e){}
+ try{if(q==='1')localStorage.setItem('wi_ds','1');else if(q==='0')localStorage.removeItem('wi_ds');on=localStorage.getItem('wi_ds')==='1'}catch(e){on=q==='1'}
+ if(!on)return;document.documentElement.classList.add('ds');
+ for(const h of['css/ds.css','css/run-ds.css']){const l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l)}})();
 /* two looks: anime cel-shading (default) and low-poly (?style=lowpoly) */
 /* the runner models and their menu pictures are ours, served next to the game (relative URLs; sources: assets/sources.tsv) */
 const M3D='assets/3d/',HPIC='assets/x/';
