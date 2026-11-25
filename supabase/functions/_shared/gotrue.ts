@@ -1,42 +1,67 @@
-// The real Sessions: Supabase Auth through the admin API (docs/BACKEND.md 4.1).
-// NOT EXERCISED BY THE LOCAL TESTS: there is no Supabase project yet. It is type-checked against the pinned
-// client only. Before any pupil is moved, run the four functions once against a real project and check:
-// generateLink + verifyOtp with public sign-up disabled, and that a deleted user's refresh token is dead.
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.119.2";
+// The real Sessions: Supabase Auth's own HTTP API, called with plain fetch (review S10: no client library to pin,
+// vendor or trust; these six calls are all we need). docs/BACKEND.md 4.1.
+// NOT EXERCISED AGAINST SUPABASE BY THE LOCAL TESTS: tests/functions.py checks the requests against a stand-in;
+// tests/live_check.py (stage 2) checks them against the project: generateLink + verify with sign-up off, and that a
+// deleted user's refresh token is dead.
 import type { Session, Sessions } from "./core.ts";
 
-export function gotrueSessions(url: string, serverKey: string): Sessions {
-  const opts = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
-  const admin: SupabaseClient = createClient(url, serverKey, opts);
+export function gotrueSessions(url: string, serverKey: string, fetchFn: typeof fetch = fetch): Sessions {
+  const auth = url.replace(/\/+$/, "") + "/auth/v1";
+  // the server key is sent as apikey; as a bearer only when it is a JWT (the new sb_secret_ keys are not)
+  const admin = (extra: Record<string, string> = {}) => ({
+    "content-type": "application/json",
+    apikey: serverKey,
+    ...(serverKey.startsWith("eyJ") ? { authorization: "Bearer " + serverKey } : {}),
+    ...extra,
+  });
+  async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = admin()): Promise<{ status: number; j: Record<string, unknown> | null }> {
+    const r = await fetchFn(auth + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    let j: Record<string, unknown> | null = null;
+    try {
+      j = await r.json();
+    } catch { /* an empty answer (204) or not JSON */ }
+    return { status: r.status, j };
+  }
+  const ok = (s: number) => s >= 200 && s < 300;
   return {
     async create() {
       // a label, not an address: .invalid can never receive mail, and it holds no name
-      const { data, error } = await admin.auth.admin.createUser({ email: `p-${crypto.randomUUID()}@pupils.invalid`, email_confirm: true });
-      if (error || !data.user) throw new Error("auth: create user");
-      return data.user.id;
+      const r = await call("POST", "/admin/users", { email: `p-${crypto.randomUUID()}@pupils.invalid`, email_confirm: true });
+      if (!ok(r.status) || typeof r.j?.id !== "string") throw new Error("auth: create user");
+      return r.j.id;
     },
     async issue(userId: string): Promise<Session> {
-      const u = await admin.auth.admin.getUserById(userId);
-      const email = u.data.user?.email;
-      if (u.error || !email) throw new Error("auth: user");
+      const u = await call("GET", `/admin/users/${encodeURIComponent(userId)}`);
+      const email = u.j?.email;
+      if (!ok(u.status) || typeof email !== "string") throw new Error("auth: user");
       // a one-use sign-in token for that user; nothing is sent anywhere, it is redeemed here and now
-      const link = await admin.auth.admin.generateLink({ type: "magiclink", email });
-      const token_hash = link.data.properties?.hashed_token;
-      if (link.error || !token_hash) throw new Error("auth: link");
-      const once = createClient(url, serverKey, opts); // its own client: verifyOtp must not turn the admin client into the pupil
-      const v = await once.auth.verifyOtp({ token_hash, type: "magiclink" });
-      const s = v.data.session;
-      if (v.error || !s) throw new Error("auth: verify");
-      return { access_token: s.access_token, refresh_token: s.refresh_token, expires_in: s.expires_in, expires_at: s.expires_at, token_type: s.token_type };
+      const link = await call("POST", "/admin/generate_link", { type: "magiclink", email });
+      const token_hash = link.j?.hashed_token ?? (link.j?.properties as Record<string, unknown> | undefined)?.hashed_token;
+      if (!ok(link.status) || typeof token_hash !== "string") throw new Error("auth: link");
+      // redeemed as an anonymous caller would, with the key as apikey only: the answer is the pupil's session
+      const v = await call("POST", "/verify", { type: "magiclink", token_hash }, { "content-type": "application/json", apikey: serverKey });
+      const s = v.j as Record<string, unknown> | null;
+      if (!ok(v.status) || typeof s?.access_token !== "string" || typeof s?.refresh_token !== "string") throw new Error("auth: verify");
+      return {
+        access_token: s.access_token,
+        refresh_token: s.refresh_token,
+        expires_in: typeof s.expires_in === "number" ? s.expires_in : undefined,
+        expires_at: typeof s.expires_at === "number" ? s.expires_at : undefined,
+        token_type: typeof s.token_type === "string" ? s.token_type : undefined,
+      };
     },
     async remove(userId: string) {
       try {
-        await admin.auth.admin.deleteUser(userId);
+        await call("DELETE", `/admin/users/${encodeURIComponent(userId)}`);
       } catch { /* the database link is already cut; an orphan auth user maps to no pupil and sees nothing */ }
     },
     async userOf(token: string) {
-      const { data, error } = await admin.auth.getUser(token);
-      return error || !data.user ? null : data.user.id;
+      try {
+        const r = await call("GET", "/user", undefined, { apikey: serverKey, authorization: "Bearer " + token });
+        return ok(r.status) && typeof r.j?.id === "string" ? r.j.id : null;
+      } catch {
+        return null;
+      }
     },
   };
 }

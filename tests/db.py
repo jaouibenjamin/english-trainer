@@ -87,7 +87,7 @@ def fixture(db):
 PUBLIC_TABLES = ['classes', 'roster', 'teachers', 'pupils', 'items', 'levels', 'level_best', 'answers', 'points', 'pupil_totals', 'progress', 'flags', 'answer_daily']
 VIEWS = ['class_board', 'teacher_view', 'teacher_items', 'backend_health']
 PRIVATE_TABLES = ['class_codes', 'pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'auth_attempts', 'auth_buckets',
-                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions', 'maintenance_log']
+                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions', 'maintenance_log', 'class_misses']
 PUPIL_KEYED = ['pupil_totals', 'progress', 'answers', 'points', 'flags', 'answer_daily', 'level_best']
 PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days']
 
@@ -417,7 +417,9 @@ def test_teacher(db):
                    ('Dana\u0301\u0301\u0301', 'stacked combining marks'), (' Dana', 'a leading space'), ('Dana ', 'a trailing space'), ('D4na', 'a digit'),
                    ('Dana\u200f', 'right-to-left mark'), ('a' * 21, '21 letters')]:
         check(f'refused: {why}', bad(n) is not None)
-    for n in ['Noa', 'נועה', "O'Neil", 'Chloé', 'בר-לב', 'ג׳ני', 'Ana Mae', 'Dan.']:
+    for n, why in [("'Dana", 'an apostrophe first'), ('Dana-', 'a hyphen last'), ("Da ''", 'an apostrophe after a space'), ('׳נועה', 'a geresh first')]:
+        check(f'refused: {why}', bad(n) is not None)
+    for n in ['Noa', 'נועה', "O'Neil", 'Chloé', 'בר-לב', 'ג׳ני', 'Ana Mae', 'Dan.', 'ג׳ורג׳', "ג'ורג'", 'ג’ורג’', 'Łukasz', 'Žofie', "D'"]:
         r = db.psql(f"select app.name_ok($n${n}$n$)")[0][0][0]
         check(f'allowed: {n}', r == 't', r)
 
@@ -492,8 +494,13 @@ def test_storage(db):
     db.admin('update private.settings set storage_brake = true')
     n0 = db.one(f"select count(*) from public.answers where pupil_id = '{sv_pid}'")
     r, _ = record_as(db, S, ans(1, 0, key='w9'))
-    eq('with the brake on, events are counted, not stored', (r.get('capped'), db.one(f"select count(*) from public.answers where pupil_id = '{sv_pid}'"),
-       db.one(f"select n from public.flags where pupil_id = '{sv_pid}' and kind = 'storage'")), (True, n0, '1'))
+    eq('with the brake on, nothing is stored, and the answer says so (the device keeps the batch: review S4)',
+       ((r.get('ok'), r.get('e')), db.one(f"select count(*) from public.answers where pupil_id = '{sv_pid}'"),
+        db.one(f"select n from public.flags where pupil_id = '{sv_pid}' and kind = 'storage'")), ((False, 'brake'), n0, '1'))
+    db.admin("update private.settings set raw_days = 0")
+    m, _ = db.rpc(SERVER, 'maintenance')
+    db.admin("update private.settings set raw_days = 90")
+    eq('with the brake on, the nightly roll-up waits too (it would write before vacuum frees: review S3)', (m or {}).get('rolled'), 0)
     db.admin('update private.settings set storage_brake = false')
 
     print('-- the nightly housekeeping: its log, the brake, the purges')

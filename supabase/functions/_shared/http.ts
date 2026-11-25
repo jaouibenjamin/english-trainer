@@ -17,11 +17,16 @@ function cors(req: Request, allowed: string[]): Record<string, string> {
   return h;
 }
 
-/** the address the platform saw. Only ever used hashed with a short-lived salt (core.ts buckets()). */
-export function clientIp(req: Request): string {
-  const xff = req.headers.get("x-forwarded-for") ?? "";
-  const first = xff.split(",")[0].trim();
-  return /^[0-9a-fA-F:.]{3,45}$/.test(first) ? first.toLowerCase() : "unknown";
+/** The caller's address, only ever used hashed with a short-lived salt (core.ts buckets()). Review S5: the FIRST entry
+    of X-Forwarded-For is whatever the caller wrote; the platform's proxy APPENDS the address it saw, so by default
+    the LAST entry is taken. Which header the platform really uses is checked on the project (docs/BACKEND.md
+    section 10, item 10) and set with CLIENT_IP_FROM: "xff-last" (default) or the name of a single-address header
+    the platform sets itself (for example "cf-connecting-ip"). Anything that does not parse gives "", and the caller
+    then gets a bucket of its own (core.ts), never one shared by everybody. */
+export function clientIp(req: Request, from = Deno.env.get("CLIENT_IP_FROM") ?? "xff-last"): string {
+  const raw = from === "xff-last" ? (req.headers.get("x-forwarded-for") ?? "").split(",").pop() ?? "" : req.headers.get(from) ?? "";
+  const ip = raw.trim();
+  return /^[0-9a-fA-F:.]{3,45}$/.test(ip) && /[0-9]/.test(ip) ? ip.toLowerCase() : "";
 }
 
 export function handler(fn: (d: Deps, body: Body, ctx: Ctx) => Promise<Reply>, deps: () => Promise<Deps> | Deps, origins?: string) {

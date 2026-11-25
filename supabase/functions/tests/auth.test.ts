@@ -2,8 +2,9 @@
 // Every name, code and address here is made up.
 import { asUser, clock, DAY, deps, e, eq, freshIp, HOUR, log, MIN, newClass, ok, pepper, pupilId, recOtc, recPic, reg, reset, saves, SCHOOL, settings, sql, user } from "./helpers.ts";
 import { kdf, legacySheetHash, stats, tag } from "../_shared/crypto.ts";
-import { adminClass, type Body, type Reply, teacherReset, wrapLegacy } from "../_shared/core.ts";
-import { handler } from "../_shared/http.ts";
+import { adminClass, type Body, login, type Reply, teacherReset, wrapLegacy } from "../_shared/core.ts";
+import { clientIp, handler } from "../_shared/http.ts";
+import { gotrueSessions } from "../_shared/gotrue.ts";
 import { isName, isWeakCode } from "../_shared/validate.ts";
 
 const T = (name: string, fn: () => Promise<void>) => Deno.test({ name, fn, sanitizeResources: false, sanitizeOps: false });
@@ -38,24 +39,24 @@ T("register: a pupil is created, signed in, and nothing secret is stored or retu
 
 T("weak codes are refused at registration and whenever a new code is set", async () => {
   const weak = Array.from({ length: 10000 }, (_, i) => String(i).padStart(4, "0")).filter(isWeakCode);
-  eq(weak.length, 965, "codes on the list");
+  eq(weak.length, 970, "codes on the list");
   // the rule is the one written in docs/BACKEND.md 4.2: its groups, and the 14 keypad codes listed there
   const doc = await Deno.readTextFile(new URL("../../../docs/BACKEND.md", import.meta.url));
-  const listed = (doc.match(/these 14 keypad\s+lines[^`]*((?:`[^`]+`[\s\S]*?)+)\. Together 965/)?.[1] ?? "").replace(/[`\s]+/g, " ").trim().split(" ").filter((x) => /^\d{4}$/.test(x));
+  const listed = (doc.match(/these 14 keypad\s+lines[^`]*((?:`[^`]+`[\s\S]*?)+)\. Together 970/)?.[1] ?? "").replace(/[`\s]+/g, " ").trim().split(" ").filter((x) => /^\d{4}$/.test(x));
   const days = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   const date = (d: number, m: number) => m >= 1 && m <= 12 && d >= 1 && d <= days[m - 1];
   const group = (c: string) => {
-    const d = [...c].map(Number), st = d[1] - d[0];
-    return (d[0] === d[1] && d[1] === d[2] && d[2] === d[3]) || (Math.abs(st) === 1 && d[2] - d[1] === st && d[3] - d[2] === st) ||
+    const d = [...c].map(Number), st = (d[1] - d[0] + 10) % 10, up = (i: number) => (d[i + 1] - d[i] + 10) % 10;
+    return (d[0] === d[1] && d[1] === d[2] && d[2] === d[3]) || ((st === 1 || st === 9) && up(1) === st && up(2) === st) ||
       (d[0] === d[2] && d[1] === d[3]) || (d[0] === d[1] && d[2] === d[3]) || /^(19|20)/.test(c) ||
       date(+c.slice(0, 2), +c.slice(2)) || date(+c.slice(2), +c.slice(0, 2));
   };
   eq(listed.length, 14, "the doc lists 14 keypad codes");
   eq(weak.filter((w) => !group(w)).sort(), [...listed].sort(), "the code's list is exactly the doc's groups plus the doc's keypad codes");
-  eq(weak.filter(group).length, 951, "the doc's groups: 951");
+  eq(weak.filter(group).length, 956, "the doc's groups: 956");
   for (const w of ["2406", "0624", "3112", "2902", "2580", "1357"]) ok(isWeakCode(w), w + " (a date or a keypad line) is weak");
   for (const g of ["3113", "0013", "4500"]) ok(!isWeakCode(g), g + " is not a date");
-  for (const w of ["0000", "1234", "4321", "1212", "1122", "2015", "1999", "7777", "0123", "9876"]) ok(isWeakCode(w), w + " is weak");
+  for (const w of ["0000", "1234", "4321", "1212", "1122", "2015", "1999", "7777", "0123", "9876", "7890", "8901", "9012", "0987", "1098"]) ok(isWeakCode(w), w + " is weak");
   for (const g of ["4827", "5839", "8353", "6149", "7159", "9053"]) ok(!isWeakCode(g), g + " is fine");
   const c = await newClass();
   for (const n of ["Da\u200bna", "D\u0430na", "\u3164\u3164", "Dana\u{1F600}", "<b>x</b>"]) eq(e(await reg(c, n, "4827")), "input", "a name the allow-list refuses: " + JSON.stringify(n));
@@ -502,7 +503,7 @@ T("wrong class codes are limited per address; addresses are never stored", async
   eq(e(await log(c, "Ido", "4827", { ip })), "locked", "then that address waits, also with the right class code");
   eq(e(await log(c, "Ido", "4827", { ip: freshIp() })), "ok", "another address is not affected");
   let dump = "";
-  for (const t of ["auth_attempts", "auth_buckets", "auth_lock_events", "pupil_devices", "ip_salts"]) dump += JSON.stringify(await sql.unsafe(`select * from private.${t}`));
+  for (const t of ["auth_attempts", "auth_buckets", "auth_lock_events", "pupil_devices", "ip_salts", "class_misses"]) dump += JSON.stringify(await sql.unsafe(`select * from private.${t}`));
   ok(!dump.includes("192.0.2.") && !dump.includes("198.51.") && !dump.includes("203.0.113."), "no raw address in any table");
   const b1 = (await sql`select ip_bucket from private.auth_attempts where class_id = ${c.id} order by id limit 1`)[0].ip_bucket;
   clock.ms += DAY + HOUR;
@@ -556,6 +557,171 @@ T("HTTP shell: method, size, JSON, CORS, and errors that say nothing", async () 
   const boom = handler(() => Promise.reject(new Error("secret detail 4827")), () => deps);
   const res = await boom(new Request("http://x/", { method: "POST", body: "{}" }));
   eq([res.status, await res.text()], [500, '{"ok":false,"e":"server"}'], "an internal error tells the caller nothing");
+});
+
+// ---------------------------------------------------------------- the pre-live gate (review of #12 and #17)
+const teacherOf = async (c: { id: string }) => {
+  const t = (await sql`insert into auth.users (email) values (${"t-" + crypto.randomUUID() + "@test.invalid"}) returning id`)[0].id;
+  await sql`insert into public.teachers values (${t}, ${c.id})`;
+  return t as string;
+};
+
+T("S1: class-wide limits hold when 35 tries arrive at once", async () => {
+  const c = await newClass();
+  const names = Array.from({ length: 35 }, (_, i) => "Par" + "abcdefghijklmnopqrstuvwxyz"[i % 26] + "xyz"[Math.floor(i / 26)]);
+  for (const n of names) await reg(c, n, "4827", [3, 11], freshIp());
+  clock.ms += HOUR;
+  const pics = await Promise.all(names.map((n) => recPic(c, n, [5, 6], "5839", [7, 2], freshIp())));
+  eq(pics.filter((r) => e(r) === "picture").length, 10, "35 wrong picture pairs at once on 35 names: exactly 10 compared, the rest refused");
+  const one = "198.18.0.9";
+  const codes = await Promise.all(names.map((n) => log(c, n, "9053", { ip: one })));
+  eq(codes.filter((r) => e(r) === "pin").length, 30, "35 wrong codes at once from one address: exactly 30 compared");
+  clock.ms += 2 * DAY;
+});
+
+T("S2: a pupil's own device keeps its reserve, whatever strangers and unlocks did", async () => {
+  const c = await newClass();
+  const mine = await reg(c, "Kim", "4827");
+  const pid = await pupilId(c, "Kim");
+  const t = await teacherOf(c);
+  clock.ms += HOUR;
+  for (let round = 0; round < 3; round++) {
+    for (let i = 0; i < 20; i++) await log(c, "Kim", "9053", { ip: freshIp() });
+    if (round < 2) await teacherReset(deps, { action: "unlock", pupil_id: pid }, { ip: SCHOOL, token: "t:" + t });
+  }
+  eq((await sql`select count(*)::int as n from private.auth_attempts a join public.pupils p on p.class_id = a.class_id and p.name_key = a.name_key
+               where p.id = ${pid} and a.kind = 'code' and a.outcome <> 'ok'`)[0].n, 29, "strangers reached the name's daily ceiling of 29");
+  eq(e(await log(c, "Kim", "4827", { ip: freshIp() })), "locked", "so strangers are out for the day");
+  eq(e(await log(c, "Kim", "4827", { device_token: tok(mine), ip: freshIp() })), "ok", "the pupil's own phone still gets in");
+  clock.ms += 2 * DAY;
+});
+
+T("S7: the class brake can be lifted twice a day, not more", async () => {
+  const c = await newClass();
+  const t = await teacherOf(c);
+  const lift = () => teacherReset(deps, { action: "unlock_class", class_id: c.id }, { ip: SCHOOL, token: "t:" + t });
+  eq([e(await lift()), e(await lift()), e(await lift())], ["ok", "ok", "limit"], "two lifts, then the third is refused");
+  clock.ms += DAY + HOUR;
+  eq(e(await lift()), "ok", "a day later it can be lifted again");
+  clock.ms += 2 * DAY;
+});
+
+T("N1: a one-time code cannot be compared more than 30 times, even by tries in parallel", async () => {
+  const c = await newClass();
+  await reg(c, "Omri", "4827");
+  const pid = await pupilId(c, "Omri");
+  const t = await teacherOf(c);
+  const r = await reset("t:" + t, pid) as Body;
+  clock.ms += MIN;
+  const wrong = String((Number(r.otc) + 1) % 1000000).padStart(6, "0");
+  await Promise.all(Array.from({ length: 29 }, () => recOtc(c, "Omri", wrong, "6149", [9, 4], freshIp())));
+  eq((await sql`select fails from private.reset_codes where pupil_id = ${pid}`)[0]?.fails, 29, "29 wrong tries at once: 29 counted, none lost");
+  await Promise.all(Array.from({ length: 16 }, () => recOtc(c, "Omri", wrong, "6149", [9, 4], freshIp())));
+  eq([(await sql`select count(*)::int as n from private.reset_codes where pupil_id = ${pid}`)[0].n,
+    (await sql`select count(*)::int as n from private.auth_lock_events where class_id = ${c.id} and kind = 'otc'`)[0].n], [0, 1],
+    "16 more at once: the 30th try ends the code, once, and no try after it is compared");
+  ok(e(await recOtc(c, "Omri", r.otc as string, "6149", [9, 4], freshIp())) !== "ok", "after that the code is cancelled: the right one no longer works");
+  clock.ms += 2 * DAY;
+});
+
+T("N3: teacher-reset answers a stranger's token before any slow hashing", async () => {
+  const c = await newClass(), other = await newClass();
+  await reg(c, "Tom", "4827");
+  const pid = await pupilId(c, "Tom");
+  const stranger = await teacherOf(other);
+  let hashed = 0;
+  const counting = { ...deps, get pepper() { hashed++; return pepper; } };
+  eq(e(await teacherReset(counting, { pupil_id: pid }, { ip: SCHOOL, token: "t:" + stranger })), "forbidden", "not her pupil");
+  eq(hashed, 0, "and nothing was hashed");
+  clock.ms += DAY;
+});
+
+T("S5: the caller's address comes from the platform's end of X-Forwarded-For; an unreadable one shares no bucket", async () => {
+  const rq = (h: Record<string, string>) => new Request("http://x/", { headers: h });
+  eq(clientIp(rq({ "x-forwarded-for": "6.6.6.6, 203.0.113.5" }), "xff-last"), "203.0.113.5", "the entry the platform appended, not the caller's");
+  eq(clientIp(rq({ "x-forwarded-for": "203.0.113.5, not-an-address" }), "xff-last"), "", "garbage is no address");
+  eq(clientIp(rq({ "cf-connecting-ip": "2001:DB8::1", "x-forwarded-for": "6.6.6.6" }), "cf-connecting-ip"), "2001:db8::1", "a platform header, when the project shows that is the one");
+  eq(clientIp(rq({}), "xff-last"), "", "none");
+  const c = await newClass();
+  await reg(c, "Uri", "4827");
+  clock.ms += HOUR;
+  for (let i = 0; i < 3; i++) await login(deps, { class_code: c.code, name: "Uri", code: "9053" }, { ip: "" });
+  const b = await sql`select count(distinct ip_bucket)::int as n from private.auth_attempts where class_id = ${c.id} and kind = 'code'`;
+  eq(b[0].n, 3, "three callers without a readable address: three buckets, not one shared by everybody");
+  clock.ms += 2 * DAY;
+});
+
+T("S6: a pupil's auth user gets no second identity; one that has one is replaced at sign-in", async () => {
+  const c = await newClass();
+  const r = await reg(c, "Gil", "4827");
+  let refused = false;
+  try { await sql`insert into auth.identities (user_id, provider, provider_id) values (${user(r)}, 'google', 'g-1')`; } catch { refused = true; }
+  ok(refused, "linking Google to a pupil's user is refused");
+  const su = Deno.env.get("WI_PG_SUPER");
+  if (su) {
+    const { default: postgres } = await import("npm:postgres@3.4.7");
+    const admin = postgres({ path: Deno.env.get("WI_PG_SOCKET")!, user: su, database: "wi_test", max: 1, onnotice: () => {} });
+    await admin`alter table auth.identities disable trigger pupil_user_no_link`;
+    await admin`insert into auth.identities (user_id, provider, provider_id) values (${user(r)}, 'github', 'gh-1')`;
+    await admin`alter table auth.identities enable trigger pupil_user_no_link`;
+    await admin.end();
+    clock.ms += HOUR;
+    const again = await log(c, "Gil", "4827", { ip: freshIp() });
+    ok(e(again) === "ok" && user(again) !== user(r), "the sign-in notices the extra identity and gives a new auth user");
+    eq((await sql`select count(*)::int as n from auth.users where id = ${user(r)}`)[0].n, 0, "the linked one is deleted");
+  }
+  clock.ms += 2 * DAY;
+});
+
+T("S9: names: the same allow-list as the database, with ׳ ' ’ after a letter and Latin Extended-A", async () => {
+  for (const n of ["ג׳ורג׳", "ג'ורג'", "ג’ורג’", "Łukasz", "Žofie", "D'", "Chloé", "ג׳ני", "Ana Mae", "Dan."]) ok(isName(n), "allowed: " + n);
+  for (const n of ["'Dana", "Dana-", "׳נועה", "Dá́na", "Dаna", "1Dan"]) ok(!isName(n), "refused: " + JSON.stringify(n));
+  const c = await newClass();
+  eq(e(await reg(c, "ג׳ורג׳", "4827")), "ok", "and the database takes the same name");
+  clock.ms += HOUR;
+});
+
+T("S10: Supabase Auth over plain fetch: the six calls and what they send", async () => {
+  const seen: { url: string; method: string; h: Record<string, string>; body: Body | null }[] = [];
+  const fake = (async (url: string | URL | Request, init?: RequestInit) => {
+    const h = Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>));
+    const body = init?.body ? JSON.parse(String(init.body)) : null;
+    seen.push({ url: String(url), method: init?.method ?? "GET", h, body });
+    const u = String(url);
+    const j = u.endsWith("/admin/users") ? { id: "u-1" } : u.includes("/admin/users/") && init?.method === "GET" ? { id: "u-1", email: "p-1@pupils.invalid" }
+      : u.endsWith("/admin/generate_link") ? { hashed_token: "h-1" } : u.endsWith("/verify") ? { access_token: "a", refresh_token: "r", expires_in: 3600, token_type: "bearer" }
+      : u.endsWith("/user") ? (h.authorization === "Bearer good" ? { id: "t-1" } : null) : {};
+    return new Response(j ? JSON.stringify(j) : "{}", { status: j ? 200 : 401 });
+  }) as typeof fetch;
+  const fakeKey = "sb_" + "secret_made_up_for_the_test"; // assembled, so the secret scan does not take it for a key
+  const g = gotrueSessions("https://abc.supabase.co/", fakeKey, fake);
+  eq(await g.create(), "u-1", "create returns the new user");
+  ok(seen[0].body?.email_confirm === true && /^p-[0-9a-f-]{36}@pupils\.invalid$/.test(seen[0].body?.email), "a confirmed label address, no name, no password");
+  eq(Object.keys(seen[0].body ?? {}).sort(), ["email", "email_confirm"], "nothing else is sent");
+  ok(seen[0].h.apikey === fakeKey && !("authorization" in seen[0].h), "a non-JWT server key goes as apikey only");
+  const s = await g.issue("u-1");
+  eq([s.access_token, s.refresh_token], ["a", "r"], "issue: user, link, verify");
+  eq(seen.slice(1).map((x) => x.method + " " + x.url.replace("https://abc.supabase.co", "")), ["GET /auth/v1/admin/users/u-1", "POST /auth/v1/admin/generate_link", "POST /auth/v1/verify"], "the calls, in order");
+  eq(seen[3].body, { type: "magiclink", token_hash: "h-1" }, "verify redeems the hashed token");
+  eq([await g.userOf("good"), await g.userOf("bad")], ["t-1", null], "userOf: the token's user, or nobody");
+  await g.remove("u-1");
+  eq(seen[seen.length - 1].method + " " + seen[seen.length - 1].url, "DELETE https://abc.supabase.co/auth/v1/admin/users/u-1", "remove deletes the user");
+  const jwtKey = "eyJ" + "made.up";
+  await gotrueSessions("https://abc.supabase.co", jwtKey, fake).create();
+  eq(seen[seen.length - 1].h.authorization, "Bearer " + jwtKey, "a JWT server key goes as bearer too");
+});
+
+T("S3: wrong class codes are counters, not rows; forged addresses cannot grow the database past an hourly cap", async () => {
+  await settings({ class_miss_hour: 50 });
+  clock.ms += HOUR;
+  const before = (await sql`select count(*)::int as n from private.class_misses`)[0].n;
+  const got = [];
+  for (let i = 0; i < 60; i++) got.push(e(await log({ id: "", code: "NOPE" + String(i).padStart(4, "0") }, "Ido", "4827", { ip: freshIp() })));
+  eq([got.filter((x) => x === "class").length, got.filter((x) => x === "locked").length], [50, 10], "60 forged addresses: 50 wrong class codes answered, then everyone waits for the hour");
+  ok((await sql`select count(*)::int as n from private.class_misses`)[0].n - before <= 50, "and at most 50 counter rows were written");
+  eq((await sql`select count(*)::int as n from private.auth_attempts where kind = 'class'`)[0].n, 0, "no try row per wrong class code");
+  await settings({ class_miss_hour: 2000 });
+  clock.ms += 2 * HOUR;
 });
 
 T("teardown", async () => {
