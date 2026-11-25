@@ -24,8 +24,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | k3 | Welcome film v4 (the owner's notes): the turn and the island rising in one camera move, Pitzi's key image in the same frame, Pitzi's lip-synced shot x 2 (the first made him a giant: unused). Intro cap raised by the owner to 160 | grok_video 5 s (3 x 7.5); gpt_image_2_5 high (1.25) | 4 | 23.75 | 23.75 | 286.69 | 163.31 |
 | k4 | Welcome film v5 (the owner's notes): the laughs (each character its own, no words), the slow rise, Pitzi's leap out of the sea (key image and 6 s shot), the kids' answer and run. Intro cap raised by the owner to 200 | grok_video (5 s x 3 = 22.5, 6 s = 9); gpt_image_2_5 high (1.25) | 5 | 32.75 | 32.75 | 319.44 | 130.56 |
 | k5 | Welcome film v6 (the owner's notes): the shocked faces and slower rise, small Pitzi's leap (key image and 6 s shot), the run again with Pitzi small. The owner approved spending within the 450 budget | grok_video (5 s x 2 = 15, 6 s = 9); gpt_image_2_5 high (1.25) | 4 | 25.25 | 25.25 | 344.69 | 105.31 |
+| k6 | Welcome film v7 (the owner's notes): laughs with Pitzi peeking from the sea, the shock flowing into the camera turn as the island rises, Pitzi's leap (key image, 6 s shot x 2: the first turned him into a crab with a penguin's face, unused), the run to the same island | grok_video (5 s x 3 = 22.5, 6 s x 2 = 18); gpt_image_2_5 high (1.25) | 6 | 41.75 | 41.75 | 386.44 | 63.56 |
 
-Total charged so far: **344.69** of 450. Left: 105.31. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k5: 216.86 (the owner approved spending within the 450 budget). Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
+Total charged so far: **386.44** of 450. Left: 63.56. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k6: 258.61 (the owner approved spending within the 450 budget). Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
 
 ## Jobs
 
@@ -175,6 +176,11 @@ Batch k5 jobs: shock and slow rise 7c37a49d-aee3-4d11-a0e2-bc8b63dbb8c9, small P
 Pitzi's leap and line b9285b21-2c2a-42f5-abd2-bfe4f5ca614a, "Yeah, let's go!" and the run 00980a2b-0f5a-4695-b31f-982280cb406b. All used.
 v5's 70bf74cf, e3e5f8d1, 91f4e24c and 30220de2 are no longer used. The title fonts (Rubik Bubbles, Rubik Moonrocks) are Google
 Fonts under the SIL Open Font License; only rendered pictures of them are in the film.
+
+Batch k6 jobs: laughs and the peek 61679f79-a354-4edb-abce-2831547d829d, shock and rise e0b4570c-6d40-4646-ad80-7edd7efeddd6, Pitzi
+leaping key image c70906f9-77f4-4183-9011-a3855d1b53b5, Pitzi's leap and line 525c9966-647b-41e7-8339-a21560ef3c5d (unused:
+122e47e5, his face turned into a penguin's), the run e78eef89-88e1-4b0e-ab69-1469ee330bf6. v6's e2d71bef, 7c37a49d, 9e3ca1ab,
+b9285b21 and 00980a2b are no longer used.
 
 ## Review notes
 

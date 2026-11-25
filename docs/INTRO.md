@@ -21,17 +21,17 @@ The platform is **ניצני אופק**. The closing title is live text, "ברו
   A rename is a re-run of this script: no credits.
 - The player (`js/intro.js`) plays the light one when the connection reports saved data or 2G/3G, the full one otherwise.
 
-## Story (version 6, the owner's notes)
+## Story (version 7, the owner's notes)
 
 1. A generic illustrated school gate at sunset: the four (girl with braids, boy with cap, fox, penguin: our avatars) wave
    goodbye to friends and walk toward the camera.
 2. The camera circles to their side on the seaside path; sunset turns to dusk.
-3. They sit on the grass above the sea; push in to their faces: each laughs in their own way (a bright giggle, a
-   hearty laugh, a sly chuckle, a squeaky honk), no words.
-4. At "ופתאום" the laughter stops: they freeze in shock (jaws dropped, eyes wide) as the camera pulls back and to the
-   side and a huge island rises slowly out of the sea.
-5. Small Pitzi (smaller than the kids) leaps out of the water with a splash, lands by them and calls: "Hey kids! Are you ready for an adventure?"
-6. "Yeah, let's go!": they run with Pitzi down to the beach; the picture freezes and the title flies in from the front
+3. They sit on the grass above the sea and laugh, each in their own way (a bright giggle, a hearty laugh, a sly
+   chuckle, a squeaky honk), no words; behind them small Pitzi peeks out of the sea and ducks back, unnoticed.
+4. At "ופתאום" the laughter stops and, in the same move, they turn in shock as the camera swings round to the sea:
+   a huge island rises slowly out of the water straight in front of them.
+5. Small Pitzi leaps out of the sea toward them with a splash, lands at the water's edge and calls: "Hey kids! Are you ready for an adventure?"
+6. "Yeah, let's go!": they run with Pitzi toward that same island; the picture freezes and the title flies in from the front
    ("ברוכים הבאים לניצני אופק!", in the film itself: the letters pop in one by one, "ברוכים הבאים" in aqua
    Rubik Bubbles, "לניצני אופק!" in gold Rubik Moonrocks with moon craters, then a glint passes over them).
 
