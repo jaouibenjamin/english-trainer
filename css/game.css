@@ -512,6 +512,15 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .treset{margin-inline-start:auto;font:inherit;font-size:12.500px;font-weight:700;color:#8a4a2e;background:#fff3d6;border:1.5px solid rgba(138,74,46,.45);border-radius:10px;padding:3px 9px;min-height:30px}
 .treset[data-arm]{background:#fde3d6;border-color:#b9503c;color:#7a2f22}
 .treset:disabled{opacity:.6}
+/* settings on short phones: the crab's note needs about 810 px of height to sit clear of the progress panel, and with
+   the account panel the screen needs a little less air to keep the sign-out button on it */
+@media (max-height:810px) and (max-width:699px){.settings .guide{display:none}}
+@media (max-height:700px){.settings,.settings .fill{gap:6px}.settings .setrow{min-height:44px}}
+
+/* link to the printable worksheet on an island (only on a device that was given the switch) */
+.chips .wsl{text-decoration:none;color:inherit;min-height:44px;display:inline-flex;align-items:center;cursor:pointer}
+.chips .wsl:focus-visible{outline:3px solid #2d6f8e;outline-offset:2px}
+
 
 /* ---------- word help (js/help.js): only drawn on a device that was given the switch ---------- */
 .hw{font:inherit;color:inherit;letter-spacing:inherit;background:none;border:0;margin:0;padding:0 1px;cursor:pointer;border-bottom:2px dotted rgba(90,69,52,.55);border-radius:3px;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
