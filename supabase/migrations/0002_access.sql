@@ -108,14 +108,15 @@ create view public.teacher_view with (security_barrier = true) as
          t.last_at,
          (select count(*)::int from private.auth_lock_events e
            where e.class_id = p.class_id and e.name_key = p.name_key
-             and e.at >= (date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem')) as locked_today,
+             and e.at >= (date_trunc('day', now() at time zone z.tz) at time zone z.tz)) as locked_today,
          case when s.code_hash is null then 'waiting' else 'set' end as code_status,
          case when b.locked_until = 'infinity' then 'closed' when b.locked_until > now() then 'locked' else 'open' end as recovery_status,
          b.locked_until as recovery_locked_until,
          (s.pic_hash is not null) as has_picture,
          (select coalesce(sum(f.n), 0)::int from public.flags f
-           where f.pupil_id = p.id and f.day > (now() at time zone 'Asia/Jerusalem')::date - 7) as flags_week
+           where f.pupil_id = p.id and f.day > (now() at time zone z.tz)::date - 7) as flags_week
   from public.pupils p
+  cross join (select tz from private.settings) z      -- the class's day: settings.tz, as the points and the roll-up
   join public.pupil_totals t on t.pupil_id = p.id
   left join public.progress g on g.pupil_id = p.id
   left join private.pupil_secrets s on s.pupil_id = p.id
