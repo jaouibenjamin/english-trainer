@@ -94,7 +94,7 @@ Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"
 2. **Island map** (world map + island path, with energy and today's focus). The new structure; needs the engineer for energy rules and the weak-item recommender. *First the skin: the existing English map and level list behind the flag, see "Rollout step 2" below.*
 3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered. *Built behind the flag: see "Rollout step 3" below.*
 4. **Fraction Bay** (math). Same shell; island of the world map. *Built behind the flag: see "Rollout step 4" below.*
-5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep.
+5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep. *A light touch behind the flag: see "Rollout step 5" below.*
 6. **Beach Run HUD**. Chips and bar over the WebGL canvas; check phone performance (no blur).
 7. **Teacher screen**. Dark or paper; it is data-heavy. Last, lowest kid impact.
 
@@ -200,6 +200,11 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=math|misland|mpla
 - Levels: the same night tint and HUD as the English levels. Keypad keys navy with white digits, the check key gold; choice cards navy with a green or coral edge for right and wrong; the pizza footer notes on plates. The worksheet paper and the pizza task note stay light, like the mock exam: they are written work.
 - The level rules of step 3 are scoped to `#stage[data-scr=play|mplay]`, so the maths levels get all of them (with #44 alone they reach only the English levels). The slingshot's caption keeps its paper label with dark ink, as in step 3.
 - Checked: flag on, `tests/math.py --quick` 21 pass, screenshots of every state (map, island, pizza ask, build, cut, eat, merge, wholes, count; sling aim and miss; sheet question, form, solution; every result) at 390x844, 360x740 and 1366x768. Flag off: `ds-game.css` is not loaded.
+
+## Rollout step 5: the mock exam, a light touch, behind the same flag
+Under `html.ds #stage[data-scr=mock|mockrun|mockprac]`. The exam stays on paper and keeps its calm: the question cards, answers, stations trail, report bars and their colours are today's. Only the shell matches the other screens: the dark surround on wide screens, the heading on a navy plate, the round back and quit buttons, the gold main button (no pulse), the navy toast, the paper focus ring (`--wi-focus-paper`), the fonts.
+- The exam's quit button: its icon was missing (`ico('x')`, not in the set) and is fixed in #60 (`ico('close')`). With the flag on it is a navy disc with a white X, drawn as a background on a square 48 px hit box (Chrome does not hit-test rounded-off corners, so a `border-radius` would let corner taps fall through to the trail); the stations trail's inline padding is 60 px, which leaves a real gap of 12 to 17 px between the X and the writing-station circle.
+- Checked: flag on, `tests/mock.py --quick` 12 pass, screenshots of every state (intro, the four stations, each question type, report, practice, hub) at 390x844, and the hub and a question at 1366x768.
 
 ## Rollout step 6: Beach Run HUD and menus, behind the same flag
 Files: `css/run-ds.css` (the skin), a seven-line block at the top of `js/run.js` (the same switch as `js/dsflag.js`: `?ds=1` on and remembered in `localStorage.wi_ds`, `?ds=0` off). `run.html` is unchanged, so with the flag off the page makes exactly the same requests as before and stores nothing new. Default off.

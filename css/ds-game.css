@@ -327,7 +327,7 @@ html.ds #stage[data-scr=extra] .scl.glow{background:var(--wi-gold);color:var(--w
 html.ds #stage[data-scr=extra] .scw i{border-bottom-color:var(--wi-text)}
 html.ds #stage[data-scr=extra] .tfrev span{color:var(--wi-text)}
 /* the green "found it" line (e.g. Israel = ישראל) sat bare on the painted picture: a dark plate under it */
-html.ds #stage[data-scr=extra] .tfr.ok{inline-size:fit-content;max-inline-size:100%;margin-inline:auto;padding:4px 14px;background:rgba(6,15,38,.82);border-radius:var(--wi-r-md);color:var(--wi-good)}
+html.ds #stage[data-scr=extra] .tfr.ok{align-self:center;inline-size:fit-content;max-inline-size:100%;margin-inline:auto;padding:4px 14px;background:rgba(6,15,38,.82);border-radius:var(--wi-r-md);color:var(--wi-good)}
 html.ds #stage[data-scr=extra] .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),var(--wi-e2);padding:0 var(--wi-s5)}
 html.ds #stage[data-scr=extra] .btn:not(.green){border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e1);padding:0 var(--wi-s4)}
 html.ds #stage[data-scr=extra] .btn .ico{stroke:currentColor}
@@ -385,3 +385,24 @@ html.ds .mlv .pfoot .okq{color:var(--wi-good)}
 html.ds .mlv .pplus{color:var(--wi-text);-webkit-text-stroke:4px var(--wi-scrim);paint-order:stroke fill}
 html.ds .mmap .mtitle{top:calc(80px + var(--st))}
 html.ds .mlv .aslot{min-width:var(--wi-tap);height:var(--wi-tap)}
+
+/* ======== Rollout step 5: the mock exam, a light touch (#mock, #mockrun, #mockprac) ========
+   The exam stays on paper and keeps its calm: the question cards, answers, stations trail, report bars and colours
+   are today's. Only the shell matches the other screens: the dark surround on wide screens, the heading on a navy
+   plate, the round back and quit buttons, the gold main button, the navy toast, the paper focus ring, the fonts. */
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]){font-family:var(--wi-font-ui);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .en{font-family:var(--wi-font-en)}
+html.ds:has(#stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac])),html.ds:has(#stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac])) body{background:var(--wi-scrim)}
+html.ds:has(#stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac])) #backdrop{display:none}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) :focus-visible{outline:3px solid var(--wi-focus-paper);outline-offset:3px}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .ribbon span{padding:0}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .rb .ico{stroke:var(--wi-text)}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),0 3px 0 rgba(27,42,65,.35);padding:0 var(--wi-s5);animation:none}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .btn.green .ico{stroke:currentColor}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:var(--wi-e2)}
+/* the exam's quit button (its icon fixed in #60): a navy disc with a white X, and air between it and the first station */
+html.ds #stage[data-scr=mockrun] .xquit{border-radius:0;border:0;box-shadow:none;background:radial-gradient(closest-side,var(--wi-navy-800) calc(100% - 3px),var(--wi-line) calc(100% - 2px),transparent 100%);color:#fff;min-inline-size:var(--wi-tap);min-block-size:var(--wi-tap)}   /* a square hit box (corner taps must land), the disc drawn as a background */
+html.ds #stage[data-scr=mockrun] .xquit .ico{stroke:currentColor}
+html.ds #stage[data-scr=mockrun] .xtrail{padding-inline:60px}
