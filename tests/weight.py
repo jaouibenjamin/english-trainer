@@ -11,8 +11,8 @@ on game when this budget was set (25.11.2026), so it never gets heavier. Both ar
 counts them (gzip as on GitHub Pages, every request until the network is quiet).
 Also checked, with the flag on:
   - an old-look picture that the new look draws over is never downloaded: it gets an empty stand-in of its own size in
-    srcset (js/ui.js standIn) before it is ever in the page (js/main.js dsMark: Safari loads src the moment an img is
-    created), and every picture that has the stand-in has its new art drawn;
+    srcset written into its tag where the markup is built (js/ui.js spr; Safari loads src the moment an img is created),
+    and every picture that has the stand-in has its new art drawn; innerHTML stays the browser's own;
   - js/dsflag.js asks early only for what the page goes on to use: its module list equals js/main.js's imports (and
     js/avatar.js's), and each screen's background is that screen's (Chrome warns about a preload that is not used);
 and with the flag off: no srcset, no early requests, nothing of the new look."""
@@ -71,7 +71,7 @@ SKIP = """()=>{const bad=[],odd=[];for(const im of document.querySelectorAll('im
 
 
 # every srcset that is ADDED to an old picture already in the page: in Safari that picture has started loading by then.
-# A stand-in written before the picture is in the page (in the <template>, or in the HTML) is not seen here.
+# A stand-in written into the tag (js/ui.js spr) is there before the picture exists, so it is not seen here.
 LATE = """window.__late=[];new MutationObserver(ms=>{for(const m of ms){const t=m.target;if(m.oldValue===null&&t.isConnected&&t.getAttribute('srcset')&&/assets\\/sp\\//.test(t.getAttribute('src')||''))__late.push(t.getAttribute('src'))}})
  .observe(document,{subtree:true,attributes:true,attributeFilter:['srcset'],attributeOldValue:true})"""
 
@@ -109,6 +109,8 @@ async def structure(b, errs):
             S = await pg.evaluate(SKIP)
             tag = f'[{path} flag {"on" if ds else "off"}]'
             if ds:
+                nat = await pg.evaluate("[Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML').set,Element.prototype.insertAdjacentHTML].every(f=>/\\[native code\\]/.test(Function.prototype.toString.call(f)))")
+                check(f'{tag} innerHTML and insertAdjacentHTML are the browser\'s own with the flag on too (no page-wide hook)', nat)
                 late = await pg.evaluate('window.__late')
                 check(f'{tag} no stand-in comes late: none is added to an old picture already in the page (in Safari it would be loading)', not late, late[:5])
                 check(f'{tag} every old picture the new look draws over has the stand-in ({S["n"]}), and every one that has it has its new art', not S['bad'] and not S['odd'], S)

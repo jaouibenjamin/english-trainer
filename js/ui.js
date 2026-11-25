@@ -9,7 +9,7 @@ export const BG=n=>`assets/bg/${n}.jpg`;
 export const BGW=752,BGH=1344,BRIDGE_H=1800;   // the bridge art is taller: its sky continues above the sign on every phone
 
 /* the old pictures the new look draws over, with their own size: a stand-in of that size (an empty SVG), used only with the
-   design flag (js/main.js, js/avatar.js), so a box sized from the picture stays as it was. tests/weight.py checks the
+   design flag (spr() below), so a box sized from the picture stays as it was. tests/weight.py checks the
    sizes against the files. A picture not listed has no stand-in and is downloaded as before. */
 const NAT={isl_1:[560,388],isl_2:[560,461],isl_3:[560,448],isl_4:[560,394],isl_5:[560,407],isl_6:[560,422],star:[200,183],star_off:[200,183],
  lock:[288,379],ic_gear:[200,199],crab_wave:[326,296],crab_star:[322,342],crab_happy:[340,351]};
@@ -50,7 +50,11 @@ const P={
  eye:'<path d="M2.500 12c2.600-4.300 5.800-6.400 9.500-6.400s6.900 2.100 9.500 6.400c-2.600 4.300-5.800 6.400-9.500 6.400S5.100 16.300 2.500 12z"/><circle cx="12" cy="12" r="2.900"/>',
  next:'<path d="M19 12H5M11 6l-6 6 6 6"/>'};
 export const ico=(n,cls='')=>`<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n]}</svg>`;
-export const spr=(n,cls='',alt='')=>`<img class="${cls}" src="${SP(n)}" alt="${esc(alt)}" draggable="false">`;
+/* with the design flag, an old picture in the size list gets its stand-in written into the tag (and a marker that js/main.js
+   dsSettle uses to give the picture back where the new look does not draw over it): the browser never starts on src.
+   Without the flag the tag is exactly as before. */
+const standInAttrs=n=>{const b=document.documentElement.classList.contains('ds')&&standIn(n);return b?` srcset="${b}" data-wi-sp=""`:''};
+export const spr=(n,cls='',alt='')=>`<img class="${cls}" src="${SP(n)}"${standInAttrs(n)} alt="${esc(alt)}" draggable="false">`;
 /* round painted button (a watercolour bubble with an ink icon or a small sprite) */
 export const rb=(act,inner,label,tone=0,extra='')=>`<button class="rb t${tone}" data-a="${act}" aria-label="${esc(label)}" ${extra}>${inner}</button>`;
 export const btn=(act,html,kind='',extra='')=>`<button class="btn ${kind}" data-a="${act}" ${extra}><span>${html}</span></button>`;

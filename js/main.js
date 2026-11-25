@@ -350,37 +350,20 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='math')M.map();else if(V.name==='title')title()},150)});
 
 /* With the design flag, an old-look picture that the new look draws over (the new art is the img's background, the old
-   one is pushed out of its box or the box has no height: css/ds*.css) is not downloaded at all. It gets an empty stand-in
-   of its own size in srcset (js/ui.js standIn), which the browser takes instead of src; the CSS selectors that match on
-   src keep working. The stand-in is written BEFORE the picture is in the page: HTML that names an old picture is parsed
-   into a <template> (inert: no browser loads its pictures), every listed old picture gets the stand-in there, and only
-   then are the nodes put in place. (Safari starts loading src the moment an img is created, so a stand-in added afterwards is too
-   late there.) Once on the page, a picture the new look does NOT draw over (or every one, if the new look's style sheets
-   are not in yet) gets its own picture back. Never without the flag. */
+   one is pushed out of its box or the box has no height: css/ds*.css) is not downloaded at all. js/ui.js spr() writes an
+   empty stand-in of its own size into the tag's srcset (the browser takes it instead of src, and never starts on src:
+   Safari starts at once on an img that has only src), with a marker. Once the picture is on the page, one the new look
+   does NOT draw over (or every one, if the new look's style sheets are not in yet) gets its own picture back (dsSettle).
+   An old picture made some other way is checked when it arrives (dsSkip; Safari may have started on it by then:
+   tests/weight.py fails if that happens on the screens it checks). Never without the flag. */
 const SPRITE=/(^|\/)assets\/sp\/([a-z_0-9]+)\.webp$/;
 const drawnOver=im=>{const cs=getComputedStyle(im);return cs.backgroundImage.includes('url(')&&(cs.objectPosition.startsWith('-9999')||cs.height==='0px')};
-function dsMark(root){for(const im of root.querySelectorAll('img[src]:not([srcset])')){const m=SPRITE.exec(im.getAttribute('src')||''),b=m&&standIn(m[2]);
- if(b){im.setAttribute('srcset',b);im.setAttribute('data-wi-sp','')}}}
-function dsSettle(root){for(const im of root.querySelectorAll('img[data-wi-sp]')){if(!drawnOver(im))im.removeAttribute('srcset');im.removeAttribute('data-wi-sp')}}
-/* anything added to the stage another way: checked when it arrives (later than the above: Safari may have started) */
+function dsSettle(root){const L=root.matches&&root.matches('img[data-wi-sp]')?[root]:root.querySelectorAll?root.querySelectorAll('img[data-wi-sp]'):[];
+ for(const im of L){if(!drawnOver(im))im.removeAttribute('srcset');im.removeAttribute('data-wi-sp')}}
 function dsSkip(root){if(!root||!root.querySelectorAll)return;const L=root.tagName==='IMG'?[root]:root.querySelectorAll('img[src]:not([srcset])');
  for(const im of L){if(im.hasAttribute('srcset'))continue;const m=SPRITE.exec(im.getAttribute('src')||''),b=m&&standIn(m[2]);if(b&&drawnOver(im))im.srcset=b}}
-function dsSkipOld(){dsSkip(stage);
- /* HTML that names an old picture, set with innerHTML or insertAdjacentHTML on any element (a screen in #view, a
-    level's HUD, the island path's stars), goes through the <template> first. Any other HTML, and raw-text elements,
-    take the browser's own way, unchanged. */
- const d=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML'),ia=Element.prototype.insertAdjacentHTML;
- const RAW=/^(SCRIPT|STYLE|TEXTAREA|TITLE|NOSCRIPT|XMP|IFRAME|NOEMBED|NOFRAMES|PLAINTEXT|TEMPLATE)$/;
- const ours=(el,v)=>typeof v==='string'&&v.includes('assets/sp/')&&el.namespaceURI==='http://www.w3.org/1999/xhtml'&&!RAW.test(el.tagName);
- const parse=v=>{const t=document.createElement('template');d.set.call(t,v);dsMark(t.content);return t.content};
- Object.defineProperty(Element.prototype,'innerHTML',{configurable:true,get:d.get,
-  set(v){if(!ours(this,v))return d.set.call(this,v);this.replaceChildren(parse(v));if(this.isConnected)dsSettle(this)}});
- Element.prototype.insertAdjacentHTML=function(w,v){const at=String(w).toLowerCase(),out=at==='beforebegin'||at==='afterend';
-  if(!ours(out?(this.parentElement||this):this,v)||!['beforebegin','afterbegin','beforeend','afterend'].includes(at))return ia.call(this,w,v);
-  const f=parse(v);if(at==='beforebegin')this.before(f);else if(at==='afterbegin')this.prepend(f);else if(at==='beforeend')this.append(f);else this.after(f);
-  if(this.isConnected)dsSettle(out?this.parentNode:this)};
- /* built off the page and put in later: settled when it arrives; anything else is checked then (later: Safari may have started) */
- new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)if(n.nodeType===1){dsSettle(n);if(n.matches&&n.matches('img[data-wi-sp]'))dsSettle(n.parentNode||n);dsSkip(n)}}).observe(stage,{childList:true,subtree:true})}
+function dsSkipOld(){dsSettle(stage);dsSkip(stage);
+ new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)if(n.nodeType===1){dsSettle(n);dsSkip(n)}}).observe(stage,{childList:true,subtree:true})}
 
 /* ---------- boot ---------- */
 /* the printable worksheet (worksheet.html) is behind a switch a device gets with ?sheet=1 and loses with ?sheet=0 */
