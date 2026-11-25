@@ -33,7 +33,7 @@ const BRAND='ניצני אופק';
 function title(){setBg('title','bottom');
  const d=Math.ceil((new Date(2026,10,25)-new Date())/864e5),md=M.daysToExam(),m=bgMap('bottom');
  view.innerHTML=`<section class="scr title">
-  <div class="logo">${dsOn()?`<h1>${BRAND}</h1><p>ברוכים הבאים ל${BRAND}</p>`:`<h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p>`}</div>
+  <div class="logo">${dsOn()?`<h1>${BRAND}</h1><p>אנגלית, חשבון ועוד: כל יום קצת</p>`:`<h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p>`}</div>
   <div class="tgo subj"><p class="label pick">במה מתאמנים היום?</p>
    <button class="btn green xl sb" data-a="nav" data-to="map"><span><b>אנגלית</b><small>איי המילים${d>0&&d<60?` · מבחן בעוד ${num(d)} ימים`:''}</small></span></button>
    <button class="btn coral sb xm" data-a="nav" data-to="mock"><span><b>מבחן דמו באנגלית</b><small>${XS_last()}</small></span></button>
@@ -76,8 +76,8 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
     <span class="tag">${cur?`<em class="hb">${tot?'ממשיכים כאן':'מתחילים כאן'}</em>`:''}<b>${esc(i.he)}</b>${i.bonus?`<small class="bn">אי בונוס · שני שלבים</small>`:''}<small>${o?`${star()}${num(st+'/'+mx)}${st===mx?spr('ic_check','ck'):''}`:`נפתח ב־${num(i.need)}${star()}`}</small></span></button>`}).join('')}
  </section>`;worldMap();
  /* with the design flag, a very short screen leaves the all-played banner out (worldFits): say its line once per visit */
- if(played&&!fin&&!finSaid){finSaid=true;toast(all?'כל הכבוד! סיימתם את כל האיים':`עברתם בכל האיים! ${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`}`,3200)}}
-let finSaid=false;   // the all-played line was said as a toast in this visit
+ if(played&&!fin&&!finSaid){finSaid=true;toast(all?'כל הכבוד! סיימתם את כל האיים':`עברתם בכל האיים! ${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`} באיים שבמסגרת הצהובה`,3200)}}
+let finSaid=false;   // the all-played line was said as a toast in this visit (a logout resets it, for the next pupil on this tab)
 /* the new world behind the design flag (?ds=1): js/avatar.js is fetched only on such a device; without the flag this does nothing */
 const dsOn=()=>document.documentElement.classList.contains('ds');
 const WORLD_DOCK=76;   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
@@ -298,7 +298,7 @@ const A={
   else{el.disabled=false;delete el.dataset.arm;el.textContent='איפוס קוד';toast(esc(ERR[r.e]||ERR.net),3500)}},
  relogin(){SND.tap();const o=relogin();if(!o)return go('login');
   V={name:'login',m:'login',c:o.c,n:o.n,p:'',err:(RELOG_MSG[o.e]||RELOG_MSG.nouser)+'\nההתקדמות מהמכשיר הזה שמורה, והיא תעבור לחשבון כשתתחברו.'};login();syncBar()},
- async logout(){if(await logout()){clearNotes();go('login')}else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
+ async logout(){if(await logout()){clearNotes();finSaid=false;go('login')}else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r,c,t}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};   // the teacher code is kept on this screen only, for resetting a pupil's code
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el,e)}});

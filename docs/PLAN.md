@@ -137,7 +137,7 @@ From comparing with a similar 8th-grade site (no login, device-only progress, ma
   only behind `?ds=1` (title and login screens, the page title, the welcome line). The repository name and the site
   address stay as they are until there is a domain, so saved links and home-screen icons keep working; the
   manifest's name changes with the flag flip, not before (a home-screen install would be renamed for everyone).
-- **Welcome text is generic** ("ברוכים הבאים לניצני אופק"; it was "ברוכים הבאים לאיי המילים"). The school's name and the grade are not shown on the
+- **Welcome text is generic.** Under the name on the title screen (behind `?ds=1`): "אנגלית, חשבון ועוד: כל יום קצת" (ours, for the teacher's review; it was "ברוכים הבאים לאיי המילים", then "ברוכים הבאים לניצני אופק", which repeated the heading). The school's name and the grade are not shown on the
   public site; at most after sign-in, and only with the school's agreement.
 - **A school world, illustrated, not photographed.** No photos of the real school or classrooms anywhere in the public
   site or repo (a public map of where the children are every day, and no photos of children, ever). Instead an

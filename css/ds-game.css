@@ -51,6 +51,8 @@ html.ds .title .who{background:var(--wi-navy-900);border:1px solid var(--wi-line
         the new one is drawn as its background (no change to markup or script) ---- */
 html.ds .title .tcrab,html.ds .login .lcrab,html.ds .settings .guide img{box-sizing:border-box;block-size:0;padding-block-start:var(--pz);inline-size:var(--pz);background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat;overflow:hidden}
 html.ds .title .tcrab{--pz:118px;margin:-108px 0 0 -59px}
+/* a short screen (320x568): the crab would sit on the last subject button; it is only a decoration, so it goes */
+@media (max-height:600px){html.ds .title .tcrab{display:none}}
 html.ds .login .lcrab{--pz:78px;top:-60px;inset-inline-start:8px}
 html.ds .settings .guide img{--pz:84px;background-image:url(../assets/al/pitzi/listen.hf_20261124_210014_1f234b5a-9ec8-4fcc-b2e2-772bb152ee73.webp)}
 
