@@ -64,7 +64,7 @@ addEventListener('online',()=>{push()});
    the higher star count of every level, the higher knowledge of every word, the higher points. */
 const dnum=d=>{const p=String(d||'').split('-').map(Number);return p.length===3&&!p.some(isNaN)?p[0]*10000+p[1]*100+p[2]:0};
 const sum=o=>Object.values(o||{}).reduce((a,v)=>a+(+v||0),0);
-const sig=o=>[+o.pts||0,sum(o.g&&o.g.st),sum(o.m&&o.m.st),(o.x&&o.x.tries||[]).length,sum(o.w),sum(o.read),Object.keys(o.st||{}).length,o.day||''].join('|');
+const sig=o=>[+o.pts||0,sum(o.g&&o.g.st),sum(o.m&&o.m.st),(o.x&&o.x.tries||[]).length,(o.x&&o.x.seen||[]).length,sum(o.w),sum(o.read),Object.keys(o.st||{}).length,o.day||''].join('|');
 function merge(r){
  const mx=(a,b)=>{for(const k in b||{})if((+b[k]||0)>(+a[k]||0))a[k]=+b[k]};
  mx(S.w,r.w);mx(S.read,r.read);
