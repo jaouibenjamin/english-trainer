@@ -15,7 +15,7 @@ let pass = 0, fail = 0;
 const check = (label, ok, detail = '') => { ok ? pass++ : fail++; console.log((ok ? 'PASS ' : 'FAIL ') + label + (ok ? '' : '   <- ' + String(detail).slice(0, 300))); };
 const eq = (label, got, want) => check(label, JSON.stringify(got) === JSON.stringify(want), `got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
 
-const SB = 'https://abcdefghijklmnop.supabase.co', KEY = 'sb_publishable_test_0123456789abcdef', PAGE = 'https://example.github.io/english-trainer/teacher.html';
+const SB = 'https://abcdefghijklmnop.supabase.co', KEY = 'public-key-for-tests-0123456789', PAGE = 'https://example.github.io/english-trainer/teacher.html';
 const b64url = b => Buffer.from(b).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 /** Supabase Auth, as far as this page uses it */
