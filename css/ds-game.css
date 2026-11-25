@@ -98,7 +98,8 @@ html.ds .settings .guide p.label{border:1px solid var(--wi-line);border-image:no
 
 @media (prefers-reduced-motion:reduce){html.ds .title .btn,html.ds .login .btn,html.ds .settings .btn{transition:none}}
 
-/* ======== Rollout step 2: the English island map (#map) and an island's level list (#island/N) =   Same rules as above: styling only, every rule under html.ds and the map or island screen. The six painted islands,
+/* ======== Rollout step 2: the English island map (#map) and an island's level list (#island/N) ========
+   Same rules as above: styling only, every rule under html.ds and the map or island screen. The six painted islands,
    the boat, the whale, the compass and the level icons keep their pictures (no new art); Pitzi, the stars, the lock
    and the gear get the new ones. A swapped picture keeps its <img> and its size: the old picture is moved out of the
    box (object-position) and the new one is drawn as the background. */
@@ -150,7 +151,7 @@ html.ds .map .fin{border:2px solid var(--wi-gold);border-image:none;border-radiu
 html.ds .map .fin small,html.ds .map .fin .fs i{color:var(--wi-text-dim)}
 
 /* ---- an island's level list: four dark rows, each with its own colour edge ---- */
-html.ds .island .ribbon{background:none;inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds .island .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
 html.ds .island .ribbon span{padding:0}
 html.ds .island .isub{background:var(--wi-navy-900);color:var(--wi-text-dim);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s3);margin:0}
 html.ds .island .isub .en{color:var(--wi-text)}
@@ -168,3 +169,5 @@ html.ds .island .guide p.label{border:1px solid var(--wi-line);border-image:none
 @media (prefers-reduced-motion:reduce){html.ds .map .isl .pw,html.ds .island .lvrow{transition:none}}
 /* short phones: game.css drops the settings rows to 44px; the new look keeps them at 48 (there is room) */
 @media (max-height:700px){html.ds .settings .setrow{min-height:var(--wi-tap)}}
+/* short phones: the crab's tip on the level list would cover the last row (as #24 did on settings, it goes) */
+@media (max-height:700px){html.ds .island .guide{display:none}}
