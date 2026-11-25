@@ -198,3 +198,6 @@
 .xinv .xcal small{display:block;width:100%;background:#c0392b;color:#fff;font-size:11px!important;font-weight:800;padding:1px 0}
 .xinv .xcal b{font-size:26px!important;line-height:1.15}
 .xinv .xi3 em{font-style:normal;font-weight:800;font-size:15px}
+
+/* the explanation box: an English run may wrap inside the box (bdi is nowrap in game.css:21), and the text never leaves it */
+.xfb bdi{white-space:normal}.xfb>span{max-width:100%}

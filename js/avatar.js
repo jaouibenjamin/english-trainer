@@ -8,23 +8,35 @@
    spaces collapsed), never under the code or the name themselves; on a device that is not signed in, under 'local'.
    Every await is followed by a check that the same pupil is still signed in before anything is written (LESSONS.md 1).
    - avatar: one of the 20 ids in js/world_data.js. Locked characters open with the energy level.
-   - name: two indexes into the two fixed word lists (no free text: nothing a pupil types is stored or shown).
+   - name: two indexes into the two fixed word lists (no free text: nothing a pupil types is stored or shown), and the
+     lists' version (nv). A name kept from earlier lists (no nv, or another one) reads as "no name yet", so nobody is
+     given a different name silently.
+   - sl: the highest level whose new character the map has already announced ("דמות חדשה נפתחה!" shows once).
+   - a pupil keeps a character chosen earlier even if it would be locked at their level now: nothing is taken away.
    - energy: only goes up. It is worked out from what the pupil has learned (stars, words known, stories read) and kept
      as the highest value seen, so a word that is forgotten again never takes energy away.
    DOM is built with createElement and textContent only. */
 import {S,API,totalStars,wordsKnown,isOpen,starsOf} from './state.js';
-import {ISLANDS,WORDS,LEVEL_INFO} from './data.js';
+import {ISLANDS,WORDS,MAX_STARS,TEXTS,LEVEL_INFO} from './data.js';
 import {stars as starRow} from './ui.js';
 import {pathPoints,stone} from './worldpath.js';
 import {ART} from './world_art.js';
-import {AVATARS,NAME_A,NAME_B} from './world_data.js';
+import {AVATARS,NAME_A,NAME_B,NAME_V} from './world_data.js';
 import {playAv,canMove} from './avanim.js';
 
 const KEY='wi_world';
 /* energy: what each thing learned is worth, and the level thresholds (a rule of ours, for the owner and designer to tune).
-   Level n runs from LEVELS[n-1] to LEVELS[n]; past the list every level is 250 more. */
+   Level n runs from LEVELS[n-1] to LEVELS[n]; past the list every level is 250 more.
+   The most a pupil can earn today is 980 (66 stars, 59 words, 5 stories), so the 13 levels that open the 12 characters
+   (js/world_data.js) all fit inside it: the last at 820. Every threshold is at or below the earlier ones
+   (0,120,220,340,480,640,820,1020), so a level shown on a device never goes down. */
 const WORTH={star:10,word:5,story:5};
-const LEVELS=[0,120,220,340,480,640,820,1020];
+export const LEVELS=[0,40,90,150,220,300,380,460,540,620,700,760,820];
+/* The most energy a pupil can earn with today's content: every star, every word of the unit known, every story read
+   (10 x 66 + 5 x 59 + 5 x 5 = 980). REVISIT THE LADDER when content adds energy (new islands, a new unit, Fraction Bay
+   if it is ever counted): the last character must stay reachable, and should not come too early either.
+   tests/world.py fails if the level that opens the last character is above this. */
+export const MAX_ENERGY=WORTH.star*MAX_STARS+WORTH.word*WORDS.filter(w=>w.p<6).length+WORTH.story*TEXTS.length;
 const FOCUS_MAX=5;
 const EN_MAX=100000;   // a stored energy above this is read as this (a damaged or edited record must not freeze the map)
 
@@ -42,11 +54,14 @@ const same=id=>{const u=pupil();return id.u?!!u&&u.c===id.u.c&&u.n===id.u.n:!u};
 function readAll(){try{const o=JSON.parse(localStorage.getItem(KEY)||'null');return o&&typeof o==='object'&&o.v===1&&o.p&&typeof o.p==='object'&&!Array.isArray(o.p)?o:{v:1,p:{}}}catch(e){return{v:1,p:{}}}}
 function mine(id){const r=id.key&&Object.prototype.hasOwnProperty.call(readAll().p,id.key)?readAll().p[id.key]:null;const m=r&&typeof r==='object'?r:{};
  return{av:AVATARS.some(a=>a.id===m.av)?m.av:null,
-  nm:Array.isArray(m.nm)&&Number.isInteger(m.nm[0])&&Number.isInteger(m.nm[1])&&NAME_A[m.nm[0]]&&NAME_B[m.nm[1]]?[m.nm[0],m.nm[1]]:null,
+  nm:m.nv===NAME_V&&Array.isArray(m.nm)&&Number.isInteger(m.nm[0])&&Number.isInteger(m.nm[1])&&NAME_A[m.nm[0]]&&NAME_B[m.nm[1]]?[m.nm[0],m.nm[1]]:null,
   en:typeof m.en==='number'&&Number.isFinite(m.en)&&m.en>0?Math.min(EN_MAX,Math.floor(m.en)):0,
+  sl:Number.isInteger(m.sl)&&m.sl>0&&m.sl<1000?m.sl:0,
   at:Number.isInteger(m.at)&&ISLANDS.some(i=>i.id===m.at&&isOpen(i))?m.at:0}}   // the island the character last stood on (for the hop); an island not open (yet) is no position
 const KEY_OK=/^(local|h:[0-9a-f]{64})$/;   // the only keys a record may have; anything else is dropped on the next write
-function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=rec;localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
+/* only the known fields, and a name always with the lists' version */
+const clean=r=>{const o={av:r.av,nm:r.nm,en:r.en};if(r.nm)o.nv=NAME_V;if(r.sl)o.sl=r.sl;if(r.at)o.at=r.at;return o};
+function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=clean(rec);localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
 
 /* ---------- energy: only goes up ---------- */
 export const earned=()=>WORTH.star*totalStars()+WORTH.word*wordsKnown()+WORTH.story*Object.values(S.read||{}).filter(v=>v>0).length;
@@ -69,14 +84,19 @@ export function focus(){
   if(n&&(!best||n>best.count))best={island:i.id,he:i.he,count:n}}
  return best&&{...best,count:Math.min(FOCUS_MAX,best.count)}}
 
+/* what a tap on a locked character says (one neutral form, no gender slash), also its accessible name */
+const lockedSay=(a,level)=>{const n=a.open-level;return a.he+': אפשר לפתוח ברמה '+a.open+' (עוד '+(n===1?'רמה אחת':n+' רמות')+'). מרוויחים אנרגיה כשלומדים, ואף פעם לא מפסידים אותה.'};
+
 /* ---------- small DOM helpers ---------- */
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function pic(id,cls){const i=el('img',cls);i.src=ART['av/'+id];i.alt='';i.decoding='async';i.draggable=false;return i}
 function btn(cls,txt,fn){const b=el('button',cls,txt);b.type='button';b.addEventListener('click',fn);return b}
 const ltr=t=>{const b=el('bdi',null,t);b.dir='ltr';return b};
 const nameText=nm=>NAME_A[nm[0]].en+' '+NAME_B[nm[1]].en;
-let styled=false;
-function style(){if(styled)return;styled=true;for(const h of['css/worldpath.css','css/avatar.css']){const l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l)}}
+/* the two style sheets, added once; the promise settles when both have loaded (or failed), for what is measured after */
+let styled=null;
+function style(){if(styled)return styled;const w=[];for(const h of['css/worldpath.css','css/avatar.css']){const l=document.createElement('link');l.rel='stylesheet';l.href=h;
+ w.push(new Promise(r=>{l.onload=l.onerror=r}));document.head.appendChild(l)}return styled=Promise.all(w)}
 
 /* ---------- the map: a dock along the bottom (main.js keeps that room free): my character and name, my energy level,
    and today's focus ---------- */
@@ -106,8 +126,22 @@ export async function decorateMap(view,go,live=()=>true){
   dock.appendChild(f)}
  /* .wdock on #stage lifts main.js's sync bar above the dock; main.js route() takes it off on the next screen */
  sec.classList.add('hasdock');document.getElementById('stage').classList.add('wdock');sec.append(note,dock);
- const tok=token(sec,id,me,go);
- window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,token:tok};   // for the tests
+ const tok=token(sec,id,me,go);   // first, so the notice (if any) is drawn above it
+ /* a level that opened a character: said once, with its portrait and the way to the picker. The first visit only
+    remembers the level (a device that already had this level is not told about old news). */
+ let fresh=[];
+ if(id.key){const r=mine(id);
+  if(!r.sl)keep(id,{...r,sl:E.level});
+  else if(E.level>r.sl){fresh=AVATARS.filter(a=>a.open>r.sl&&a.open<=E.level);keep(id,{...r,sl:E.level})}}
+ if(fresh.length){const a=fresh[fresh.length-1],box=el('div','wnew');box.setAttribute('role','dialog');box.setAttribute('aria-labelledby','wnew-h');
+  const h=el('h2','wnew__h',fresh.length>1?'דמויות חדשות נפתחו!':'דמות חדשה נפתחה!');h.id='wnew-h';
+  const ok=btn('wnew__ok','לבחירת דמות',()=>go('avatar'));
+  const pics=el('div','wnew__pics');for(const x of fresh.slice(-3).reverse())pics.appendChild(pic(x.id,'wnew__pic'));   // the newest first, up to three
+  if(fresh.length>3)pics.appendChild(el('span','wnew__more','ועוד '+(fresh.length-3)));
+  if(fresh.length>1){pics.classList.add('wnew__pics--many');box.classList.add('wnew--many')}
+  box.append(pics,h,el('p','wnew__t',fresh.length>1?fresh.length+' דמויות חדשות מחכות לכם. רוצים להחליף?':a.he+' מחכה לכם. רוצים להחליף?'),ok,btn('wnew__later','אחר כך',()=>box.remove()));
+  sec.appendChild(box);ok.focus({preventScroll:true});style().then(()=>{if(box.isConnected)placeNew(sec,box)})}
+ window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,fresh:fresh.map(a=>a.id),token:tok};   // for the tests
  preload(sec);
 }
 /* The island path's pictures, fetched from the map so an island opens straight onto its path: they start once the
@@ -128,6 +162,18 @@ function preload(sec){
   after.then(own).then(()=>stop?false:Promise.all(PATH_ART.map(k=>{const im=new Image();im.decoding='async';im.fetchPriority='low';
     im.src=ART[k];P.imgs[k]=im;return im.decode().then(()=>true,()=>false)})).then(a=>a.every(Boolean)&&!stop)).catch(()=>false).then(end)}
  window.__world.pathArt=pre.done}
+
+/* the new-character notice never covers the character on the map (or Pitzi's "?" badge): it sits above the dock, and
+   when the character stands there it moves to the band under the map's header. Measured once the style sheets are in,
+   from where the token ends up (its left/top), not where a hop shows it now. */
+function placeNew(sec,box){const t=sec.querySelector('.wtok,.wask');if(!t)return;
+ const x=parseFloat(t.style.left),y=parseFloat(t.style.top),r=t.offsetWidth/2;if(!Number.isFinite(x)||!Number.isFinite(y))return;
+ const hit=()=>!(box.offsetLeft+box.offsetWidth<=x-r||box.offsetLeft>=x+r||box.offsetTop+box.offsetHeight<=y-r||box.offsetTop>=y+r);
+ const s=sec.getBoundingClientRect();let top=0;for(const e of sec.querySelectorAll('.maphead,.subjpill'))top=Math.max(top,e.getBoundingClientRect().bottom-s.top);
+ const at=up=>{box.classList.toggle('wnew--top',up);box.style.top=up?Math.round(top+4)+'px':''};
+ /* above the dock; else under the header; on a short screen, the same two without the sentence (the heading says it) */
+ for(const tight of [false,true]){box.classList.toggle('wnew--tight',tight);for(const up of [false,true]){at(up);if(!hit())return}}
+ box.classList.remove('wnew--tight');at(false)}   // no free place on this screen: above the dock, whole, as before
 
 /* ---------- the character on the map ----------
    The chosen character stands on the island the pupil plays now (the one marked "ממשיכים כאן"; when every island is
@@ -274,23 +320,24 @@ export async function picker(view,go,live=()=>true){
  head.appendChild(btn('wpick__back','חזרה',()=>go('map')));
  const h=el('h1','wpick__h');h.tabIndex=-1;head.appendChild(h);sec.appendChild(head);
  const body=el('div','wpick__body');sec.appendChild(body);
- function choose(){h.textContent='בוחרים דמות';body.replaceChildren();
+ function choose(){h.textContent='בוחרים דמות';body.replaceChildren();sec.scrollTop=0;
   body.appendChild(el('p','wpick__sub','אפשר להחליף אותה מתי שרוצים.'));
   const grid=el('div','wpick__grid');grid.setAttribute('role','group');grid.setAttribute('aria-label','הדמויות');
-  const note=el('p','wpick__note','דמויות נוספות נפתחות כשמרוויחים אנרגיה.');note.setAttribute('role','status');
-  for(const a of AVATARS){const locked=a.open>E.level,sel=pick===a.id;
+  const note=el('p','wpick__note','בכל רמה חדשה נפתחת דמות חדשה. עכשיו אתם ברמה '+E.level+'.');note.setAttribute('role','status');
+  for(const a of AVATARS){const locked=a.open>E.level&&a.id!==me.av,sel=pick===a.id;   // the character a pupil already has stays theirs
    const b=btn('wpick__av'+(locked?' is-locked':'')+(sel?' is-selected':''),null,()=>{
-    if(locked){note.textContent=a.he+': נפתחת ברמת אנרגיה '+a.open+'. עכשיו אתם ברמה '+E.level+'.';return}
+    if(locked){note.textContent=lockedSay(a,E.level);return}
     pick=a.id;choose();const s=body.querySelector('.is-selected');if(s){s.focus({preventScroll:true});playAv(s.querySelector('img'),a.id)}});   // its short animation, once (js/avanim.js: nothing before a tap, nothing with reduced motion or calm)
    b.dataset.id=a.id;b.appendChild(pic(a.id,'wpick__art'));
-   if(locked){b.setAttribute('aria-label',a.he+', נפתחת ברמת אנרגיה '+a.open);b.appendChild(el('span','wpick__lock','🔒'))}
+   if(locked){b.setAttribute('aria-label',lockedSay(a,E.level));b.setAttribute('aria-disabled','true');
+    const k=el('img','wpick__key');k.src=ART['ui/lock'];k.alt='';k.decoding='async';b.append(k,el('span','wpick__lock','רמה '+a.open))}   // a small lock in the top corner and "רמה N" in one short line at the bottom: the picture stays in view
    else{b.setAttribute('aria-label',a.he);b.setAttribute('aria-pressed',sel?'true':'false')}
    grid.appendChild(b)}
   body.append(grid,note);
   const why=el('p','wpick__why',pick?'':'קודם בוחרים דמות.');
   const nx=btn('wpick__ok','הלאה: בוחרים שם',()=>{if(!pick){why.textContent='קודם בוחרים דמות.';return}name()});
   nx.setAttribute('aria-disabled',pick?'false':'true');body.append(nx,why)}
- function name(){h.textContent='איך קוראים לדמות?';body.replaceChildren();
+ function name(){h.textContent='איך קוראים לדמות?';body.replaceChildren();sec.scrollTop=0;   // each step starts at its heading (the picker may have scrolled to its button)
   body.appendChild(el('p','wpick__sub','בוחרים מילה אחת מכל רשימה. השם באנגלית.'));
   const who=el('div','wpick__who');who.appendChild(pic(pick,'wpick__big'));const shown=el('p','wpick__name');shown.setAttribute('aria-live','polite');who.appendChild(shown);body.appendChild(who);
   const rows=[0,1].map(k=>{const L=k?NAME_B:NAME_A,row=el('div','wpick__spin');row.appendChild(el('span','wpick__l',k?'מילה שנייה':'מילה ראשונה'));

@@ -14,7 +14,8 @@ function fix(){if(!S.g||typeof S.g!=='object')S.g=blankG();const g=S.g;if(!g.st|
  for(const k of['w','read','st'])if(!S[k]||typeof S[k]!=='object')S[k]={};S.pts=+S.pts||0;
  if(!S.m||typeof S.m!=='object')S.m={};if(!S.m.st||typeof S.m.st!=='object')S.m.st={};S.m.plays=+S.m.plays||0}   // m: the math world (Fraction Bay)
 load();
-export const saveLocal=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let gone=false;   // K1 (review of #73): this tab gave the device to another pupil; it writes nothing of its pupil any more
+export const saveLocal=()=>{if(gone)return;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 export const save=()=>{saveLocal();touch()};
 
 export const SET={music:true,sfx:true,calm:false};   // help (word help and the slowly button) is absent until a device is given it (js/help.js). calm: the game's own "reduce motion" switch, for pupils who are sensitive to movement
@@ -26,7 +27,7 @@ export const API=(window.API_URL||'').trim();
 export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסודי לא נכון. נסו שוב.',nouser:'לא מצאנו את השם הזה בכיתה. עוד לא נרשמתם?',taken:'השם הזה כבר רשום. לא אתם? הוסיפו אות אחת אחרי השם. זה אתם?',roster:'השם לא נמצא ברשימת הכיתה.\nכתבו את השם הפרטי, או בקשו מהמורה להוסיף אתכם.',locked:'יותר מדי ניסיונות.\nחכו 5 דקות ונסו שוב.',full:'הכיתה מלאה. פנו למורה.',input:'צריך קוד כיתה, שם באותיות\nוקוד סודי של 4 ספרות.',teacher:'קוד המורה לא נכון.',setup:'המערכת עוד לא הוגדרה.',net:'אין חיבור כרגע.\nבדקו את האינטרנט ונסו שוב.',server:'משהו השתבש בשרת. נסו שוב מאוחר יותר.'};
 /* a failed request (no connection) throws, as before. A server that answered with something that is not JSON (an Apps
    Script error page) gives {e:'server'}, so the pupil is not told to check an internet connection that works. */
-import {api,forget} from './api.js';export {api};   // the backend adapter; with today's config.js it makes the very same request this line used to make
+import {api,forget,MODE as BACKEND} from './api.js';export {api};   // the backend adapter; with today's config.js it makes the very same request this line used to make
 export const cred=()=>({c:S.u.c,n:S.u.n,p:S.u.p});
 export const wordsKnown=()=>WORDS.filter(w=>w.p<6&&(S.w[w.en]||0)>=2).length;
 const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,m:S.m,x:S.x,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
@@ -43,7 +44,7 @@ export const needsRelogin=()=>!!(API&&S.u&&S.sync&&RELOGIN.includes(S.sync.err))
 const onSync=()=>{try{dispatchEvent(new Event('sync'))}catch(e){}};
 const synced=()=>{S.sync={at:Date.now()};saveLocal();onSync()};
 const refused=e=>{S.sync={...(S.sync||{}),err:e||'net',errAt:Date.now()};saveLocal();onSync()};
-function touch(){if(!API||!S.u)return;dirty=1;clearTimeout(syncT);syncT=setTimeout(push,2500)}
+function touch(){if(!API||!S.u||gone)return;dirty=1;clearTimeout(syncT);syncT=setTimeout(push,2500)}
 /* resolves true when nothing is left to save. One save at a time; a save that failed is tried again by itself
    (5 s, 10 s, ... up to a minute) and as soon as the connection is back, not only at the pupil's next answer. */
 export function push(){
@@ -112,6 +113,28 @@ export async function logout(){const ok=await push();if(!ok&&!fatal)return false
  forget(true);   // the backend adapter forgets this pupil's session on the device (and revokes it, when there is one)
  clearTimeout(syncT);clearTimeout(retryT);const c=S.lastC,keep=fatal&&hasProgress(pack())?{n:S.u.n,s:pack()}:S.stash||null;   // a refused record is not thrown away: it waits for its owner to sign in
  S=Object.assign(blank(),{lastC:c},keep?{stash:keep}:{});dirty=0;fatal=false;saveLocal();onSync();return true}
+
+/* D1 (review of #63): another pupil signed in in another tab of this device, so the backend adapter stopped copying
+   this tab. The last save goes to the Sheet first; then a calm message, and the page reloads (to show the device's
+   pupil) only when the child taps, never under a child mid-level. Only with the Supabase copy on: with the Sheet alone
+   (today) nothing listens. The words are ours, for the teacher's review. */
+if(BACKEND!=='sheet')addEventListener('wi-displaced',e=>{e.preventDefault();displacedScreen(e.detail&&e.detail.ready)});
+function displacedScreen(ready){
+ if(gone)return;
+ /* the last save of this tab's pupil goes to the Sheet now; after it nothing of that pupil is written on the device
+    again (K1): the device's record is the other pupil's, and the reload must show them, not take the device back */
+ const last=push();gone=true;
+ const done=Promise.all([Promise.race([last.catch(()=>{}),new Promise(r=>setTimeout(r,8000))]),ready||null]);
+ const d=document.createElement('div'),p=document.createElement('p'),b=document.createElement('button');
+ d.id='wi-displaced';d.dir='rtl';d.setAttribute('role','alertdialog');d.setAttribute('aria-modal','true');d.setAttribute('aria-label','מישהו אחר נכנס במכשיר הזה');
+ d.style.cssText='position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px;background:var(--paper,#fff4de);color:var(--ink,#5a4534);text-align:center';
+ p.textContent='מישהו אחר נכנס במכשיר הזה';p.style.cssText='margin:0;font-size:22px;font-weight:700;line-height:1.4';
+ b.type='button';b.textContent='המשך';
+ b.style.cssText='min-width:160px;min-height:56px;padding:12px 32px;border:0;border-radius:16px;background:var(--ink,#5a4534);color:var(--paper,#fff4de);font:inherit;font-size:20px;font-weight:700';
+ b.addEventListener('click',()=>{b.disabled=true;done.then(()=>location.reload(),()=>location.reload())});
+ d.append(p,b);
+ for(const c of Array.from(document.body.children||[]))if(c!==d){try{c.inert=true;c.setAttribute('inert','')}catch(e){}}   // the game behind it takes no tap, key or focus
+ document.body.appendChild(d);try{b.focus()}catch(e){}}
 
 /* ---------- points, streak, word knowledge ---------- */
 const dstr=d=>d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
