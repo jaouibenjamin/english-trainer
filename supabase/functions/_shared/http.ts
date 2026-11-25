@@ -51,9 +51,13 @@ export function addressBucket(a: string): string {
   const groups = [...head, ...Array(Math.max(0, fill)).fill("0"), ...tail];
   if (groups.length !== 8 || fill < 0 || (halves.length === 2 && fill < 1) || !groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return "";
   const n = groups.map((g) => parseInt(g, 16));
-  // an IPv4 address written as IPv6, in any of its spellings (::ffff:1.2.3.4, ::ffff:102:304, 0:0:0:0:0:ffff:..., 0::ffff:...):
-  // the IPv4 address's own bucket (review of #35 and #41)
-  if (n.slice(0, 5).every((x) => x === 0) && n[5] === 0xffff) return [n[6] >> 8, n[6] & 255, n[7] >> 8, n[7] & 255].join(".");
+  // an IPv4 address written as IPv6 gets the IPv4 address's own bucket (reviews of #35, #41 and #50), in any spelling of:
+  // mapped ::ffff:a.b.c.d, translated ::ffff:0:a.b.c.d, NAT64 64:ff9b::a.b.c.d, compatible ::a.b.c.d (not :: or ::1)
+  const zero = (a: number, b: number) => n.slice(a, b).every((x) => x === 0);
+  if ((zero(0, 5) && n[5] === 0xffff) || (zero(0, 4) && n[4] === 0xffff && n[5] === 0) ||
+    (n[0] === 0x64 && n[1] === 0xff9b && zero(2, 6)) || (zero(0, 6) && n[6] !== 0)) {
+    return [n[6] >> 8, n[6] & 255, n[7] >> 8, n[7] & 255].join(".");
+  }
   return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
 }
 
