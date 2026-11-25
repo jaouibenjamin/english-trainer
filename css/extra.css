@@ -38,5 +38,24 @@ html.calm .tfk{transition:none}
 @media (max-height:780px){.island.hasx .guide{display:none}}
 @media (max-height:700px){.island.hasx .ihero .pic{width:32%}.island.hasx{gap:8px}}
 .tfhq{display:inline-flex;align-items:baseline;gap:4px}
+
+/* pairs */
+.pr{gap:10px}
+.prc{margin:0;font-size:15px;font-weight:700;color:var(--ink2);min-height:22px;flex:none}
+.prg{width:100%;max-width:380px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:none}
+.prk{position:relative;min-height:76px;padding:6px;font:inherit;color:var(--ink);background:#bcd9e6;border:2.5px solid var(--ink);border-radius:16px 19px 15px 18px/18px 15px 19px 16px;box-shadow:0 3px 0 rgba(90,69,52,.25);display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:transform .15s,background .15s}
+.prk .prf{font-size:28px;font-weight:800;color:rgba(90,69,52,.45)}
+.prk .prt{font-size:19px;font-weight:800;line-height:1.15;text-align:center;overflow-wrap:anywhere}
+.prk.up{background:#fffaf0}.prk.up .prf{display:none}
+.prk.ok{background:#cfe6bd;border-color:var(--good)}.prk.no{background:#f6cfc2}
+.prk:disabled{cursor:default}
+.prk:focus-visible{outline:3px solid #2d6f8e;outline-offset:2px}
+.prx{width:100%;max-width:380px;min-height:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;flex:none}
+html.calm .prk{transition:none}
+@media (prefers-reduced-motion:reduce){.prk{transition:none}}
+@media (max-height:700px){.prk{min-height:64px}.prg{gap:8px}}
+/* the six pairs at the end of a round sit in two columns, and short screens get a smaller crab, so all of it fits */
+.pr .tfrev{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;justify-items:center}
+@media (max-height:700px){.tfend img{width:80px}.tfend h3{font-size:23px}}
 /* read out to a screen reader, not shown */
 .xsr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}

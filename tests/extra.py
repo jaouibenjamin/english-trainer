@@ -58,8 +58,8 @@ async def local(b, w, h, errs, full):
     await pg.goto(P.BASE + '?games=1#island/1'); await pg.wait_for_selector('.xtb'); await pg.wait_for_timeout(400)
     off = await pg.evaluate(FITS)
     check(f'[{tag}] on: the island screen fits with the extra row, nothing lies over anything', not off, off)
-    bh = await pg.evaluate("document.querySelector('.xtb').getBoundingClientRect().height")
-    check(f'[{tag}] on: the button is at least 44 px high', bh >= 44, bh)
+    bh = await pg.evaluate("Math.min(...[...document.querySelectorAll('.xtb')].map(b=>b.getBoundingClientRect().height))")
+    check(f'[{tag}] on: one button per game, each at least 44 px high', bh >= 44 and await pg.locator('.xtb').count() == 2, bh)
     check(f'[{tag}] on: all four levels are still there', await pg.locator('.lvrow').count() == 4)
     await P.shot(pg, f'extra-{tag}-island')
     if not full:
@@ -76,7 +76,7 @@ async def local(b, w, h, errs, full):
     stored = await pg.evaluate("JSON.stringify(Object.entries(localStorage).sort())")
     progress = await pg.evaluate(PROGRESS)
     words = dict(await pg.evaluate(LIST + '(1)'))
-    await pg.click('.xtb'); await pg.wait_for_selector('#tfk')
+    await pg.click('.xtb[data-to$="/tf"]'); await pg.wait_for_selector('#tfk')
     off = await pg.evaluate(FITS)
     check(f'[{tag}] the card screen fits', not off, off)
     small = await pg.evaluate("[...document.querySelectorAll('.tf button')].filter(e=>e.getBoundingClientRect().height<44||e.getBoundingClientRect().width<44).length")
@@ -150,6 +150,92 @@ async def local(b, w, h, errs, full):
     await c.close()
 
 
+PAIRS = "(()=>window.__lv&&window.__lv.kind==='pairs'?{cards:window.__lv.cards(),g:{found:[...window.__lv.g.found],open:window.__lv.g.open,lock:window.__lv.g.lock,turns:window.__lv.g.turns,misses:window.__lv.g.misses,n:window.__lv.g.n},ended:window.__lv.ended||null}:null)()"
+
+
+async def pairs(b, w, h, errs, signed=False, api=None):
+    """pairs: twelve closed cards, a word and its own meaning stay open, a wrong pair explains and turns back"""
+    tag = f'pairs {w}x{h}' + (' class' if signed else '')
+    c, pg = await new_page(b, w, h, api=api, errs=errs)
+    posts = []
+    if signed:
+        pg.on('request', lambda r: posts.append(r.post_data or '') if r.url.startswith(api) else None)
+        await pg.goto(P.BASE); await pg.wait_for_selector('#lc')
+        r = await pg.evaluate("async ([api,n])=>(await fetch(api,{method:'POST',body:JSON.stringify({a:'register',c:'EN-1234',n,p:'1357'})})).json()", [api, 'דור'])
+        await pg.evaluate(f"localStorage.setItem('{KEY}',JSON.stringify({{u:{{c:'EN-1234',n:'דור',p:'1357'}}}}))")
+    await pg.goto(P.BASE + '?games=1#island/1'); await pg.wait_for_selector('.xtb[data-to$="/pairs"]')
+    if signed: await pg.wait_for_timeout(4500)          # the game's own sign-in refresh and first save must be over
+    stored = await pg.evaluate("JSON.stringify(Object.entries(localStorage).sort())")
+    progress = await pg.evaluate(PROGRESS)
+    n0 = len(posts)
+    words = dict(await pg.evaluate(LIST + '(1)'))
+    await pg.click('.xtb[data-to$="/pairs"]'); await pg.wait_for_selector('.prk')
+    R = await pg.evaluate(PAIRS)
+    cards = R['cards']
+    en_ = [x for x in cards if x['side'] == 'en']; he_ = [x for x in cards if x['side'] == 'he']
+    check(f'[{tag}] twelve cards: six English words of the teacher\'s list and their six meanings, as written there', len(cards) == 12 and len(en_) == 6 and len(he_) == 6
+          and all(x['text'] in words for x in en_) and all(any(y['k'] == x['k'] and words[y['text']].split(',')[0] == x['text'] for y in en_) for x in he_), cards)
+    check(f'[{tag}] no two meaning cards are the same, so each belongs to one word only', len({x['text'] for x in he_}) == 6)
+    closed = await pg.evaluate("[...document.querySelectorAll('.prk')].map(b=>[b.querySelector('.prt').textContent,b.getAttribute('aria-label')])")
+    check(f'[{tag}] a closed card holds nothing to read, on screen or for a screen reader', all(t == '' and l == 'כרטיס סגור' for t, l in closed), closed[:3])
+    off = await pg.evaluate(FITS)
+    check(f'[{tag}] the board fits the screen', not off, off)
+    small = await pg.evaluate("[...document.querySelectorAll('.pr button')].filter(e=>e.getBoundingClientRect().height<44||e.getBoundingClientRect().width<44).length")
+    check(f'[{tag}] every card and button is at least 44 px', small == 0, small)
+    await P.shot(pg, f'extra-{tag}-board')
+
+    # a wrong pair: both shown, each explained with its own pair, then turned back; nothing found, nothing ended
+    a = next(x for x in cards if x['side'] == 'en'); bb = next(x for x in cards if x['side'] == 'he' and x['k'] != a['k'])
+    await pg.click(f'.prk[data-i="{a["i"]}"]'); await pg.click(f'.prk[data-i="{bb["i"]}"]'); await pg.wait_for_timeout(150)
+    note = await pg.inner_text('#prx'); up = await pg.locator('.prk.up').count()
+    en_b = next(x['text'] for x in en_ if x['k'] == bb['k'])
+    check(f'[{tag}] a wrong pair stays open for a moment and explains both cards with their own pairs', up == 2 and a['text'] in note and words[a['text']].split(',')[0] in note and en_b in note and bb['text'] in note, note)
+    await P.shot(pg, f'extra-{tag}-wrong')
+    await pg.click(f'.prk[data-i="{a["i"]}"]')      # a tap while it is shown changes nothing
+    await pg.wait_for_function("document.querySelectorAll('.prk.up').length===0", timeout=4000)
+    R = await pg.evaluate(PAIRS)
+    check(f'[{tag}] then both turn back; nothing is found and nothing ended', not R['g']['found'] and not R['g']['open'] and not R['g']['lock'] and R['g']['misses'] == 1 and not R['ended'], R['g'])
+
+    # with the keyboard: Enter on a word and on its meaning finds the pair, and focus moves on to an open card
+    def idx(k, side): return next(x['i'] for x in cards if x['k'] == k and x['side'] == side)
+    await pg.focus(f'.prk[data-i="{idx(5, "en")}"]'); await pg.keyboard.press('Enter')
+    await pg.focus(f'.prk[data-i="{idx(5, "he")}"]'); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(120)
+    fo = await pg.evaluate("(()=>{const a=document.activeElement;return {card:a.classList.contains('prk'),disabled:!!a.disabled,found:a.classList.contains('ok')}})()")
+    check(f'[{tag}] keyboard: after a pair is found the focus moves to the next open card, not to the page', fo == {'card': True, 'disabled': False, 'found': False}, fo)
+    # find every pair; the voice says each English word when its card is turned
+    plays0 = await pg.evaluate("window.__plays.length")
+    for k in range(5):
+        for side in ('en', 'he'):
+            i = next(x['i'] for x in cards if x['k'] == k and x['side'] == side)
+            await pg.click(f'.prk[data-i="{i}"]')
+        await pg.wait_for_timeout(120)
+        if k == 0:
+            st = await pg.evaluate("[...document.querySelectorAll('.prk.ok')].map(b=>[b.disabled,b.querySelector('.prt').textContent])")
+            check(f'[{tag}] a word and its own meaning stay open, are marked found and cannot be turned again', len(st) == 4 and all(d and t for d, t in st), st)   # this pair and the one found by keyboard
+            await pg.evaluate("i=>{const b=document.querySelector(`.prk[data-i='${i}']`);b.click();b.dispatchEvent(new MouseEvent('click',{bubbles:true}))}", i)
+            check(f'[{tag}] a tap on a found card does nothing', (await pg.evaluate(PAIRS))['g']['open'] == [])
+    await pg.wait_for_selector('.tfend')
+    R = await pg.evaluate(PAIRS)
+    text = await pg.inner_text('.tfend')
+    check(f'[{tag}] the round ends when all six pairs are found, counts the tries and lists the six pairs', R['ended'] == {'turns': 7, 'misses': 1, 'n': 6} and all(x['text'] in text for x in en_), R['ended'])
+    check(f'[{tag}] the keyboard carries on from "another round" when the round ends', await pg.evaluate("document.activeElement.matches('.tfend [data-force]')"))
+    check(f'[{tag}] it shows no stars and no points', 'כוכב' not in text.replace('בלי כוכבים', '') and 'נקודות' not in text and await pg.locator('.tfend .bigstars').count() == 0)
+    plays = await pg.evaluate("window.__plays.slice(%d).map(p=>p.url)" % plays0)
+    spoken = [t for t in await pg.evaluate("window.__spoken") if t.strip()]
+    check(f'[{tag}] each English card turned says its word from a recording; the browser voice is never used', len(plays) >= 5 and spoken == [], (len(plays), spoken))   # the five pairs after the keyboard one
+    off = await pg.evaluate(FITS)
+    check(f'[{tag}] the end screen fits', not off, off)
+    await P.shot(pg, f'extra-{tag}-end')
+    await pg.wait_for_timeout(3200)
+    check(f'[{tag}] the pupil\'s progress is exactly as before and nothing was stored on the device',
+          await pg.evaluate(PROGRESS) == progress and await pg.evaluate("JSON.stringify(Object.entries(localStorage).sort())") == stored)
+    if signed:
+        check(f'[{tag}] a whole round, with a mistake, sends nothing to the backend', len(posts) == n0, [p[:80] for p in posts[n0:]])
+    await pg.click('.tfend [data-force]'); await pg.wait_for_selector('.prk')
+    check(f'[{tag}] "another round" deals a new board', (await pg.evaluate(PAIRS))['g']['turns'] == 0)
+    await c.close()
+
+
 async def klass(b, errs):
     tag = 'class'
     api = f'http://127.0.0.1:{P.API_PORT}/'
@@ -190,6 +276,10 @@ async def main():
             await local(b, 360, 640, errs, True)
             await local(b, 1366, 768, errs, True)
             await klass(b, errs)
+            await pairs(b, 390, 844, errs)
+            await pairs(b, 360, 640, errs)
+            await pairs(b, 1366, 768, errs)
+            await pairs(b, 390, 844, errs, signed=True, api=f'http://127.0.0.1:{P.API_PORT}/')
             await b.close()
     finally:
         for p in procs: p.terminate()
