@@ -5,7 +5,8 @@
     python3 tests/weight.py --quick    # requests and bytes (no throttling), and the checks below; under a minute
     python3 tests/weight.py            # also the time to usable on the slow profile (tests/slow_net.py), flag on and off
 
-Budget, with the flag on: the map's first load on a fresh device. Ceiling, with the flag off: the live game's own numbers
+Budget, with the flag on: the map's own first load on a fresh device; the next screen's art that the map fetches ahead
+on purpose (PATH_ART) is counted apart, with its own small cap. Ceiling, with the flag off: the live game's own numbers
 on game when this budget was set (25.11.2026), so it never gets heavier. Both are counted the way tests/slow_net.py
 counts them (gzip as on GitHub Pages, every request until the network is quiet).
 Also checked, with the flag on:
@@ -27,6 +28,10 @@ KB = 1024
 # them: 62 requests, 836 KB, 19.2 s. The budget holds that (a little room for the headers); the 10 s target needs the
 # decisions listed in PR #77 (the Latin font preloaded by index.html, the code the map does not use).
 BUDGET_ON = {'requests': 64, 'bytes': 860 * KB, 'usable_s': 21.0}
+# the next screen's art, fetched on purpose from the map once the map is in (the island path's backdrop and its stones,
+# client engineer 1's #74): not part of what the map needs, so counted apart with a small cap of its own
+PATH_ART = re.compile(r'assets/al/(bg/english\.|ui/stone-)')
+PATH_CAP = {'requests': 4, 'bytes': 160 * KB}   # 160, not 110: bg/english kept at its full 752 px (sharp on 2x/3x phones, 125 KB), decided by the lead
 # with the flag off: game on 25.11.2026 (aaeb727), the live class's numbers: 88 requests, 1,913 KB; never more (4 KB of
 # room: the response headers, such as the date, vary in length)
 CEIL_OFF = {'requests': 88, 'bytes': 1917 * KB}
@@ -103,12 +108,18 @@ async def structure(b, errs):
 
 
 async def budget(b):
+    """what the map needs: every request but the deliberate next-screen prefetch (PATH_ART), which has its own cap"""
     for ds in (True, False):
         r = await N.measure(b, 'index.html#map', "()=>!!document.querySelector('.scr.map .isl')", ds, throttle=False)
+        own = [x for x in r['all'] if not PATH_ART.search(x['file'])]
+        pre = [x for x in r['all'] if PATH_ART.search(x['file'])]
+        n, kb = len(own), sum(x['bytes'] for x in own)
         if ds:
-            check(f'flag on, map first load: {r["requests"]} requests (budget {BUDGET_ON["requests"]}), {r["bytes"] // KB} KB (budget {BUDGET_ON["bytes"] // KB})', r['requests'] <= BUDGET_ON['requests'] and r['bytes'] <= BUDGET_ON['bytes'], r['top'][:5])
+            check(f'flag on, the map\'s own first load: {n} requests (budget {BUDGET_ON["requests"]}), {kb // KB} KB (budget {BUDGET_ON["bytes"] // KB})', n <= BUDGET_ON['requests'] and kb <= BUDGET_ON['bytes'], own[:5])
+            pk = sum(x['bytes'] for x in pre)
+            check(f'flag on, the next screen\'s art fetched ahead from the map: {len(pre)} requests (cap {PATH_CAP["requests"]}), {pk // KB} KB (cap {PATH_CAP["bytes"] // KB})', len(pre) <= PATH_CAP['requests'] and pk <= PATH_CAP['bytes'], pre)
         else:
-            check(f'flag off, map first load: {r["requests"]} requests (ceiling {CEIL_OFF["requests"]}), {r["bytes"] // KB} KB (ceiling {CEIL_OFF["bytes"] // KB}): not heavier than the live game', r['requests'] <= CEIL_OFF['requests'] and r['bytes'] <= CEIL_OFF['bytes'], r['top'][:5])
+            check(f'flag off, map first load: {n} requests (ceiling {CEIL_OFF["requests"]}), {kb // KB} KB (ceiling {CEIL_OFF["bytes"] // KB}): not heavier than the live game', n <= CEIL_OFF['requests'] and kb <= CEIL_OFF['bytes'] and not pre, (own[:5], pre))
     if not QUICK:
         for ds in (True, False):
             r = await N.measure(b, 'index.html#map', "()=>!!document.querySelector('.scr.map .isl')", ds, throttle=True)

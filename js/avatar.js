@@ -139,10 +139,29 @@ export async function decorateMap(view,go,live=()=>true){
   const pics=el('div','wnew__pics');for(const x of fresh.slice(-3).reverse())pics.appendChild(pic(x.id,'wnew__pic'));   // the newest first, up to three
   if(fresh.length>3)pics.appendChild(el('span','wnew__more','ועוד '+(fresh.length-3)));
   if(fresh.length>1){pics.classList.add('wnew__pics--many');box.classList.add('wnew--many')}
-  box.append(pics,h,el('p','wnew__t',fresh.length>1?fresh.length+' דמויות חדשות מחכות לכם. רוצים להחליף?':a.he+' מחכה לכם. רוצים להחליף?'),ok,btn('wnew__later','אחר כך',()=>box.remove()));
+  box.append(pics,h,el('p','wnew__t',fresh.length>1?fresh.length+' דמויות חדשות מחכות לכם. רוצים להחליף?':a.he+' מחכה לכם. רוצים להחליף?'),ok,btn('wnew__later','אחר כך',()=>{box.remove();const q=sec.querySelector('.wask');if(q)q.hidden=false}));
   sec.appendChild(box);ok.focus({preventScroll:true});style().then(()=>{if(box.isConnected)placeNew(sec,box)})}
  window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,fresh:fresh.map(a=>a.id),token:tok};   // for the tests
+ preload(sec);
 }
+/* The island path's pictures, fetched from the map so an island opens straight onto its path: they start once the
+   page and the map's own pictures are in (so they never hold up the map or a first tap), at low priority, and are
+   decoded before they count as ready. If the child goes anywhere but an island before they are in, they are dropped
+   (and fetched again on the next map). window.__world.pathArt is the promise of it, for the tests. */
+const PATH_ART=['bg/english','ui/stone-done','ui/stone-current'];
+let pre=null;   // {imgs, ok, done}
+function preload(sec){
+ if(!pre){
+  const P={imgs:{},ok:false,done:null};let stop=false,end;pre=P;
+  /* settles once: true when all are in and decoded, false when one fails or the preload is dropped */
+  P.done=new Promise(r=>end=r).then(ok=>{P.ok=ok;removeEventListener('hashchange',leave);if(!ok&&pre===P)pre=null;return ok});
+  const leave=()=>{if(P.ok||/^#island\//.test(location.hash))return;stop=true;for(const im of Object.values(P.imgs))if(!im.complete)im.removeAttribute('src');end(false)};
+  addEventListener('hashchange',leave);
+  const after=document.readyState==='complete'?Promise.resolve():new Promise(r=>addEventListener('load',r,{once:true}));
+  const own=()=>Promise.all([...sec.querySelectorAll('img')].map(i=>i.complete?0:i.decode().catch(()=>0)));
+  after.then(own).then(()=>stop?false:Promise.all(PATH_ART.map(k=>{const im=new Image();im.decoding='async';im.fetchPriority='low';
+    im.src=ART[k];P.imgs[k]=im;return im.decode().then(()=>true,()=>false)})).then(a=>a.every(Boolean)&&!stop)).catch(()=>false).then(end)}
+ window.__world.pathArt=pre.done}
 
 /* the new-character notice never covers the character on the map (or Pitzi's "?" badge): it sits above the dock, and
    when the character stands there it moves to the band under the map's header. Measured once the style sheets are in,
@@ -154,7 +173,10 @@ function placeNew(sec,box){const t=sec.querySelector('.wtok,.wask');if(!t)return
  const at=up=>{box.classList.toggle('wnew--top',up);box.style.top=up?Math.round(top+4)+'px':''};
  /* above the dock; else under the header; on a short screen, the same two without the sentence (the heading says it) */
  for(const tight of [false,true]){box.classList.toggle('wnew--tight',tight);for(const up of [false,true]){at(up);if(!hit())return}}
- box.classList.remove('wnew--tight');at(false)}   // no free place on this screen: above the dock, whole, as before
+ box.classList.remove('wnew--tight');at(false);   // no free place on this screen: above the dock, whole, as before
+ /* that only happens with Pitzi's "?" badge on a short screen: the notice offers the same choice ("לבחירת דמות"), so the
+    badge steps aside while the notice is up, and comes back with "אחר כך" */
+ if(t.classList.contains('wask')&&hit())t.hidden=true}
 
 /* ---------- the character on the map ----------
    The chosen character stands on the island the pupil plays now (the one marked "ממשיכים כאן"; when every island is
@@ -162,12 +184,24 @@ function placeNew(sec,box){const t=sec.querySelector('.wtok,.wask');if(!t)return
    from the island it stood on before, along the dotted line's direction: short, any tap ends it at once, and with
    reduced motion or calm mode it is simply there. With no character yet, Pitzi stands there as today, with a small
    "?" badge that opens the picker. A device that cannot keep a character shows Pitzi alone. */
-/* no character yet: Pitzi stands on the island as today, with a small "?" badge on him that opens the picker (a
-   22 px badge in a 48 px tap area; never a block, the island stays the island's button) */
+/* no character yet: Pitzi stands on the island as today, with a small "?" badge by him that opens the picker. The
+   island stays the island's button: the badge's 48 px tap area sits beside Pitzi on the sea side, off the island's
+   picture or tag; where there is no room for that (a narrow screen), the tap area shrinks to the dot and a few px. */
+const ASK=48,ASK_MIN=32;
 function ask(sec,isl,go){const c=isl.querySelector('.here');if(!c)return null;const r=c.getBoundingClientRect(),s=sec.getBoundingClientRect();if(!r.width)return null;
+ const p=(isl.querySelector('.pw')||isl).getBoundingClientRect(),out=(r.left+r.right)/2<(p.left+p.right)/2?-1:1;   // the sea side: away from the island's middle
+ const pics=[...sec.querySelectorAll('.isl .pw,.isl .tag,.isl .hb')].map(e=>e.getBoundingClientRect());   // an island's picture, its tag and the "ממשיכים כאן" pill are all its button
+ const free=(x,y,h)=>x-h/2>=s.left&&x+h/2<=s.right&&y-h/2>=s.top&&y+h/2<=s.bottom&&pics.every(q=>x+h/2<=q.left||x-h/2>=q.right||y+h/2<=q.top||y-h/2>=q.bottom);
+ /* places by Pitzi, nearest first: on the sea side at his head, his middle, his feet, just above his head and a little
+    higher; then under and over him */
+ const cx=(r.left+r.right)/2,edge=out<0?p.left:p.right,spots=h=>[r.top+r.height*.1,r.top+r.height*.5,r.bottom,r.top-h/2,r.top-h].map(y=>[out<0?Math.min(cx,edge-h/2):Math.max(cx,edge+h/2),y])
+  .concat([[cx,r.bottom+h/2],[cx,r.top-h/2]]);
+ let hit=ASK,at=spots(ASK).find(([x,y])=>free(x,y,ASK));
+ if(!at){hit=ASK_MIN;at=spots(ASK_MIN).find(([x,y])=>free(x,y,ASK_MIN))||[Math.max(s.left+ASK_MIN/2,Math.min(s.right-ASK_MIN/2,edge+out*ASK_MIN/2)),r.top+r.height*.1]}
+ const [x,y]=at;
  const b=btn('wask',null,()=>go('avatar'));b.setAttribute('aria-label','בוחרים דמות שתצא לדרך');b.appendChild(el('span','wask__dot','?'));
- b.style.left=(r.left-s.left+r.width/2)+'px';b.style.top=(r.top-s.top+r.height*.1)+'px';sec.appendChild(b);
- return{island:idOf(isl),hop:null,ask:true}}
+ b.style.left=(x-s.left)+'px';b.style.top=(y-s.top)+'px';b.style.width=b.style.height=hit+'px';sec.appendChild(b);
+ return{island:idOf(isl),hop:null,ask:true,hit}}
 const HOP_MS=900;   // docs/DESIGN.md "the character on the map": an arc, 900 ms, a squash on landing
 function islandEl(sec,i){return sec.querySelector('.isl.i'+i)}
 function hereOf(sec){const c=sec.querySelector('.isl.cur');if(c)return c;const open=[...sec.querySelectorAll('.isl:not(.locked)')];return open[open.length-1]||null}
@@ -186,6 +220,8 @@ function token(sec,id,me,go){
  const isl=hereOf(sec);if(!isl||!id.key)return null;   // a device that cannot keep a character: Pitzi as today, nothing more
  if(!me.av)return ask(sec,isl,go);
  const sz=tokSize(isl),at=spot(sec,isl,sz),to=idOf(isl);
+ /* never over the "ממשיכים כאן" pill: on a short phone the island's lower edge reaches it, so stand just above it */
+ const pill=isl.querySelector('.tag .hb');if(pill){const pr=pill.getBoundingClientRect(),top=pr.top-sec.getBoundingClientRect().top;if(pr.height&&at.y+sz/2>top)at.y=top-sz/2}
  const t=el('span','wtok');t.setAttribute('aria-hidden','true');t.appendChild(pic(me.av,'wtok__pic'));   // a picture only: the island under it stays the button
  t.style.left=at.x+'px';t.style.top=at.y+'px';t.style.width=t.style.height=sz+'px';
  sec.classList.add('hastok');sec.appendChild(t);
@@ -224,16 +260,23 @@ function line(pts,here){const s=document.createElementNS(SVGNS,'svg');s.setAttri
 const BLANK='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="${SVGNS}" width="200" height="183"/>`)+' 1x';   // the size of assets/sp/star.webp
 const STARS_HE=['עוד לא שיחקתם','כוכב אחד','שני כוכבים','שלושה כוכבים'];
 const WALK_MS=450;
-/* the backdrop, loaded before the path replaces the list: if it fails (or takes longer than ART_WAIT), the list stays */
-const ART_WAIT=2500;
-function loaded(src){return new Promise(r=>{const im=new Image(),t=setTimeout(()=>r(false),ART_WAIT);
- im.onload=()=>{clearTimeout(t);r(true)};im.onerror=()=>{clearTimeout(t);r(false)};im.src=src})}
+/* The path replaces today's list only when its pictures are here: already loaded (the map fetches them when idle), or
+   arriving within ART_WAIT. Otherwise the list stays for this visit. The list is never hidden while we wait, so the
+   island area is never empty, and the island never flips from list to path late. */
+export const pathReady=()=>!!(pre&&pre.ok);   // the path's pictures are fetched and decoded (main.js holds the list back a moment)
+const ART_WAIT=300;
+const wait=ms=>new Promise(r=>setTimeout(()=>r(false),ms));
+async function ready(){
+ if(pre&&pre.ok)return true;                                                  // fetched and decoded from the map
+ if(pre&&pre.done&&await Promise.race([pre.done,wait(ART_WAIT)])===true)return true;   // still coming: a short wait
+ if(pre&&pre.done)return false;
+ return Promise.race([Promise.all(PATH_ART.map(k=>{const im=new Image();im.src=ART[k];return im.decode().then(()=>true,()=>false)})).then(a=>a.every(Boolean)),wait(ART_WAIT)])}   // straight onto an island (a link): the same short wait
 export async function islandPath(view,i,go,live=()=>true){
  const id=await ident();
  const sec=view.querySelector('.scr.island'),list=sec&&sec.querySelector('.lvlist');
  if(!live()||!list||!same(id))return;
  style();
- if(!await loaded(ART['bg/english'])||!live()||!list.isConnected||!same(id))return false;   // no picture: today's list, never a blank screen
+ if(!await ready()||!live()||!list.isConnected||!same(id))return false;   // not here yet, or failed: today's list for this visit
  const me=id.key?mine(id):{av:null},lv=i.levels.map(([t])=>({t,s:starsOf(i.id,t),L:LEVEL_INFO[t]}));
  const next=lv.findIndex(x=>!x.s),here=next<0?lv.length-1:next,pts=pathPoints('english',lv.length);
  const wrap=el('div','w-stagewrap wisl'),stage=el('div','w-stage');stage.style.backgroundImage='url("'+ART['bg/english']+'")';
@@ -265,9 +308,11 @@ export async function islandPath(view,i,go,live=()=>true){
   li.appendChild(b);ol.appendChild(li)});
  stage.appendChild(line(pts,here));stage.appendChild(ol);if(walker)stage.appendChild(walker);wrap.appendChild(stage);
  /* a stone picture that fails: back to today's list (the stones are buttons over a picture that is not there) */
- let back=false;const undo=()=>{if(back||!wrap.isConnected)return;back=true;clearTimeout(timer);if(walk)walk.cancel();wrap.replaceWith(list);sec.classList.remove('wpath');list.style.visibility=''};
+ let back=false;const undo=()=>{if(back||!wrap.isConnected)return;back=true;wrap.replaceWith(list);list.style.visibility='';sec.classList.remove('wpath');if(hint)hint.remove()};   // a glide already under way still opens its level
  for(const im of ol.querySelectorAll('img'))im.addEventListener('error',undo,{once:true});
- list.replaceWith(wrap);sec.classList.add('wpath');
+ /* Pitzi's hint from the list screen (the same words), one line under the path */
+ const g=sec.querySelector('.guide .label'),hint=g&&g.textContent.trim()?el('p','w-hint',g.textContent.trim()):null;
+ list.replaceWith(wrap);if(hint)wrap.after(hint);sec.classList.add('wpath');
  window.__world={...(window.__world||{}),path:{island:i.id,levels:lv.map(x=>x.t),here,next,walker:!!walker,key:id.key}};   // for the tests
  return true}
 
