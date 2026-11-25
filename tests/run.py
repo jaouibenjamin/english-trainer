@@ -99,15 +99,38 @@ async def looks(b):
         await c.close()
 
 
-async def play(b, w, h, tag):
+TARGETS = """[...document.querySelectorAll('#rstage button,#rstage a')].filter(e=>e.offsetParent&&getComputedStyle(e).visibility!=='hidden')
+ .map(e=>{const r=e.getBoundingClientRect();return [e.className||e.tagName,e.dataset.k||e.dataset.go||e.dataset.pace||'',Math.round(r.width),Math.round(r.height)]})"""
+
+async def ds_check(pg, tag, on, css):
+    """the flag: off, the page is as before (no class, no extra stylesheet, nothing stored); on, the new look and its two stylesheets"""
+    st = await pg.evaluate("[document.documentElement.classList.contains('ds'),localStorage.getItem('wi_ds'),getComputedStyle(document.querySelector('.card')).borderImageSource]")
+    if on:
+        check(st[0] and st[1] == '1' and 'ds.css' in css and 'run-ds.css' in css and 'panel' in st[2], f'{tag}: ?ds=1 shows the new look and remembers it on the device {st[:2]} {css}')
+        if '--quick' not in sys.argv or tag.startswith('r390'):
+            await ds_targets(pg, tag, 'the start menu')
+    else:
+        check(not st[0] and st[1] is None and css == ['run.css'] and st[2] == 'none', f'{tag}: flag off, no class, nothing stored, only run.css requested {st} {css}')
+
+async def ds_targets(pg, tag, where):
+    """in the new look every button and link on the screen is at least 48px tall, and the pad buttons and the gold button too"""
+    t = await pg.evaluate(TARGETS)
+    small = [x for x in t if x[3] < 48]
+    check(t and not small, f'{tag}: {where}: every button and link is 48px or more {small}')
+
+async def play(b, w, h, tag, qs=''):
+    """a whole run; qs='?ds=1' plays it in the new look, which must change nothing but the styling"""
     errs = []
+    css = []
     c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2, has_touch=w < 700)
     pg = csp_wait(await c.new_page())
     watch(pg, errs)
     await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
-    await pg.goto(BASE)
+    pg.on('request', lambda r: css.append(r.url.split('/')[-1]) if '/css/' in r.url else None)
+    await pg.goto(BASE + qs)
     await pg.wait_for_selector('[data-go="run"]', timeout=15000)
     await pg.wait_for_function('window.__heroLoaded!==undefined', timeout=30000)
+    await ds_check(pg, tag, bool(qs), css)
     R = await pg.evaluate('__run.runner()')
     check(await pg.evaluate('__heroLoaded') is True and R['hero'] and not R['crab'] and 'Run' in R['clip'], f'{tag}: the runner model loaded from our own files and its run animation plays {R}')
     await pg.wait_for_timeout(700)
@@ -121,6 +144,7 @@ async def play(b, w, h, tag):
     await pg.evaluate('window.__runFast=6; window.__run.noHit(true)')
     await pg.wait_for_timeout(1200)
     await shot(pg, f'{tag}_02_running')
+    if qs: await ds_targets(pg, tag, 'the HUD and the touch pad')
     seen = 0; wrong_done = False; shot_gate = False; t0 = time.time()
     while time.time() - t0 < 240:
         st = await pg.evaluate('(()=>{const G=__run.G();return G?{ended:G.ended,gate:!!G.gate,z:G.gateObj?G.gateObj.position.z:null,asked:G.asked}:null})()')
@@ -128,6 +152,7 @@ async def play(b, w, h, tag):
         if st['gate'] and st['z'] is not None:
             if not shot_gate and st['z'] > -30:
                 await shot(pg, f'{tag}_03_gate'); shot_gate = True
+                if qs: await ds_targets(pg, tag, 'the question card and the dash button')
             if st['z'] > -12:
                 lanes = await pg.evaluate('__run.lanes()'); a = await pg.evaluate('__run.answer()')
                 if lanes:
@@ -157,6 +182,7 @@ async def play(b, w, h, tag):
     await pg.wait_for_selector('.miss li', timeout=5000)
     await pg.wait_for_timeout(600)
     await shot(pg, f'{tag}_06_end')
+    if qs: await ds_targets(pg, tag, 'the end menu')
     st = await pg.evaluate('JSON.parse(localStorage.getItem("aam-unit1-v1"))')
     check(st and st.get('r', {}).get('runs') == 1 and st['r']['best'] == 11, f'{tag}: run saved on the device (runs, best)')
     check(st and st.get('pts', 0) >= 34, f'{tag}: points added to the shared record')
@@ -202,9 +228,11 @@ async def main():
         async with async_playwright() as p:
             b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])
             await play(b, 390, 844, 'r390x844')
+            await play(b, 390, 844, 'r390x844_ds', '?ds=1')
             await looks(b)
             if '--quick' not in sys.argv:
                 await play(b, 1366, 640, 'r1366x640')
+                await play(b, 1366, 768, 'r1366x768_ds', '?ds=1')
             await b.close()
     finally:
         proc.terminate()

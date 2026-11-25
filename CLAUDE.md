@@ -4,7 +4,7 @@ Practice games for one 5th-grade class (ה׳1). English (Fantastic 5, Unit 1 "Al
 Built by a parent for his daughter's class, free, no profit. It may later grow to other classes in the grade.
 Live: https://jaouibenjamin.github.io/english-trainer/
 
-Read this file and `docs/PLAN.md` before changing anything.
+Read this file, `docs/PLAN.md` and `docs/LESSONS.md` before changing anything.
 
 ## Who works on this
 

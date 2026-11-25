@@ -38,6 +38,11 @@ export function addressBucket(a: string): string {
   if (!/^[0-9a-f:.]{2,45}$/.test(v6) || !v6.includes(":")) return "";
   const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(v6); // an IPv4 address written as IPv6
   if (mapped) return addressBucket(mapped[1]);
+  const hexMapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(v6); // the same, written in hex (::ffff:cb00:7107)
+  if (hexMapped) {
+    const [hi, lo] = [parseInt(hexMapped[1], 16), parseInt(hexMapped[2], 16)];
+    return [hi >> 8, hi & 255, lo >> 8, lo & 255].join(".");
+  }
   const halves = v6.split("::");
   if (halves.length > 2) return "";
   const part = (x: string) => (x ? x.split(":") : []);
