@@ -251,7 +251,8 @@ async def map_token(b, errs):
       let best=0,d=1e9;for(const i of document.querySelectorAll('.isl')){const p=i.querySelector('.pw').getBoundingClientRect(),e=Math.hypot(p.left+p.width/2-x,p.top+p.height/2-y);if(e<d){d=e;best=+[...i.classList].find(c=>/^i\\d$/.test(c)).slice(1)}}
       return best})()"""
     LOOK = """(()=>{const t=document.querySelector('.wtok'),r=t.getBoundingClientRect(),g=document.querySelector('.isl.cur .tag').getBoundingClientRect(),cs=getComputedStyle(t);
-      return {w:r.width,h:r.height,tag:!(r.right<=g.left||r.left>=g.right||r.bottom<=g.top||r.top>=g.bottom),ring:cs.borderTopWidth,shadow:getComputedStyle(t,'::after').content!=='none',hit:cs.pointerEvents,
+      const pw=document.querySelector('.isl.cur .pw').getBoundingClientRect().width;
+      return {w:r.width,h:r.height,want:Math.round(Math.min(44,pw*.6)),tag:!(r.right<=g.left||r.left>=g.right||r.bottom<=g.top||r.top>=g.bottom),ring:cs.borderTopWidth,shadow:getComputedStyle(t,'::after').content!=='none',hit:cs.pointerEvents,
         aria:t.getAttribute('aria-hidden'),inside:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight}})()"""
     for w, h in ((390, 844), (360, 740), (320, 568), (768, 1024), (1366, 768)):
         tag = f'token {w}x{h}'
@@ -262,10 +263,12 @@ async def map_token(b, errs):
         on = await pg.evaluate(WHERE)
         check(f'[{tag}] the character stands on the island played now (2, "ממשיכים כאן"), in place of the crab', on == 2 and W['island'] == 2 and await pg.locator('.isl.i2.cur').count() == 1 and await pg.evaluate("getComputedStyle(document.querySelector('.isl.cur .here')).display") == 'none', (on, W))
         L = await pg.evaluate(LOOK)
-        check(f'[{tag}] a 44 px framed token, 3 px ring, a ground shadow, on screen, never over the "ממשיכים כאן" tag, decoration only', L['w'] == 44 and L['h'] == 44 and L['ring'] == '3px' and L['shadow'] and not L['tag'] and L['inside'] and L['hit'] == 'none' and L['aria'] == 'true', L)
+        check(f'[{tag}] a framed token of 44 px (at most 60% of a small island), 3 px ring, a ground shadow, on screen, never over the "ממשיכים כאן" tag, decoration only', L['w'] == L['want'] and L['h'] == L['want'] and (w < 390 or L['w'] == 44) and L['ring'] == '3px' and L['shadow'] and not L['tag'] and L['inside'] and L['hit'] == 'none' and L['aria'] == 'true', L)
         check(f'[{tag}] it hopped from island 1 to 2, once, and the new island is remembered', W['hop'] == {'from': 1, 'to': 2, 'anim': True} and json.loads(await pg.evaluate("localStorage.getItem('wi_world')"))['p']['local']['at'] == 2, W)
         await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings'); await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(200)
         check(f'[{tag}] back on the map: no second hop', (await pg.evaluate('window.__world.token'))['hop'] is None)
+        lab = await pg.get_attribute('.isl.i2', 'aria-label')
+        check(f'[{tag}] the island played now says so to a screen reader (flag on only)', lab == 'אי בית הספר, ממשיכים כאן', lab)
         if w == 390:
             await P.shot(pg, 'world-token-390x844')
         await c.close()
@@ -309,17 +312,37 @@ async def map_token(b, errs):
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(300)
     check('every island full: the character stands on the last island', await pg.evaluate(WHERE) == 6)
     await c.close()
-    # no character yet: Pitzi stands on the island, as today
+    # an `at` on an island not open is no position: no hop from it
     c, pg, reqs = await page(b, 390, 844, errs, two)
-    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
-    check('no character yet: no token, Pitzi on the island played now as today', await pg.locator('.wtok').count() == 0 and await pg.evaluate("getComputedStyle(document.querySelector('.isl.i2.cur .here')).display") != 'none')
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=4)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(300)
+    W = await pg.evaluate('window.__world.token')
+    check('a remembered island that is not open is no position: no hop, the character simply on island 2', W['hop'] is None and await pg.evaluate(WHERE) == 2, W)
+    await c.close()
+    # no character yet: Pitzi stands on the island as today, with a small "?" badge that opens the picker
+    for w, h in ((390, 844), (320, 568)):
+        c, pg, reqs = await page(b, w, h, errs, two)
+        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wask'); await pg.wait_for_timeout(300)
+        k = await pg.evaluate("""(()=>{const b=document.querySelector('.wask').getBoundingClientRect(),d=document.querySelector('.wask__dot').getBoundingClientRect(),c=document.querySelector('.isl.i2.cur .here').getBoundingClientRect();
+          const cx=b.left+b.width/2,cy=b.top+b.height/2;return {w:b.width,h:b.height,dot:d.width,on:cx>=c.left&&cx<=c.right&&cy>=c.top-4&&cy<=c.bottom,here:getComputedStyle(document.querySelector('.isl.i2.cur .here')).display,
+          label:document.querySelector('.wask').getAttribute('aria-label'),in:b.left>=0&&b.right<=innerWidth}})()""")
+        check(f'[no character {w}x{h}] Pitzi on the island played now as today, a small "?" badge on him in a 48 px tap area, named, no token', await pg.locator('.wtok').count() == 0 and k['here'] != 'none' and k['on'] and k['w'] >= 48 and k['h'] >= 48 and k['dot'] <= 24 and k['label'] and k['in'], k)
+        if w == 390:
+            await P.shot(pg, 'world-ask-390x844')
+            await pg.click('.wask'); await pg.wait_for_selector('.wpick__grid')
+            check('the "?" badge opens the picker', True)
+        await c.close()
+    # flag off: the island's name for a screen reader stays exactly as today
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.goto(P.BASE + '#map'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(200)
+    check('flag off: the island played now keeps its label as today', await pg.get_attribute('.isl.i2', 'aria-label') == 'אי בית הספר')
     await c.close()
     # a device that cannot keep a character: nothing on the map
     api = f'http://127.0.0.1:{P.API_PORT}/'
     c, pg, reqs = await page(b, 390, 844, errs, two, api=api, user={'c': CLASS, 'n': 'נועה', 'p': '1357'})
     await pg.add_init_script("try{Object.defineProperty(window.crypto,'subtle',{get:()=>undefined,configurable:true})}catch(e){}")
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
-    check('no digest: no token, Pitzi as today', await pg.locator('.wtok').count() == 0 and await pg.evaluate("getComputedStyle(document.querySelector('.isl.cur .here')).display") != 'none')
+    check('no digest: no token, no "?", Pitzi as today', await pg.locator('.wtok,.wask').count() == 0 and await pg.evaluate("getComputedStyle(document.querySelector('.isl.cur .here')).display") != 'none')
     await c.close()
 
 
