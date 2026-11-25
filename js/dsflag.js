@@ -13,5 +13,6 @@
  }catch(e){on=q==='1'}
  if(!on)return;
  document.documentElement.classList.add('ds');
+ if(/^איי המילים$/.test(document.title))document.title='ניצני אופק';   // the platform's new name (docs/PLAN.md), with the flag only; other pages keep their own title
  ['css/ds.css','css/ds-game.css','css/ds-teacher.css'].forEach(function(h){var l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l)});
 })();
