@@ -31,7 +31,7 @@ BUDGET_ON = {'requests': 64, 'bytes': 860 * KB, 'usable_s': 21.0}
 # the next screen's art, fetched on purpose from the map once the map is in (the island path's backdrop and its stones,
 # client engineer 1's #74): not part of what the map needs, so counted apart with a small cap of its own
 PATH_ART = re.compile(r'assets/al/(bg/english\.|ui/stone-)')
-PATH_CAP = {'requests': 4, 'bytes': 110 * KB}
+PATH_CAP = {'requests': 4, 'bytes': 160 * KB}   # 160, not 110: bg/english kept at its full 752 px (sharp on 2x/3x phones, 125 KB), decided by the lead
 # with the flag off: game on 25.11.2026 (aaeb727), the live class's numbers: 88 requests, 1,913 KB; never more (4 KB of
 # room: the response headers, such as the date, vary in length)
 CEIL_OFF = {'requests': 88, 'bytes': 1917 * KB}
