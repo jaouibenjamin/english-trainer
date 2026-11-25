@@ -189,6 +189,7 @@ function drawMute(){
 }
 
 function start(){
+ document.title='ניצני אופק: העולם החדש (תצוגה)';   // the platform's new name (docs/PLAN.md); world.html shows only with the flag
  $('gate').hidden=true;$('app').hidden=false;
  drawGrid();
  $('pk-next').addEventListener('click',()=>{if(!S.pick){$('pk-why').textContent='קודם בוחרים דמות.';return}drawName();pickerStep(true)});
