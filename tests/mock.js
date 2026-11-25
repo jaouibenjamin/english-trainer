@@ -54,4 +54,4 @@ if(process.argv[2]==='unit'){
 }else http.createServer((q,s)=>{let b='';q.on('data',c=>b+=c);q.on('end',()=>{s.writeHead(200,{'Access-Control-Allow-Origin':'*','Content-Type':'application/json'});const d=q.method==='POST'?JSON.parse(b):null;
   /* test only: tidy a pupil's name in the sheet, as a teacher or parent might */
   if(d&&d.a==='__rename'){const r=sheets.kids.d.find(x=>x[0]===d.from);if(r)r[0]=d.to;return s.end(JSON.stringify({ok:!!r}))}
-  s.end(d?JSON.stringify(call(d)):'{}')})}).listen(8765);
+  s.end(d?JSON.stringify(call(d)):'{}')})}).listen(+process.env.MOCK_PORT||8765,'127.0.0.1');   // tests/play.py gives each run its own free port

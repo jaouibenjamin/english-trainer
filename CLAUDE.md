@@ -50,10 +50,13 @@ python3 tests/math.py --quick   # Fraction Bay
 python3 tests/mock.py --quick   # mock exam
 python3 tests/run.py            # Beach Run, phone and laptop sizes (needs WebGL: swiftshader flags inside); also tests/remote_guard.py (no URL of another host) and tests/credits.py check (assets/CREDITS.md covers every file)
 node tests/mdata_check.mjs      # math content
+python3 tests/storage_check.py  # the asset build scripts against a made-up storage (no network): refusals, no address in messages
 python3 tests/db.py             # Supabase backend (not live yet): access rules, points, load; needs a local PostgreSQL, no Docker (docs/BACKEND.md)
 python3 tests/functions.py      # Supabase Edge Functions (not live yet): sign-in, lockout, recovery, reset; needs Deno 2 and the local PostgreSQL
 python3 tests/secret_guard.py   # no server key in the repo (also in the security workflow)
 ```
+
+Every suite starts its own servers on free ports and stops if it cannot; it never uses a server that is already running (`python3 tests/ports_check.py` proves it). So two runs on one machine do not mix.
 
 Playwright with Chrome. Look at the screenshots (`--shots DIR`), don't only trust green.
 

@@ -95,8 +95,8 @@ The files are ours and are served with the game (relative URLs, no other host): 
 downloads each original once into DIR (outside the repo), mixes it to mono, keeps the measured stretch plus 150 ms on
 each side, encodes it as mono MP3 (64 kbps, 24 kHz; plays on old iPhones and cheap Androids) into `assets/voice/en/`,
 and writes `js/voice.js` with the stretch as offsets into the new file. The Hebrew narration of the mock exam is copied
-byte for byte into `assets/voice/he/`. `assets/voice/sources.tsv` lists every local file with its original URL, its
-sha256 and its text (for the credits); `tests/play.py` fails when a file on disk differs from its sha256. `tests/voice_local.py verify --cache DIR` decodes every local file and checks that the stretch
+byte for byte into `assets/voice/he/`. `assets/voice/sources.tsv` lists every local file with the
+sha256 of its original, its own sha256 and its text (for the credits); `tests/play.py` fails when a file on disk differs from its sha256. `tests/voice_local.py verify --cache DIR` decodes every local file and checks that the stretch
 the player plays sits exactly where the offsets say (waveform cross-correlation against the original).
 
 Playback (`say()` in `js/state.js`) is Web Audio: the clip is fetched and decoded once, the stretch is cut out with
@@ -140,13 +140,19 @@ explanations and a second try). A new paper opens only after that practice, draw
 Nothing the game shows is loaded from another host. `assets/CREDITS.md` lists every file under `assets/`
 and `vendor/` with what it is, where it came from and its job id (`python3 tests/credits.py write` rebuilds it from the
 lists; the tests fail when it is out of date or a file is missing from it). `assets/sources.tsv` lists every 3D model and generated picture
-kept in the repo: its kind, the local file, the original URL in the generator's storage, the sha256 of the original
+kept in the repo: its kind, the local file, the sha256 of the original
 and of the local file, and what was done to it. Every file keeps the generator's job id in its name (for the credits).
 
 - `assets/3d/`: the two Beach Run runners (GLB). Only the texture inside each file was made smaller (2048 px to 1024 px
   JPEG); mesh, rig and animation are the original bytes. Each file stays under 3 MB.
 - `assets/x/hf_*.webp`: the runners' pictures on the Beach Run menu (512 px).
 - `assets/x/src/`: the 23 word-picture sources as 512 px WebP, used only by `tools/sheet.html`.
+
+The address of the storage that holds the originals is private and is written nowhere in the repo (the tests fail if it
+appears). An original has the name of its local file, with its own extension; the build scripts get the folder's address
+when they have to download: `--base https://HOST/FOLDER/` or the environment variable `WI_STORAGE_BASE`
+(`tests/storage.py`). Everything else works without it: the checks, the tests, and a build or verify whose originals are
+already in the cache.
 
 `python3 tests/assets_local.py build --cache DIR` downloads the originals once into DIR (outside the repo) and rebuilds
 the files and their sha256 (needs Pillow); `verify --cache DIR` compares every file with its original again (for a

@@ -68,8 +68,12 @@ begin
   -- answer rows a day; beyond that nothing is written but one counter, so a console loop cannot fill the database.
   a := private.day_row(v_pupil, v_today);
   update private.pupil_days set calls = calls + 1 where pupil_id = v_pupil and day = v_today;
-  if a.calls >= s.max_calls_day then
+  if a.calls >= s.max_calls_day or a.batches >= s.max_batches_day then
     perform private.flag_add(v_pupil, 'daycap', v_today);
+    return jsonb_build_object('ok', true, 'capped', true, 'points', tot.points, 'added', 0, 'flagged', jsonb_array_length(p_events));
+  end if;
+  if s.storage_brake then      -- the database is near the free plan's size: nothing is written until the owner acts
+    perform private.flag_add(v_pupil, 'storage', v_today);
     return jsonb_build_object('ok', true, 'capped', true, 'points', tot.points, 'added', 0, 'flagged', jsonb_array_length(p_events));
   end if;
   if jsonb_array_length(p_events) = 0 then      -- nothing to do, nothing to remember
@@ -185,7 +189,11 @@ begin
       n := least(n, s.max_run_day - a.run_pts);      -- the game's own daily cap, enforced here
       if n <= 0 then perform private.flag_add(v_pupil, 'bonus', v_today); flagged := flagged + 1; continue; end if;
       update private.pupil_days set run_pts = run_pts + n where pupil_id = v_pupil and day = v_today;
-      insert into public.points (pupil_id, delta, reason, ref, at) values (v_pupil, n, 'run', '', v_now);
+      -- one row per pupil and day, grown in place: a stream of small runs adds no rows
+      update public.points set delta = delta + n, at = v_now where pupil_id = v_pupil and reason = 'run' and ref = v_today::text;
+      if not found then
+        insert into public.points (pupil_id, delta, reason, ref, at) values (v_pupil, n, 'run', v_today::text, v_now);
+      end if;
       gained := gained + n + private.day_bonus(v_pupil, v_today, v_now, s.pts_day);
 
     else
@@ -193,7 +201,9 @@ begin
     end if;
   end loop;
 
-  if added = 0 then delete from private.answer_batches where pupil_id = v_pupil and batch_id = p_batch; end if;
+  if added = 0 then delete from private.answer_batches where pupil_id = v_pupil and batch_id = p_batch;
+  else update private.pupil_days set batches = batches + 1 where pupil_id = v_pupil and day = v_today;
+  end if;
   if added > 0 then
     select count(distinct date_trunc('hour', at)) into n from public.answers where pupil_id = v_pupil and at > v_now - interval '24 hours';
     if n >= s.marathon_hours then perform private.flag_add(v_pupil, 'marathon', v_today); end if;
@@ -207,19 +217,44 @@ end $$;
 /* The transitional blob; the caller's own row only. Two devices: when the row changed since p_base (the updated_at
    the device last saw), nothing is written and the current row comes back; the client joins the two with its own
    merge() and saves again. p_base null = the device has never seen the row (first save after registration).
-   Returns {ok, updated_at} or {ok: false, conflict: true, state, updated_at}. */
+   Storage (review PB1b): each write leaves a dead 40 KB row version behind until vacuum, so writes are rationed per
+   pupil: none when the blob is unchanged, at least save_gap_s apart, at most max_saves_day writes and max_save_kb_day
+   a day (Israel time).
+   A refused save loses nothing: the device keeps its progress and the next save carries all of it.
+   Returns {ok, updated_at[, unchanged]} or {ok: false, conflict: true, state, updated_at}
+        or {ok: false, e: 'wait' | 'daycap', retry_after: seconds}. */
 create function public.save_progress(p_state jsonb, p_base timestamptz default null) returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare v_pupil uuid := app.pupil_id(); v_at timestamptz := clock_timestamp(); g public.progress;
+declare v_pupil uuid := app.pupil_id(); v_at timestamptz := clock_timestamp(); g public.progress; s private.settings;
+  a private.pupil_days; v_today date; v_kb int := ceil(octet_length(p_state::text) / 1024.0)::int;
 begin
   if v_pupil is null then raise exception 'not a pupil' using errcode = '42501'; end if;
   if p_state is null or jsonb_typeof(p_state) <> 'object' or char_length(p_state::text) > 40000 then
     raise exception 'bad input' using errcode = '22023';
   end if;
-  select * into g from public.progress where pupil_id = v_pupil for update;
+  select * into g from public.progress where pupil_id = v_pupil for update;      -- one save per pupil at a time
   if g.pupil_id is not null and g.state <> '{}'::jsonb and (p_base is null or g.updated_at <> p_base) then
     return jsonb_build_object('ok', false, 'conflict', true, 'state', g.state, 'updated_at', g.updated_at);
   end if;
+  if g.pupil_id is not null and g.state = p_state then      -- nothing new: nothing written, nothing counted
+    return jsonb_build_object('ok', true, 'updated_at', g.updated_at, 'unchanged', true);
+  end if;
+  select * into s from private.settings;
+  v_today := (v_at at time zone s.tz)::date;
+  a := private.day_row(v_pupil, v_today);
+  if a.saves >= s.max_saves_day or a.save_kb + v_kb > s.max_save_kb_day then
+    if a.saves <= s.max_saves_day then      -- flag once a day
+      perform private.flag_add(v_pupil, 'saves', v_today);
+      update private.pupil_days set saves = s.max_saves_day + 1 where pupil_id = v_pupil and day = v_today;
+    end if;
+    return jsonb_build_object('ok', false, 'e', 'daycap', 'retry_after',
+      ceil(extract(epoch from ((v_today + 1)::timestamp at time zone s.tz) - v_at))::int);
+  end if;
+  if a.last_save_at is not null and a.last_save_at > v_at - make_interval(secs => s.save_gap_s) then
+    return jsonb_build_object('ok', false, 'e', 'wait', 'retry_after',
+      greatest(1, ceil(extract(epoch from a.last_save_at + make_interval(secs => s.save_gap_s) - v_at)))::int);
+  end if;
+  update private.pupil_days set saves = saves + 1, save_kb = save_kb + v_kb, last_save_at = v_at where pupil_id = v_pupil and day = v_today;
   insert into public.progress (pupil_id, state, updated_at) values (v_pupil, p_state, v_at)
   on conflict (pupil_id) do update set state = excluded.state, updated_at = excluded.updated_at;
   return jsonb_build_object('ok', true, 'updated_at', v_at);
@@ -263,7 +298,7 @@ $$;
    Rolls answers older than the raw window into answer_daily and deletes what has a short life by design. */
 create function public.maintenance() returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare s private.settings; v_cut timestamptz; rolled int; bad int; purged boolean := true;
+declare s private.settings; v_cut timestamptz; rolled int; bad int; purged boolean := true; v_mb int; v_out jsonb;
 begin
   select * into s from private.settings;
   v_cut := ((now() at time zone s.tz)::date - s.raw_days)::timestamp at time zone s.tz;
@@ -290,13 +325,27 @@ begin
   delete from private.pupil_days       where day < (now() at time zone s.tz)::date - 30;
   delete from private.ip_salts         where day < (now() at time zone 'utc')::date - 2;
   delete from private.reset_codes      where expires_at < now() - interval '7 days';
+  delete from private.pupil_devices    where last_ok_at < now() - make_interval(days => s.device_days);
+  delete from public.flags             where day < (now() at time zone s.tz)::date - s.flags_days;
+  delete from private.maintenance_log  where at < now() - make_interval(days => s.log_days);
+  -- the daily bonus and Beach Run rows older than the raw window become one row per pupil and reason (totals unchanged);
+  -- 'read' rows stay (a text pays once, ever) and so do stars and exams (few by their own caps)
+  with old as (delete from public.points where reason in ('day', 'run') and at < v_cut returning *)
+  insert into public.points (pupil_id, delta, reason, ref, at)
+    select pupil_id, sum(delta)::int, reason, 'rolled', max(at) from old group by pupil_id, reason;
   begin   -- Supabase Auth's own log holds addresses; keep 30 days. Where the platform does not allow it, say so.
     delete from auth.audit_log_entries where created_at < now() - interval '30 days';
   exception when others then purged := false;
   end;
   select count(*) into bad from private.totals_check();
-  return jsonb_build_object('ok', bad = 0 and purged, 'rolled', rolled, 'totals_wrong', bad, 'audit_purged', purged,
-                            'db_mb', (pg_database_size(current_database()) / 1048576)::int);
+  v_mb := (pg_database_size(current_database()) / 1048576)::int;
+  -- the storage brake (re-check of PR 12): near the free plan's 500 MB, events are counted but not stored, until
+  -- the owner frees space or raises nothing (no paid plan): docs/BACKEND.md section 6
+  update private.settings set storage_brake = (v_mb >= s.storage_brake_mb);
+  v_out := jsonb_build_object('ok', bad = 0 and purged and v_mb < s.storage_brake_mb, 'rolled', rolled, 'totals_wrong', bad,
+                              'audit_purged', purged, 'db_mb', v_mb, 'storage_brake', v_mb >= s.storage_brake_mb);
+  insert into private.maintenance_log (result) values (v_out);
+  return v_out;
 end $$;
 
 revoke all on all functions in schema public, private from public, anon, authenticated;
@@ -310,4 +359,5 @@ grant execute on all functions in schema public, private to service_role;
 do $$ begin
   create extension if not exists pg_cron;
   perform cron.schedule('wi-maintenance', '17 2 * * *', 'select public.maintenance()');
+  raise notice 'maintenance is scheduled: every night at 02:17 UTC (cron job wi-maintenance)';
 exception when others then raise notice 'maintenance is NOT scheduled: %', sqlerrm; end $$;
