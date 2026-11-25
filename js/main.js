@@ -71,7 +71,7 @@ function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('pa
  const got=islandStars(i);
  view.innerHTML=`<section class="scr island${extraOn()?' hasx':''}">${top(esc(i.he))}
   <p class="isub">${i.bonus?'אי בונוס: חודשים ומספרים, שני שלבים':`מילים מתוך: ${en(i.en)}`}</p>
-  <div class="ihero">${spr('isl_'+i.id,'pic')}<p class="chips"><span class="chip">${star()}${num(got+' / '+i.levels.length*3)}</span></p></div>
+  <div class="ihero">${spr('isl_'+i.id,'pic')}<p class="chips"><span class="chip">${star()}${num(got+' / '+i.levels.length*3)}</span>${SET.sheet===true?`<a class="chip wsl" href="worksheet.html?i=${i.id}">דף עבודה להדפסה</a>`:''}</p></div>
   ${extraRow(i)}<div class="lvlist">${i.levels.map(([t],k)=>{const L=LEVEL_INFO[t],s=starsOf(i.id,t);
    return `<button class="lvrow p${k%4}" data-a="nav" data-to="play/${i.id}/${t}"><span class="lic">${spr(L.icon)}</span><span class="lt"><b>${L.name}</b>${stars(s)}<small>${L.sub}</small></span></button>`}).join('')}</div>
   <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus&&!got?'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`}
@@ -280,6 +280,8 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='math')M.map();else if(V.name==='title')title()},150)});
 
 /* ---------- boot ---------- */
+/* the printable worksheet (worksheet.html) is behind a switch a device gets with ?sheet=1 and loses with ?sheet=0 */
+try{const v=new URLSearchParams(location.search).get('sheet');if(v==='1'||v==='0'){SET.sheet=v==='1';saveSet()}}catch(e){}
 (async function boot(){loader();
  const pulled=pull();let late=true;   // asked for while the pictures load, so the first screen is usually drawn once, already up to date
  const fonts=document.fonts?Promise.all([document.fonts.load("700 20px 'Playpen Sans Hebrew'",'איי'),document.fonts.load("800 20px 'Playpen Sans Hebrew'",'Word')]).catch(()=>{}):0;
