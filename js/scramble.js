@@ -38,10 +38,13 @@ export async function start(host,cfg,api){
     <p class="scw" dir="ltr" lang="en" aria-label="המילה עד עכשיו">${[...w].map(()=>'<i></i>').join('')}</p></div>
    <div class="sct" dir="ltr">${g.tiles.map((t,i)=>`<button class="scl" data-l="${i}" lang="en" aria-label="${esc(t.ch)}">${esc(t.ch)}</button>`).join('')}</div>
    <p class="scm" id="scm" role="status" aria-live="polite"></p>`;
+  if(g.kb){const f=area.querySelector('.scl');if(f)f.focus({preventScroll:true})}   // the keyboard carries on with the next word
   speak()}
  function pick(i){const c=g.queue[0];if(!c||g.lock||!alive)return;const t=g.tiles[i];if(!t||t.used)return;
   const w=c.w.en,want=w[g.pos],tile=area.querySelector(`[data-l="${i}"]`),msg=area.querySelector('#scm');
-  if(t.ch.toLowerCase()===want.toLowerCase()){t.used=true;tile.disabled=true;tile.classList.add('used');
+  if(t.ch.toLowerCase()===want.toLowerCase()){const kb=document.activeElement===tile;t.used=true;tile.disabled=true;tile.classList.add('used');
+   /* a used tile is disabled: a keyboard user's focus moves on to the next tile instead of dropping to the page */
+   if(kb){const nx=area.querySelector('.scl:not(:disabled)');if(nx)nx.focus({preventScroll:true});else g.kb=true}
    const slot=area.querySelectorAll('.scw i')[g.pos];slot.textContent=want;slot.classList.add('on');g.pos++;g.wrongRow=0;msg.textContent='';SND.tap();
    for(const b of area.querySelectorAll('.scl.glow'))b.classList.remove('glow');
    if(g.pos===w.length)return solved(c)}
@@ -50,7 +53,7 @@ export async function start(host,cfg,api){
    msg.innerHTML=`האות הבאה היא לא ${en(t.ch)}`;
    /* two wrong letters in a row: the right tile glows */
    if(g.wrongRow>=2){const j=g.tiles.findIndex(x=>!x.used&&x.ch.toLowerCase()===want.toLowerCase());const b=area.querySelector(`[data-l="${j}"]`);if(b)b.classList.add('glow')}}}
- function solved(c){g.lock=1;SND.pop();const w=c.w;
+ function solved(c){g.lock=1;SND.pop();const w=c.w;if(area.contains(document.activeElement))g.kb=true;
   if(!c.wrong&&!c.again)g.first++;
   g.queue.shift();
   if(c.wrong&&!c.again)g.queue.push({w,again:true});else g.done++;   // a word with a wrong letter comes back once
@@ -64,6 +67,7 @@ export async function start(host,cfg,api){
     <p>${num(g.first)} מתוך ${num(g.n)} בלי טעות</p>
     ${miss.length?`<div class="tfrev"><small>כדאי לחזור על</small>${miss.slice(0,4).map(w=>`<span>${en(w.en)} · ${esc(first(w.he))}</span>`).join('')}</div>`:'<p class="tfm">בלי אף טעות!</p>'}
     <div class="tfeb">${btn('nav','עוד סיבוב','green',`data-to="extra/${cfg.island.id}/scramble" data-force="1"`)}${btn('nav','לשלבים','cream',`data-to="island/${cfg.island.id}"`)}</div></div>`;
+  if(g.kb){const nx=area.querySelector('.tfend [data-force]');if(nx)nx.focus({preventScroll:true})}
   window.__lv.ended={first:g.first,n:g.n,missed:[...g.missed]}}
  const onClick=e=>{const t=e.target.closest('[data-t=say]');if(t){SND.tap();return speak()}const l=e.target.closest('.scl');if(l)pick(+l.dataset.l)};
  /* a keyboard: typing a letter takes the first unused tile with that letter */

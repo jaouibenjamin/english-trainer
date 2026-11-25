@@ -279,8 +279,15 @@ async def letters(b, w, h, errs, signed=False, api=None):
     glow = await pg.evaluate("[...document.querySelectorAll('.scl.glow')].map(b=>b.textContent)")
     check(f'[{tag}] after two wrong letters in a row the right tile glows', glow0 == 0 and len(glow) == 1 and glow[0].lower() == want, glow)
     await P.shot(pg, f'extra-{tag}-wrong')
+    # with the keyboard: Enter on the right tile places it, and focus moves on to the next tile
+    t = await pg.evaluate("ch=>{const t=window.__lv.tiles().find(x=>!x.used&&x.ch===ch.toLowerCase());return t&&t.i}", word[0])
+    await pg.focus(f'.scl[data-l="{t}"]'); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(80)
+    fo = await pg.evaluate("(()=>{const a=document.activeElement;return {tile:a.classList.contains('scl'),disabled:!!a.disabled}})()")
+    check(f'[{tag}] keyboard: Enter on the right tile places it and the focus moves to the next tile', fo == {'tile': True, 'disabled': False} and (await pg.evaluate(LETTERS))['g']['pos'] == 1, fo)
+    color = await pg.evaluate("getComputedStyle(document.getElementById('scm')).color")
+    check(f'[{tag}] the hint line is in the calm text colour, not red', color != 'rgb(185, 80, 60)', color)
     # build the word: by tap, and the next word by keyboard
-    for k, ch in enumerate(word):
+    for k, ch in enumerate(word[1:]):
         t = await pg.evaluate("ch=>{const t=window.__lv.tiles().find(x=>!x.used&&x.ch.toLowerCase()===ch.toLowerCase());return t&&t.i}", ch)
         await pg.click(f'.scl[data-l="{t}"]')
     await pg.wait_for_timeout(100)

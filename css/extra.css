@@ -71,7 +71,7 @@ html.calm .prk{transition:none}
 .scl.shake{animation:scshake .35s}
 @keyframes scshake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 .scl:focus-visible{outline:3px solid #2d6f8e;outline-offset:2px}
-.scm{margin:0;min-height:24px;font-size:16px;font-weight:700;color:var(--bad);text-align:center}
+.scm{margin:0;min-height:24px;font-size:16px;font-weight:700;color:var(--ink2);text-align:center}   /* a hint, not a telling-off */
 @media (max-height:700px){.sck{min-height:170px}.scl{height:48px}}
 /* three games: the label on its own line, the buttons on one line under it */
 .xtr small{flex-basis:100%;text-align:center}
