@@ -532,3 +532,11 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 @media (max-height:800px){.settings.hascard .guide{display:none}}
 @media (max-height:700px){.settings.hascard .credit{margin-top:2px;padding-top:3px}.settings.hascard .panel{gap:0}.settings.hascard,.settings.hascard .fill{gap:3px}.settings.hascard .setrow{min-height:44px}.settings.hascard .setrow .sl small{display:none}}
 .rck{margin:0;font-size:15px;font-weight:700;color:var(--ink2);text-align:center}
+/* settings on short phones: the crab's note needs about 810 px of height to sit clear of the progress panel, and with
+   the account panel the screen needs a little less air to keep the sign-out button on it */
+@media (max-height:810px) and (max-width:699px){.settings .guide{display:none}}
+@media (max-height:700px){.settings,.settings .fill{gap:6px}.settings .setrow{min-height:44px}}
+
+/* link to the printable worksheet on an island (only on a device that was given the switch) */
+.chips .wsl{text-decoration:none;color:inherit;min-height:44px;display:inline-flex;align-items:center;cursor:pointer}
+.chips .wsl:focus-visible{outline:3px solid #2d6f8e;outline-offset:2px}
