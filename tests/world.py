@@ -258,7 +258,7 @@ async def map_token(b, errs):
         tag = f'token {w}x{h}'
         c, pg, reqs = await page(b, w, h, errs, two)
         await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=1)))
-        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(900)
+        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_function('!window.__hop||window.__hop.playState==="finished"', timeout=5000); await pg.wait_for_timeout(100)   # the hop (900 ms) is over before measuring
         W = await pg.evaluate('window.__world.token')
         on = await pg.evaluate(WHERE)
         check(f'[{tag}] the character stands on the island played now (2, "ממשיכים כאן"), in place of the crab', on == 2 and W['island'] == 2 and await pg.locator('.isl.i2.cur').count() == 1 and await pg.evaluate("getComputedStyle(document.querySelector('.isl.cur .here')).display") == 'none', (on, W))
