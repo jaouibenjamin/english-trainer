@@ -43,7 +43,7 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
  /* islands zigzag in two columns, so neighbours in a column are two rows apart; the lowest island and its label end 14px above the bottom */
  /* every level of every island has been played: a banner along the beach. "Finished" is said only at full stars;
     until then it says how many stars are missing, and every island that still has stars to collect is ringed */
- const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),finH=played?84:0;
+ const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),finH=(played?84:0)+(dsOn()?WORLD_DOCK:0);   // with the design flag, room for the new world's dock (js/avatar.js)
  const iw=Math.min(W*.37,150,H*.19),cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
  /* the crab waits on the newest island that is open and still has stars to collect */
  const curI=ISLANDS.filter(i=>isOpen(i)&&islandStars(i)<i.levels.length*3).sort((a,b)=>b.id-a.id)[0]||null;
@@ -67,7 +67,11 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
    return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}${cur?' cur':''}${todo?' todo':''}${x<50?' lc':''}" style="left:${x}%;top:${y.toFixed(1)}px" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}">
     <span class="pw">${spr('isl_'+i.id,'pic')}${o?'':spr('lock','lk')}${cur?`<span class="here">${spr('crab_wave','bc')}</span>`:''}</span>
     <span class="tag">${cur?`<em class="hb">${tot?'ממשיכים כאן':'מתחילים כאן'}</em>`:''}<b>${esc(i.he)}</b>${i.bonus?`<small class="bn">אי בונוס · שני שלבים</small>`:''}<small>${o?`${star()}${num(st+'/'+mx)}${st===mx?spr('ic_check','ck'):''}`:`נפתח ב־${num(i.need)}${star()}`}</small></span></button>`}).join('')}
- </section>`}
+ </section>`;worldMap()}
+/* the new world behind the design flag (?ds=1): js/avatar.js is fetched only on such a device; without the flag this does nothing */
+const dsOn=()=>document.documentElement.classList.contains('ds');
+const WORLD_DOCK=76;   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
+function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')m.decorateMap(view,go)}).catch(()=>{})}
 
 /* ---------- island ---------- */
 function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');preload([BG(i.bg),BG('listen'),BG('read'),BG('bridge')]);
@@ -286,7 +290,10 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
   case'help':help();break;case'card':if(!cardOn())return go('settings');setBg('paper','center');cardScreen(top);break;
   /* extra practice games (js/extra.js): only on a device that was given the switch, only for an open island */
   case'extra':{const i=isl(a),G=extraGame(b);if(!extraOn()||!i||!isOpen(i)||!G)return go('map');const my=navId;setBg('paper','center');loader();
-   G.load().then(m=>my===navId?m.start(view,{island:i,parts:partsOf(i)},{}):null).then(l=>{if(!l)return;if(my!==navId)l.destroy();else level=l}).catch(()=>{if(my===navId)go('island/'+i.id)});break}case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
+   G.load().then(m=>my===navId?m.start(view,{island:i,parts:partsOf(i)},{}):null).then(l=>{if(!l)return;if(my!==navId)l.destroy();else level=l}).catch(()=>{if(my===navId)go('island/'+i.id)});break}case'login':login();break;case'board':board();break;case'teacher':teacher();break;
+  /* the character picker of the new world (js/avatar.js), behind the design flag; without the flag it is an unknown address like any other */
+  case'avatar':if(dsOn()){const my=navId;setBg('paper','center');import('./avatar.js').then(m=>{if(my===navId)m.picker(view,go)}).catch(()=>{if(my===navId)go('map')});break}   // falls through
+  default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
 initCard();   // the progress card (js/card.js) is behind a switch a device gets with ?card=1
 initHelp();   // word help and the slowly button: only on a device that was given them (?help=1), see js/help.js
 try{const v=new URLSearchParams(location.search).get('tmock');if(v==='1'||v==='0'){SET.tmock=v==='1';saveSet()}}catch(e){}
