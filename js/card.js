@@ -11,17 +11,20 @@ import {view,spr,btn,num,toast} from './ui.js';
 
 export const cardOn=()=>SET.card===true;
 export function initCard(){let v=null;try{v=new URLSearchParams(location.search).get('card')}catch(e){}
- if(v==='1'||v==='0'){SET.card=v==='1';saveSet()}}
+ if(v==='1'||(v==='0'&&typeof SET.card==='boolean')){SET.card=v==='1';saveSet()}}   // ?card=0 on a device that never had the switch writes nothing
 
 const WORDS_MAX=WORDS.filter(w=>w.p<6).length;
 const today=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()}`};
 /* everything the card shows, as plain data (the screen and the picture are both drawn from this) */
 export function cardData(){return{
- name:API&&S.u&&typeof S.u.n==='string'?S.u.n.trim().slice(0,24):'',
+ name:API&&S.u&&typeof S.u.n==='string'?S.u.n.trim().split(/\s+/)[0].slice(0,24):'',   // the first word of the name only: a first name, never a family name
  date:today(),stars:totalStars(),max:MAX_STARS,
  islands:ISLANDS.map(i=>({he:i.he,got:islandStars(i),max:i.levels.length*3})),
  words:wordsKnown(),wordsMax:WORDS_MAX,
- reads:Object.values(S.read||{}).filter(v=>v>0).length,readsMax:5}}
+ reads:Object.values(S.read||{}).filter(v=>v>0).length,readsMax:5,
+ /* a pupil who is only starting gets a kind word, not a row of zeros to feel bad about */
+ kind:totalStars()<=LOW?KIND:''}}
+const LOW=3,KIND='כל כוכב מתחיל במשחק אחד. יאללה, מתחילים!';
 
 const canShare=f=>{try{return!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]}))}catch(e){return false}};
 const probe=()=>{try{return canShare(new File([new Blob(['x'],{type:'image/png'})],'x.png',{type:'image/png'}))}catch(e){return false}};
@@ -30,7 +33,7 @@ export function cardScreen(top){const d=cardData();
  view.innerHTML=`<section class="scr rcard">${top('הכרטיס שלי','settings')}
   <div class="rc" id="rc">
    <p class="rch">${spr('crab_star','rcc')}<span>${d.name?`<b>${esc(d.name)}</b>`:''}<small>ההתקדמות שלי באנגלית · ${num(d.date)}</small></span></p>
-   <p class="rct">${spr('star','rs')}<b>${num(d.stars+' / '+d.max)}</b><small>כוכבים</small></p>
+   <p class="rct">${spr('star','rs')}<b>${num(d.stars+' / '+d.max)}</b><small>כוכבים</small></p>${d.kind?`<p class="rck">${esc(d.kind)}</p>`:''}
    <ul class="rcl">${d.islands.map(i=>`<li><span>${esc(i.he)}</span><i class="rcb"><em style="width:${Math.round(i.got/i.max*100)}%"></em></i>${num(i.got+' / '+i.max)}</li>`).join('')}</ul>
    <p class="rcf"><span><b>${num(d.words+' / '+d.wordsMax)}</b><small>מילים שנלמדו</small></span><span><b>${num(d.reads+' / '+d.readsMax)}</b><small>סיפורים שנקראו</small></span></p>
   </div>
@@ -52,19 +55,27 @@ export async function cardCanvas(d=cardData()){
  he('איי המילים',R,130,`800 64px ${FONT}`,ink);
  ltr(d.date,L,126,`600 36px ${FONT}`,ink2);
  he('ההתקדמות שלי באנגלית',R,190,`500 36px ${FONT}`,ink2);
- let y=290;
- if(d.name){he(d.name,R,y,`800 76px ${FONT}`,ink);y+=40}
- c.fillStyle='#8a6f57';c.fillRect(L,y,W-180,3);y+=95;
+ let y=280;
+ if(d.name){   // the name is made smaller until it fits between the margins; one that still does not fit is cut with "…"
+  let px=76,name=d.name;const fits=()=>{c.font=`800 ${px}px ${FONT}`;return c.measureText(name).width<=R-L};
+  while(px>40&&!fits())px-=4;
+  while(name.length>1&&!fits())name=name.slice(0,-2)+'…';
+  he(name,R,y,`800 ${px}px ${FONT}`,ink);y+=36}
+ c.fillStyle='#8a6f57';c.fillRect(L,y,W-180,3);y+=90;
  star(c,R-38,y-26,40,'#f2b632');ltr(`${d.stars} / ${d.max}`,R-100,y,`800 72px ${FONT}`,ink,'right');
- he('כוכבים',L+190,y,`600 40px ${FONT}`,ink2);y+=70;
- for(const i of d.islands){y+=84;he(i.he,R,y,`700 42px ${FONT}`,ink);
-  ltr(`${i.got} / ${i.max}`,L,y,`700 42px ${FONT}`,ink);
-  const bx=L+170,bw=330,by=y-30;rr(c,bx,by,bw,26,13);c.fillStyle='#eadfc8';c.fill();
-  if(i.got>0){const fw=Math.max(26,bw*i.got/i.max);rr(c,bx+bw-fw,by,fw,26,13);c.fillStyle='#f2b632';c.fill()}}   // fills from the right, as on the screen
- y+=70;c.fillStyle='#8a6f57';c.fillRect(L,y,W-180,3);y+=95;
- he('מילים שנלמדו',R,y,`600 42px ${FONT}`,ink2);ltr(`${d.words} / ${d.wordsMax}`,L,y,`800 52px ${FONT}`,ink);y+=84;
- he('סיפורים שנקראו',R,y,`600 42px ${FONT}`,ink2);ltr(`${d.reads} / ${d.readsMax}`,L,y,`800 52px ${FONT}`,ink);
- ltr('Fantastic 5 · Unit 1',W/2,H-80,`500 30px ${FONT}`,ink2,'center');
+ he('כוכבים',L+190,y,`600 40px ${FONT}`,ink2);
+ if(d.kind){y+=62;c.direction='rtl';c.textAlign='center';c.font=`600 34px ${FONT}`;c.fillStyle=ink2;c.fillText(d.kind,W/2,y)}
+ y+=d.kind?40:56;
+ for(const i of d.islands){y+=74;he(i.he,R,y,`700 40px ${FONT}`,ink);
+  ltr(`${i.got} / ${i.max}`,L,y,`700 40px ${FONT}`,ink);
+  const bx=L+170,bw=330,by=y-28;rr(c,bx,by,bw,24,12);c.fillStyle='#eadfc8';c.fill();
+  if(i.got>0){const fw=Math.max(24,bw*i.got/i.max);rr(c,bx+bw-fw,by,fw,24,12);c.fillStyle='#f2b632';c.fill()}}   // fills from the right, as on the screen
+ y+=56;c.fillStyle='#8a6f57';c.fillRect(L,y,W-180,3);y+=84;
+ he('מילים שנלמדו',R,y,`600 40px ${FONT}`,ink2);ltr(`${d.words} / ${d.wordsMax}`,L,y,`800 50px ${FONT}`,ink);y+=76;
+ he('סיפורים שנקראו',R,y,`600 40px ${FONT}`,ink2);ltr(`${d.reads} / ${d.readsMax}`,L,y,`800 50px ${FONT}`,ink);
+ /* the last row ends at y (plus the tails of its letters); the footer keeps clear of it whatever is on the card */
+ ltr('Fantastic 5 · Unit 1',W/2,Math.max(y+74,H-58),`500 28px ${FONT}`,ink2,'center');
+ cv.rows={last:y,footer:Math.max(y+74,H-58)};
  return cv}
 const blobOf=cv=>new Promise(res=>cv.toBlob(res,'image/png'));
 const FILE='word-islands-card.png';   // the same name for everyone: no pupil's name in a file name

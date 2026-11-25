@@ -531,3 +531,4 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .settings.hascard .setrow{min-height:50px}
 @media (max-height:800px){.settings.hascard .guide{display:none}}
 @media (max-height:700px){.settings.hascard .credit{margin-top:2px;padding-top:3px}.settings.hascard .panel{gap:0}.settings.hascard,.settings.hascard .fill{gap:3px}.settings.hascard .setrow{min-height:44px}.settings.hascard .setrow .sl small{display:none}}
+.rck{margin:0;font-size:15px;font-weight:700;color:var(--ink2);text-align:center}

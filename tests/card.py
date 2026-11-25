@@ -27,6 +27,16 @@ PIXELS = """(async()=>{const C=await import('/js/card.js'),cv=await C.cardCanvas
  return {w:cv.width,h:cv.height,corner:[d[0],d[1],d[2]],dark,gold,nameBand:band(225,305)}})()"""
 
 
+# The saved picture, checked as pixels: is anything drawn in the margins (a name that runs off the card), and is there a
+# clear band between the last row and the footer line. d overrides what the card shows (a long name, a kind line).
+PICTURE = """(async over=>{const C=await import('/js/card.js'),cv=await C.cardCanvas(Object.assign(C.cardData(),over||{})),c=cv.getContext('2d'),W=cv.width,H=cv.height;
+ const dark=(x,y,w,h)=>{let n=0;const q=c.getImageData(x,y,w,h).data;for(let i=0;i<q.length;i+=4)if(q[i]<130&&q[i+1]<105&&q[i+2]<95)n++;return n};
+ const rowDark=y=>dark(60,y,W-120,1)>0;let band=0,best=0;for(let y=Math.round(cv.rows.last)+2;y<Math.round(cv.rows.footer)-2;y++){if(rowDark(y))band=0;else best=Math.max(best,++band)}
+ let foot=0;for(let y=Math.round(cv.rows.footer)-30;y<Math.round(cv.rows.footer)+10;y++)if(rowDark(y))foot++;
+ return {margins:dark(42,60,44,H-120)+dark(W-86,60,44,H-120),band:best,foot,footerBottom:Math.round(cv.rows.footer)+10,H,name:dark(90,205,W-180,90)}})"""
+LONG = 'אבגדהוזחטיכלמנסעפצקרשתאבגדהוזחטיכלמנסעפצקרשת'
+
+
 async def seed(pg, extra=None):
     s = dict(STATE)
     if extra: s.update(extra)
@@ -54,6 +64,8 @@ async def local(b, w, h, errs, share):
     await pg.goto(P.BASE + '#card'); await pg.wait_for_selector('.scr.settings')
     check(f'[{tag}] off: the card address leads back to settings, no card is drawn', await pg.locator('#rc').count() == 0)
     check(f'[{tag}] off: the switch is not stored', await pg.evaluate(f"!('card' in (JSON.parse(localStorage.getItem('{SET_KEY}'))||{{}}))"))
+    await pg.goto(P.BASE + '?card=0#settings'); await pg.wait_for_selector('.scr.settings')
+    check(f'[{tag}] off: ?card=0 on a device that never had the switch writes nothing', await pg.evaluate(f"!('card' in (JSON.parse(localStorage.getItem('{SET_KEY}'))||{{}}))") and await pg.locator('[data-to=card]').count() == 0)
 
     # ---- switch on ----
     await pg.goto(P.BASE + '?card=1#settings'); await pg.wait_for_selector('[data-to=card]')
@@ -82,6 +94,16 @@ async def local(b, w, h, errs, share):
     px = await pg.evaluate(PIXELS)
     check(f'[{tag}] the picture is 1080x1350, light, with text and gold bars', px['w'] == 1080 and px['h'] == 1350 and min(px['corner']) > 235 and px['dark'] > 8000 and px['gold'] > 3000, px)
     check(f'[{tag}] no name is drawn on the picture', px['nameBand'] < 600, px['nameBand'])
+    check(f'[{tag}] a pupil with progress gets no "just starting" line', d['kind'] == '' and await pg.locator('.rck').count() == 0)
+    for label, over in (('as it is', {}), ('with a short name', {'name': 'נטע'}), ('with a very long name', {'name': LONG}), ('with a long name and the kind line', {'name': LONG, 'kind': 'כל כוכב מתחיל במשחק אחד. יאללה, מתחילים!'})):
+        pp = await pg.evaluate(PICTURE, over)
+        check(f'[{tag}] picture {label}: nothing is drawn in the margins, the footer is clear of the last row and inside the card',
+              pp['margins'] == 0 and pp['band'] >= 10 and pp['foot'] >= 8 and pp['footerBottom'] <= pp['H'] - 40 and (('name' not in over) or pp['name'] > 1500), pp)
+        if P.SHOTS and over.get('kind'):
+            os.makedirs(P.SHOTS, exist_ok=True)
+            await pg.evaluate("(async over=>{const C=await import('/js/card.js'),cv=await C.cardCanvas(Object.assign(C.cardData(),over));window.__long=cv.toDataURL('image/png')})", over)
+            import base64
+            open(os.path.join(P.SHOTS, f'card-{tag}-picture-long-name.png'), 'wb').write(base64.b64decode((await pg.evaluate('window.__long')).split(',')[1]))
     async with pg.expect_download() as dl:
         await pg.click('[data-a=cardsave]')
     f = await dl.value
@@ -108,6 +130,22 @@ async def local(b, w, h, errs, share):
     await c.close()
 
 
+async def starting(b, errs):
+    """a pupil who has not started: one kind line, on the screen and in the picture"""
+    c, pg = await new_page(b, 390, 844, errs=errs)
+    await pg.add_init_script(NO_SHARE)
+    await pg.goto(P.BASE + '?card=1#card'); await pg.wait_for_selector('#rc')
+    d = await pg.evaluate("(async()=>(await import('/js/card.js')).cardData())()")
+    line = 'כל כוכב מתחיל במשחק אחד. יאללה, מתחילים!'
+    check('[starting] no stars yet: the card says one kind line', d['stars'] == 0 and d['kind'] == line and (await pg.inner_text('.rck')) == line, d)
+    pp = await pg.evaluate(PICTURE, {})
+    check('[starting] and the picture has room for it: clear margins, footer clear of the last row', pp['margins'] == 0 and pp['band'] >= 10 and pp['foot'] >= 8, pp)
+    off = await fits(pg)
+    check('[starting] the card screen still fits', not off, off)
+    await P.shot(pg, 'card-starting')
+    await c.close()
+
+
 async def klass(b, errs):
     tag = 'class'
     api = f'http://127.0.0.1:{P.API_PORT}/'
@@ -127,8 +165,10 @@ async def klass(b, errs):
     check(f'[{tag}] signed in: the card carries the first name the pupil signed in with', d['name'] == name and (await pg.inner_text('.rch b')) == name, d['name'])
     px = await pg.evaluate(PIXELS)
     check(f'[{tag}] and the picture has it too', px['nameBand'] > 1500, px['nameBand'])
+    two = await pg.evaluate("(async()=>{const C=await import('/js/card.js'),S=window.__game.S(),n=S.u.n;S.u.n=n+' כהן-לוי';const out=C.cardData().name;S.u.n=n;return out})()")
+    check(f'[{tag}] a name of several words: only the first word goes on the card', two == name, two)
     keys = sorted(await pg.evaluate("(async()=>Object.keys((await import('/js/card.js')).cardData()))()"))
-    check(f'[{tag}] the card holds a name, a date and counts, nothing else', keys == ['date', 'islands', 'max', 'name', 'reads', 'readsMax', 'stars', 'words', 'wordsMax'], keys)
+    check(f'[{tag}] the card holds a name, a date, counts and the kind line, nothing else', keys == ['date', 'islands', 'kind', 'max', 'name', 'reads', 'readsMax', 'stars', 'words', 'wordsMax'], keys)
     n0 = len(posts)
     async with pg.expect_download() as dl:
         await pg.click('[data-a=cardsave]')
@@ -158,14 +198,15 @@ async def klass(b, errs):
 
 
 async def main():
-    procs = []
-    if not port_open(P.PORT):
-        procs.append(subprocess.Popen([sys.executable, '-m', 'http.server', str(P.PORT), '--bind', '127.0.0.1'], cwd=P.ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-    if not port_open(P.API_PORT):
-        procs.append(subprocess.Popen(['node', P.MOCK], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-    for _ in range(40):
-        if port_open(P.PORT) and port_open(P.API_PORT): break
-        time.sleep(.1)
+    procs = P.start_servers(mock=True) if hasattr(P, 'start_servers') else []      # each run on its own free ports
+    if not hasattr(P, 'start_servers'):
+        if not port_open(P.PORT):
+            procs.append(subprocess.Popen([sys.executable, '-m', 'http.server', str(P.PORT), '--bind', '127.0.0.1'], cwd=P.ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        if not port_open(P.API_PORT):
+            procs.append(subprocess.Popen(['node', P.MOCK], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        for _ in range(40):
+            if port_open(P.PORT) and port_open(P.API_PORT): break
+            time.sleep(.1)
     errs = []
     try:
         async with async_playwright() as pw:
@@ -175,6 +216,7 @@ async def main():
             await local(b, 360, 740, errs, False)
             await local(b, 360, 640, errs, False)
             await local(b, 1366, 768, errs, False)
+            await starting(b, errs)
             await klass(b, errs)
             await b.close()
     finally:
