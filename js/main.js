@@ -135,10 +135,12 @@ function collection(){setBg('paper','center');const tot=totalStars(),nxt=BALLS.f
    return `<button class="ball${ok?'':' locked'}${sel?' sel':''}" data-a="${ok?'ball':'locked'}" data-i="${k}" data-need="${b.need}" aria-pressed="${sel}"><span class="bw">${spr('ball_'+k,'bi')}${ok?'':spr('lock','lk')}${sel?spr('ic_check','sl'):''}</span><b>${b.name}</b><small>${ok?(sel?'בקלע עכשיו':'לחצו כדי לבחור'):`${num(b.need)}${star()}`}</small></button>`}).join('')}</div></section>`}
 
 /* ---------- settings + help ---------- */
-/* what the pages' security policy blocked on this device (js/csplog.js keeps the last 10: directive and origin only).
+/* what the pages' security policy blocked on this device in the last 14 days (js/csplog.js keeps the last 10: directive, origin, day).
    Nothing shows while the list is empty, which is the usual case. Read here, never sent anywhere. */
 function cspLine(){let l=[];try{l=JSON.parse(localStorage.getItem('wi_csp')||'[]')}catch(e){}
- if(!Array.isArray(l)||!l.length)return'';const n={};for(const x of l){const k=String(x&&x.d||'?')+' '+String(x&&x.o||'?');n[k]=(n[k]||0)+1}
+ const since=Math.floor(Date.now()/864e5)-14;   // only the last 14 days: after a fix the line goes away by itself
+ l=Array.isArray(l)?l.filter(x=>x&&typeof x==='object'&&typeof x.d==='string'&&typeof x.o==='string'&&typeof x.t==='number'&&x.t>=since):[];
+ if(!l.length)return'';const n={};for(const x of l){const k=x.d.slice(0,40)+' '+x.o.slice(0,120);n[k]=(n[k]||0)+1}
  return`<p class="credit csp">חסימות אבטחה אחרונות: <bdi dir="ltr">${Object.entries(n).map(([k,c])=>esc(k)+(c>1?' ×'+c:'')).join(' · ')}</bdi></p>`}
 function settings(){setBg('paper','center');
  const tog=(k,label,icon)=>`<button class="setrow" data-a="toggle" data-k="${k}" role="switch" aria-checked="${SET[k]}">${spr(icon,'si')}<span class="sl">${label}</span><i class="sw${SET[k]?' on':''}"><em>${SET[k]?ico('check'):''}</em><b>${SET[k]?'פועל':'כבוי'}</b></i></button>`;

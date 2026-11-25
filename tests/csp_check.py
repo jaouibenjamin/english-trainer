@@ -12,7 +12,7 @@ Script hosts. In the browser: every page, and the game under each switch (?ds, ?
 on its screens, runs with no violation report and no console error. A self-test proves a violation is caught: an
 inline script added to a page must not run and must be reported.
 
-Also: the two developer tools (tools/*.html) carry policies of their own; when config.js names a BACKEND url, its
+Also: the developer tool (tools/sheet.html) carries a policy of its own; when config.js names a BACKEND url, its
 origin must be in every page's connect-src (else dual mode's copies would be refused and only logged); the class's
 Apps Script path (a POST answered by a redirect to a second host) is replayed against two local stand-ins, with and
 without the second host in the policy; and js/csplog.js keeps the last 10 violations as directive and origin only."""
@@ -21,6 +21,7 @@ from playwright.async_api import async_playwright
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import play as P
 from play import check, new_page, fails
+from csp_wait import csp_wait      # wait_for_function without eval: every page here forbids it
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 META = re.compile(r'<meta http-equiv="Content-Security-Policy" content="([^"]+)">')
@@ -54,7 +55,8 @@ def static():
     d = {x.split()[0]: x.split()[1:] for x in pol.split(';') if x.strip()}
     check("script-src: this site (and the import map's hash) only", d.get('script-src', [None])[0] == "'self'" and all(v.startswith("'sha256-") for v in d.get('script-src', [])[1:]), d.get('script-src'))
     check('nothing unsafe for scripts', 'unsafe' not in ' '.join(d.get('script-src', []) + d.get('default-src', [])))
-    check('connect-src: this site and the class backend only (Supabase stays out until dual is on)', d.get('connect-src') == CONNECT, d.get('connect-src'))
+    cfg = open(os.path.join(ROOT, 'config.js'), encoding='utf-8').read()
+    check('connect-src: this site and the class backend, plus the BACKEND origin only when config.js names one', d.get('connect-src') == expected_connect(cfg), (d.get('connect-src'), expected_connect(cfg)))
     check("object-src 'none', base-uri 'none', form-action 'none'", d.get('object-src') == ["'none'"] and d.get('base-uri') == ["'none'"] and d.get('form-action') == ["'none'"])
     check("default-src 'self'", d.get('default-src') == ["'self'"])
     bad = []
@@ -71,22 +73,35 @@ def static():
         ok = len(m) == 1 and s.index('<meta http-equiv') < s.find('<script') and all(sha(x) in m[0] for x in bodies) and 'unsafe' not in m[0].split('script-src')[1].split(';')[0] and "object-src 'none'" in m[0] and "base-uri 'none'" in m[0]
         check(f'{n}: a policy of its own, its inline script allowed only by its hash', ok, [sha(x) for x in bodies])
     # dual mode: the Supabase project must be allowed on every page, or its copies would be refused
-    cfg = open(os.path.join(ROOT, 'config.js'), encoding='utf-8').read()
     check('config.js: a BACKEND url, if any, is in every page\'s connect-src', backend_allowed(cfg, pols) is None, backend_allowed(cfg, pols))
     fake = {'index.html': "default-src 'self'; connect-src 'self' https://script.google.com"}
     check('self-test: a BACKEND url missing from the policy is caught', backend_allowed("window.BACKEND={mode:'dual',url:'https://abcd.supabase.co',key:'k'};", fake) == ['index.html'])
+    check('self-test: with no BACKEND, connect-src is exactly the class backend\'s', expected_connect("window.API_URL='x';") == CONNECT)
+    check('self-test: with a BACKEND url, connect-src expects it as well', expected_connect("window.BACKEND={mode:'dual',url:'https://abcd.supabase.co',key:'k'};") == CONNECT + ['https://abcd.supabase.co'])
     check('self-test: a BACKEND url in the policy passes', backend_allowed("window.BACKEND = {mode:'dual', url:'https://abcd.supabase.co'}", {'index.html': "connect-src 'self' https://abcd.supabase.co"}) is None)
 
 
-def backend_allowed(cfg, pols):
-    """None when config.js names no BACKEND url, or names one whose origin every page's connect-src lists; else the
-    pages that miss it"""
+def backend_origin(cfg):
+    """the origin of the BACKEND url config.js names, or None"""
     code = re.sub(r'(?m)^\s*//[^\n]*', '', re.sub(r'/\*.*?\*/', '', cfg, flags=re.S))      # comments out; an https:// inside a string stays
     m = re.search(r'BACKEND\s*=\s*\{[^}]*\burl\s*:\s*[\'"]([^\'"]+)[\'"]', code)
     if not m:
         return None
     u = re.match(r'(https?://[^/]+)', m.group(1))
-    origin = u.group(1) if u else m.group(1)
+    return u.group(1) if u else m.group(1)
+
+
+def expected_connect(cfg):
+    o = backend_origin(cfg)
+    return CONNECT + ([o] if o else [])
+
+
+def backend_allowed(cfg, pols):
+    """None when config.js names no BACKEND url, or names one whose origin every page's connect-src lists; else the
+    pages that miss it"""
+    origin = backend_origin(cfg)
+    if not origin:
+        return None
     miss = [p for p, pol in pols.items() if origin not in next((x.split()[1:] for x in pol.split(';') if x.split()[:1] == ['connect-src']), [])]
     return miss or None
 
@@ -183,7 +198,7 @@ async def main():
             check('self-test: an inline script added to the page does not run, and is reported', r['inj'] is None and any(x.startswith('script-src') for x in r['csp']), r)
             check('self-test: a picture from another host is blocked and reported', any(x.startswith('img-src') for x in r['csp']), r)
             log = json.loads(await pg.evaluate("localStorage.getItem('wi_csp')") or '[]')
-            check('the device log keeps directive and origin only: no path, no query', {'d': 'img-src', 'o': 'https://example.org'} in log and any(x['o'] == 'inline' for x in log) and all(set(x) == {'d', 'o'} for x in log) and '/x.png' not in json.dumps(log), log)
+            check('the device log keeps directive, origin and day only: no path, no query', any(x['d'] == 'img-src' and x['o'] == 'https://example.org' for x in log) and any(x['o'] == 'inline' for x in log) and all(set(x) == {'d', 'o', 't'} and isinstance(x['t'], int) and x['t'] > 20000 for x in log) and '/x.png' not in json.dumps(log), log)
             await pg.evaluate("(()=>{for(let i=0;i<12;i++){const m=document.createElement('img');m.src='https://e'+i+'.example.org/p?q=1';document.body.appendChild(m)}})()")
             await pg.wait_for_timeout(400)
             log = json.loads(await pg.evaluate("localStorage.getItem('wi_csp')") or '[]')
@@ -192,20 +207,27 @@ async def main():
             t = await pg.inner_text('.scr.settings .csp')
             check('the settings screen shows the log in a plain line', 'חסימות אבטחה' in t and 'img-src https://e11.example.org' in t, t[:120])
             await c.close()
-            # the developer tools still work under their own policies (a context of its own: cors.html asks another host, on purpose)
-            c = await b.new_context(); pg = await c.new_page(); await pg.add_init_script(LISTEN)
-            await pg.route('https://tool.example.org/**', lambda r: r.fulfill(status=200, body='x', headers={'Access-Control-Allow-Origin': '*'}))
+            # a damaged log starts over; a bare "data" source is stored as the word, not as this page's origin; old entries are not shown
+            c, pg = await new_page(b, 390, 844, errs=[])
+            await pg.add_init_script("if(!sessionStorage.s){sessionStorage.s=1;localStorage.setItem('wi_csp','{oops')}")
+            await pg.goto(B + 'index.html'); await pg.wait_for_selector('.title .btn')
+            await pg.evaluate("(()=>{const o=document.createElement('object');o.data='data:text/html,x';document.body.appendChild(o)})()"); await pg.wait_for_timeout(400)
+            log = json.loads(await pg.evaluate("localStorage.getItem('wi_csp')") or '[]')
+            check('a damaged log starts over, and a bare data: source is kept as "data", never as the page\'s origin', len(log) == 1 and log[0]['o'] == 'data' and '127.0.0.1' not in json.dumps(log), log)
+            await pg.evaluate("localStorage.setItem('wi_csp',JSON.stringify([{d:'img-src',o:'https://old.example.org',t:Math.floor(Date.now()/864e5)-30},{d:'x',o:5},'junk']))")
+            await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings'); await pg.wait_for_timeout(200)
+            check('entries older than 14 days (and malformed ones) are not shown on settings', await pg.locator('.scr.settings .csp').count() == 0)
+            await c.close()
+            # the developer tool still works under its own policy
+            c = await b.new_context(); pg = csp_wait(await c.new_page()); await pg.add_init_script(LISTEN)
             await pg.goto(B + 'tools/sheet.html?part=0'); await pg.wait_for_timeout(1500)
             r = await pg.evaluate("({w:document.getElementById('c').width,csp:window.__csp})")
             check('tools/sheet.html draws its sheet under its policy, with no violation', r['w'] > 0 and not r['csp'], r)
-            await pg.goto(B + 'tools/cors.html?u=https://tool.example.org/a.png'); await pg.wait_for_function("document.getElementById('o').textContent!=='checking…'", timeout=10000)
-            r = await pg.evaluate("({t:document.getElementById('o').textContent,csp:window.__csp})")
-            check('tools/cors.html makes its https request under its policy, with no violation', r['t'].startswith('OK 200') and not r['csp'], r)
             await c.close()
             # the class's Apps Script path, replayed: a POST, a 302 to a second host, the JSON from there
             base, srvs = standins()
             for path, want in (('/ok', 'ok'), ('/neg', 'refused')):
-                c = await b.new_context(); pg = await c.new_page()
+                c = await b.new_context(); pg = csp_wait(await c.new_page())
                 await pg.goto(base + path); await pg.wait_for_function('window.__r!==undefined', timeout=10000)
                 got = await pg.evaluate('window.__r')
                 check(f'two-hop stand-in {path}: ' + ('the call through the redirect succeeds under the real policy' if want == 'ok' else 'without the second host the redirected call is refused'), got == want, got)
