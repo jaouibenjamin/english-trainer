@@ -3,6 +3,8 @@
 import postgres from "npm:postgres@3.4.7";
 import { type Body, type Ctx, type Deps, login, recover, register, type Reply, type Sessions, type Sql, teacherReset } from "../_shared/core.ts";
 import { tag } from "../_shared/crypto.ts";
+import { installPgGuard } from "../_shared/pgguard.ts";
+installPgGuard(); // the same guard as production (_shared/pgguard.ts)
 
 export const sql = postgres({
   path: Deno.env.get("WI_PG_SOCKET")!,

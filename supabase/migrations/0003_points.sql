@@ -68,15 +68,15 @@ begin
   -- answer rows a day; beyond that nothing is written but one counter, so a console loop cannot fill the database.
   a := private.day_row(v_pupil, v_today);
   update private.pupil_days set calls = calls + 1 where pupil_id = v_pupil and day = v_today;
-  if a.calls >= s.max_calls_day or a.batches >= s.max_batches_day then
-    perform private.flag_add(v_pupil, 'daycap', v_today);
-    return jsonb_build_object('ok', true, 'capped', true, 'points', tot.points, 'added', 0, 'flagged', jsonb_array_length(p_events));
-  end if;
-  if s.storage_brake then
+  if s.storage_brake then      -- checked first: past the day's calls the brake must still say so (review of #35)
     -- the database is near the free plan's size: nothing is written until the owner acts. Not a silent loss (review
     -- S4): the answer says so, and the device keeps the batch and sends it again later with the same id.
     perform private.flag_add(v_pupil, 'storage', v_today);
     return jsonb_build_object('ok', false, 'e', 'brake', 'points', tot.points);
+  end if;
+  if a.calls >= s.max_calls_day or a.batches >= s.max_batches_day then
+    perform private.flag_add(v_pupil, 'daycap', v_today);
+    return jsonb_build_object('ok', true, 'capped', true, 'points', tot.points, 'added', 0, 'flagged', jsonb_array_length(p_events));
   end if;
   if jsonb_array_length(p_events) = 0 then      -- nothing to do, nothing to remember
     return jsonb_build_object('ok', true, 'points', tot.points, 'added', 0, 'flagged', 0);

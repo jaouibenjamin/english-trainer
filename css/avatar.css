@@ -1,0 +1,61 @@
+/* The new world in the live game (js/avatar.js), loaded only on a device with the design flag (?ds=1). Uses the
+   tokens of css/ds.css. Map: a row under the header (my character, my energy level) and today's focus above the
+   subjects button. Picker: a full screen in the map's place. */
+
+/* ---- map: one dock along the bottom (main.js keeps 76px free for it) ---- */
+.map .wd{position:absolute;z-index:4;inset-inline:8px;bottom:calc(6px + var(--sb,0px));height:64px;display:flex;align-items:center;gap:6px;padding:4px;border-radius:var(--wi-r-lg);background:var(--wi-navy-900);border:1px solid var(--wi-line);box-shadow:var(--wi-e2);color:var(--wi-text);font-family:var(--wi-font-ui)}
+.map .wd button{font:inherit;color:inherit;cursor:pointer;min-height:var(--wi-tap);border-radius:var(--wi-r-md)}
+.map .wd__me{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:6px;padding:2px 4px;border:0;background:none;text-align:start}
+.map .wd__pic{width:48px;height:48px;border-radius:50%;object-fit:cover;flex:none;background:var(--wi-navy-700);display:grid;place-items:center;font-weight:800;border:2px solid var(--wi-gold)}
+.map .wd__txt{min-width:0;display:flex;flex-direction:column}
+.map .wd__hi{font-weight:700;font-size:var(--wi-fs-sm);line-height:1.2;display:flex;flex-direction:column;min-width:0}
+.map .wd__hi bdi{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* one word per line: a long first word never pushes the second off */
+.map .wd__hi bdi{font-family:var(--wi-font-en)}
+.map .wd__en{flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;border:1px solid var(--wi-line);background:var(--wi-navy-800);font-weight:700;font-size:var(--wi-fs-sm)}
+.map .wd__en b{color:var(--wi-aqua)}
+.map .wd__focus{flex:none;max-width:46%;min-width:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:2px 10px;border:2px solid var(--wi-aqua);background:var(--wi-navy-800);font-size:var(--wi-fs-xs);line-height:1.25;text-align:start}
+.map .wd__focus b{color:var(--wi-aqua);font-size:var(--wi-fs-sm)}
+.map .wd__focus span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.map .wd__note{position:absolute;z-index:5;inset-inline:12px;bottom:calc(76px + var(--sb,0px));margin:0;padding:var(--wi-s2) var(--wi-s3);border-radius:var(--wi-r-md);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-sm);border:1px solid var(--wi-aqua)}
+/* the finished-map banner sits above the dock (html.ds: it must outrank css/ds-game.css's own .fin rule) */
+html.ds .map.hasdock .fin{bottom:calc(76px + var(--sb,0px))}
+/* the "not saved" bar of main.js sits above the dock too */
+html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: set by js/avatar.js with the dock, taken off by main.js route() */
+/* the compass (a picture by the lowest island) moves up with the reserved room, so the dock never covers it */
+.map.hasdock .compass{transform:translateY(-76px)}
+.map .wd :focus-visible{outline:3px solid var(--wi-focus);outline-offset:2px}
+
+/* ---- picker: the night sea behind it, like the map ---- */
+#stage[data-scr=avatar]{background:var(--wi-navy-900) url(../assets/al/bg/sea.hf_20261124_210013_f6e9010a-f742-47cc-a849-a034fbb86389.webp) center/cover}
+#stage[data-scr=avatar] #bg{display:none}
+.wpick{display:flex;flex-direction:column;gap:var(--wi-s3);color:var(--wi-text);font-family:var(--wi-font-ui);padding-bottom:calc(var(--wi-s5) + var(--sb,0px))}
+.wpick__top{display:flex;align-items:center;gap:var(--wi-s3)}
+.wpick__h{margin:0;font-size:var(--wi-fs-xl)}
+.wpick__h:focus{outline:none}
+.wpick button{font:inherit;cursor:pointer;color:var(--wi-text)}
+.wpick__back,.wpick__quiet,.wpick__arrow{min-height:var(--wi-tap);min-width:var(--wi-tap);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);background:var(--wi-navy-800);padding:0 var(--wi-s3)}
+.wpick__quiet{background:none;border:0;text-decoration:underline}
+.wpick__body{display:flex;flex-direction:column;gap:var(--wi-s3)}
+.wpick__sub,.wpick__note,.wpick__why{margin:0;color:var(--wi-text-dim);font-size:var(--wi-fs-sm)}
+.wpick__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--wi-s2)}
+.wpick__av{position:relative;aspect-ratio:1;padding:0;border:2px solid var(--wi-line);border-radius:var(--wi-r-lg);background:var(--wi-navy-800);overflow:hidden}
+.wpick__av.is-selected{border-color:var(--wi-gold);box-shadow:0 0 0 3px var(--wi-gold)}
+.wpick__av.is-locked .wpick__art{opacity:.35}
+.wpick__art{width:100%;height:100%;object-fit:cover;display:block}
+.wpick__lock{position:absolute;inset-block-end:4px;inset-inline-end:4px;font-size:16px}
+.wpick__ok,.wpick__dice{min-height:var(--wi-tap);border:0;border-radius:var(--wi-r-pill);font-weight:800}
+.wpick__ok{background:var(--wi-gold);color:var(--wi-navy-900)!important}
+.wpick__ok[aria-disabled=true]{background:var(--wi-navy-700);color:var(--wi-text)!important;box-shadow:inset 0 0 0 2px var(--wi-locked)}   /* dim but solid: the text keeps its contrast */
+.wpick__dice{background:var(--wi-azure)}
+.wpick__who{display:flex;flex-direction:column;align-items:center;gap:var(--wi-s2)}
+.wpick__big{width:min(40vw,160px);aspect-ratio:1;border-radius:50%;object-fit:cover;border:3px solid var(--wi-gold)}
+.wpick__name{margin:0;font-family:var(--wi-font-en);font-size:var(--wi-fs-xl);font-weight:700}
+.wpick__spin{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:var(--wi-s2)}
+.wpick__l{font-size:var(--wi-fs-sm);color:var(--wi-text-dim)}
+.wpick__w{display:flex;flex-direction:column;align-items:center;font-weight:700}
+.wpick__w bdi{font-family:var(--wi-font-en)}
+.wpick__w small{color:var(--wi-text-dim);font-weight:500}
+.wpick :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+/* a narrow phone: the focus button leaves room for the character's name */
+@media (max-width:379px){.map .wd__focus{max-width:40%}.map .wd__lvw{display:none}}
+.map .wd__me--off{flex:1 1 auto;display:flex;align-items:center;gap:6px;padding:2px 4px;min-width:0}

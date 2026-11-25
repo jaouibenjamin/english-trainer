@@ -26,7 +26,7 @@ export const API=(window.API_URL||'').trim();
 export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסודי לא נכון. נסו שוב.',nouser:'לא מצאנו את השם הזה בכיתה. עוד לא נרשמתם?',taken:'השם הזה כבר רשום. לא אתם? הוסיפו אות אחת אחרי השם. זה אתם?',roster:'השם לא נמצא ברשימת הכיתה.\nכתבו את השם הפרטי, או בקשו מהמורה להוסיף אתכם.',locked:'יותר מדי ניסיונות.\nחכו 5 דקות ונסו שוב.',full:'הכיתה מלאה. פנו למורה.',input:'צריך קוד כיתה, שם באותיות\nוקוד סודי של 4 ספרות.',teacher:'קוד המורה לא נכון.',setup:'המערכת עוד לא הוגדרה.',net:'אין חיבור כרגע.\nבדקו את האינטרנט ונסו שוב.',server:'משהו השתבש בשרת. נסו שוב מאוחר יותר.'};
 /* a failed request (no connection) throws, as before. A server that answered with something that is not JSON (an Apps
    Script error page) gives {e:'server'}, so the pupil is not told to check an internet connection that works. */
-import {api} from './api.js';export {api};   // the backend adapter; with today's config.js it makes the very same request this line used to make
+import {api,forget} from './api.js';export {api};   // the backend adapter; with today's config.js it makes the very same request this line used to make
 export const cred=()=>({c:S.u.c,n:S.u.n,p:S.u.p});
 export const wordsKnown=()=>WORDS.filter(w=>w.p<6&&(S.w[w.en]||0)>=2).length;
 const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,m:S.m,x:S.x,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
@@ -105,10 +105,11 @@ const norm=x=>String(x||'').trim().replace(/\s+/g,' ');
 export const sameKid=(a,b)=>{a=norm(a);b=norm(b);return!!a&&(a===b||a.split(' ')[0]===b.split(' ')[0])};
 const hasProgress=s=>!!s&&((+s.pts||0)>0);
 /* sign in again after a refusal: what this device earned is put aside and joined in when the same pupil signs in */
-export function relogin(){const u=S.u;if(!u)return null;S.stash={n:u.n,s:pack()};clearTimeout(syncT);clearTimeout(retryT);const e=(S.sync&&S.sync.err)||'';S.u=null;dirty=0;fatal=false;delete S.sync;saveLocal();onSync();return{c:u.c,n:u.n,e}}
+export function relogin(){const u=S.u;if(!u)return null;forget(false);S.stash={n:u.n,s:pack()};clearTimeout(syncT);clearTimeout(retryT);const e=(S.sync&&S.sync.err)||'';S.u=null;dirty=0;fatal=false;delete S.sync;saveLocal();onSync();return{c:u.c,n:u.n,e}}
 /* resolves false, and keeps the pupil signed in, while progress is still waiting to be saved (no connection):
    signing out would erase it. A record the server refuses for good (the teacher removed the pupil) does not hold anyone back. */
 export async function logout(){const ok=await push();if(!ok&&!fatal)return false;
+ forget(true);   // the backend adapter forgets this pupil's session on the device (and revokes it, when there is one)
  clearTimeout(syncT);clearTimeout(retryT);const c=S.lastC,keep=fatal&&hasProgress(pack())?{n:S.u.n,s:pack()}:S.stash||null;   // a refused record is not thrown away: it waits for its owner to sign in
  S=Object.assign(blank(),{lastC:c},keep?{stash:keep}:{});dirty=0;fatal=false;saveLocal();onSync();return true}
 

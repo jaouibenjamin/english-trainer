@@ -417,7 +417,7 @@ def test_teacher(db):
                    ('Dana\u0301\u0301\u0301', 'stacked combining marks'), (' Dana', 'a leading space'), ('Dana ', 'a trailing space'), ('D4na', 'a digit'),
                    ('Dana\u200f', 'right-to-left mark'), ('a' * 21, '21 letters')]:
         check(f'refused: {why}', bad(n) is not None)
-    for n, why in [("'Dana", 'an apostrophe first'), ('Dana-', 'a hyphen last'), ("Da ''", 'an apostrophe after a space'), ('׳נועה', 'a geresh first')]:
+    for n, why in [("'Dana", 'an apostrophe first'), ('D\u0131na', 'dotless i (Dına looks like Dina)'), ('\u017Fara', 'long s'), ('\u0138im', 'kra'), ('\u0149ina', "n preceded by '"), ('\u0133ssel', 'ij ligature'), ('Dana-', 'a hyphen last'), ("Da ''", 'an apostrophe after a space'), ('׳נועה', 'a geresh first')]:
         check(f'refused: {why}', bad(n) is not None)
     for n in ['Noa', 'נועה', "O'Neil", 'Chloé', 'בר-לב', 'ג׳ני', 'Ana Mae', 'Dan.', 'ג׳ורג׳', "ג'ורג'", 'ג’ורג’', 'Łukasz', 'Žofie', "D'"]:
         r = db.psql(f"select app.name_ok($n${n}$n$)")[0][0][0]
@@ -497,6 +497,9 @@ def test_storage(db):
     eq('with the brake on, nothing is stored, and the answer says so (the device keeps the batch: review S4)',
        ((r.get('ok'), r.get('e')), db.one(f"select count(*) from public.answers where pupil_id = '{sv_pid}'"),
         db.one(f"select n from public.flags where pupil_id = '{sv_pid}' and kind = 'storage'")), ((False, 'brake'), n0, '1'))
+    db.admin(f"update private.pupil_days set calls = 5000 where pupil_id = '{sv_pid}'")
+    r, _ = record_as(db, S, ans(1, 0, key='w8'))
+    eq('past the day\'s calls the brake still says brake, not capped (review of #35)', (r.get('ok'), r.get('e')), (False, 'brake'))
     db.admin("update private.settings set raw_days = 0")
     m, _ = db.rpc(SERVER, 'maintenance')
     db.admin("update private.settings set raw_days = 90")
