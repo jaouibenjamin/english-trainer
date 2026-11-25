@@ -2,7 +2,7 @@
 
 Each entry is a bug class that cost us more than one review round. An engineer reads this before starting; a reviewer checks the change against it. When a review finds a new class (not just a new instance), add an entry in the same PR that fixes it.
 
-## 1. An await that outlives the pupil (gates 2, 3, 4; PRs #39, #41)
+## 1. An await that outlives the pupil (PRs #21, #39, #41; gate 4 still open)
 
 - **What happened:** on a shared device, pupil A's request was still in flight when A logged out and B signed in. When it came back, the code went on as if nothing had changed: it sent A's data with B's token, wrote A's state as B's base, or stored A's session again. Three rounds each closed one await and the review found the next.
 - **Rule:** after every `await`, the world may have changed. Anything that reads "who is signed in" (token, session, owner, base, queue) must capture an identity before the await and check it after, before any write or send.
@@ -31,10 +31,25 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 
 ## 6. A pupil's data must not reach a log
 
-- **What happened:** an import tool printed refused rows, with names, to the server log (#27, twice).
-- **Rule:** logs carry counts and kinds only. Check every `print`, `console.log` and error message on a path that handles a row about a pupil.
+- **What happened:** an import tool leaked pupil rows (names, salts, code hashes) into the database server log, first through the logged statement on an error, then through COPY's CONTEXT line on a bad row; it also printed names to stdout (#27: B3, B3-bis, S-f).
+- **Rule:** logs carry counts and kinds only. Check every `print`, `console.log` and error message on a path that handles a pupil row, and also what the database logs on its own: statements logged on error, COPY CONTEXT, "Failing row contains". Test with strict log settings and a malformed row.
 
 ## 7. Crossed messages cause duplicate work
 
 - **What happened:** two sessions fixed the same thing (#34 and #36).
 - **Rule:** before starting, list the open PRs and the files they touch; stay inside the scope the lead gave; say which files you touched when you report.
+
+## 8. Switches that are fine alone and broken together (#28)
+
+- **What happened:** with the new look plus `?games=1` the text was white on cream (1.04:1). Later the same thing on the teacher screen's toast (#43), which sat outside the element the test scanned.
+- **Rule:** test a flag-on screen together with the other switches (games, sheet, help, card). Check contrast and 48 px targets on each combination, and scan the whole page, including toasts and overlays, not only the screen's own container.
+
+## 9. Free-plan pacing, and a refusal that skips the next step (#21)
+
+- **What happened:** saves went out every 4 s, half were refused `wait`, and an early `return` after `wait` or `daycap` skipped `record_events`, so a day's events were lost.
+- **Rule:** count the calls a child produces in 2 minutes and in 2 hours against the free caps. Check that a refusal never skips the work that comes after it.
+
+## 10. Exports, backups and probes hold only what is needed (#27)
+
+- **What happened:** the backup included address salts, typed names and old hashes, and the live check could have created users.
+- **Rule:** every export has an explicit, tested exclusion list. A check against the live backend never writes.
