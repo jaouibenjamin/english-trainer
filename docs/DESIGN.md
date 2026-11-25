@@ -189,3 +189,6 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=play|result]`. No
 - Checked: flag on, `tests/play.py --quick` 170 pass with every level played to its result; screenshots of every state (aim, miss, wrong bubble, star lost, hint, story, gloss, wrong bottle, bridge build, snap, to-be, every result) at 390x844 and 360x740, and the four levels at 1366x768. Flag off: `ds-game.css` is not loaded, so nothing changes.
 - Not in this step: the extra games (`?games=1`), Fraction Bay, the mock exam.
 
+### The extra games (`?games=1`) in the new look
+Under `html.ds #stage[data-scr=extra]`. The light cards (true or not, pairs, letters) are dark cards with white text; right is a green edge, wrong a coral edge, and the game's own words and marks stay, so colour is never the only sign. Face-down pairs show an aqua "?". The explain block, the pairs list and the end screen sit on dark cards; the counters and one-line notes on plates. Backdrop: the English island picture, dimmed. Checked: `tests/extra.py` 253 pass with the flag on, screenshots of card, explain, wrong, board and end for all three games at 390x844, 360x640 and 1366x768.
+

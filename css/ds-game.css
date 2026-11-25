@@ -285,3 +285,42 @@ html.ds .result .rcrab[src$="/crab_star.webp"]{object-position:-9999px 0;backgro
 html.ds .result .rcrab[src$="/crab_happy.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
 html.ds .result .rcrab[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat}
 @media (prefers-reduced-motion:reduce){html.ds .lv .btn,html.ds .result .btn{transition:none}}
+
+/* ======== The extra games (?games=1: true or not, pairs, letters) in the new look ========
+   Same rules: styling only, under html.ds #stage[data-scr=extra]. The light cards become dark cards with white text;
+   right is a green edge, wrong a coral edge, never colour alone (the game's own words and marks stay). */
+html.ds #stage[data-scr=extra]{--ink:#FFFFFF;--ink2:var(--wi-text-dim);--good:var(--wi-good);--bad:var(--wi-fix);background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage[data-scr=extra] #bg .bgl{background-image:url(../assets/al/bg/english.hf_20261124_204750_bfb9c336-44b5-4c94-bda9-e8cea4054138.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900);opacity:.3}
+html.ds #stage[data-scr=extra] #bg .bgl:not(.on){opacity:0}
+html.ds:has(#stage[data-scr=extra]),html.ds:has(#stage[data-scr=extra]) body{background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=extra]) #backdrop{display:none}
+html.ds #stage[data-scr=extra] :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+html.ds #stage[data-scr=extra] .en,html.ds #stage[data-scr=extra] :is(.tfw,.prt,.scl,.scw i){font-family:var(--wi-font-en)}
+html.ds #stage[data-scr=extra] .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds #stage[data-scr=extra] .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds #stage[data-scr=extra] .rb .ico{stroke:var(--wi-text)}
+html.ds #stage[data-scr=extra] .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds #stage[data-scr=extra] .ribbon span{padding:0}
+html.ds #stage[data-scr=extra] :is(.tfc:not(:empty),.prc:not(:empty),.tfn,.tft:not(:empty),.tfm,.scm:not(:empty)){background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s3);color:var(--wi-text)}
+/* cards */
+html.ds #stage[data-scr=extra] .tfk{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:var(--wi-r-xl);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);color:var(--wi-text)}
+html.ds #stage[data-scr=extra] .tfk:is(.to-y,.ok){background:var(--wi-navy-800);border-color:var(--wi-good)}
+html.ds #stage[data-scr=extra] .tfk:is(.to-n,.no){background:var(--wi-navy-800);border-color:var(--wi-fix)}
+html.ds #stage[data-scr=extra] .tfh{color:var(--wi-aqua)}
+html.ds #stage[data-scr=extra] :is(.tfy,.tfx){background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-good);border-radius:var(--wi-r-lg);box-shadow:var(--wi-e2)}
+html.ds #stage[data-scr=extra] .tfx{border-color:var(--wi-fix)}
+html.ds #stage[data-scr=extra] .prk{background:var(--wi-navy-700);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-lg);box-shadow:var(--wi-e2)}
+html.ds #stage[data-scr=extra] .prk .prf{color:var(--wi-aqua)}
+html.ds #stage[data-scr=extra] .prk.up{background:var(--wi-navy-800);border-color:var(--wi-aqua)}
+html.ds #stage[data-scr=extra] .prk.ok{background:var(--wi-navy-800);border-color:var(--wi-good);box-shadow:0 0 0 2px var(--wi-good)}
+html.ds #stage[data-scr=extra] .prk.no{background:var(--wi-navy-800);border-color:var(--wi-fix)}
+html.ds #stage[data-scr=extra] .scl{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-md);box-shadow:var(--wi-e2)}
+html.ds #stage[data-scr=extra] .scl.glow{background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:0 0 0 3px var(--wi-scrim)}
+html.ds #stage[data-scr=extra] .scw i{border-bottom-color:var(--wi-text)}
+html.ds #stage[data-scr=extra] .tfrev span{color:var(--wi-text)}
+html.ds #stage[data-scr=extra] .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),var(--wi-e2);padding:0 var(--wi-s5)}
+html.ds #stage[data-scr=extra] .btn:not(.green){border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e1);padding:0 var(--wi-s4)}
+html.ds #stage[data-scr=extra] .btn .ico{stroke:currentColor}
+html.ds #stage[data-scr=extra] :is(.tfend,.tfe:not(:empty),.prx:not(:empty)){background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:var(--wi-r-xl);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);padding:var(--wi-s3) var(--wi-s4)}
+html.ds #stage[data-scr=extra] .tfe .tfm{border:0;padding:0;background:none}
+html.ds #stage[data-scr=extra] .tfend img[src$="/crab_happy.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_star.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
