@@ -35,7 +35,7 @@ html.ds .login .btn:disabled{opacity:1;background:var(--wi-navy-700);color:var(-
 /* ---- title: three subjects to choose from, as three tiles of the same weight ---- */
 html.ds .title .label.pick{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s4);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-md);font-weight:700}
 html.ds .title .tgo{gap:var(--wi-s3);inline-size:100%}
-html.ds .title .tgo .btn.sb{inline-size:min(100%,340px);block-size:auto;min-block-size:68px;padding:var(--wi-s2) var(--wi-s4);justify-content:flex-start;text-align:start;background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-inline-start:8px solid var(--wi-aqua);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds .title .tgo .btn.sb{inline-size:min(100%,340px);block-size:auto;min-block-size:76px;font-size:var(--wi-fs-md);padding:var(--wi-s2) var(--wi-s4);justify-content:flex-start;text-align:start;background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-inline-start:8px solid var(--wi-aqua);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
 html.ds .title .tgo .btn.sb:active{background:var(--wi-navy-700);box-shadow:0 0 0 2px var(--wi-scrim),0 1px 0 var(--wi-scrim)}
 html.ds .title .tgo .btn.sb span{flex-direction:column;align-items:flex-start;gap:2px;white-space:normal}
 html.ds .title .tgo .btn.sb b{font-size:var(--wi-fs-lg);line-height:1.2}
@@ -77,7 +77,7 @@ html.ds .login .btn.tlink:active{background:var(--wi-navy-700);transform:none}
 /* ---- settings ---- */
 html.ds .settings .rb{background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:50%}
 html.ds .settings .rb .ico{stroke:var(--wi-text)}
-html.ds .settings .ribbon{background:none;inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds .settings .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
 html.ds .settings .ribbon span{padding:0}
 html.ds .settings .panel.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-xl);background:var(--wi-navy-800);padding:var(--wi-s2) var(--wi-s4);box-shadow:var(--wi-e1)}
 html.ds .settings .setrow{color:var(--wi-text);font-family:var(--wi-font-ui)}
@@ -98,8 +98,7 @@ html.ds .settings .guide p.label{border:1px solid var(--wi-line);border-image:no
 
 @media (prefers-reduced-motion:reduce){html.ds .title .btn,html.ds .login .btn,html.ds .settings .btn{transition:none}}
 
-/* ======== Rollout step 2: the English island map (#map) and an island's level list (#island/N) ========
-   Same rules as above: styling only, every rule under html.ds and the map or island screen. The six painted islands,
+/* ======== Rollout step 2: the English island map (#map) and an island's level list (#island/N) =   Same rules as above: styling only, every rule under html.ds and the map or island screen. The six painted islands,
    the boat, the whale, the compass and the level icons keep their pictures (no new art); Pitzi, the stars, the lock
    and the gear get the new ones. A swapped picture keeps its <img> and its size: the old picture is moved out of the
    box (object-position) and the new one is drawn as the background. */
@@ -167,3 +166,5 @@ html.ds .island .lvrow .lic{background:var(--wi-navy-900);border-radius:var(--wi
 html.ds .island .guide p.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-lg);background:var(--wi-navy-900);color:var(--wi-text);padding:var(--wi-s2) var(--wi-s3)}
 
 @media (prefers-reduced-motion:reduce){html.ds .map .isl .pw,html.ds .island .lvrow{transition:none}}
+/* short phones: game.css drops the settings rows to 44px; the new look keeps them at 48 (there is room) */
+@media (max-height:700px){html.ds .settings .setrow{min-height:var(--wi-tap)}}
