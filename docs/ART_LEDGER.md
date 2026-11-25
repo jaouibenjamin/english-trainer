@@ -14,8 +14,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | g | Review fixes: robot portrait redone, Pitzi "listen" redone, world map sea from above | portrait and pose: medium, 1:1; sea: high, 9:16 | 3 | 2.25 | 2.25 | 27.00 | 423.00 |
 | f | Sound: 2 island themes x 2 takes (30 s each, 4.36), 3 signature sounds x 2 takes (3 s each, 0.44) | elevenlabs_music_v2_5, instrumental | 10 | 20.08 | 20.08 | 47.08 | 402.92 |
 | h | The six English map islands redrawn in the night-sea style; the map sea with quiet details (whale, lantern boats, lighthouse, jellyfish); painted frames: panel, gold button, HUD pill (9-slice) | islands and frames: gpt_image_2_5, medium, 1k, transparent, style reference: the English island of batch c; sea: high, 9:16, reference: the batch g sea | 10 | 5.75 | 5.75 | 52.83 | 397.17 |
+| j | Welcome film: 3 animated shots (5 s, 5 s, 2 s) and the Hebrew narration (preset voice Kaia); shots 1, 4, 6 cut here from our pictures | grok_video 720p (7.5 + 7.5 + 3); text2speech_v2 elevenlabs (0.75); running total counts batch i of PR #56 | 4 | 23.25 | 23.25 | 142.08 | 307.92 |
 
-Total charged so far: **52.83** of 450. Left: 397.17.
+Total charged so far: **142.08** of 450 (with batch i of PR #56). Left: 307.92.
 
 ## Jobs
 
@@ -96,6 +97,9 @@ c2effc24-9597-44ee-9eb7-204c981203c3, was the reference for the other five poses
 Style references (approved frames, made before this ledger, not counted in the cap): world map
 339d6b72-d680-4b39-86de-d4927d9cb120, island path 16f37d15-7965-43c3-9666-fb1ee2c49611, avatar picker
 b1f0d687-5d18-4811-af95-f2aca8285246, first frame 34b3388f-09b1-4b65-93c7-8b0579be81a4.
+
+Batch j jobs: shot 2 7621ea4f-5457-4816-a8dd-cd722b9e9af3, shot 3 970ab3ba-1efa-4c15-af1b-be2b890a8e29 (start frame: our sea picture, uploaded),
+shot 5 d3df4296-1b5f-42b1-9c97-c8a8d09bb4dc, narration b87a763d-1a3c-481d-852e-87d9a69afa0f.
 
 ## Review notes
 

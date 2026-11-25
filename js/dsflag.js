@@ -14,4 +14,8 @@
  if(!on)return;
  document.documentElement.classList.add('ds');
  ['css/ds.css','css/ds-game.css','css/ds-teacher.css'].forEach(function(h){var l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l)});
+ /* the welcome film, once per device (js/intro.js): only the game page, only if not seen; ?intro=1 shows it again.
+    An automated browser (navigator.webdriver, the test suites) does not get it unless ?intro=1 asks for it. */
+ var seen=true;try{var iq=new URLSearchParams(location.search).get('intro');if(iq==='1')localStorage.removeItem('wi_intro');seen=localStorage.getItem('wi_intro')==='1'||(navigator.webdriver&&iq!=='1')}catch(e){}
+ if(!seen&&/(^|\/)(index\.html)?$/.test(location.pathname)){var l=document.createElement('link');l.rel='stylesheet';l.href='css/ds-intro.css';document.head.appendChild(l);import('./intro.js').catch(function(){})}
 })();

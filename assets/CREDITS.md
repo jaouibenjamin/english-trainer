@@ -508,6 +508,13 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 | `assets/al/av/octopus.hf_20261124_204327_b1c753c1-abca-4c2e-9a73-d209ae4faad3.webp` | character portrait: octopus | 2026-11-24 | b1c753c1-abca-4c2e-9a73-d209ae4faad3 | gpt_image_2_5 |
 | `assets/al/av/robot-bell.hf_20261124_210015_6c7fc276-a450-4cc4-930d-e689225044d4.webp` | character portrait: robot, green diving bell | 2026-11-24 | 6c7fc276-a450-4cc4-930d-e689225044d4 | gpt_image_2_5 |
 
+### Welcome film
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/intro/intro.hf_20261125_131558_7621ea4f-5457-4816-a8dd-cd722b9e9af3.mp4` | welcome film, 30 s, 390 x 694, mono: shots 2, 3 and 5 by Grok Video (jobs 7621ea4f-5457-4816-a8dd-cd722b9e9af3, 970ab3ba-1efa-4c15-af1b-be2b890a8e29, d3df4296-1b5f-42b1-9c97-c8a8d09bb4dc), narration by ElevenLabs preset voice Kaia (job b87a763d-1a3c-481d-852e-87d9a69afa0f), shots 1, 4 and 6 made here from our pictures | 2026-11-25 | 7621ea4f-5457-4816-a8dd-cd722b9e9af3 | grok_video + text2speech_v2 |
+| `assets/al/intro/poster.hf_20261125_131558_7621ea4f-5457-4816-a8dd-cd722b9e9af3.webp` | welcome film: poster frame (from the closing shot, made here) | 2026-11-25 | 7621ea4f-5457-4816-a8dd-cd722b9e9af3 | grok_video + text2speech_v2 |
+
 ### Pitzi
 
 | File | What | Made | Job id | Model |

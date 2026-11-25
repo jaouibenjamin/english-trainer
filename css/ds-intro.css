@@ -1,0 +1,14 @@
+/* The welcome film (js/intro.js), behind the design flag. Loaded by js/dsflag.js only on a device that has not seen it.
+   Live text only: the title, the captions and the buttons are never part of the film. Targets 48px or more. */
+.wi-intro{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#050E22;color:#fff;font-family:'WI Hebrew','Rubik','Heebo','Arial Hebrew','Noto Sans Hebrew',system-ui,sans-serif}
+.wi-intro__film{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#050E22}
+.wi-intro__title{position:absolute;top:calc(14% + env(safe-area-inset-top,0px));left:16px;right:16px;margin:0;text-align:center;font-size:clamp(28px,8vw,40px);font-weight:800;line-height:1.15;color:#FFD23F;-webkit-text-stroke:6px #050E22;paint-order:stroke fill}
+.wi-intro__cap{position:absolute;left:16px;right:16px;bottom:calc(96px + env(safe-area-inset-bottom,0px));margin:0 auto;max-width:420px;padding:8px 16px;border-radius:16px;background:rgba(5,14,34,.86);border:1px solid #5C8AC6;text-align:center;font-size:18px;font-weight:700;line-height:1.35}
+.wi-intro__cap[hidden],.wi-intro__title[hidden]{display:none}
+.wi-intro button{font:inherit;font-weight:800;cursor:pointer;border-radius:999px;min-height:48px;min-width:48px}
+.wi-intro button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.wi-intro__skip{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));inset-inline-start:12px;padding:0 20px;font-size:18px;color:#fff;background:#11295A;border:2px solid #5C8AC6}
+.wi-intro__play,.wi-intro__done{position:relative;padding:0 32px;min-height:60px;font-size:22px;color:#0B1E3F;background:#FFD23F;border:0;box-shadow:inset 0 -4px 0 #E8B91F,0 4px 0 #050E22}
+.wi-intro__done{position:absolute;bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.wi-intro__play[hidden],.wi-intro__done[hidden]{display:none}
+@media (min-width:700px){.wi-intro__film{object-fit:contain}}

@@ -200,3 +200,8 @@ Files: `css/ds-teacher.css` (the skin), one more entry in the stylesheet list of
 - Toasts on this screen ("the code was reset", an error) are the same dark card with a gold edge as on the other new-look screens. A pupil name with no space (up to 20 letters) wraps inside its card.
 - Not behind the flag (teacher view only): after a confirmed reset, the 4 s disarm timer no longer writes "איפוס קוד" back over "הקוד אופס", and a tap on a disabled reset button does nothing; a pupil's name sits in a `<bdi>` (an English name keeps the card's right alignment) and may wrap, so a 20-letter name with no space stays inside its card in today's look too.
 - Checked (`tests/teacher_mock.py`, mock backend, 390x844 and 1366x768): toasts after a reset that worked and one that failed are 4.5:1 or more in both looks; with the flag on, the same cards and rows as without it, no card wider than its box, every button and field 48px or more, every text 4.5:1 or more against its own backing, the first tap on "reset code" sends nothing; `?ds=0` takes the look away.
+
+## Welcome film, behind the same flag
+
+Shown once on first open of the game page; poster first, play only on tap, 48 px skip from the first second, captions
+as live text. Details and the narration (flagged for the teacher) in `docs/INTRO.md`; art in batch j of the ledger.
