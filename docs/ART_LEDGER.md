@@ -26,8 +26,9 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | k5 | Welcome film v6 (the owner's notes): the shocked faces and slower rise, small Pitzi's leap (key image and 6 s shot), the run again with Pitzi small. The owner approved spending within the 450 budget | grok_video (5 s x 2 = 15, 6 s = 9); gpt_image_2_5 high (1.25) | 4 | 25.25 | 25.25 | 344.69 | 105.31 |
 | k6 | Welcome film v7 (the owner's notes): laughs with Pitzi peeking from the sea, the shock flowing into the camera turn as the island rises, Pitzi's leap (key image, 6 s shot x 2: the first turned him into a crab with a penguin's face, unused), the run to the same island | grok_video (5 s x 3 = 22.5, 6 s x 2 = 18); gpt_image_2_5 high (1.25) | 6 | 41.75 | 41.75 | 386.44 | 63.56 |
 | k7 | Welcome film: the closing line re-recorded, 3 spellings (the take said "לנתני"); checked by speech recognition, the plain spelling used | text2speech_v2 elevenlabs (3 x 0.75) | 3 | 2.25 | 2.25 | 388.69 | 61.31 |
+| k8 | Welcome film: a 5 s test of upscaling the finished film to 4K (Topaz, 2160p), to price a sharper sharing version. Not used | topaz_video 2160p, 5 s | 1 | (no quote offered) | 9.00 | 397.69 | 52.31 |
 
-Total charged so far: **388.69** of 450. Left: 61.31. (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k7: 260.86 (the owner approved spending within the 450 budget). Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
+Total charged so far: **397.69** of 450. Left: 52.31. (The account charges voice takes less than their quote, 0.15 for most; the ledger keeps the quote, so it errs on the safe side.) (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k7: 260.86 (the owner approved spending within the 450 budget). Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
 
 ## Jobs
 
