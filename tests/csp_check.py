@@ -99,7 +99,7 @@ async def main():
             await visit(b, B + 'worksheet.html?island=1', 'body', errs, 'worksheet')
             await visit(b, B + 'world.html', 'body', errs, 'world')
             await visit(b, B + 'ds.html', 'body', errs, 'ds')
-            for q in ('', '?style=lowpoly'):
+            for q in ('', '?style=lowpoly', '?ds=1'):      # ?ds=1: Beach Run in the new look (css/run-ds.css)
                 c, pg = await new_page(b, 390, 844, errs=errs)
                 await pg.add_init_script(LISTEN)
                 await pg.goto(B + 'run.html' + q); await pg.wait_for_function('window.__heroLoaded!==undefined', timeout=60000); await pg.wait_for_timeout(800)
