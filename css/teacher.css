@@ -10,3 +10,16 @@ p{margin:0}
 button{min-height:48px;padding:10px 24px;border:0;border-radius:12px;background:var(--ink);color:var(--paper);font:inherit;font-weight:700;cursor:pointer}
 button:focus-visible{outline:3px solid #2a4a8c;outline-offset:2px}
 [hidden]{display:none!important}
+main.wide{width:min(100%,760px)}
+h2{margin:0;font-size:19px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+button.small{min-height:44px;padding:6px 16px;font-size:15px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:start}
+td.num,th.num{text-align:end;font-variant-numeric:tabular-nums}
+td.name{font-weight:700}
+.warn{background:#fbe3dc;border-radius:12px;padding:10px 12px;font-weight:700;color:#7a2b18}
+#hard{margin:0;padding-inline-start:24px;text-align:start}
+#hard li{padding:2px 0}
+#hard .en{direction:ltr;unicode-bidi:isolate;font-weight:700}

@@ -26,8 +26,8 @@ export function teacherAuth(env){
  const self=()=>location.origin+location.pathname;
  const get=()=>{try{return JSON.parse(store.getItem(FLOW))}catch(e){return null}};
  const drop=()=>{try{store.removeItem(FLOW)}catch(e){}};
- async function call(path,body,token,method){
-  const r=await fetch(url+path,{method:method||'POST',headers:{apikey:key,...(body!==undefined?{'content-type':'application/json'}:{}),...(token?{authorization:'Bearer '+token}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
+ async function call(path,body,token,method,keep){
+  const r=await fetch(url+path,{method:method||'POST',keepalive:!!keep,headers:{apikey:key,...(body!==undefined?{'content-type':'application/json'}:{}),...(token?{authorization:'Bearer '+token}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
   let j=null;try{j=await r.json()}catch(e){}return{status:r.status,j}}
  function keep(j){ses={access:j.access_token,refresh:j.refresh_token,exp:now()+1000*(+j.expires_in||3600),user:{id:j.user&&j.user.id||null,email:j.user&&j.user.email||''}};touch()}
  /* activity: a tap or a key; 30 minutes without one ends the session */
@@ -38,7 +38,8 @@ export function teacherAuth(env){
  async function signOut(why){
   const s=ses;ses=null;gen++;clearTimeout(idle);idle=null;
   if(s)try{onOut(why||'out')}catch(e){}                  // the screen forgets her at once, before the server is told
-  if(s&&s.access){try{await call('/auth/v1/logout?scope=local',{},s.access)}catch(e){}}
+  // leaving the page: the revoke goes with keepalive, or the browser drops it with the page
+  if(s&&s.access){try{await call('/auth/v1/logout?scope=local',{},s.access,'POST',why==='left')}catch(e){}}
   return why||'out'}
  /* "Sign in with Google": the session of whoever was here before goes first */
  async function begin(){
@@ -73,6 +74,14 @@ export function teacherAuth(env){
   if(g!==gen||ses!==s)return null;
   if(!r||r.status!==200||!r.j||!r.j.access_token){await signOut('expired');return null}
   keep({...r.j,user:r.j.user||{id:s.user.id,email:s.user.email}});return ses.access}
+ /* a read of the teacher's own views (docs/PHASE3.md step 2), with her token. null when there is no session, or when
+    the session changed while the answer was on its way: a late answer never reaches the screen of whoever comes next */
+ async function read(path){
+  const g=gen,t=await token();if(!t||g!==gen)return null;
+  let r;try{r=await call(path,undefined,t,'GET')}catch(e){return g===gen?{error:'net'}:null}
+  if(g!==gen)return null;
+  if(r.status===401){await signOut('expired');return null}
+  return r.status===200&&Array.isArray(r.j)?{rows:r.j}:{error:'server'}}
  /* leaving the page ends the session (not the trip to Google, which keeps only the verifier) */
  function left(){if(going)return;if(ses)signOut('left')}
- return{begin,finish,token,signOut,touch,wake,left,user:()=>ses?{...ses.user}:null,signedIn:()=>!!ses}}
+ return{begin,finish,token,read,signOut,touch,wake,left,user:()=>ses?{...ses.user}:null,signedIn:()=>!!ses}}

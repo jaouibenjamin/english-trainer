@@ -56,8 +56,14 @@ function gotrue(clock) {
         for (const s of sessions.values()) if ('Bearer ' + s.access_token === auth) s.alive = false;
         return out(204, null);
       }
+      if (url.pathname.startsWith('/rest/v1/')) {
+        const s = [...sessions.values()].find(x => 'Bearer ' + x.access_token === auth && x.alive);
+        if (!s) return out(401, { message: 'JWT expired' });
+        return out(200, (g.rows[url.pathname.slice(9)] || {})[s.user.email] || []);
+      }
       return out(404, null);
     },
+    rows: {},
   };
   return g;
 }
@@ -227,6 +233,26 @@ const tick = () => new Promise(r => setTimeout(r, 5));
   await u.auth.signOut('out');                                   // she signs out meanwhile
   rel2();
   eq('a late refresh after sign-out is not kept', [await tp, u.auth.signedIn()], [null, false]);
+}
+// ---- 12. step 2: her own views, read with her token only, and never after she is gone
+{
+  const t = tab();
+  t.server.rows.teacher_view = { 'teacher.one@example.org': [{ display_name: 'Noa', points: 30 }] };
+  await t.signIn();
+  const r = await t.auth.read('/rest/v1/teacher_view?select=display_name,points');
+  eq('read: her rows, with her token', [r, t.server.log.at(-1).auth.startsWith('Bearer acc-'), t.server.log.at(-1).path], [{ rows: [{ display_name: 'Noa', points: 30 }] }, true, '/rest/v1/teacher_view?select=display_name,points']);
+  let release; t.server.delay = new Promise(x => { release = x; });
+  const late = t.auth.read('/rest/v1/teacher_view');
+  await tick();
+  t.server.delay = null; await t.auth.signOut('out'); release();
+  eq('a read whose answer comes after sign-out gives nothing to show', await late, null);
+  const u = tab(t);
+  await u.signIn('teacher.two@example.org');
+  for (const s of u.server.sessions.values()) s.alive = false;      // the server ended her session (revoked elsewhere, expired)
+  const r2 = await u.auth.read('/rest/v1/teacher_view');
+  eq('a read refused by the server (401): signed out, nothing to show', [r2, u.auth.signedIn(), u.outs], [null, false, ['expired']]);
+  const v = tab(t);
+  eq('no read without a session (no request at all)', [await v.auth.read('/rest/v1/teacher_view'), v.server.log.length], [null, u.server.log.length]);
 }
 // ---- 11. the page and the site
 {

@@ -361,6 +361,22 @@ def test_teacher(db):
     eq("teacher_view after a reset and locks: waiting, closed, locked 2 times today (not the other class's 1)",
        db.select(T, 'teacher_view', 'code_status, recovery_status, locked_today', dict(pupil_id=pid('A')))[0], [dict(code_status='waiting', recovery_status='closed', locked_today=2)])
     eq('teacher_view never carries a hash', db.admin("select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'teacher_view' and (column_name like '%hash%' or column_name like '%salt%')"), [['0']])
+    # the teacher's screen (docs/PHASE3.md step 2) reads exactly these three views: who sees what, every reader against
+    # every view. A teacher: her class only. A pupil's session, a signed-in user who teaches nothing: no row. anon: refused.
+    screen = {'teacher_view': 'class_id', 'teacher_items': 'class_id', 'backend_health': 'warn'}
+    got = {}
+    for who, label in [(TEACHER1, 'teacher 1'), (TEACHER2, 'teacher 2'), (kid('A'), 'a pupil'), (NOBODY, 'a user who teaches nothing')]:
+        for v, col in screen.items():
+            rows, err = db.select(who, v, col)
+            got[(label, v)] = [err is None, sorted({r[col] for r in rows}) if col == 'class_id' else len(rows)]
+    eq("the teacher's screen: teacher 1 reads her class only (pupils, hard words) and one health row",
+       [got[('teacher 1', 'teacher_view')], got[('teacher 1', 'teacher_items')], got[('teacher 1', 'backend_health')]], [[True, [C1]], [True, [C1]], [True, 1]])
+    eq("teacher 2 reads her class only, never class 1's",
+       [got[('teacher 2', 'teacher_view')][1], C1 in got[('teacher 2', 'teacher_items')][1], got[('teacher 2', 'backend_health')]], [[C2], False, [True, 1]])
+    eq("a pupil's session and a user who teaches nothing: no row in any of the three",
+       [got[(w, v)] for w in ('a pupil', 'a user who teaches nothing') for v in screen], [[True, []], [True, []], [True, 0]] * 2)
+    for v in screen:
+        denied(f'anon reads {v}: refused', db.select(ANON, v))
     denied('teacher 1 reads the secrets table: refused like anyone', db.as_(*T, 'select * from private.pupil_secrets'))
     denied('teacher 1 writes points', db.insert(T, 'points', dict(pupil_id=pid('A'), delta=5, reason='fix')))
     denied('teacher 1 edits an answer', db.update(T, 'answers', dict(pts=0)))
