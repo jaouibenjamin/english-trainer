@@ -29,7 +29,7 @@
 .tfn{margin:0;font-size:13px;font-weight:500;color:var(--ink2);flex:none;text-align:center}
 .tfend{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
 .tfend img{width:110px}.tfend h3{margin:0;font-size:26px;font-weight:800}.tfend p{margin:0;font-size:18px;font-weight:700}
-.tfrev{display:flex;flex-direction:column;align-items:center;gap:3px}.tfrev small{font-size:14px;color:var(--ink2)}.tfrev span{font-size:17px;font-weight:700}
+.tfrev{display:flex;flex-direction:column;align-items:center;gap:3px}.tfrev span{overflow-wrap:anywhere;text-align:center}.tfrev small{font-size:14px;color:var(--ink2)}.tfrev span{font-size:17px;font-weight:700}
 .tfeb{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
 html.calm .tfk{transition:none}
 @media (prefers-reduced-motion:reduce){.tfk{transition:none}}
@@ -57,3 +57,5 @@ html.calm .prk{transition:none}
 /* the six pairs at the end of a round sit in two columns, and short screens get a smaller crab, so all of it fits */
 .pr .tfrev{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;justify-items:center}
 @media (max-height:700px){.tfend img{width:80px}.tfend h3{font-size:23px}}
+/* read out to a screen reader, not shown */
+.xsr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}

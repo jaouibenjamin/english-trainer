@@ -21,16 +21,17 @@ export async function start(host,cfg,api){
  const g={queue:ws.map(deal),done:0,first:0,missed:new Set(),lock:0,n:ws.length};let alive=true,drag=null;
  window.__lv={kind:'tf',g,card:()=>g.queue[0]&&{en:g.queue[0].w.en,he:g.queue[0].he,truth:g.queue[0].truth}};
  host.innerHTML=`<section class="scr tf"><header class="top">${rb('nav',ico('back'),'חזרה',1,`data-to="island/${cfg.island.id}"`)}<h2 class="ribbon"><span>נכון או לא?</span></h2><span class="rbsp"></span></header>
-  <p class="tfc" id="tfc" aria-live="polite"></p>
+  <p class="tfc" id="tfc" aria-live="polite"></p><p class="xsr" id="tfl" aria-live="polite"></p>
   <div class="tfa" id="tfa"></div>
   <p class="tfn">זה תרגול: בלי כוכבים ובלי נקודות</p></section>`;
- const area=host.querySelector('#tfa'),count=host.querySelector('#tfc');
+ const area=host.querySelector('#tfa'),count=host.querySelector('#tfc'),live=host.querySelector('#tfl');
  const speak=()=>{const c=g.queue[0];if(c)say(c.w.en)};
  function show(){const c=g.queue[0];g.lock=0;count.innerHTML=`${num(g.done)} מתוך ${num(g.n)} מילים`;
   area.innerHTML=`<div class="tfk" id="tfk"><button class="tfs" data-t="say" aria-label="השמיעו את המילה">${spr('ic_speaker','')}</button>
     <b class="tfw">${en(c.w.en)}</b><span class="tfq">הפירוש הוא</span><span class="tfhq"><b class="tfh">${esc(first(c.he))}</b><span class="tfq">?</span></span></div>
    <div class="tfb"><button class="tfy" data-t="yes"><i aria-hidden="true">→</i> נכון</button><button class="tfx" data-t="no">לא נכון <i aria-hidden="true">←</i></button></div>
    <p class="tft">אפשר גם להחליק את הכרטיס לצד של התשובה</p>`;
+  live.textContent=`${c.w.en}. הפירוש הוא ${first(c.he)}?`;   // a screen reader hears each new card
   speak()}
  function answer(yes){const c=g.queue[0];if(!c||g.lock||!alive)return;g.lock=1;const ok=yes===c.truth,k=area.querySelector('#tfk');
   if(ok){SND.pop();if(!g.missed.has(c.w.en))g.first++;g.done++;g.queue.shift();
@@ -52,7 +53,7 @@ export async function start(host,cfg,api){
   window.__lv.ended={first:g.first,n:g.n,missed:[...g.missed]}}
  const onClick=e=>{const t=e.target.closest('[data-t]');if(t){if(t.dataset.t==='say'){SND.tap();return speak()}return answer(t.dataset.t==='yes')}
   if(e.target.closest('[data-a=tfnext]')){SND.tap();if(alive&&g.queue.length)show()}};
- const onKey=e=>{if(!alive||e.target.closest('input,textarea'))return;if(g.lock){if((e.key==='Enter'||e.key===' ')&&area.querySelector('[data-a=tfnext]')){e.preventDefault();SND.tap();show()}return}
+ const onKey=e=>{if(!alive||e.altKey||e.ctrlKey||e.metaKey||e.target.closest('input,textarea'))return;   // Alt+Left is the browser's "back"if(g.lock){if((e.key==='Enter'||e.key===' ')&&area.querySelector('[data-a=tfnext]')){e.preventDefault();SND.tap();show()}return}
   if(e.key==='ArrowRight'){e.preventDefault();answer(true)}else if(e.key==='ArrowLeft'){e.preventDefault();answer(false)}};
  /* swipe: the card follows the finger; let go far enough to a side and that is the answer */
  const onDown=e=>{const k=e.target.closest('#tfk');if(!k||g.lock||e.target.closest('.tfs'))return;drag={k,x:e.clientX,dx:0,id:e.pointerId};try{k.setPointerCapture(e.pointerId)}catch(_){}};

@@ -1,0 +1,96 @@
+/* The printable worksheet (worksheet.html): black on white, no pictures, no dark background, A4 portrait. */
+@font-face{font-family:'WS';font-style:normal;font-weight:300 800;font-display:swap;src:url(../assets/font/rubik-hebrew.woff2) format('woff2');unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:'WS';font-style:normal;font-weight:300 800;font-display:swap;src:url(../assets/font/rubik-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@page{size:A4 portrait;margin:11mm 12mm}
+*{box-sizing:border-box}
+html{background:#fff;color-scheme:light}
+body{margin:0;background:#eceef0;color:#111;font-family:'WS',Arial,sans-serif;font-size:12.5pt;line-height:1.35;-webkit-text-size-adjust:100%}
+.en,[lang=en]{direction:ltr;unicode-bidi:isolate}
+h1,h2,h3,p,ol,ul{margin:0;padding:0}
+ol,ul{list-style:none}
+[hidden]{display:none!important}   /* the bar and the note are flex and block boxes: hidden must still win */
+
+/* the bar on screen: never printed */
+.bar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 14px;padding:8px 12px;background:#fff;border-bottom:1px solid #c9ced3;font-size:16px}
+.bar a,.off a{color:#0b4f9e;font-weight:600;min-height:44px;display:inline-flex;align-items:center;padding:0 6px}
+.bar label{display:inline-flex;align-items:center;gap:6px;min-height:44px}
+.bar select{font:inherit;min-height:40px;padding:0 8px;background:#fff;color:#111;border:1px solid #6b7480;border-radius:8px}
+.bar input{width:22px;height:22px}
+.bar button{font:inherit;font-weight:700;min-height:44px;padding:0 22px;background:#0b4f9e;color:#fff;border:0;border-radius:10px;cursor:pointer}
+.bar a:focus-visible,.bar button:focus-visible,.bar select:focus-visible,.bar input:focus-visible,.off a:focus-visible{outline:3px solid #e08a00;outline-offset:2px}
+.off{max-width:420px;margin:60px auto;padding:24px;background:#fff;border:1px solid #c9ced3;border-radius:12px;text-align:center;font-size:18px}
+.off p{margin-bottom:10px}
+
+/* a sheet of paper */
+.page{width:210mm;max-width:100%;margin:14px auto;padding:11mm 12mm;background:#fff;color:#111;box-shadow:0 1px 6px rgba(0,0,0,.18)}
+.hd{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;padding-bottom:5px;border-bottom:2px solid #111;margin-bottom:6px}
+.hd h1{font-size:19pt;font-weight:700;line-height:1.1}
+.hd .sub{font-size:10.5pt;color:#333}
+.who{display:flex;gap:14px;font-size:11.5pt;white-space:nowrap}
+.who i{display:inline-block;width:38mm;border-bottom:1px solid #111;vertical-align:baseline}
+.who span+span i{width:24mm}
+.ex{margin-top:9px;break-inside:avoid}
+.ex.read{break-inside:auto}
+.ex h2{font-size:13pt;font-weight:700;display:flex;align-items:center;gap:7px}
+.ex h2 .n,.key h2 .n{display:inline-flex;align-items:center;justify-content:center;width:7mm;height:7mm;border:1.5px solid #111;border-radius:50%;font-size:11pt;flex:none}
+.task{font-size:11pt;color:#222;margin:1px 0 5px}
+
+.match .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10mm;direction:ltr}
+.match ol{columns:2;column-gap:6mm;min-width:0}
+.match li{display:flex;align-items:center;gap:6px;min-height:8.2mm;break-inside:avoid}
+.wl{direction:ltr}
+.wl .box{width:8mm;height:6.4mm;border:1.2px solid #111;border-radius:2px;flex:none}
+.wl .en{font-size:13pt;font-weight:500}
+.hl{direction:rtl}
+.hl b{width:6mm;flex:none;font-weight:700}
+.hl span{font-size:12pt}
+
+.story{border:1.2px solid #111;border-radius:6px;padding:6px 10px;text-align:left}
+.story h3{font-size:12.5pt;font-weight:700;margin-bottom:2px}
+.story p{font-size:13pt;line-height:1.5}
+.qs{margin-top:5px;text-align:left;counter-reset:q}
+.qs>li{counter-increment:q;margin-top:4px;break-inside:avoid}
+.qs>li>p{font-weight:600;font-size:12.5pt}
+.qs>li>p::before{content:counter(q) ". "}
+.qs ul{display:flex;flex-wrap:wrap;gap:1px 9mm;padding-left:5mm}
+.qs ul li{font-size:12.5pt}
+.qs ul b{font-weight:700;margin-right:2px}
+
+.bank{display:flex;gap:5mm;justify-content:flex-start;margin-bottom:3px}
+.bank b{border:1.2px solid #111;border-radius:5px;padding:0 4mm;font-size:12.5pt;font-weight:600}
+.fill{display:grid;grid-template-columns:1fr 1fr;gap:0 8mm;text-align:left;counter-reset:f}
+/* plain inline text, so a sentence that wraps keeps its gap on the line of its words */
+.fill li{counter-increment:f;font-size:13pt;line-height:9mm;break-inside:avoid}
+.fill li::before{content:counter(f) ". "}
+.gap{display:inline-block;width:20mm;height:0;border-bottom:1.2px solid #111;vertical-align:baseline;margin:0 1mm}
+
+.ord{display:grid;grid-template-columns:1fr 1fr;gap:2px 8mm;direction:rtl;counter-reset:o}   /* numbered, first item on the right */
+.ord li{break-inside:avoid;padding-top:3px;counter-increment:o}
+.ord .he::before{content:counter(o) ". ";font-weight:700;color:#111}
+.ord .he{direction:rtl;text-align:right;font-size:11pt;color:#222}
+.tiles{display:flex;flex-wrap:wrap;gap:3px 4px;text-align:left;direction:ltr}
+.tiles b{border:1.2px solid #111;border-radius:4px;padding:0 6px;font-size:12pt;font-weight:500}
+.tiles .end{border-style:dashed}
+.line{height:8mm;border-bottom:1.2px solid #111}
+
+.ft{margin-top:8px;padding-top:3px;border-top:1px solid #777;font-size:9pt;color:#444;text-align:center}
+
+.key h2{font-size:12pt;font-weight:700;display:flex;align-items:center;gap:7px;margin-top:10px}
+.kl{display:flex;flex-wrap:wrap;gap:2px 8mm;font-size:11.5pt;margin-top:3px;direction:ltr;justify-content:flex-start}
+.kl.col{flex-direction:column}
+.kl span{white-space:nowrap}
+
+@media (max-width:640px){
+ .page{padding:14px 12px;margin:8px auto;box-shadow:none}
+ .match .cols,.fill,.ord{grid-template-columns:1fr}
+ .match .hl{margin-top:8px}
+ .hd{flex-direction:column;align-items:stretch}
+}
+@media print{
+ body{background:#fff}
+ .bar,.off{display:none!important}
+ .page{width:auto;max-width:none;margin:0;padding:0;box-shadow:none;break-after:page}
+ .page:last-child{break-after:auto}
+ .match .cols,.fill,.ord{grid-template-columns:1fr 1fr}
+ .hd{flex-direction:row;align-items:flex-end}
+}
