@@ -3,7 +3,7 @@
    Also: the runner model is our own file and loads in both looks, Pitzi the crab runs when the model is missing, and
    nothing in the game's files points to another host (tests/remote_guard.py).
    python3 tests/run.py [--shots DIR]"""
-import asyncio, os, subprocess, sys, time, socket
+import asyncio, os, re, subprocess, sys, time, socket
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import remote_guard
 from csp_wait import csp_wait
@@ -118,30 +118,38 @@ async def ds_targets(pg, tag, where):
     small = [x for x in t if x[3] < 48]
     check(t and not small, f'{tag}: {where}: every button and link is 48px or more {small}')
 
-BIDI = """(async()=>{const {POOL}=await import('./js/xdata.js');const tips=[...new Set(Object.values(POOL).flatMap(o=>Object.values(o).flat()).map(e=>e.tip).filter(Boolean))];
+BIDI = """(async()=>{const {POOL}=await import('./js/xdata.js');const {esc}=await import('./js/state.js');const fmt=FMT;const tips=[...new Set(Object.values(POOL).flatMap(o=>Object.values(o).flat()).map(e=>e.tip).filter(Boolean))];
  const box=document.createElement('div');box.className='banner';box.style.cssText='position:fixed;left:0;top:0;width:360px;visibility:hidden';document.body.appendChild(box);
- const out={n:tips.length,text:[],stop:[],checked:0};
- for(const t of tips){box.innerHTML=`<p class="ans">${__run.mixed(t)}</p>`;const p=box.firstChild;
-  if(p.textContent!==t)out.text.push(t);
-  /* an English sentence that ends with a full stop before a Hebrew note: the stop is drawn right after the sentence's
-     last letter (to its right), not at the far side of the line */
-  const m=t.match(/[a-z]\\. \\(/);if(!m)continue;out.checked++;
-  const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,off=0;const at=m.index;
-  while((n=w.nextNode())){if(at<off+n.length){const r=document.createRange();r.setStart(n,at-off);r.setEnd(n,at-off+1);const L=r.getBoundingClientRect();
-   const r2=document.createRange();let n2=n,o2=at-off+1;if(o2>=n.length){n2=w.nextNode();o2=0}r2.setStart(n2,o2);r2.setEnd(n2,o2+1);const D=r2.getBoundingClientRect();
-   if(!(D.left>=L.right-1&&Math.abs(D.top-L.top)<4))out.stop.push([t,Math.round(L.right),Math.round(D.left)]);break}off+=n.length}}
+ const out={n:tips.length,text:[],stop:[],checked:0,arrow:[],arrows:0};
+ /* the box drawn for the character at index i of the line's text */
+ const at=(p,i)=>{const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,off=0;while((n=w.nextNode())){if(i<off+n.length){const r=document.createRange();r.setStart(n,i-off);r.setEnd(n,i-off+1);return r.getBoundingClientRect()}off+=n.length}return null};
+ out.empty=tips.filter(t=>/\\(\\s*\\)/.test(t));
+ /* the same line as Beach Run draws it (mixed) and as the mock exam draws it (its own fmt, read from js/mock.js) */
+ for(const [who,draw] of [['run',__run.mixed],['exam',fmt]])for(const t of tips){box.innerHTML=`<p class="ans">${draw(t)}</p>`;const p=box.firstChild;
+  if(p.textContent!==t)out.text.push([who,t]);
+  /* an English sentence that ends with a full stop, question mark or "!" (at the end of the line, before a Hebrew
+     note or before a bracket): the mark is drawn right after the sentence's last letter, not at the far side */
+  for(const m of t.matchAll(/[a-z'\\u2019][.?!](?=$| \\(| [\\u0590-\\u05FF])/g)){const L=at(p,m.index),D=at(p,m.index+1);if(who==='run')out.checked++;
+   if(who==='run'&&Math.abs(D.top-L.top)<4&&!(D.left>=L.right-1))out.stop.push([t,Math.round(L.right),Math.round(D.left)])}
+  /* an arrow points at the word after it: → has it on its right, ← on its left */
+  for(const m of t.matchAll(/[\\u2192\\u2190]/g)){let j=m.index+1;while(t[j]===' ')j++;if(j>=t.length)continue;const A=at(p,m.index),N=at(p,j);
+   if(Math.abs(A.top-N.top)>=4)continue;out.arrows++;const ok=m[0]==='\\u2192'?N.left>=A.right-1:N.right<=A.left+1;if(!ok)out.arrow.push([who,t,m[0],Math.round(A.left),Math.round(N.left)])}}
  box.remove();return out})()"""
 
 async def bidi(b):
-    """explanation lines mix Hebrew and English: the words are the same as before, and an English sentence keeps its
-    full stop at its end (it used to show as ".I study English at school")"""
+    """explanation lines mix Hebrew and English: the words are the same as before, an English sentence keeps its full
+    stop (or ? or !) at its end (it used to show as ".I study English at school"), and an arrow points at its word"""
     c = await b.new_context(viewport={'width': 390, 'height': 844})
     pg = await c.new_page()
     await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
     await pg.goto(BASE); await pg.wait_for_selector('[data-go="run"]', timeout=15000)
-    R = await pg.evaluate(BIDI)
+    src = open(os.path.join(ROOT, 'js', 'mock.js'), encoding='utf-8').read()
+    fmt_src = re.search(r'^const fmt=(.*?);$', src, re.M).group(1)   # the mock exam's own formatter, as it is in the file
+    R = await pg.evaluate(BIDI.replace('FMT', fmt_src, 1))
     check(R['n'] > 50 and not R['text'], f'every explanation ({R["n"]}) reads the same words as before {R["text"][:2]}')
     check(R['checked'] > 5 and not R['stop'], f'an English sentence keeps its full stop at its end ({R["checked"]} checked) {R["stop"][:2]}')
+    check(R['arrows'] > 10 and not R['arrow'], f'every arrow in an explanation points at the word it leads to, in Beach Run and in the mock exam ({R["arrows"]} checked) {R["arrow"][:2]}')
+    check(not R['empty'], f'no explanation shows empty brackets (a word without the teacher\'s translation) {R["empty"][:2]}')
     await c.close()
 
 async def play(b, w, h, tag, qs=''):
