@@ -18,7 +18,7 @@ create function private.backup_tables() returns text[] language sql immutable se
     'public.answers', 'public.points', 'public.pupil_totals', 'public.progress', 'public.flags', 'public.level_best',
     'public.answer_daily', 'private.class_codes', 'private.pupil_secrets', 'private.reset_codes', 'private.legacy_import',
     'private.pupil_devices', 'private.auth_attempts', 'private.auth_buckets', 'private.auth_lock_events', 'private.ip_salts',
-    'private.answer_batches', 'private.pupil_days', 'private.deletions', 'private.settings'] $$;
+    'private.answer_batches', 'private.pupil_days', 'private.deletions', 'private.maintenance_log', 'private.settings'] $$;
 
 /* Callable with the public key, so the twice-weekly workflow needs no server key. The caller proves it holds the
    export token (only its sha256 is stored here). What comes back is ciphertext for the owner's key only.

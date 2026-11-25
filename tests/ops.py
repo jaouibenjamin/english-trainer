@@ -57,6 +57,9 @@ try:
         db.admin(seed)
     n_items, n_levels = db.one('select count(*) from public.items'), db.one('select count(*) from public.levels')
     check('the seed loads, twice, without doubles', int(n_items) > 50 and int(n_levels) > 20, (n_items, n_levels))
+    eq('the backup list names every table in public and private (a new table cannot be left out)',
+       sorted(r[0] for r in db.admin("select table_schema || '.' || table_name from information_schema.tables where table_schema in ('public', 'private') and table_type = 'BASE TABLE'")),
+       sorted(r[0] for r in db.admin('select unnest(private.backup_tables())')))
     eq('the mock exam paper has its size', db.one("select size from public.levels where game = 'exam' and level_key = 'mock'"), '20')
 
     # ---------------------------------------------------------------- migrate_sheet

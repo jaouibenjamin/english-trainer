@@ -4,6 +4,10 @@ project exists, never in GitHub Actions (it needs the server key):
 
     SUPABASE_URL=https://<project>.supabase.co SUPABASE_ANON_KEY=... SUPABASE_SERVICE_KEY=... python3 tests/live_check.py
     python3 tests/live_check.py --list          what is checked, and what stays a manual step
+    SUPABASE_URL=... SUPABASE_ANON_KEY=... python3 tests/live_check.py --stage 1
+        stage 1, any time, also on an empty project: the settings of checklist steps 4 to 10, read with the public
+        key, and one sign-up attempt that must be refused. Stage 2 (the default) is the full list below and needs the
+        migrations and functions deployed (checklist steps 12 to 15).
 
 Optional: TEACHER_TOKEN (an access token of the teacher after her Google sign-in: items 7, 8, 12 with a teacher),
 BACKUP_TOKEN with the owner's private key in gpg (items 15, 19), --no-load (skip item 17), --no-header (skip item 10:
@@ -60,7 +64,12 @@ class Api:
         self.url, self.anon, self.service = url, anon, service
 
     def call(self, method, path, body=None, token=None, key=None, headers=None):
-        h = {'content-type': 'application/json', 'apikey': key or self.anon, 'authorization': 'Bearer ' + (token or key or self.anon)}
+        k = key or self.anon
+        h = {'content-type': 'application/json', 'apikey': k}
+        # the new key formats (sb_publishable_, sb_secret_) are not JWTs: the gateway reads them from apikey alone; a
+        # function that checks the caller itself (admin-class, teacher-reset) reads the bearer
+        if token or k.startswith('eyJ') or path.startswith('/functions/'):
+            h['authorization'] = 'Bearer ' + (token or k)
         h.update(headers or {})
         req = urllib.request.Request(self.url + path, method=method, headers=h, data=None if body is None else json.dumps(body).encode())
         try:
@@ -246,6 +255,44 @@ def run(api, a):
             print('cleaned up: the test class, its pupils and their auth users')
 
 
+def stage1(api):
+    """Settings probes against a project that may still be empty. Read-only, except ONE sign-up attempt with a made-up
+    address under a reserved domain, which must be refused (sign-up is off). Creates nothing when the project is right."""
+    print('-- stage 1: project settings (checklist section 9, steps 4 to 10)')
+    out = []
+
+    def rep(name, ok, detail=''):
+        out.append(ok)
+        print(f"{'PASS' if ok else 'FAIL':6} {name}" + (f'  <- {detail}' if detail else ''))
+    s, h = api.call('GET', '/auth/v1/health')
+    rep('Auth answers', s == 200, s)
+    s, st = api.call('GET', '/auth/v1/settings')
+    st = st if isinstance(st, dict) else {}
+    ext = st.get('external') or {}
+    rep('the settings can be read with the public key', s == 200 and bool(ext), s)
+    rep('allow new users to sign up: OFF', st.get('disable_signup') is True, st.get('disable_signup'))
+    rep('email provider: on (the functions need it for the server-side token)', ext.get('email') is True, ext.get('email'))
+    rep('confirm email: ON (no auto-confirm)', st.get('mailer_autoconfirm') is False, st.get('mailer_autoconfirm'))
+    rep('phone provider: OFF', ext.get('phone') is False and st.get('sms_autoconfirm') in (False, None), ext.get('phone'))
+    rep('anonymous sign-ins: OFF', ext.get('anonymous_users') in (False, None), ext.get('anonymous_users'))
+    on = sorted(k for k, v in ext.items() if v is True and k not in ('email', 'google'))
+    rep('every other provider: OFF (Google is switched on at the teacher step)', not on, on)
+    print(f"       google: {'on' if ext.get('google') else 'off'}")
+    addr = f'wi-livecheck-{secrets.token_hex(4)}@example.com'          # RFC 2606: a domain reserved for examples
+    s, j = api.call('POST', '/auth/v1/signup', {'email': addr, 'password': secrets.token_urlsafe(24)})
+    created = 200 <= s < 300
+    rep('a sign-up with the public key is refused', not created, f'{s} {(j or {}).get("error_code") or (j or {}).get("msg") or ""}'.strip())
+    if created:
+        print('STOP: the sign-up was ACCEPTED, so a user may now exist. Tell the lead at once; sign-up must be switched off.')
+    s, root = api.call('GET', '/rest/v1/')
+    paths = sorted((root or {}).get('paths', {}).keys()) if isinstance(root, dict) else []
+    print(f"       REST root: HTTP {s}; {len(paths)} paths exposed{' (empty project: migrations not deployed yet)' if len(paths) <= 1 else ''}")
+    s, g = api.call('POST', '/graphql/v1', {'query': '{ __typename }'})
+    rep('GraphQL is off or exposes nothing (checklist step 10)', not (200 <= s < 300) or 'errors' in (g or {}) or not (g or {}).get('data'), s)
+    print(f"\nstage 1: {sum(out)} passed, {len(out) - sum(out)} failed")
+    return 0 if all(out) else 1
+
+
 def main(argv=None):
     a = sys.argv[1:] if argv is None else argv
     if '--list' in a:
@@ -253,6 +300,12 @@ def main(argv=None):
             print(f'{n:>2}. {t}' + (f'\n    MANUAL: {MANUAL[n]}' if n in MANUAL else ''))
         return 0
     url, anon, service = (os.environ.get(k, '').strip() for k in ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_KEY'))
+    anon = anon or os.environ.get('SUPABASE_PUBLISHABLE_KEY', '').strip()
+    if '--stage' in a and a[a.index('--stage') + 1:a.index('--stage') + 2] == ['1']:
+        if not re.fullmatch(r'https://[a-z0-9-]+\.supabase\.co', url) or not anon:
+            print('stage 1 needs SUPABASE_URL and SUPABASE_ANON_KEY (the publishable key) in the environment')
+            return 2
+        return stage1(Api(url, anon, ''))
     if not re.fullmatch(r'https://[a-z0-9-]+\.supabase\.co', url) or not anon or not service:
         print('no project: set SUPABASE_URL (https://<project>.supabase.co), SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY. --list shows the checks.')
         return 2
