@@ -31,10 +31,16 @@ function gotrue(clock) {
       codes.set(code, { challenge: q.get('code_challenge'), method: q.get('code_challenge_method'), redirect: q.get('redirect_to'), email, at: clock.now, used: false });
       return q.get('redirect_to') + (q.get('redirect_to').includes('?') ? '&' : '?') + 'code=' + code;
     },
+    /** the answer is decided when the request arrives (as a real server would); a delay only holds its delivery, so a
+        late answer is a valid one and only the page's own guard can refuse it (review S2 of #82) */
     async fetch(u, init = {}) {
+      const res = g.answer(u, init);
+      if (g.delay) await g.delay;
+      return res;
+    },
+    answer(u, init) {
       const url = new URL(u), body = init.body ? JSON.parse(init.body) : null, auth = (init.headers || {}).authorization || '';
       log.push({ path: url.pathname + url.search, body, auth, apikey: (init.headers || {}).apikey, keepalive: !!init.keepalive });
-      if (g.delay) await g.delay;
       const out = (status, j) => ({ status, json: async () => j });
       if (url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'pkce') {
         const c = codes.get(body.auth_code);
@@ -67,8 +73,8 @@ function tab(shared) {
   const store = new Map(), visits = [];
   const t = {
     clock, store, visits, outs: [],
-    location: { origin: 'https://example.github.io', pathname: '/english-trainer/teacher.html', search: '', assign(u) { visits.push(u); } },
-    history: { replaceState(_, __, u) { t.replaced = u; const x = new URL(u); t.location.search = x.search; } },
+    location: { origin: 'https://example.github.io', pathname: '/english-trainer/teacher.html', search: '', hash: '', assign(u) { visits.push(u); } },
+    history: { replaceState(_, __, u) { t.replaced = u; const x = new URL(u); t.location.search = x.search; t.location.hash = x.hash; } },
     storage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) },
     advance(ms) { clock.now += ms; for (const x of clock.timers.filter(x => x.at <= clock.now).sort((a, b) => a.at - b.at)) { clock.timers = clock.timers.filter(y => y !== x); x.f(); } },
   };
@@ -88,13 +94,15 @@ function tab(shared) {
   return t;
 }
 const tick = () => new Promise(r => setTimeout(r, 5));
+/** she keeps working for `ms`: the clock runs, with a tap every 20 minutes */
+const stay = (t, ms) => { for (let left = ms; left > 0; left -= 20 * 60000) { t.advance(Math.min(left, 20 * 60000)); t.auth.touch(); } };
 
 // ---- 1. the whole sign-in
 {
   const t = tab();
   const r = await t.signIn();
   const go = new URL(t.visits[0]), q = go.searchParams;
-  eq('sign-in goes to Supabase Auth for Google, with PKCE (S256) and this page as the only redirect', [go.origin + go.pathname, q.get('provider'), q.get('code_challenge_method'), q.get('redirect_to'), (q.get('code_challenge') || '').length], [SB + '/auth/v1/authorize', 'google', 's256', PAGE, 43]);
+  eq('sign-in goes to Supabase Auth for Google, with PKCE (S256), this page as the only redirect, and Google asks which account', [go.origin + go.pathname, q.get('provider'), q.get('code_challenge_method'), q.get('redirect_to'), (q.get('code_challenge') || '').length, q.get('prompt')], [SB + '/auth/v1/authorize', 'google', 's256', PAGE, 43, 'select_account']);
   eq('back from Google: signed in as the teacher', [r.state, r.user && r.user.email], ['in', 'teacher.one@example.org']);
   eq('the code is exchanged with the verifier, the publishable key only (no bearer)', [t.server.log[0].path, !!t.server.log[0].body.code_verifier, t.server.log[0].auth, t.server.log[0].apikey], ['/auth/v1/token?grant_type=pkce', true, '', KEY]);
   eq('the code leaves the address bar and the history at once', [t.replaced, t.location.search], [PAGE, '']);
@@ -145,11 +153,11 @@ const tick = () => new Promise(r => setTimeout(r, 5));
 {
   const t = tab();
   await t.signIn();
-  t.auth.touch(); t.clock.now += 59 * 60000; t.auth.touch();
+  stay(t, 59.5 * 60000);                                          // she keeps working: a tap every 20 minutes
   const before = t.server.log.length, a0 = [...t.server.sessions.values()][0].access_token;
   const a = await t.auth.token();
   eq('an access token about to end is refreshed (the refresh token turns over)', [/^acc-\d+$/.test(a) && a !== a0, t.server.log.length - before, t.server.log.at(-1).path], [true, 1, '/auth/v1/token?grant_type=refresh_token']);
-  t.server.refuseRefresh = true; t.clock.now += 59 * 60000; t.auth.touch();
+  t.server.refuseRefresh = true; stay(t, 59.5 * 60000);
   const b = await t.auth.token();
   eq('a session the server no longer refreshes: signed out, and the page is told why', [b, t.auth.signedIn(), t.outs], [null, false, ['expired']]);
 }
@@ -216,10 +224,13 @@ const tick = () => new Promise(r => setTimeout(r, 5));
   t.auth.left(); await t.auth.signOut('out');                    // she gave up and left while Google's answer was on its way
   t.server.delay = null; release();
   const r = await p;
-  eq('a late answer after sign-out keeps no session', [r.state, r.e, t.auth.signedIn()], ['out', 'stale', false]);
+  await tick();
+  const issued = [...t.server.sessions.values()][0];
+  eq('a late answer after sign-out keeps no session, and the session it brought is revoked at once (with keepalive)', [r.state, r.e, t.auth.signedIn(), issued.alive,
+     t.server.log.some(l => l.path === '/auth/v1/logout?scope=local' && l.auth === 'Bearer ' + issued.access_token && l.keepalive)], ['out', 'stale', false, false, true]);
   const u = tab();
   await u.signIn();
-  u.clock.now += 59 * 60000; u.auth.touch();
+  stay(u, 59.5 * 60000);
   let rel2; u.server.delay = new Promise(r => { rel2 = r; });
   const tp = u.auth.token();                                     // the refresh is on its way, slowly
   await tick();
@@ -227,6 +238,61 @@ const tick = () => new Promise(r => setTimeout(r, 5));
   await u.auth.signOut('out');                                   // she signs out meanwhile
   rel2();
   eq('a late refresh after sign-out is not kept', [await tp, u.auth.signedIn()], [null, false]);
+}
+// ---- 10b. review of #82: the guard cannot be broken, the clock decides, refreshes are shared
+{
+  // B1: on slow wifi she taps "sign in" again while the first exchange is on its way; the page then goes into the
+  // back-forward cache. The late answer must not come back to life there.
+  const inFlight = async (t, meanwhile) => {
+    await t.auth.begin();
+    t.location.search = new URL(t.server.authorize(t.visits.at(-1), 'teacher.one@example.org')).search;
+    let release; t.server.delay = new Promise(r => { release = r; });
+    const p = t.auth.finish();
+    await tick();
+    await meanwhile();
+    t.server.delay = null; release();
+    const r = await p; await tick();
+    return [r.e, t.auth.signedIn(), await t.auth.token(), [...t.server.sessions.values()][0].alive];
+  };
+  const t = tab();
+  eq('B1: a second tap on "sign in" while the exchange is on its way: the late answer is refused and its session revoked',
+     await inFlight(t, () => t.auth.begin()), ['stale', false, null, false]);
+  const t2 = tab();
+  eq('B1: leaving the page (pagehide, into the back-forward cache) while the exchange is on its way: back from the cache, nobody is signed in',
+     await inFlight(t2, async () => t2.auth.left()), ['stale', false, null, false]);
+  const u = tab();
+  await u.signIn();
+  u.auth.left(); u.auth.left();
+  eq('B1: leaving raises the guard every time, with or without a session (no early return)', [u.auth.signedIn(), u.outs], [false, ['left']]);
+  // B2: the laptop slept 45 minutes (its timer never ran); the first tap after that is the next person's
+  const v = tab();
+  await v.signIn();
+  v.clock.now += 45 * 60000;
+  v.auth.touch(); await tick();
+  eq('B2: a tap after 45 minutes asleep signs out (idle), it does not buy another 30 minutes', [v.auth.signedIn(), v.outs, v.server.log.at(-1).path], [false, ['idle'], '/auth/v1/logout?scope=local']);
+  // S1: a background refresh is not activity
+  const w = tab();
+  await w.signIn();
+  w.advance(29 * 60000); w.auth.touch(); w.advance(29 * 60000); w.auth.touch();     // her last tap: minute 58
+  w.advance(90 * 1000); await w.auth.token();                                         // minute 59.5: the screen refreshes by itself
+  w.advance(28.5 * 60000 + 1000); await tick();                                       // minute 88: 30 minutes after her last tap
+  eq('S1: a refresh in the background does not count as a tap: 30 minutes after her last one she is signed out', [w.auth.signedIn(), w.outs], [false, ['idle']]);
+  // S3: three reads at once with the token about to end share one refresh
+  const x = tab();
+  await x.signIn();
+  stay(x, 59.5 * 60000);
+  const n0 = x.server.log.length;
+  const all = await Promise.all([x.auth.token(), x.auth.token(), x.auth.token()]);
+  eq('S3: calls made together share one refresh, and every one gets the new token', [x.server.log.slice(n0).filter(l => l.path.includes('refresh_token')).length, new Set(all).size, all[0] && all[0].startsWith('acc-')], [1, 1, true]);
+  // S5: the page is also served at …/teacher (no .html), which is not on the redirect list
+  const y = tab();
+  y.location.pathname = '/english-trainer/teacher';
+  eq('S5: no sign-in starts from any address but …/teacher.html', [await y.auth.begin(), y.visits.length, y.store.size], ['path', 0, 0]);
+  // nice: a fragment is cleaned from the address, never read
+  const z = tab();
+  z.location.hash = '#access_token=planted&refresh_token=planted';
+  const f = await z.auth.finish();
+  eq('a fragment in the address (#access_token=…) is removed and never used', [f.state, z.location.hash, z.server.log.length], ['out', '', 0]);
 }
 // ---- 11. the page and the site
 {

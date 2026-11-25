@@ -68,7 +68,10 @@ def static():
             if re.search(r'<[a-z][^>]*\son[a-z]+\s*=', line):
                 bad.append(f'{os.path.relpath(f, ROOT)}:{n}')
     check('no inline event handler in the HTML the scripts write', not bad, bad[:5])
-    check('every page loads js/csplog.js right after its policy', all(re.search(r'<meta http-equiv="Content-Security-Policy" content="[^"]+">\n<script src="js/csplog.js"></script>', open(os.path.join(ROOT, p), encoding='utf-8').read()) for p in pages))
+    check('every game page loads js/csplog.js right after its policy', all(re.search(r'<meta http-equiv="Content-Security-Policy" content="[^"]+">\n<script src="js/csplog.js"></script>', open(os.path.join(ROOT, p), encoding='utf-8').read()) for p in pages if p != TEACHER))
+    th = open(os.path.join(ROOT, TEACHER), encoding='utf-8').read()
+    check("teacher.html: no referrer is the first thing in its head (before any script, link or the policy's own log), and it keeps no shared log (no js/csplog.js)",
+          re.search(r'<head>\n<meta charset="UTF-8">\n(<!--[^>]*-->\n)?<meta name="referrer" content="no-referrer">', th) is not None and 'csplog.js"' not in th.replace("js/csplog.js: its log", ""))
     # the developer tools: a policy of their own, before their one inline script, which it allows by its hash
     for t in sorted(glob.glob(os.path.join(ROOT, 'tools', '*.html'))):
         s = open(t, encoding='utf-8').read(); n = os.path.relpath(t, ROOT); m = META.findall(s)

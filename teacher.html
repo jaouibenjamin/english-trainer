@@ -2,14 +2,15 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<!-- first in the head: no request of this page (not even the next script) carries its address, which can hold ?code= -->
+<meta name="referrer" content="no-referrer">
 <!-- Content-Security-Policy of the teacher's page (tests/csp_check.py holds it to its own rules): stricter than the game's.
      Scripts and styles only from this site, no inline script or style; requests only to this site and, when config.js
      names one, the Supabase project (https://<project>.supabase.co is added to connect-src then, as on every page).
      Google needs no entry: the sign-in is a top-level navigation, not a request. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
-<script src="js/csplog.js"></script>
+<!-- no js/csplog.js: its log is the game's (wi_csp), shown on the game's settings screen; this page keeps no log -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>כניסת מורים</title>
 <link rel="stylesheet" href="css/teacher.css">
