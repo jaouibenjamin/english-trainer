@@ -26,8 +26,8 @@ export function teacherAuth(env){
  const self=()=>location.origin+location.pathname;
  const get=()=>{try{return JSON.parse(store.getItem(FLOW))}catch(e){return null}};
  const drop=()=>{try{store.removeItem(FLOW)}catch(e){}};
- async function call(path,body,token,method){
-  const r=await fetch(url+path,{method:method||'POST',headers:{apikey:key,...(body!==undefined?{'content-type':'application/json'}:{}),...(token?{authorization:'Bearer '+token}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
+ async function call(path,body,token,method,keep){
+  const r=await fetch(url+path,{method:method||'POST',keepalive:!!keep,headers:{apikey:key,...(body!==undefined?{'content-type':'application/json'}:{}),...(token?{authorization:'Bearer '+token}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
   let j=null;try{j=await r.json()}catch(e){}return{status:r.status,j}}
  function keep(j){ses={access:j.access_token,refresh:j.refresh_token,exp:now()+1000*(+j.expires_in||3600),user:{id:j.user&&j.user.id||null,email:j.user&&j.user.email||''}};touch()}
  /* activity: a tap or a key; 30 minutes without one ends the session */
@@ -38,7 +38,8 @@ export function teacherAuth(env){
  async function signOut(why){
   const s=ses;ses=null;gen++;clearTimeout(idle);idle=null;
   if(s)try{onOut(why||'out')}catch(e){}                  // the screen forgets her at once, before the server is told
-  if(s&&s.access){try{await call('/auth/v1/logout?scope=local',{},s.access)}catch(e){}}
+  // leaving the page: the revoke goes with keepalive, or the browser drops it with the page
+  if(s&&s.access){try{await call('/auth/v1/logout?scope=local',{},s.access,'POST',why==='left')}catch(e){}}
   return why||'out'}
  /* "Sign in with Google": the session of whoever was here before goes first */
  async function begin(){
