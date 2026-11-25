@@ -16,7 +16,7 @@ import {S,API,totalStars,wordsKnown,isOpen} from './state.js';
 import {ISLANDS,WORDS} from './data.js';
 import {ART} from './world_art.js';
 import {AVATARS,NAME_A,NAME_B} from './world_data.js';
-import {playAv} from './avanim.js';
+import {playAv,canMove} from './avanim.js';
 
 const KEY='wi_world';
 /* energy: what each thing learned is worth, and the level thresholds (a rule of ours, for the owner and designer to tune).
@@ -41,7 +41,8 @@ function readAll(){try{const o=JSON.parse(localStorage.getItem(KEY)||'null');ret
 function mine(id){const r=id.key&&Object.prototype.hasOwnProperty.call(readAll().p,id.key)?readAll().p[id.key]:null;const m=r&&typeof r==='object'?r:{};
  return{av:AVATARS.some(a=>a.id===m.av)?m.av:null,
   nm:Array.isArray(m.nm)&&Number.isInteger(m.nm[0])&&Number.isInteger(m.nm[1])&&NAME_A[m.nm[0]]&&NAME_B[m.nm[1]]?[m.nm[0],m.nm[1]]:null,
-  en:typeof m.en==='number'&&Number.isFinite(m.en)&&m.en>0?Math.min(EN_MAX,Math.floor(m.en)):0}}
+  en:typeof m.en==='number'&&Number.isFinite(m.en)&&m.en>0?Math.min(EN_MAX,Math.floor(m.en)):0,
+  at:Number.isInteger(m.at)&&m.at>=1&&m.at<=ISLANDS.length?m.at:0}}   // the island the character last stood on (for the hop)
 const KEY_OK=/^(local|h:[0-9a-f]{64})$/;   // the only keys a record may have; anything else is dropped on the next write
 function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=rec;localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
 
@@ -103,8 +104,45 @@ export async function decorateMap(view,go,live=()=>true){
   dock.appendChild(f)}
  /* .wdock on #stage lifts main.js's sync bar above the dock; main.js route() takes it off on the next screen */
  sec.classList.add('hasdock');document.getElementById('stage').classList.add('wdock');sec.append(note,dock);
- window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key};   // for the tests
+ const tok=token(sec,id,me,go);
+ window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,token:tok};   // for the tests
 }
+
+/* ---------- the character on the map ----------
+   The chosen character stands on the island the pupil plays now (the one marked "ממשיכים כאן"; when every island is
+   full, the last open one), as a small framed portrait in place of the crab. When that island changes, it hops once
+   from the island it stood on before, along the dotted line's direction: short, any tap ends it at once, and with
+   reduced motion or calm mode it is simply there. With no character yet, a small "?" on that island invites a choice
+   (never a block). A device that cannot keep a character shows neither. */
+const HOP_MS=700;
+function islandEl(sec,i){return sec.querySelector('.isl.i'+i)}
+function hereOf(sec){const c=sec.querySelector('.isl.cur');if(c)return c;const open=[...sec.querySelectorAll('.isl:not(.locked)')];return open[open.length-1]||null}
+const idOf=el=>+([...el.classList].find(c=>/^i\d+$/.test(c))||'i0').slice(1);
+/* the spot on an island where the token stands, in the map section's own coordinates */
+function spot(sec,isl){const s=sec.getBoundingClientRect(),p=(isl.querySelector('.pw')||isl).getBoundingClientRect();
+ return{x:p.left-s.left+p.width*.5,y:p.top-s.top+p.height*.42}}
+function token(sec,id,me,go){
+ const isl=hereOf(sec);if(!isl||!id.key)return null;
+ /* the "?" stands where the crab stood, at the island's side, so a tap on the island still opens the island */
+ const crab=isl.querySelector('.here'),cr=crab&&crab.getBoundingClientRect(),s=sec.getBoundingClientRect();
+ const to=idOf(isl),at=!me.av&&cr&&cr.width?{x:cr.left-s.left+cr.width/2,y:cr.top-s.top+cr.height/2}:spot(sec,isl);
+ let t;
+ if(me.av){t=el('span','wtok');t.setAttribute('aria-hidden','true');t.appendChild(pic(me.av,'wtok__pic'))}   // a picture only: the island under it stays the button
+ else{t=btn('wtok wtok--ask','?',()=>go('avatar'));t.setAttribute('aria-label','בוחרים דמות שתצא לדרך')}
+ t.style.left=at.x+'px';t.style.top=at.y+'px';
+ sec.classList.add('hastok');sec.appendChild(t);
+ const info={island:to,hop:null,ask:!me.av};
+ if(!me.av)return info;
+ const prev=me.at,from=prev&&prev!==to?islandEl(sec,prev):null;
+ if(prev!==to)keep(id,{...mine(id),at:to});   // remembered at once: the hop is shown once, even if it is cut short
+ if(from&&canMove()&&t.animate){
+  const a=spot(sec,from),dx=a.x-at.x,dy=a.y-at.y,lift=Math.min(60,Math.hypot(dx,dy)/3);
+  const anim=t.animate([{transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`},{transform:`translate(calc(-50% + ${dx/2}px),calc(-50% + ${dy/2-lift}px))`,offset:.5},{transform:'translate(-50%,-50%)'}],{duration:HOP_MS,easing:'ease-in-out'});
+  const skip=()=>anim.finish();document.addEventListener('pointerdown',skip,{capture:true,once:true});
+  anim.onfinish=()=>document.removeEventListener('pointerdown',skip,{capture:true});
+  info.hop={from:prev,to,anim:true};window.__hop=anim;
+ }else if(from)info.hop={from:prev,to,anim:false};
+ return info}
 
 /* ---------- the character picker: choose, then name ---------- */
 export async function picker(view,go,live=()=>true){

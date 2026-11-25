@@ -30,3 +30,8 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
   the site's data in the browser (or `localStorage.removeItem('wi_world')`) deletes them all; nothing is kept anywhere
   else.
 - **Today's focus** leaves out the bonus island (months and numbers): it is about the unit's five word lists.
+- **The character on the map:** the chosen character stands, as a small framed portrait, on the island played now (the
+  one marked "ממשיכים כאן"; when every island is full, the last one), in place of the crab. When that island changes it
+  hops once from the island it stood on before (`at` in the record): 0.7 s, any tap ends it, none with reduced motion
+  or calm mode. With no character yet, a "?" at the island's side opens the picker (never a block). A device that
+  cannot keep a character shows neither.

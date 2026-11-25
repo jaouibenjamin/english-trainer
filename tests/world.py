@@ -41,7 +41,7 @@ async def flag_off(b, w, h, errs):
     tag = f'off {w}x{h}'
     c, pg, reqs = await page(b, w, h, errs, SEED)
     await pg.goto(P.BASE + '#map'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(600)
-    check(f'[{tag}] the map has no dock', await pg.locator('.wd').count() == 0)
+    check(f'[{tag}] the map has no dock and no character on it', await pg.locator('.wd').count() == 0 and await pg.locator('.wtok').count() == 0)
     await pg.evaluate("location.hash='avatar'"); await pg.wait_for_selector('.scr.title'); await pg.wait_for_timeout(300)
     check(f'[{tag}] #avatar is an unknown address, as before: the title screen', await pg.evaluate("document.getElementById('stage').dataset.scr") == 'title' and await pg.locator('.wpick').count() == 0)
     got = [u for u, _ in reqs if any(u.endswith(f) for f in WORLD_FILES)]
@@ -76,7 +76,7 @@ async def flag_on(b, w, h, errs):
     await pg.click('.wpick__ok'); await pg.wait_for_selector('.wd__pic'); await pg.wait_for_timeout(300)
     ls = await pg.evaluate(LS)
     rec = json.loads(ls.get('wi_world', 'null') or 'null')
-    check(f'[{tag}] the choice is kept in wi_world as an id and two indexes', rec == {'v': 1, 'p': {'local': {'av': 'fox', 'nm': [1, 2], 'en': 0}}}, rec)
+    check(f'[{tag}] the choice is kept in wi_world as an id and two indexes', rec == {'v': 1, 'p': {'local': {'av': 'fox', 'nm': [1, 2], 'en': 0, 'at': 1}}}, rec)
     check(f'[{tag}] and not in the progress record', 'fox' not in ls.get('aam-unit1-v1', '') and 'Piano' not in ls.get('aam-unit1-v1', ''))
     check(f'[{tag}] the map shows the character and its name (one word per line)', 'Sweet Piano' in ' '.join((await pg.inner_text('.wd__hi')).split()))
     clip = await pg.evaluate("[...document.querySelectorAll('.wd__hi bdi')].map(e=>e.scrollWidth>e.clientWidth+1)")
@@ -241,6 +241,67 @@ async def fin_logout(b, errs):
     await c.close()
 
 
+async def map_token(b, errs):
+    """the character on the map: on the island played now, a hop once when that island changes, skippable, none with
+    reduced motion; a "?" when no character is chosen; nothing on a device that cannot keep one"""
+    two = {'g': {'st': {'1-sling': 3, '1-listen': 3, '1-read': 3, '1-bridge': 3, '2-sling': 1}}}
+    rec = lambda **k: json.dumps({'v': 1, 'p': {'local': dict({'av': 'fox', 'nm': [0, 0], 'en': 0}, **k)}})
+    WHERE = """(()=>{const t=document.querySelector('.wtok');if(!t)return null;const r=t.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+      const on=[...document.querySelectorAll('.isl')].find(i=>{const p=i.querySelector('.pw').getBoundingClientRect();return x>p.left&&x<p.right&&y>p.top&&y<p.bottom});
+      return on?+[...on.classList].find(c=>/^i\\d$/.test(c)).slice(1):0})()"""
+    for w, h in ((390, 844), (360, 740), (320, 568), (768, 1024), (1366, 768)):
+        tag = f'token {w}x{h}'
+        c, pg, reqs = await page(b, w, h, errs, two)
+        await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=1)))
+        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(900)
+        W = await pg.evaluate('window.__world.token')
+        on = await pg.evaluate(WHERE)
+        check(f'[{tag}] the character stands on the island played now (2, "ממשיכים כאן"), in place of the crab', on == 2 and W['island'] == 2 and await pg.locator('.isl.i2.cur').count() == 1 and await pg.evaluate("getComputedStyle(document.querySelector('.isl.cur .here')).display") == 'none', (on, W))
+        check(f'[{tag}] it hopped from island 1 to 2, once, and the new island is remembered', W['hop'] == {'from': 1, 'to': 2, 'anim': True} and json.loads(await pg.evaluate("localStorage.getItem('wi_world')"))['p']['local']['at'] == 2, W)
+        await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings'); await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(200)
+        check(f'[{tag}] back on the map: no second hop', (await pg.evaluate('window.__world.token'))['hop'] is None)
+        if w == 390:
+            await P.shot(pg, 'world-token-390x844')
+        await c.close()
+    # a tap ends the hop at once
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=1)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(100)
+    await pg.mouse.click(195, 160); await pg.wait_for_timeout(50)
+    check('a tap anywhere ends the hop at once', await pg.evaluate("window.__hop.playState") == 'finished')
+    await c.close()
+    # reduced motion: no hop, the character is simply there
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.emulate_media(reduced_motion='reduce')
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=1)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(200)
+    W = await pg.evaluate('window.__world.token')
+    check('reduced motion: no hop, the character is on island 2 at once', W['hop'] == {'from': 1, 'to': 2, 'anim': False} and await pg.evaluate(WHERE) == 2, W)
+    await c.close()
+    # every island full: on the last open island
+    full = {'g': {'st': {f'{i}-{t}': 3 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge'), (6, 'sling listen')) for t in ts.split()}}}
+    c, pg, reqs = await page(b, 390, 844, errs, full)
+    await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec(at=6)))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok'); await pg.wait_for_timeout(300)
+    check('every island full: the character stands on the last island', await pg.evaluate(WHERE) == 6)
+    await c.close()
+    # no character yet: a "?" on the island, which opens the picker (never a block)
+    c, pg, reqs = await page(b, 390, 844, errs, two)
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wtok--ask'); await pg.wait_for_timeout(200)
+    box = await pg.evaluate("(()=>{const r=document.querySelector('.wtok--ask').getBoundingClientRect();return [r.width,r.height]})()")
+    check('no character yet: a "?" on the island played now, 48 px, named for a screen reader', await pg.evaluate(WHERE) == 2 and box[0] >= 48 and box[1] >= 48 and await pg.get_attribute('.wtok--ask', 'aria-label'), box)
+    await pg.click('.wtok--ask'); await pg.wait_for_selector('.wpick__grid')
+    check('the "?" opens the picker', True)
+    await c.close()
+    # a device that cannot keep a character: nothing on the map
+    api = f'http://127.0.0.1:{P.API_PORT}/'
+    c, pg, reqs = await page(b, 390, 844, errs, two, api=api, user={'c': CLASS, 'n': 'נועה', 'p': '1357'})
+    await pg.add_init_script("try{Object.defineProperty(window.crypto,'subtle',{get:()=>undefined,configurable:true})}catch(e){}")
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+    check('no digest: no character and no "?" on the map', await pg.locator('.wtok').count() == 0)
+    await c.close()
+
+
 async def anim(b, errs):
     """the picker plays a character's short animation when it is tapped (js/avanim.js): the file is requested only then,
     never with reduced motion, and never without the flag"""
@@ -346,6 +407,7 @@ async def main():
             await brand(b, errs)
             await anim(b, errs)
             await fin_logout(b, errs)
+            await map_token(b, errs)
             await b.close()
     finally:
         for p in procs: p.terminate()

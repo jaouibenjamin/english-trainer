@@ -59,3 +59,9 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 /* a narrow phone: the focus button leaves room for the character's name */
 @media (max-width:379px){.map .wd__focus{max-width:40%}.map .wd__lvw{display:none}}
 .map .wd__me--off{flex:1 1 auto;display:flex;align-items:center;gap:6px;padding:2px 4px;min-width:0}
+/* the character on the map (js/avatar.js token): a framed portrait on the island played now, in place of the crab */
+.map.hastok .isl .here{display:none}
+.map .wtok{position:absolute;z-index:3;width:48px;height:48px;transform:translate(-50%,-50%);border-radius:50%;border:3px solid var(--wi-gold);background:var(--wi-navy-800);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);overflow:hidden;pointer-events:none}
+.map .wtok__pic{width:100%;height:100%;object-fit:cover;display:block}
+.map .wtok--ask{pointer-events:auto;cursor:pointer;display:grid;place-items:center;color:var(--wi-gold);font:800 24px/1 var(--wi-font-ui);border-style:dashed;padding:0}
+.map .wtok--ask:focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
