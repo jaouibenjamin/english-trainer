@@ -230,3 +230,47 @@ One 2 s animated WebP per character (`assets/al/avanim/`, 192 px, under 150 KB, 
 - Wired in `world.html`'s picker (`js/world.js`). For the live game's picker (`js/avatar.js`, behind `?ds=1`): `import {playAv} from './avanim.js'` and call `playAv(img, id)` with the character's `<img>` when it is chosen.
 - Checked by `tests/avanim.py`: every character has one, each is an animated WebP under 150 KB listed with its sha256; nothing is requested before a tap; a tap requests that one file and the portrait comes back; nothing with reduced motion or calm mode; nothing without the flag.
 
+
+## Spec: the character on the map and the island as a path (behind the flag; for the client engineer)
+
+The owner expects his character to stand on the map and walk, as in the concept frames and `world.html`. Today the real
+game shows Pitzi on the current island and the island as a list of level rows. Everything below is under `html.ds` and
+changes nothing with the flag off. No new art: the stones, the island pictures and the portraits are all in `assets/al`.
+
+**The token (0 credits).** The chosen character is a framed portrait token, not a full-body figure: `av/<id>` in a
+circle, 44 px on the map and 52 px on the island, a 3 px gold ring (`--wi-gold`), a 2 px navy outer edge and a soft drop
+shadow, with a small dark oval "shadow" on the ground under it. Without a chosen character, Pitzi (`pitzi/wave`) stands in
+its place, as today. A full-body figure per character would cost 20 images (about 10 to 25 credits) and would have to
+match the portraits; the token reads as "me" at once and stays consistent, so it is the default.
+
+**On the map.**
+- The token stands on the current island (the one with "ממשיכים כאן" / "מתחילים כאן"), at the island's lower edge,
+  beside that tag and never covering it. It is decoration: `aria-hidden`, no tap target of its own; the island stays the
+  48 px button it is today.
+- When a new island opened since the last visit (keep the last island id on the device, e.g. `wi_lastIsl`, one value),
+  the token hops once from the old island to the new one along the dotted line: an arc, 900 ms, ease-in-out, a squash on
+  landing. It plays once, only on that visit. Any tap or key skips to the end and does what the tap would have done. With
+  reduced motion or calm mode there is no hop: the token is simply on the new island.
+- Nothing else moves on the map (no idle bobbing).
+
+**The island as a path.**
+- The level rows become stones along a winding path drawn over the island's backdrop, in order, bottom to top. Use the
+  same percentage positions as `world.html` (`PATHS` in `js/world.js`); an island with more levels than positions
+  scrolls vertically, the path continuing.
+- Each stone: done = `ui/stone-done` with its stars (`ui/star`, as today); next = `ui/stone-current` with a soft gold
+  glow pulse (none with reduced motion); locked = `ui/stone-locked`, dimmed, with the lock. A dotted line joins the stones
+  (lit gold up to the next stone, dim after it).
+- Beside each stone, its label on a dark plate: the level's name and sub-line exactly as today (the teacher's words
+  unchanged, English runs LTR). Stone and label together are one button, at least 48 x 48 px; locked ones keep today's
+  explanation when tapped.
+- The token stands on the next stone. Tapping a stone: the token walks to it (a straight glide, ease-out, at most
+  500 ms, the screen never waits for it longer than 600 ms), then the level opens. A second tap during the walk is never
+  blocked: it ends the walk at once and goes. Reduced motion or calm mode: no walk, the level opens at once.
+- Sizes: 390 x 844 first, then 360 x 740 (stones 56 px, labels wrap to two lines rather than shrink below 15 px) and
+  1366 x 768 (the portrait board centred, as today). Contrast: labels 4.5:1 on their plates, stones 3:1 against the
+  backdrop.
+
+**Checks for the suite.** Flag off: the island screen and the map are byte-identical to today. Flag on: one token, on
+the current island; the hop runs once and not on the next visit; every stone is a button of 48 px or more in level
+order with today's labels; a tap opens the level within 600 ms; two quick taps open it once; reduced motion and calm
+mode: no hop, no walk, no pulse.
