@@ -196,6 +196,9 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
    <p class="err" role="alert">${esc(V.err||'')}</p>${btn('tlogin',V.busy?'רגע…':'כניסה','green',`type="button" ${V.busy?'disabled':''}`)}</form>
    <div class="guide">${spr('crab_listen','bob')}<p class="label">קוד המורה נמצא בגיליון, בלשונית ${en('config')}</p></div></section>`;return}
  const D=V.data,he=Object.fromEntries(WORDS.map(w=>[w.en,w.he]));
+ /* the class's hard words: only words of the unit (a pupil's browser could send anything), and a percentage that is a
+    number from 0 to 100 (it becomes a width in the page) */
+ const hardList=(Array.isArray(D.hard)?D.hard:[]).filter(w=>Array.isArray(w)&&typeof w[0]==='string'&&Object.prototype.hasOwnProperty.call(he,w[0])).map(w=>[w[0],Math.max(0,Math.min(100,Math.round(+w[1]||0)))]);
  /* days since the pupil last practised (null = never) */
  const idle=d=>{const p=String(d.day||'').split('-').map(Number);return p.length===3&&!p.some(isNaN)?Math.floor((Date.now()-new Date(p[0],p[1]-1,p[2]))/864e5):null};
  /* the coloured tag is kept for pupils who really need a nudge: many wrong answers, or no practice for 3 days.
@@ -214,7 +217,7 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
   return`<p class="ks km"><span><b>מבחן דמו</b> ${n===1?'ניסיון אחד':num(n)+' ניסיונות'}</span><span>אחרון ${frac(last)}</span>${n>1&&first?`<span>${n>=20?'הוותיק מ־20 האחרונים':'ראשון'} ${frac(first)}</span>`:''}</p>
    ${sc.length?`<p class="ks km sk">${sc.map(([k,p])=>`<span>${XSKILL[k].he} ${frac(p)}</span>`).join('')}</p>`:''}`};
  view.innerHTML=`<section class="scr teacher wide">${top('מסך המורה',back)}
-  <div class="panel label"><h3>המילים הקשות לכיתה</h3>${D.hard.length?`<div class="hard">${D.hard.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]]||'')}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
+  <div class="panel label"><h3>המילים הקשות לכיתה</h3>${hardList.length?`<div class="hard">${hardList.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]])}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
   ${D.kids.length?`<div class="kids">${D.kids.map(d=>{const s=tag(d),dd=String(d.day||'').split('-');
    return `<div class="kid label"><p class="kn"><b>${esc(d.n)}</b><span class="pill ${s[0]}">${s[1]}</span><button class="treset" data-a="treset" data-n="${esc(d.n)}">איפוס קוד</button></p>
     ${hasStars(d)?`<p class="kw"><span>כוכבים</span>${num(d.stars+' / '+MAX_STARS)}</p><div class="pbar"><i style="width:${Math.min(100,d.stars/MAX_STARS*100)}%"></i></div>
