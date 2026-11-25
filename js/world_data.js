@@ -4,14 +4,16 @@
    in js/avatar.js. */
 
 /* The 20 characters, in the order the picker shows them. `open` is the energy level that opens one (1 = open from the
-   start). Eight are open from the start, a fair mix: two girls, two boys, three animals and a robot. The other twelve
-   open one per level from level 2 to 13 (js/avatar.js LEVELS), the remaining kids first, the most exciting last. */
+   start). The eight human kids are always open: every child can pick a kid who looks like them from the first minute,
+   and no child's look is ever locked behind a level. The other twelve (animals, robots, the diver, the pilot) open one
+   per level from 2 to 13 (js/avatar.js LEVELS): the fox first (level 2 comes within the first session), the most
+   exciting last. */
 export const AVATARS=[
  {id:'girl-curls',he:'ילדה עם סרט צהוב',open:1},{id:'boy-cap',he:'ילד עם כובע',open:1},{id:'girl-braids',he:'ילדה עם צמות',open:1},{id:'boy-curls',he:'ילד עם מעיל צהוב',open:1},
- {id:'fox',he:'שועל',open:1},{id:'cat',he:'חתול',open:1},{id:'turtle',he:'צב ים',open:1},{id:'robot-box',he:'רובוט',open:1},
- {id:'girl-glasses',he:'ילדה עם משקפיים',open:2},{id:'boy-blond',he:'ילד עם משקפיים',open:3},{id:'girl-ponytail',he:'ילדה עם קוקו',open:4},{id:'boy-scarf',he:'ילד עם צעיף',open:5},
- {id:'owl',he:'ינשוף',open:6},{id:'parrot',he:'תוכי',open:7},{id:'penguin',he:'פינגווין',open:8},{id:'shark',he:'כריש',open:9},
- {id:'diver',he:'צוללן',open:10},{id:'octopus',he:'תמנון',open:11},{id:'robot-bell',he:'רובוט ירוק',open:12},{id:'pilot',he:'דמות עם קסדה',open:13}];
+ {id:'girl-glasses',he:'ילדה עם משקפיים',open:1},{id:'boy-blond',he:'ילד עם משקפיים',open:1},{id:'girl-ponytail',he:'ילדה עם קוקו',open:1},{id:'boy-scarf',he:'ילד עם צעיף',open:1},
+ {id:'fox',he:'שועל',open:2},{id:'cat',he:'חתול',open:3},{id:'turtle',he:'צב ים',open:4},{id:'owl',he:'ינשוף',open:5},
+ {id:'parrot',he:'תוכי',open:6},{id:'robot-box',he:'רובוט',open:7},{id:'diver',he:'צוללן',open:8},{id:'penguin',he:'פינגווין',open:9},
+ {id:'shark',he:'כריש',open:10},{id:'octopus',he:'תמנון',open:11},{id:'robot-bell',he:'רובוט ירוק',open:12},{id:'pilot',he:'דמות עם קסדה',open:13}];
 
 /* The two word lists of the name builder (no free text): a describing word and an animal, picked with arrows or the
    surprise button and stored as two indexes. None of these words is in the teacher's Unit 1 list: they are all ours,

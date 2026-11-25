@@ -18,8 +18,8 @@ import play as P
 from play import check, new_page, fails
 
 CLASS = 'EN-1234'      # the mock backend's own test class
-STARTERS = ['girl-curls', 'boy-cap', 'girl-braids', 'boy-curls', 'fox', 'cat', 'turtle', 'robot-box']
-LADDER = ['girl-glasses', 'boy-blond', 'girl-ponytail', 'boy-scarf', 'owl', 'parrot', 'penguin', 'shark', 'diver', 'octopus', 'robot-bell', 'pilot']   # levels 2 to 13
+STARTERS = ['girl-curls', 'boy-cap', 'girl-braids', 'boy-curls', 'girl-glasses', 'boy-blond', 'girl-ponytail', 'boy-scarf']   # the human kids: always open
+LADDER = ['fox', 'cat', 'turtle', 'owl', 'parrot', 'robot-box', 'diver', 'penguin', 'shark', 'octopus', 'robot-bell', 'pilot']   # levels 2 to 13
 LEVELS = [0, 40, 90, 150, 220, 300, 380, 460, 540, 620, 700, 760, 820]   # js/avatar.js
 POST = "async ([api,d])=>(await fetch(api,{method:'POST',body:JSON.stringify(d)})).json()"
 WORLD_FILES = ('js/avatar.js', 'css/avatar.css', 'js/world_data.js', 'js/world_art.js', 'js/avanim.js')
@@ -66,16 +66,16 @@ async def flag_on(b, w, h, errs):
     check(f'[{tag}] the dock is on the screen and no island lies under it', box['inside'] and box['over'] == 0, box)
     await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid')
     av = await pg.evaluate("[...document.querySelectorAll('.wpick__av')].map(b=>({id:b.dataset.id,locked:b.classList.contains('is-locked')}))")
-    check(f'[{tag}] picker: the 20 characters, 8 open at level 1 (girls, boys, animals, a robot), the other 12 locked', len(av) == 20 and [a['id'] for a in av if not a['locked']] == STARTERS and [a['id'] for a in av if a['locked']] == LADDER, av)
+    check(f'[{tag}] picker: the 20 characters, the 8 human kids open at level 1, the other 12 locked', len(av) == 20 and [a['id'] for a in av if not a['locked']] == STARTERS and [a['id'] for a in av if a['locked']] == LADDER, av)
     lab = await pg.evaluate("[...document.querySelectorAll('.wpick__av.is-locked')].map(b=>[b.querySelector('.wpick__lock').textContent,b.getAttribute('aria-disabled')])")
     check(f'[{tag}] a locked tile says at which level it opens, and is not selectable', lab == [[f'נפתח ברמה {n}', 'true'] for n in range(2, 14)], lab)
     await P.shot(pg, f'world-picker-{w}x{h}')
     await pg.click('.wpick__av[data-id=penguin]', force=True); await pg.wait_for_timeout(100)   # aria-disabled: a tap still reaches it, and it explains
     t = await pg.inner_text('.wpick__note')
-    check(f'[{tag}] a tap on a locked character says kindly how to get there, and does not choose it', 'ברמה 8' in t and 'עוד 7 רמות' in t and 'אף פעם לא מפסידים' in t and await pg.locator('.wpick__av.is-selected').count() == 0, t)
+    check(f'[{tag}] a tap on a locked character says kindly how to get there, and does not choose it', 'ברמה 9' in t and 'עוד 8 רמות' in t and 'אף פעם לא מפסידים' in t and await pg.locator('.wpick__av.is-selected').count() == 0, t)
     await pg.click('.wpick__ok', force=True); await pg.wait_for_timeout(100)      # aria-disabled: still pressable, it explains
     check(f'[{tag}] "next" without a character asks for one first', await pg.locator('.wpick__spin').count() == 0 and 'קודם בוחרים דמות' in await pg.inner_text('.wpick__why'))
-    await pg.click('.wpick__av[data-id=fox]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+    await pg.click('.wpick__av[data-id=girl-curls]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
     await pg.locator('.wpick__spin').nth(0).locator('.wpick__arrow').nth(1).click()
     await pg.locator('.wpick__spin').nth(1).locator('.wpick__arrow').nth(1).click(); await pg.locator('.wpick__spin').nth(1).locator('.wpick__arrow').nth(1).click()
     check(f'[{tag}] name: the arrows step through the two lists', (await pg.inner_text('.wpick__name')).strip() == 'Happy Tiger', await pg.inner_text('.wpick__name'))
@@ -83,8 +83,8 @@ async def flag_on(b, w, h, errs):
     await pg.click('.wpick__ok'); await pg.wait_for_selector('.wd__pic'); await pg.wait_for_timeout(300)
     ls = await pg.evaluate(LS)
     rec = json.loads(ls.get('wi_world', 'null') or 'null')
-    check(f'[{tag}] the choice is kept in wi_world as an id, two indexes and the lists\' version (and the level already announced)', rec == {'v': 1, 'p': {'local': {'av': 'fox', 'nm': [1, 2], 'nv': 2, 'en': 0, 'sl': 1}}}, rec)
-    check(f'[{tag}] and not in the progress record', 'fox' not in ls.get('aam-unit1-v1', '') and 'Tiger' not in ls.get('aam-unit1-v1', ''))
+    check(f'[{tag}] the choice is kept in wi_world as an id, two indexes and the lists\' version (and the level already announced)', rec == {'v': 1, 'p': {'local': {'av': 'girl-curls', 'nm': [1, 2], 'nv': 2, 'en': 0, 'sl': 1}}}, rec)
+    check(f'[{tag}] and not in the progress record', 'girl-curls' not in ls.get('aam-unit1-v1', '') and 'Tiger' not in ls.get('aam-unit1-v1', ''))
     check(f'[{tag}] the map shows the character and its name (one word per line)', 'Happy Tiger' in ' '.join((await pg.inner_text('.wd__hi')).split()))
     clip = await pg.evaluate("[...document.querySelectorAll('.wd__hi bdi')].map(e=>e.scrollWidth>e.clientWidth+1)")
     check(f'[{tag}] neither word of the name is cut off', clip and not any(clip), clip)
@@ -136,7 +136,7 @@ async def all_switches(b, w, h, errs):
     await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid'); await pg.wait_for_timeout(300)
     a = await pg.evaluate(AUDIT)
     check(f'[{tag}] picker: every text at least 4.5:1, every button at least 44 px', not a['bad'] and not a['small'], a)
-    await pg.click('.wpick__av[data-id=turtle]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+    await pg.click('.wpick__av[data-id=girl-braids]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
     a = await pg.evaluate(AUDIT)
     check(f'[{tag}] name step: every text at least 4.5:1, every button at least 44 px', not a['bad'] and not a['small'], a)
     await P.shot(pg, f'world-name-all-{w}x{h}')
@@ -152,18 +152,18 @@ async def class_mode(b, errs):
     await c.close()
     c, pg, reqs = await page(b, 390, 844, errs, SEED, api=api, user={'c': CLASS, 'n': 'נועה', 'p': '1357'})
     await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid')
-    await pg.click('.wpick__av[data-id=turtle]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+    await pg.click('.wpick__av[data-id=girl-braids]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
     await pg.click('.wpick__ok'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     await pg.evaluate('__game.push()'); await pg.wait_for_timeout(800)
     ls = await pg.evaluate(LS)
     rec = json.loads(ls.get('wi_world', 'null') or 'null')
     key = 'h:' + hashlib.sha256(f'wi|{CLASS}|נועה'.encode()).hexdigest()
-    check('class: the record is kept per pupil, under a SHA-256 of class and name', rec and list(rec['p']) == [key] and rec['p'][key]['av'] == 'turtle', rec)
+    check('class: the record is kept per pupil, under a SHA-256 of class and name', rec and list(rec['p']) == [key] and rec['p'][key]['av'] == 'girl-braids', rec)
     raw = ls.get('wi_world', '')
     check('class: neither the class code nor the name is in the stored record', CLASS not in raw and 'נועה' not in raw and CLASS.lower() not in raw, raw[:120])
     sent = [(u, d) for u, d in reqs if u.startswith(api)]
     check('class: the game talked to the backend (a save went out)', any('"save"' in d for _, d in sent), [d[:60] for _, d in sent])
-    bad = [d[:120] for _, d in sent if any(x in d for x in ('turtle', 'wi_world', '"av"', '"nm"', '"en"'))]
+    bad = [d[:120] for _, d in sent if any(x in d for x in ('girl-braids', 'wi_world', '"av"', '"nm"', '"en"'))]
     check('class: nothing of the character, its name or the energy reaches the backend', not bad, bad)
     await c.close()
     # the same pupil, the class code typed in lower case and the name with stray spaces: the same record
@@ -171,7 +171,7 @@ async def class_mode(b, errs):
     await pg.add_init_script("if(!sessionStorage.getItem('w2')){sessionStorage.setItem('w2','1');localStorage.setItem('wi_world',%s)}" % json.dumps(raw))
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     W = await pg.evaluate('window.__world')
-    check('class: the same pupil with the code in another case finds the same character', W['key'] == key and W['avatar'] == 'turtle', W)
+    check('class: the same pupil with the code in another case finds the same character', W['key'] == key and W['avatar'] == 'girl-braids', W)
     await c.close()
 
 
@@ -393,21 +393,21 @@ async def anim(b, errs):
             await pg.emulate_media(reduced_motion='reduce')
         await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid'); await pg.wait_for_timeout(500)
         before = [u for u, _ in reqs if '/avanim/' in u]
-        await pg.click('.wpick__av[data-id=fox]'); await pg.wait_for_timeout(600)
+        await pg.click('.wpick__av[data-id=girl-curls]'); await pg.wait_for_timeout(600)
         after = [u for u, _ in reqs if '/avanim/' in u]
         if reduce:
             check('reduced motion: tapping a character requests no animation', not before and not after, after)
         else:
             check('no animation file is requested before a tap', not before, before)
-            check('tapping a character plays its animation (one file, that character\'s)', len(after) == 1 and 'fox' in after[0], after)
+            check('tapping a character plays its animation (one file, that character\'s)', len(after) == 1 and 'girl-curls' in after[0], after)
         await c.close()
     # a missing animation file: straight back to the still portrait, never a broken picture
     c, pg, reqs = await page(b, 390, 844, [])
     await pg.route('**/assets/al/avanim/**', lambda r: r.fulfill(status=404, body=''))
     await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid')
-    await pg.click('.wpick__av[data-id=fox]'); await pg.wait_for_timeout(400)
+    await pg.click('.wpick__av[data-id=girl-curls]'); await pg.wait_for_timeout(400)
     r = await pg.evaluate("(()=>{const i=document.querySelector('.wpick__av.is-selected img');return {src:i.getAttribute('src'),ok:i.complete&&i.naturalWidth>0}})()")
-    check('a missing animation file falls back to the still portrait at once (no broken picture)', '/av/fox.' in r['src'] and r['ok'], r)
+    check('a missing animation file falls back to the still portrait at once (no broken picture)', '/av/girl-curls.' in r['src'] and r['ok'], r)
     await c.close()
     # the title screen on a short phone: the crab never sits on a subject button
     c, pg, reqs = await page(b, 320, 568, errs)

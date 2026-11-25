@@ -5,9 +5,10 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
 `css/avatar.css` are loaded only when the flag is on, and `#avatar` is an unknown address as before.
 
 - **Character:** one of the 20 in `assets/al/av` (list in `js/world_data.js`, shared with the `world.html` preview).
-  Eight are open from the start, a fair mix: two girls, two boys, three animals and a robot (girl with a yellow band,
-  boy with a cap, girl with braids, boy with a yellow coat, fox, cat, sea turtle, robot). The other twelve open one per
-  energy level, from level 2 to 13: the remaining kids first, the most exciting last (see the ladder below). A locked
+  **Rule: the eight human kids are always open.** Every child can pick a kid who looks like them from the first
+  minute; no child's look is ever locked behind a level (the owner's lead, 25.11.2026). The other twelve (animals,
+  robots, the diver, the pilot) open one per energy level, from level 2 to 13: the fox first, the most exciting last
+  (see the ladder below). A locked
   tile shows the character dimmed with "נפתח ברמה N"; it cannot be chosen, and a tap says how far it is. A character
   a pupil already chose stays theirs even if it would be locked at their level. When a level opens a character, the
   map says once "דמות חדשה נפתחה!" with its portrait and a button to the picker ("דמויות חדשות נפתחו!" when two levels
@@ -44,16 +45,16 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
 ## The ladder (energy level → character)
 | Level | Energy from | Opens |
 |---|---|---|
-| 1 | 0 | the 8 starters |
-| 2 | 40 | girl with glasses |
-| 3 | 90 | boy with glasses |
-| 4 | 150 | girl with a ponytail |
-| 5 | 220 | boy with a scarf |
-| 6 | 300 | owl |
-| 7 | 380 | parrot |
-| 8 | 460 | penguin |
-| 9 | 540 | shark |
-| 10 | 620 | diver |
+| 1 | 0 | the 8 human kids (always open) |
+| 2 | 40 | fox |
+| 3 | 90 | cat |
+| 4 | 150 | sea turtle |
+| 5 | 220 | owl |
+| 6 | 300 | parrot |
+| 7 | 380 | robot |
+| 8 | 460 | diver |
+| 9 | 540 | penguin |
+| 10 | 620 | shark |
 | 11 | 700 | octopus |
 | 12 | 760 | green robot |
 | 13 | 820 | pilot (helmet) |
