@@ -43,12 +43,7 @@ async def one(b, w, h, signed, errs):
 
 
 async def main():
-    procs = []
-    if not port_open(P.PORT):
-        procs.append(subprocess.Popen([sys.executable, '-m', 'http.server', str(P.PORT), '--bind', '127.0.0.1'], cwd=P.ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-        for _ in range(40):
-            if port_open(P.PORT): break
-            time.sleep(.1)
+    procs = P.start_servers(mock=False)      # its own servers on free ports (tests/play.py)
     errs = []
     try:
         async with async_playwright() as pw:
