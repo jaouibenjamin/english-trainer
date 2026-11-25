@@ -196,26 +196,33 @@ async def pairs(b, w, h, errs, signed=False, api=None):
     R = await pg.evaluate(PAIRS)
     check(f'[{tag}] then both turn back; nothing is found and nothing ended', not R['g']['found'] and not R['g']['open'] and not R['g']['lock'] and R['g']['misses'] == 1 and not R['ended'], R['g'])
 
+    # with the keyboard: Enter on a word and on its meaning finds the pair, and focus moves on to an open card
+    def idx(k, side): return next(x['i'] for x in cards if x['k'] == k and x['side'] == side)
+    await pg.focus(f'.prk[data-i="{idx(5, "en")}"]'); await pg.keyboard.press('Enter')
+    await pg.focus(f'.prk[data-i="{idx(5, "he")}"]'); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(120)
+    fo = await pg.evaluate("(()=>{const a=document.activeElement;return {card:a.classList.contains('prk'),disabled:!!a.disabled,found:a.classList.contains('ok')}})()")
+    check(f'[{tag}] keyboard: after a pair is found the focus moves to the next open card, not to the page', fo == {'card': True, 'disabled': False, 'found': False}, fo)
     # find every pair; the voice says each English word when its card is turned
     plays0 = await pg.evaluate("window.__plays.length")
-    for k in range(6):
+    for k in range(5):
         for side in ('en', 'he'):
             i = next(x['i'] for x in cards if x['k'] == k and x['side'] == side)
             await pg.click(f'.prk[data-i="{i}"]')
         await pg.wait_for_timeout(120)
         if k == 0:
             st = await pg.evaluate("[...document.querySelectorAll('.prk.ok')].map(b=>[b.disabled,b.querySelector('.prt').textContent])")
-            check(f'[{tag}] a word and its own meaning stay open, are marked found and cannot be turned again', len(st) == 2 and all(d and t for d, t in st), st)
+            check(f'[{tag}] a word and its own meaning stay open, are marked found and cannot be turned again', len(st) == 4 and all(d and t for d, t in st), st)   # this pair and the one found by keyboard
             await pg.evaluate("i=>{const b=document.querySelector(`.prk[data-i='${i}']`);b.click();b.dispatchEvent(new MouseEvent('click',{bubbles:true}))}", i)
             check(f'[{tag}] a tap on a found card does nothing', (await pg.evaluate(PAIRS))['g']['open'] == [])
     await pg.wait_for_selector('.tfend')
     R = await pg.evaluate(PAIRS)
     text = await pg.inner_text('.tfend')
     check(f'[{tag}] the round ends when all six pairs are found, counts the tries and lists the six pairs', R['ended'] == {'turns': 7, 'misses': 1, 'n': 6} and all(x['text'] in text for x in en_), R['ended'])
+    check(f'[{tag}] the keyboard carries on from "another round" when the round ends', await pg.evaluate("document.activeElement.matches('.tfend [data-force]')"))
     check(f'[{tag}] it shows no stars and no points', 'כוכב' not in text.replace('בלי כוכבים', '') and 'נקודות' not in text and await pg.locator('.tfend .bigstars').count() == 0)
     plays = await pg.evaluate("window.__plays.slice(%d).map(p=>p.url)" % plays0)
     spoken = [t for t in await pg.evaluate("window.__spoken") if t.strip()]
-    check(f'[{tag}] each English card turned says its word from a recording; the browser voice is never used', len(plays) >= 6 and spoken == [], (len(plays), spoken))
+    check(f'[{tag}] each English card turned says its word from a recording; the browser voice is never used', len(plays) >= 5 and spoken == [], (len(plays), spoken))   # the five pairs after the keyboard one
     off = await pg.evaluate(FITS)
     check(f'[{tag}] the end screen fits', not off, off)
     await P.shot(pg, f'extra-{tag}-end')
