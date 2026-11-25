@@ -99,3 +99,11 @@ body{background:var(--wi-navy-900);overflow-x:hidden}
  .w-screen{gap:var(--wi-s2)}
  .w-who__pic{inline-size:96px;block-size:96px}
 }
+
+/* ---- painted frames (batch h, assets/al/ui) as border-image: text stays live; the fill keeps a dark or gold middle ---- */
+.w-app .wi-card,.w-app .wi-banner{border:22px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 22px / 4px round;background:none;box-shadow:none;padding:var(--wi-s1) var(--wi-s2)}
+.w-app .wi-btn:not(.wi-btn--secondary):not(.wi-btn--quiet):not([aria-disabled=true]):not(:disabled){border:24px solid transparent;border-image:url(../assets/al/ui/button.hf_20261125_075122_cc6e3e5f-f91a-4a1a-84fa-df545ab8aa3f.webp) 46 60 fill / 24px 30px stretch;background:none;box-shadow:none;padding:0 var(--wi-s1);color:var(--wi-navy-900)}
+.w-app .wi-btn:not(.wi-btn--secondary):not(.wi-btn--quiet):active{filter:brightness(.92)}
+.w-app .w-hud .wi-chip:not(.wi-chip--btn){border:18px solid transparent;border-image:url(../assets/al/ui/pill.hf_20261125_075119_050c516b-9715-499a-b981-3306dd6a4694.webp) 46 60 fill / 18px 24px stretch;background:none;padding:0 4px}
+/* the map sea with its quiet details (whale, lantern boats, lighthouse, jellyfish) */
+.w-map{background-image:url(../assets/al/bg/sea-details.hf_20261125_075052_17486f52-96ee-4372-9033-9dd45cfa5736.webp)!important}
