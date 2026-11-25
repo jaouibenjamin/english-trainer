@@ -53,7 +53,8 @@ export async function start(host,cfg,api){
   window.__lv.ended={first:g.first,n:g.n,missed:[...g.missed]}}
  const onClick=e=>{const t=e.target.closest('[data-t]');if(t){if(t.dataset.t==='say'){SND.tap();return speak()}return answer(t.dataset.t==='yes')}
   if(e.target.closest('[data-a=tfnext]')){SND.tap();if(alive&&g.queue.length)show()}};
- const onKey=e=>{if(!alive||e.altKey||e.ctrlKey||e.metaKey||e.target.closest('input,textarea'))return;   // Alt+Left is the browser's "back"if(g.lock){if((e.key==='Enter'||e.key===' ')&&area.querySelector('[data-a=tfnext]')){e.preventDefault();SND.tap();show()}return}
+ const onKey=e=>{if(!alive||e.altKey||e.ctrlKey||e.metaKey||e.target.closest('input,textarea'))return;   // Alt+Left is the browser's "back"
+  if(g.lock){if((e.key==='Enter'||e.key===' ')&&area.querySelector('[data-a=tfnext]')){e.preventDefault();SND.tap();show()}return}
   if(e.key==='ArrowRight'){e.preventDefault();answer(true)}else if(e.key==='ArrowLeft'){e.preventDefault();answer(false)}};
  /* swipe: the card follows the finger; let go far enough to a side and that is the answer */
  const onDown=e=>{const k=e.target.closest('#tfk');if(!k||g.lock||e.target.closest('.tfs'))return;drag={k,x:e.clientX,dx:0,id:e.pointerId};try{k.setPointerCapture(e.pointerId)}catch(_){}};
