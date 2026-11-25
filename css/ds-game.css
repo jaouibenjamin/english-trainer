@@ -374,3 +374,4 @@ html.ds .mlv .pfoot .pc{background:var(--wi-gold);color:var(--wi-navy-900)}
 html.ds .mlv .pfoot .okq{color:var(--wi-good)}
 html.ds .mlv .pplus{color:var(--wi-text);-webkit-text-stroke:4px var(--wi-scrim);paint-order:stroke fill}
 html.ds .mmap .mtitle{top:calc(80px + var(--st))}
+html.ds .mlv .aslot{min-width:var(--wi-tap);height:var(--wi-tap)}
