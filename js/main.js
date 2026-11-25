@@ -95,7 +95,8 @@ function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=worldPr();
 /* do the islands fit at all (even at the smallest size) with this much kept free at the bottom? On a very short phone
    (320x568) the all-played banner and the dock together leave too little: then the banner is left out */
 function worldFits(iw0,H,mt,finH){const iw=worldIw(iw0,H,mt,finH);return iw*worldPr()+WORLD_TAG<=worldRoom(iw,H,mt,finH)}
-function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
+let AV=null;   // js/avatar.js once loaded (flag on only)
+function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{AV=m;if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
 
 /* ---------- island ---------- */
 function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');const next=[BG(i.bg),BG('listen'),BG('read'),BG('bridge')];if(!dsOn())preload(next);
@@ -106,11 +107,15 @@ function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('pa
   ${extraRow(i)}<div class="lvlist">${i.levels.map(([t],k)=>{const L=LEVEL_INFO[t],s=starsOf(i.id,t);
    return `<button class="lvrow p${k%4}" data-a="nav" data-to="play/${i.id}/${t}"><span class="lic">${spr(L.icon)}</span><span class="lt"><b>${L.name}</b>${stars(s)}<small>${L.sub}</small></span></button>`}).join('')}</div>
   <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus&&!got?'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`;worldIsland(i,next)}
-/* with the design flag, the island's levels become a path of stones (js/avatar.js islandPath): the list waits, hidden,
-   only while that loads, and comes back if it cannot; the levels' backgrounds are fetched ahead only after that. Without
-   the flag this does nothing (island() fetches them ahead at once, as before) */
-function worldIsland(i,next){if(!dsOn())return;const list=view.querySelector('.scr.island .lvlist');if(!list)return;list.style.visibility='hidden';const my=navId;
- import('./avatar.js').then(m=>my===navId&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{}).then(()=>{if(list.isConnected)list.style.visibility='';preload(next)})}   // the levels' backgrounds, after the path: not before the screen's own art
+/* with the design flag, the island's levels become a path of stones (js/avatar.js islandPath) when its pictures are
+   ready; until then, or if they are not, today's list stays as it is. The levels' backgrounds are fetched ahead only
+   once that has settled, so they never come before the screen's own art. Without the flag this does nothing (island()
+   fetches them ahead at once, as before) */
+function worldIsland(i,next){if(!dsOn())return;const list=view.querySelector('.scr.island .lvlist');if(!list)return;const my=navId;   // the list stays shown until the path is ready to take its place
+ /* when the path's pictures are already in, the path is about to replace the list: hold the list back a moment so it
+    does not flash first, at most 300 ms (if the path is not drawn by then, the list shows) */
+ if(AV&&AV.pathReady()){list.style.visibility='hidden';setTimeout(()=>{if(list.isConnected)list.style.visibility=''},300)}
+ import('./avatar.js').then(m=>(AV=m,my===navId)&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{}).then(()=>preload(next))}
 
 /* ---------- play + result ---------- */
 async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type);if(!lv||!isOpen(i))return go('map');
