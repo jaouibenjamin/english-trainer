@@ -578,7 +578,7 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    Sheet-era code then opens a session **without** a new code or pictures, under our lockout, so the copy has
    something to write with. A shadow session can only receive copies (`save_progress`, `record_events`): recovery,
    pictures, one-time codes and registration are refused while the setting is on, and nothing it writes is shown to
-   a pupil. These rules live in the functions and the database, and are tested there (`tests/functions.py`).
+   a pupil: such a session reads nothing back, not its own rows, the board, its total or the stored blob. These rules live in the functions and the database, and are tested there (`tests/functions.py`).
    Turning the setting off replaces every pupil's `auth_user_id`, which ends every shadow session at once; after it a
    Sheet-era code opens nothing but the one upgrade step (new code and pictures, 4.2). A nightly, idempotent re-sync
    (`tools/migrate_sheet.py`) repairs anything a device missed: the Sheet's blob replaces the copy. What shadow

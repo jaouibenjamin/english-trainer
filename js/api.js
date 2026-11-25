@@ -1,0 +1,130 @@
+/* The class backend, behind one call: api(action, data), the same calls the game has always made
+   (register, login, save, board, teacher, reset) with the same answers.
+
+   Which backend is chosen by window.BACKEND in config.js. With no such key (today) the mode is 'sheet' and this file
+   does exactly what js/state.js did before it existed: one POST to the Google Sheet web app.
+     window.BACKEND = {mode:'dual', url:'https://<project>.supabase.co', key:'<the public key>'}
+   'dual' (Phase 2 of docs/PLAN.md): the Sheet is asked first and its answer is the answer; afterwards, and only when
+   the Sheet said ok, the same progress is copied to Supabase in the background. A failure there is never shown to
+   the pupil, never slows the game, and is written to a small log on the device (shadowLog()).
+   'supabase': the new backend alone. Not complete: it needs the sign-in screens with the secret pictures.
+   A mode that is not spelled exactly, or has no https project address and key, falls back to 'sheet'. */
+const W=typeof window!=='undefined'?window:globalThis;
+const SHEET=(W.API_URL||'').trim();
+const B=W.BACKEND&&typeof W.BACKEND==='object'?W.BACKEND:{};
+const URL_OK=typeof B.url==='string'&&/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(B.url)&&typeof B.key==='string'&&B.key.length>20;
+export const MODE=(B.mode==='dual'||B.mode==='supabase')&&URL_OK?B.mode:'sheet';
+
+/* exactly what js/state.js did: a failed request (no connection) throws; an answer that is not JSON (an Apps Script
+   error page) gives {ok:false,e:'server'} */
+async function sheet(a,d){const r=await fetch(SHEET,{method:'POST',body:JSON.stringify({a,...d}),keepalive:a==='save'});try{return await r.json()}catch(e){return{ok:false,e:'server'}}}
+
+export async function api(a,d){
+ if(MODE==='sheet')return sheet(a,d);
+ if(MODE==='dual'){const r=await sheet(a,d);try{shadow(a,d,r)}catch(e){}return r}
+ return supa(a,d)}
+
+/* ---------- small storage helpers: everything Supabase-side lives under its own keys, never in the game's record ---------- */
+const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log'};
+const get=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
+const set=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+/* what happened on the shadow side: time, a short kind, numbers. Never a name, a code or a token. */
+function note(k,v){const l=get(K.log)||[];l.push({t:Date.now(),k,...(v||{})});set(K.log,l.slice(-80))}
+export const shadowLog=()=>get(K.log)||[];
+const uuid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
+
+/* ---------- Supabase over plain fetch: no library to vendor ---------- */
+const TIMEOUT=8000;
+async function call(path,body,token){
+ const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),TIMEOUT);
+ try{const r=await fetch(B.url+path,{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json',apikey:B.key,authorization:'Bearer '+(token||B.key)},body:JSON.stringify(body)});
+  let j=null;try{j=await r.json()}catch(e){}return{status:r.status,j}}
+ finally{clearTimeout(t)}}
+const fn=(name,body)=>call('/functions/v1/'+name,body);
+/* the session: access token (an hour), refresh token, the device token the server handed out. The 4-digit code is never here. */
+async function token(){
+ const s=get(K.ses);if(!s||!s.refresh_token)return null;
+ if(s.access_token&&s.expires_at&&s.expires_at*1000-Date.now()>60000)return s.access_token;
+ let r;try{r=await call('/auth/v1/token?grant_type=refresh_token',{refresh_token:s.refresh_token})}catch(e){return s.access_token||null}   // offline: keep what we have
+ if(r.status===200&&r.j&&r.j.access_token){set(K.ses,{...s,access_token:r.j.access_token,refresh_token:r.j.refresh_token,expires_at:r.j.expires_at||Math.floor(Date.now()/1000)+(r.j.expires_in||3600)});return r.j.access_token}
+ if(r.status>=400&&r.status<500){set(K.ses,{device_token:s.device_token});return null}   // the session was ended on the server: sign in again; local progress is untouched
+ return s.access_token||null}
+async function rpc(name,args){const t=await token();if(!t)return{status:401,j:null};return call('/rest/v1/rpc/'+name,args,t)}
+function keep(j){const old=get(K.ses)||{};const s=j.session||{};
+ set(K.ses,{access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at||Math.floor(Date.now()/1000)+(s.expires_in||3600),device_token:j.device_token||old.device_token,at:j.updated_at||null})}
+async function signIn(d,extra){const dev=(get(K.ses)||{}).device_token;
+ const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{}),...(extra||{})});
+ if(r.j&&r.j.ok)keep(r.j);return r.j||{ok:false,e:'net'}}
+export function signOut(){const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null);set(K.base,null);set(K.pend,null)}   // this device only
+
+/* ---------- typed events out of two saves ----------
+   The game still saves one record (pack() in js/state.js). Until every game reports its events itself, the adapter
+   reads them off the difference between the last record the server took and this one. What it can see:
+   word answers (st: [tries, wrong]), a level's stars going up (g.st, m.st), a text read perfectly (read + k.reads),
+   a finished mock exam (x.tries). What it cannot see is listed in docs/BACKEND.md section 8 (the gap per source). */
+const num=x=>+x||0,obj=x=>x&&typeof x==='object'&&!Array.isArray(x)?x:{};
+export function events(prev,next){
+ const ev=[],p=obj(prev),n=obj(next),now=Date.now();
+ const ps=obj(p.st),ns=obj(n.st);
+ for(const w in ns){const a=Array.isArray(ns[w])?ns[w]:[],b=Array.isArray(ps[w])?ps[w]:[];
+  const tries=Math.min(50,Math.max(0,num(a[0])-num(b[0]))),wrong=Math.min(tries,Math.max(0,num(a[1])-num(b[1])));
+  for(let i=0;i<tries;i++)ev.push({type:'answer',game:'en',item:w,correct:true,first_try:i>=wrong,t:now})}
+ for(const[g,key]of[['en','g'],['math','m']]){const a=obj(obj(n[key]).st),b=obj(obj(p[key]).st);
+  for(const l in a){const s=Math.min(3,Math.floor(num(a[l])));if(s>Math.floor(num(b[l])))ev.push({type:'level',game:g,level:l,stars:s})}}
+ if(num(obj(n.k).reads)>num(obj(p.k).reads)){const a=obj(n.read),b=obj(p.read);for(const id in a)if(num(a[id])>num(b[id]))ev.push({type:'read',text:id})}
+ const seen=new Set((Array.isArray(obj(p.x).tries)?p.x.tries:[]).map(t=>t&&t.at));
+ for(const t of Array.isArray(obj(n.x).tries)?n.x.tries:[])if(t&&!seen.has(t.at)&&Array.isArray(t.total))ev.push({type:'exam',paper:'mock',right:Math.max(0,Math.floor(num(t.total[0])))});
+ return ev.slice(0,200)}
+
+/* ---------- writing a save to Supabase (shared by 'dual' and 'supabase') ----------
+   Order matters for "never counted twice": the batch gets its id and is stored on the device BEFORE it is sent; if the
+   answer is lost, the same batch with the same id goes again and the server ignores the repeat. */
+async function writeSave(s,overwrite){
+ let pend=get(K.pend);
+ if(!pend){const base=get(K.base),ev=base?events(base,s):[];   // the first save on a device has nothing to compare with: it sets the base
+  pend={id:uuid(),ev,next:s};set(K.pend,pend)}
+ const ses=get(K.ses)||{};
+ let r=await rpc('save_progress',{p_state:s,p_base:ses.at||null});
+ if(r.status===200&&r.j&&r.j.conflict){
+  if(!overwrite)return{ok:false,conflict:true,state:r.j.state,at:r.j.updated_at};
+  set(K.ses,{...ses,at:r.j.updated_at});r=await rpc('save_progress',{p_state:s,p_base:r.j.updated_at})}   // shadow: the Sheet is the truth
+ if(r.status!==200||!r.j||!r.j.ok)return{ok:false,status:r.status};
+ set(K.ses,{...(get(K.ses)||{}),at:r.j.updated_at});
+ let points=null;
+ if(pend.ev.length){const e=await rpc('record_events',{p_batch:pend.id,p_events:pend.ev});
+  if(e.status!==200||!e.j||!e.j.ok)return{ok:false,status:e.status,saved:true};
+  points=e.j.points;if(e.j.flagged)note('flagged',{n:e.j.flagged})}
+ set(K.base,pend.next);set(K.pend,null);
+ return{ok:true,points,events:pend.ev.length}}
+
+/* ---------- 'dual': the shadow copy. Runs after the Sheet answered; nothing here can reach the pupil. ---------- */
+let busy=false,lastTry=0;
+function shadow(a,d,r){
+ if(!r||!r.ok)return;                                   // the Sheet refused: nothing to copy
+ if(a!=='login'&&a!=='register'&&a!=='save')return;     // the board, the teacher screen and reset stay on the Sheet
+ if(busy)return;busy=true;
+ (async()=>{try{
+  if(a!=='save'||!(await token())){
+   if(a==='save'&&Date.now()-lastTry<600000)return;     // no session and a recent refusal: do not hammer the sign-in
+   lastTry=Date.now();const j=await signIn(d);note('signin',{e:j.ok?'ok':String(j.e||'net').slice(0,12)});if(!j.ok)return}
+  if(a==='save'){const w=await writeSave(d.s,true);
+   note('save',{ok:w.ok?1:0,st:w.status||0,ev:w.events||0,sheet:num(d.s&&d.s.pts),server:w.points});}
+ }catch(e){note('error',{e:String(e&&e.name||'x').slice(0,20)})}finally{busy=false}})()}
+
+/* ---------- 'supabase': the new backend alone ----------
+   NOT COMPLETE. It needs screens the game does not have yet (two secret pictures at registration, at the first
+   sign-in of a pupil who came from the Sheet, and in "I forgot my code"), a teacher signed in with Google, and
+   js/state.js no longer keeping the code (cred()). It is here so those can be built against real calls. */
+async function supa(a,d){
+ try{
+  if(a==='login'){const j=await signIn(d,d.np?{new_code:d.np,pictures:d.pics}:null);return j.ok?{ok:true,s:j.s||{}}:{ok:false,e:j.e||'net',wait:j.wait}}
+  if(a==='register'){const r=await fn('pupil-register',{class_code:d.c,name:d.n,code:d.p,pictures:d.pics});if(r.j&&r.j.ok){keep(r.j);return{ok:true,s:{}}}return{ok:false,e:(r.j&&r.j.e)||'net'}}
+  if(a==='save'){if(!(await token()))return{ok:false,e:'pin'};   // no session: the game asks to sign in again and keeps the progress
+   const w=await writeSave(d.s,false);if(w.ok)return{ok:true};
+   if(w.conflict){set(K.ses,{...(get(K.ses)||{}),at:w.at});return{ok:false,e:'stale',s:w.state}}   // another device saved first: join and save again
+   return{ok:false,e:w.status===401?'pin':'net'}}
+  if(a==='board'){const t=await token();if(!t)return{ok:false,e:'pin'};
+   const r=await fetch(B.url+'/rest/v1/class_board?select=display_name,points,words,streak&order=points.desc',{headers:{apikey:B.key,authorization:'Bearer '+t}});
+   if(!r.ok)return{ok:false,e:'net'};return{ok:true,rows:(await r.json()).map(x=>({n:String(x.display_name),pts:num(x.points),words:num(x.words),streak:num(x.streak)}))}}
+  return{ok:false,e:'teacher'}                           // teacher and reset: after Google sign-in exists
+ }catch(e){return{ok:false,e:'net'}}}
