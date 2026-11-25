@@ -12,6 +12,7 @@ import * as M from './math.js';
 import * as X from './mock.js';
 import {XSKILL,XORDER} from './xdata.js';
 import {cardOn,initCard,cardScreen,cardSave,cardShare} from './card.js';
+import {extraGame,extraOn,initExtra,extraRow,partsOf} from './extra.js';
 
 const LEVELS={sling,listen,read,bridge};
 const BGFIT={sling:'bottom',listen:'bottom',read:'bottom',bridge:'bridge'};
@@ -71,10 +72,10 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
 /* ---------- island ---------- */
 function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');preload([BG(i.bg),BG('listen'),BG('read'),BG('bridge')]);
  const got=islandStars(i);
- view.innerHTML=`<section class="scr island">${top(esc(i.he))}
+ view.innerHTML=`<section class="scr island${extraOn()?' hasx':''}">${top(esc(i.he))}
   <p class="isub">${i.bonus?'אי בונוס: חודשים ומספרים, שני שלבים':`מילים מתוך: ${en(i.en)}`}</p>
   <div class="ihero">${spr('isl_'+i.id,'pic')}<p class="chips"><span class="chip">${star()}${num(got+' / '+i.levels.length*3)}</span>${SET.sheet===true?`<a class="chip wsl" href="worksheet.html?i=${i.id}">דף עבודה להדפסה</a>`:''}</p></div>
-  <div class="lvlist">${i.levels.map(([t],k)=>{const L=LEVEL_INFO[t],s=starsOf(i.id,t);
+  ${extraRow(i)}<div class="lvlist">${i.levels.map(([t],k)=>{const L=LEVEL_INFO[t],s=starsOf(i.id,t);
    return `<button class="lvrow p${k%4}" data-a="nav" data-to="play/${i.id}/${t}"><span class="lic">${spr(L.icon)}</span><span class="lt"><b>${L.name}</b>${stars(s)}<small>${L.sub}</small></span></button>`}).join('')}</div>
   <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus&&!got?'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`}
 
@@ -278,10 +279,14 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
  switch(V.name){case'map':map();break;case'island':island(a);break;case'play':play(a,b);break;case'collection':collection();break;case'settings':settings();break;
   case'math':M.map();break;case'misland':M.island(a,go);break;case'mplay':{const my=navId;loader();M.play(a,b,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
   case'mock':X.hub();break;case'mockrun':{const my=navId;X.run({go,live:()=>my===navId,setLevel:l=>{level=l}});break}case'mockprac':{const my=navId;X.prac(a,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
-  case'help':help();break;case'card':if(!cardOn())return go('settings');setBg('paper','center');cardScreen(top);break;case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
+  case'help':help();break;case'card':if(!cardOn())return go('settings');setBg('paper','center');cardScreen(top);break;
+  /* extra practice games (js/extra.js): only on a device that was given the switch, only for an open island */
+  case'extra':{const i=isl(a),G=extraGame(b);if(!extraOn()||!i||!isOpen(i)||!G)return go('map');const my=navId;setBg('paper','center');loader();
+   G.load().then(m=>my===navId?m.start(view,{island:i,parts:partsOf(i)},{}):null).then(l=>{if(!l)return;if(my!==navId)l.destroy();else level=l}).catch(()=>{if(my===navId)go('island/'+i.id)});break}case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
 initCard();   // the progress card (js/card.js) is behind a switch a device gets with ?card=1
 initHelp();   // word help and the slowly button: only on a device that was given them (?help=1), see js/help.js
 try{const v=new URLSearchParams(location.search).get('tmock');if(v==='1'||v==='0'){SET.tmock=v==='1';saveSet()}}catch(e){}
+initExtra();   // extra practice games are behind a switch a device gets with ?games=1
 addEventListener('hashchange',route);
 /* a pupil who also plays on another device: bring that progress in when the game opens or comes back to the front.
    Only the calm screens are drawn again; a level in play just keeps the better record underneath. */
