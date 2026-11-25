@@ -92,8 +92,8 @@ Mission names and "5 words" are placeholders. Plural address is used so it works
 Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"` and loading `css/ds.css`. Teacher turns the class on later by config. Ship one screen at a time, test with `tests/*.py` in both modes.
 1. **Title / login** (low risk, first impression, no learning state). Needs the character picker. *Built behind the flag: see "Rollout step 1" below.*
 2. **Island map** (world map + island path, with energy and today's focus). The new structure; needs the engineer for energy rules and the weak-item recommender. *First the skin: the existing English map and level list behind the flag, see "Rollout step 2" below.*
-3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered.
-4. **Fraction Bay** (math). Same shell; island of the world map.
+3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered. *Built behind the flag: see "Rollout step 3" below.*
+4. **Fraction Bay** (math). Same shell; island of the world map. *Built behind the flag: see "Rollout step 4" below.*
 5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep.
 6. **Beach Run HUD**. Chips and bar over the WebGL canvas; check phone performance (no blur).
 7. **Teacher screen**. Dark or paper; it is data-heavy. Last, lowest kid impact.
@@ -177,6 +177,29 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=map|island]`. No 
 - The map sea now carries quiet details near the edges (whale, two lantern boats, lighthouse, jellyfish); the old boat and whale sprites are hidden. The route is round aqua dots, drawn as a stroke, no blur.
 - Painted frames as `border-image` (9-slice), text stays live on top: panel (login card, settings panels, the all-played banner; in `world.html` the cards and the focus banner), gold button (the login button; the primary buttons of `world.html`), HUD pill (the star count, the island chip; the HUD chips of `world.html`). Disabled and secondary buttons keep their flat look, so "not yet" still reads differently.
 
+## Rollout step 3: the English level screens and the result card, behind the same flag
+Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=play|result]`. No script, markup, route, saving or request changes. Default off.
+- The painted scenes stay (the slingshot, the beach and the bridge cliffs are part of each picture, and the levels place things on them) under a night tint: a blue layer in multiply over the picture, no blur.
+- The game pieces (balloons, bubbles, the story scroll, bottle notes, planks) keep their painted backing and dark ink, so the answers keep their contrast.
+- HUD: glass buttons with name plates, the level's stars in a gold-edged chip with the new star, progress dots navy (to do), aqua (done) and gold (now).
+- The hanging wooden sign is the painted panel frame with white text, in the same box, so every level places things exactly as before.
+- Tips, rules and feedback lines are dark plates; right is green, a slip coral, the gap on the bridge gold. The score caption over the balloons has a dark keyline.
+- Buttons: the main one gold, the others navy with an aqua edge (the "listen again" button too).
+- Result card: the painted panel, the heading on a gold-edged plate, the new star and the new Pitzi (star, happy, wave), review words on gold with dark text. The result card is shared with Fraction Bay.
+- Checked: flag on, `tests/play.py --quick` 170 pass with every level played to its result; screenshots of every state (aim, miss, wrong bubble, star lost, hint, story, gloss, wrong bottle, bridge build, snap, to-be, every result) at 390x844 and 360x740, and the four levels at 1366x768. Flag off: `ds-game.css` is not loaded, so nothing changes.
+- Not in this step: the extra games (`?games=1`), Fraction Bay, the mock exam.
+
+### The extra games (`?games=1`) in the new look
+Under `html.ds #stage[data-scr=extra]`. The light cards (true or not, pairs, letters) are dark cards with white text; right is a green edge, wrong a coral edge, and the game's own words and marks stay, so colour is never the only sign. Face-down pairs show an aqua "?". The explain block, the pairs list and the end screen sit on dark cards; the counters and one-line notes on plates. Backdrop: the English island picture, dimmed. Checked: `tests/extra.py` 253 pass with the flag on, screenshots of card, explain, wrong, board and end for all three games at 390x844, 360x640 and 1366x768.
+
+## Rollout step 4: Fraction Bay behind the same flag
+Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=math|misland|mplay]`. No script, markup, route, saving or request changes. Default off.
+- The maths screens reuse the English classes (`.map`, `.island`, `.lv`, `.result`), so the rules of steps 2 and 3 reach them; this step adds the screen-level rules for the three maths screens and the maths pieces.
+- Bay map: the sea with details, the new island pictures (the bay uses the same six pictures as the English map, locked versions included), the bay's name on a plate under the star chip.
+- Island screen: the maths backdrop (`bg/math`), dimmed, under the level rows of step 2.
+- Levels: the same night tint and HUD as the English levels. Keypad keys navy with white digits, the check key gold; choice cards navy with a green or coral edge for right and wrong; the pizza footer notes on plates. The worksheet paper and the pizza task note stay light, like the mock exam: they are written work.
+- The level rules of step 3 are scoped to `#stage[data-scr=play|mplay]`, so the maths levels get all of them (with #44 alone they reach only the English levels). The slingshot's caption keeps its paper label with dark ink, as in step 3.
+- Checked: flag on, `tests/math.py --quick` 21 pass, screenshots of every state (map, island, pizza ask, build, cut, eat, merge, wholes, count; sling aim and miss; sheet question, form, solution; every result) at 390x844, 360x740 and 1366x768. Flag off: `ds-game.css` is not loaded.
 
 ## Rollout step 6: Beach Run HUD and menus, behind the same flag
 Files: `css/run-ds.css` (the skin), a seven-line block at the top of `js/run.js` (the same switch as `js/dsflag.js`: `?ds=1` on and remembered in `localStorage.wi_ds`, `?ds=0` off). `run.html` is unchanged, so with the flag off the page makes exactly the same requests as before and stores nothing new. Default off.
