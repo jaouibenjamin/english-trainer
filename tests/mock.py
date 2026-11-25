@@ -120,7 +120,7 @@ async def to_question(pg):
 
 XFB = """async(FMT)=>{const {POOL}=await import('./js/xdata.js');const {esc}=await import('./js/state.js');const fmt=FMT;
  const tips=[...new Set(Object.values(POOL).flatMap(o=>Object.values(o).flat()).map(e=>e.tip).filter(Boolean))];
- const fb=document.getElementById('xfb');const out={n:tips.length,items:[],broken:[],arrow:[],arrows:0,text:[]};
+ const fb=document.getElementById('xfb');const out={n:tips.length,items:[],broken:[],arrow:[],arrows:0,text:[],split:[],wide:[],has:['It\\'s my birthday! I\\'m 12 years old.','Time: 4 o\\'clock','(Maya, Israel, June)'].filter(x=>!tips.some(t=>t.includes(x)))};
  const rects=(n,i)=>{const r=document.createRange();r.setStart(n,i);r.setEnd(n,i+1);return r.getBoundingClientRect()};
  for(const [cls,html] of [['ok',t=>OKT],['sol',t=>SOLT]])
  for(const t of tips){fb.className='xfb '+cls;fb.innerHTML=html(t);const sp=fb.querySelector(':scope>span')||fb;   /* no span (the old box): measure the whole box */
@@ -128,23 +128,33 @@ XFB = """async(FMT)=>{const {POOL}=await import('./js/xdata.js');const {esc}=awa
   const kids=[...fb.childNodes].filter(n=>n.nodeType===1||n.textContent.trim()).map(n=>n.nodeName);
   if(kids.join(',')!==(cls==='ok'?'B,SPAN':'B,BDI,SPAN'))out.items.push([cls,t,kids.join(',')]);   // the answer's own word (sol) is the BDI
   if((sp===fb?[...fb.childNodes].slice(2).map(n=>n.textContent).join(''):sp.textContent)!==t)out.text.push([cls,t]);
+  /* nothing in the box is wider than the screen */
+  for(const e of [fb,...fb.querySelectorAll('*')]){const r=e.getBoundingClientRect();if(r.width&&(r.left<-0.5||r.right>innerWidth+0.5))out.wide.push([cls,t.slice(0,40),e.nodeName,Math.round(r.left),Math.round(r.right)])}
   /* no English word is broken across two lines (an apostrophe stays inside its word: "aren't") */
   const w=document.createTreeWalker(sp,NodeFilter.SHOW_TEXT);let n;const chars=[];while((n=w.nextNode()))for(let i=0;i<n.length;i++)chars.push([n,i,n.data[i]]);
   for(const m of t.matchAll(/[A-Za-z]+['\u2019][A-Za-z]+/g)){const f=chars[m.index],l=chars[m.index+m[0].length-1],bf=f[0].parentElement.closest('bdi'),bl=l[0].parentElement.closest('bdi'),a=rects(f[0],f[1]),b2=rects(l[0],l[1]);
    if(!bf||bf!==bl||Math.abs(a.top-b2.top)>4)out.broken.push([cls,m[0]])}
+  /* numbers stay inside their English run ("I'm 12 years old." in order), brackets stay outside it so the Hebrew line
+     mirrors them ("(Maya, Israel, June)"), and the reported sentences are each one run */
+  const heb=c=>/[\\u0590-\\u05FF]/.test(c);
+  chars.forEach(([nd,i,ch],k)=>{const inb=nd.parentElement.closest('bdi');
+   if(/[()]/.test(ch)&&inb)out.split.push([cls,'bracket inside',inb.textContent]);
+   if(/[0-9]/.test(ch)&&!inb){let a=k,b=k;while(a>0&&!heb(t[a-1]))a--;while(b<t.length-1&&!heb(t[b+1]))b++;if(/[A-Za-z]/.test(t.slice(a,b+1)))out.split.push([cls,'digit outside',t.slice(a,b+1)])}});
+  const runs=[...sp.querySelectorAll('bdi')].map(b=>b.textContent);
+  for(const x of ['It\\'s my birthday! I\\'m 12 years old.','Time: 4 o\\'clock','Maya, Israel, June'])if(t.includes(x)&&!runs.includes(x))out.split.push([cls,x,runs]);
   /* an arrow points at the word after it */
   for(const m of t.matchAll(/[\u2192\u2190]/g)){let j=m.index+1;while(/\\s/.test(t[j]||''))j++;if(j>=t.length)continue;const A=rects(...chars[m.index].slice(0,2)),N=rects(...chars[j].slice(0,2));
    if(Math.abs(A.top-N.top)>=4){out.arrow.push([cls,t,'wrapped away']);continue}out.arrows++;if(!(m[0]==='\u2192'?N.left>=A.right-1:N.right<=A.left+1))out.arrow.push([cls,t])}}
  fb.className='xfb';fb.innerHTML='';return out}"""
 
 
-async def explanations(b, w, h, errs):
+async def explanations(b, w, h, errs, ds=False):
     """every explanation of the question pool, drawn into the real feedback box of the mock exam (#xfb, a column) as
     the exam draws it after a right answer and after the answer is shown: one flowing text (not one line per English
     or Hebrew piece), no English word broken across lines ("aren't"), and every arrow pointing at its word"""
-    t = f'xfb{w}x{h}'
+    t = f'xfb{w}x{h}' + (' ds' if ds else '')
     c, pg = await new_page(b, w, h, errs=errs)
-    await pg.goto(P.BASE + '#mockprac/grammar'); await pg.wait_for_selector('.xrule'); await pg.click('.xrule [data-a=mocknext]')
+    await pg.goto(P.BASE + ('?ds=1' if ds else '') + '#mockprac/grammar'); await pg.wait_for_selector('.xrule'); await pg.click('.xrule [data-a=mocknext]')
     await pg.wait_for_selector('#xfb', state='attached')
     src = open(os.path.join(P.ROOT, 'js', 'mock.js'), encoding='utf-8').read()
     # the two boxes exactly as js/mock.js draws them: its fmt() and its two templates, read from the file
@@ -156,6 +166,9 @@ async def explanations(b, w, h, errs):
     check(f'[{t}] the two feedback boxes are read from js/mock.js', '${fmt(t)}' in tpl(ok_t) and '${fmt(t)}' in sol_t and '${' not in sol_t.replace('${fmt(t)}', ''), [ok_t, sol_t])
     R = await pg.evaluate(XFB.replace('const fmt=FMT', 'const fmt=' + fmt_src, 1).replace('async(FMT)=>', 'async()=>').replace('OKT', tpl(ok_t), 1).replace('SOLT', sol_t, 1))
     check(f'[{t}] every explanation ({R["n"]}) is one flowing text in the box, not one line per piece, and reads the same words', R['n'] > 50 and not R['items'] and not R['text'], (R['items'][:2], R['text'][:2]))
+    check(f'[{t}] the sentences with a number or brackets are in the pool (so the next check covers them)', not R['has'], R['has'])
+    check(f'[{t}] every English stretch is one run in its own order: numbers inside ("I\'m 12 years old."), brackets outside', not R['split'], R['split'][:3])
+    check(f'[{t}] nothing in the box is wider than the {w}px screen', not R['wide'], R['wide'][:3])
     check(f'[{t}] no English word is broken across lines (an apostrophe stays inside: "aren\'t")', not R['broken'], R['broken'][:3])
     check(f'[{t}] every arrow points at its word and never wraps away from it ({R["arrows"]} checked)', R['arrows'] > 10 and not R['arrow'], R['arrow'][:2])
     await c.close()
@@ -282,6 +295,7 @@ async def main():
                 await quit_button(b, w, h, errs, laptop=lap)
             for w, h in ((390, 844), (360, 740), (320, 640)):
                 await explanations(b, w, h, errs)
+            await explanations(b, 320, 640, errs, ds=True)   # the new look too (?ds=1)
             if not QUICK:
                 await run(b, 360, 740, errs)
                 await run(b, 1366, 640, errs, laptop=True)

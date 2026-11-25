@@ -167,8 +167,10 @@ export async function prac(k,ctx){if(!XSKILL[k])return ctx.go('mock');setBg('pap
    ${btn('nav','לעמוד מבחן הדמו','cream sm','data-to="mock"')}</div></section>`;
  confetti(undefined,undefined,40);SND.win();setTimeout(()=>say('pracDone'),700)}
 
-/* split first, then escape each piece: an apostrophe stays inside its English run ("aren't") */
-const fmt=l=>String(l).split(/([A-Za-z][A-Za-z'\u2019\u00a0 .,?!\/…()·→]*[A-Za-z.?!)])/).map((p,i)=>i%2?`<bdi dir="ltr" class="en">${esc(p)}</bdi>`:esc(p)).join('');
+/* split first, then escape each piece. An English run starts at a letter or digit and goes on until Hebrew or a bracket,
+   the same rule as mixed() in js/run.js: an apostrophe and a number stay inside ("aren't", "I'm 12 years old."), and
+   brackets stay outside, so the Hebrew line mirrors them ("(Maya, Israel, June)"). Only a run with a letter is English. */
+const fmt=l=>String(l).split(/([A-Za-z0-9](?:[^\u0590-\u05FF()]*[A-Za-z0-9.?!'\u2019\u2026])?)/).map((p,i)=>i%2&&/[A-Za-z]/.test(p)?`<bdi dir="ltr" class="en">${esc(p)}</bdi>`:esc(p)).join('');
 
 /* ---------- one question on the screen ---------- */
 const NUMW=WORDS.filter(w=>w.p===7).map(w=>w.en.toLowerCase());
