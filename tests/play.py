@@ -20,7 +20,16 @@ QUICK = '--quick' in sys.argv
 VOICE_ONLY = '--voice' in sys.argv
 LAPTOP = '--laptop' in sys.argv   # island 1 with a mouse (no touch) at two laptop window sizes
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else None
-PORT, API_PORT = 8791, 8765
+def free_port():
+    """a port nobody listens on"""
+    with socket.socket() as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
+# Every run starts its own servers on ports nobody uses and never talks to one that is already listening: a server
+# left over from another run may serve another checkout, and the suite would then test that one without saying so.
+PORT, API_PORT = free_port(), free_port()
 BASE = f'http://127.0.0.1:{PORT}/index.html'
 fails, shot_n = [], [0]
 
@@ -692,16 +701,37 @@ async def class_run(b, w, h, errs):
     await c.close(); await c2.close()
 
 
-async def main():
+def start_servers(mock=False):
+    """Start this run's own static server on this checkout (and the mock backend when asked), each on its own free
+    port. Returns the processes, for the caller to terminate. Stops the run, saying why, if a port is already taken or
+    a server does not come up: a suite must never go on against a server it did not start."""
+    want = [('the test server', PORT, [sys.executable, '-m', 'http.server', str(PORT), '--bind', '127.0.0.1'], None)]
+    if mock:
+        want.append(('the mock backend', API_PORT, ['node', MOCK], dict(os.environ, MOCK_PORT=str(API_PORT))))
     procs = []
-    if not port_open(PORT):
-        procs.append(subprocess.Popen([sys.executable, '-m', 'http.server', str(PORT), '--bind', '127.0.0.1'], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+
+    def stop(why):
+        for p in procs: p.terminate()
+        sys.exit(why)
+    for name, port, cmd, env in want:
+        if port_open(port):
+            stop(f'port {port} is already in use: {name} was not started, and the suite does not use a server it did not start')
+        try:
+            procs.append(subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        except OSError as e:
+            stop(f'{name} could not be started: {e}')
+    for (name, port, _, _), proc in zip(want, procs):
+        for _ in range(100):
+            if port_open(port) or proc.poll() is not None: break
+            time.sleep(.1)
+        if proc.poll() is not None or not port_open(port):
+            stop(f'{name} did not start on port {port}')
+    return procs
+
+
+async def main():
     have_mock = os.path.exists(MOCK)
-    if have_mock and not port_open(API_PORT):
-        procs.append(subprocess.Popen(['node', MOCK], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-    for _ in range(40):
-        if port_open(PORT) and (not have_mock or port_open(API_PORT)): break
-        time.sleep(.1)
+    procs = start_servers(mock=have_mock)
     errs = []
     voice_files()
     try:
