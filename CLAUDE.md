@@ -54,6 +54,8 @@ python3 tests/teacher_mock.py   # mock exam rows on the teacher screen (switch o
 python3 tests/storage_check.py  # the asset build scripts against a made-up storage (no network): refusals, no address in messages
 ```
 
+Every suite starts its own servers on free ports and stops if it cannot; it never uses a server that is already running (`python3 tests/ports_check.py` proves it). So two runs on one machine do not mix.
+
 Playwright with Chrome. Look at the screenshots (`--shots DIR`), don't only trust green.
 
 ## Owner
