@@ -59,7 +59,7 @@ async def local(b, w, h, errs, full):
     off = await pg.evaluate(FITS)
     check(f'[{tag}] on: the island screen fits with the extra row, nothing lies over anything', not off, off)
     bh = await pg.evaluate("Math.min(...[...document.querySelectorAll('.xtb')].map(b=>b.getBoundingClientRect().height))")
-    check(f'[{tag}] on: one button per game, each at least 44 px high', bh >= 44 and await pg.locator('.xtb').count() == 2, bh)
+    check(f'[{tag}] on: one button per game, each at least 44 px high', bh >= 44 and await pg.locator('.xtb').count() == 3, bh)
     check(f'[{tag}] on: all four levels are still there', await pg.locator('.lvrow').count() == 4)
     await P.shot(pg, f'extra-{tag}-island')
     if not full:
@@ -236,6 +236,95 @@ async def pairs(b, w, h, errs, signed=False, api=None):
     await c.close()
 
 
+LETTERS = "(()=>window.__lv&&window.__lv.kind==='scramble'?{word:window.__lv.word(),tiles:window.__lv.tiles(),g:{done:window.__lv.g.done,first:window.__lv.g.first,pos:window.__lv.g.pos,lock:window.__lv.g.lock,n:window.__lv.g.n,queue:window.__lv.g.queue.map(q=>q.w.en)},ended:window.__lv.ended||null}:null)()"
+
+
+async def letters(b, w, h, errs, signed=False, api=None):
+    """letters: the meaning is shown, the word heard, its letters mixed; a wrong letter is not placed and explained"""
+    tag = f'letters {w}x{h}' + (' class' if signed else '')
+    c, pg = await new_page(b, w, h, api=api, errs=errs)
+    posts = []
+    if signed:
+        pg.on('request', lambda r: posts.append(r.post_data or '') if r.url.startswith(api) else None)
+        await pg.goto(P.BASE); await pg.wait_for_selector('#lc')
+        await pg.evaluate("async ([api,n])=>(await fetch(api,{method:'POST',body:JSON.stringify({a:'register',c:'EN-1234',n,p:'1357'})})).json()", [api, 'עמית'])
+        await pg.evaluate(f"localStorage.setItem('{KEY}',JSON.stringify({{u:{{c:'EN-1234',n:'עמית',p:'1357'}}}}))")
+    await pg.goto(P.BASE + '?games=1#island/1'); await pg.wait_for_selector('.xtb[data-to$="/scramble"]')
+    if signed: await pg.wait_for_timeout(4500)
+    stored = await pg.evaluate("JSON.stringify(Object.entries(localStorage).sort())")
+    progress = await pg.evaluate(PROGRESS)
+    n0 = len(posts)
+    words = dict(await pg.evaluate(LIST + '(1)'))
+    await pg.click('.xtb[data-to$="/scramble"]'); await pg.wait_for_selector('.scl')
+    R = await pg.evaluate(LETTERS)
+    check(f'[{tag}] a round has six words of the teacher\'s list, single words of 3 to 9 letters', R['g']['n'] == 6 and all(x in words and x.isalpha() and 3 <= len(x) <= 9 for x in R['g']['queue']), R['g'])
+    word = R['word']
+    shown = await pg.inner_text('.sck')
+    tiles = ''.join(t['ch'] for t in R['tiles'])
+    check(f'[{tag}] the card shows the word\'s own meaning and its letters mixed, in lower case, never already in order', words[word].split(',')[0] in shown and sorted(tiles) == sorted(word.lower()) and tiles != word.lower() and word not in shown, [word, tiles])
+    off = await pg.evaluate(FITS)
+    check(f'[{tag}] the screen fits', not off, off)
+    small = await pg.evaluate("[...document.querySelectorAll('.sc button:not(.used)')].filter(e=>e.getBoundingClientRect().height<44||e.getBoundingClientRect().width<44).length")
+    check(f'[{tag}] every tile and button is at least 44 px', small == 0, small)
+    await P.shot(pg, f'extra-{tag}-card')
+
+    # a wrong letter: not placed, the tile shakes, the line says which letter it is not; two in a row light the right tile
+    want = word[0].lower()
+    wrong = [t for t in R['tiles'] if t['ch'].lower() != want]
+    await pg.click(f'.scl[data-l="{wrong[0]["i"]}"]'); await pg.wait_for_timeout(80)
+    R2 = await pg.evaluate(LETTERS); msg = await pg.inner_text('#scm')
+    check(f'[{tag}] a wrong letter is not placed and the line says the next letter is not that one', R2['g']['pos'] == 0 and wrong[0]['ch'] in msg and 'לא' in msg, msg)
+    glow0 = await pg.locator('.scl.glow').count()
+    await pg.click(f'.scl[data-l="{wrong[-1]["i"]}"]'); await pg.wait_for_timeout(80)
+    glow = await pg.evaluate("[...document.querySelectorAll('.scl.glow')].map(b=>b.textContent)")
+    check(f'[{tag}] after two wrong letters in a row the right tile glows', glow0 == 0 and len(glow) == 1 and glow[0].lower() == want, glow)
+    await P.shot(pg, f'extra-{tag}-wrong')
+    # with the keyboard: Enter on the right tile places it, and focus moves on to the next tile
+    t = await pg.evaluate("ch=>{const t=window.__lv.tiles().find(x=>!x.used&&x.ch===ch.toLowerCase());return t&&t.i}", word[0])
+    await pg.focus(f'.scl[data-l="{t}"]'); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(80)
+    fo = await pg.evaluate("(()=>{const a=document.activeElement;return {tile:a.classList.contains('scl'),disabled:!!a.disabled}})()")
+    check(f'[{tag}] keyboard: Enter on the right tile places it and the focus moves to the next tile', fo == {'tile': True, 'disabled': False} and (await pg.evaluate(LETTERS))['g']['pos'] == 1, fo)
+    color = await pg.evaluate("getComputedStyle(document.getElementById('scm')).color")
+    check(f'[{tag}] the hint line is in the calm text colour, not red', color != 'rgb(185, 80, 60)', color)
+    # build the word: by tap, and the next word by keyboard
+    for k, ch in enumerate(word[1:]):
+        t = await pg.evaluate("ch=>{const t=window.__lv.tiles().find(x=>!x.used&&x.ch.toLowerCase()===ch.toLowerCase());return t&&t.i}", ch)
+        await pg.click(f'.scl[data-l="{t}"]')
+    await pg.wait_for_timeout(100)
+    done = await pg.inner_text('.sca,.tfa')
+    check(f'[{tag}] the finished word shows with its meaning and says it will come back', word in done and words[word].split(',')[0] in done and 'תחזור' in done, done)
+    await pg.wait_for_selector('.scl'); await pg.wait_for_timeout(200)
+    R3 = await pg.evaluate(LETTERS)
+    check(f'[{tag}] the word with a wrong letter went to the end of the round; nothing ended', R3['g']['queue'][-1] == word and R3['g']['done'] == 0 and not R3['ended'], R3['g'])
+    for ch in R3['word']:
+        await pg.keyboard.press(ch)
+    await pg.wait_for_timeout(100)
+    check(f'[{tag}] the keyboard builds a word too', R3['word'] in await pg.inner_text('.tfa'))
+    # finish the round
+    for _ in range(12):
+        await pg.wait_for_timeout(1500)
+        R4 = await pg.evaluate(LETTERS)
+        if not R4 or R4['ended']: break
+        for ch in R4['word']:
+            t = await pg.evaluate("ch=>{const t=window.__lv.tiles().find(x=>!x.used&&x.ch.toLowerCase()===ch.toLowerCase());return t&&t.i}", ch)
+            await pg.click(f'.scl[data-l="{t}"]')
+    await pg.wait_for_selector('.tfend')
+    end = (await pg.evaluate(LETTERS))['ended']; text = await pg.inner_text('.tfend')
+    check(f'[{tag}] the round ends when every word was built, the word with a mistake came back once, and it is listed to go over', end['n'] == 6 and end['first'] == 5 and end['missed'] == [word] and word in text, end)
+    check(f'[{tag}] it shows no stars and no points', 'נקודות' not in text and await pg.locator('.tfend .bigstars').count() == 0)
+    spoken = [t for t in await pg.evaluate("window.__spoken") if t.strip()]
+    check(f'[{tag}] the words are spoken from recordings; the browser voice is never used', len(await pg.evaluate("window.__plays")) >= 6 and spoken == [], spoken)
+    off = await pg.evaluate(FITS)
+    check(f'[{tag}] the end screen fits', not off, off)
+    await P.shot(pg, f'extra-{tag}-end')
+    await pg.wait_for_timeout(3200)
+    check(f'[{tag}] the pupil\'s progress is exactly as before and nothing was stored on the device',
+          await pg.evaluate(PROGRESS) == progress and await pg.evaluate("JSON.stringify(Object.entries(localStorage).sort())") == stored)
+    if signed:
+        check(f'[{tag}] a whole round, with mistakes, sends nothing to the backend', len(posts) == n0, [p[:80] for p in posts[n0:]])
+    await c.close()
+
+
 async def klass(b, errs):
     tag = 'class'
     api = f'http://127.0.0.1:{P.API_PORT}/'
@@ -280,6 +369,10 @@ async def main():
             await pairs(b, 360, 640, errs)
             await pairs(b, 1366, 768, errs)
             await pairs(b, 390, 844, errs, signed=True, api=f'http://127.0.0.1:{P.API_PORT}/')
+            await letters(b, 390, 844, errs)
+            await letters(b, 360, 640, errs)
+            await letters(b, 1366, 768, errs)
+            await letters(b, 390, 844, errs, signed=True, api=f'http://127.0.0.1:{P.API_PORT}/')
             await b.close()
     finally:
         for p in procs: p.terminate()

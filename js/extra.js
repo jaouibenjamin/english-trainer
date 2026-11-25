@@ -7,7 +7,7 @@
    all that is fetched, and nothing of it is drawn. */
 import {SET,saveSet,esc} from './state.js';
 
-export const EXTRA={tf:{name:'נכון או לא?',load:()=>import('./tf.js')},pairs:{name:'זוגות',load:()=>import('./pairs.js')}};
+export const EXTRA={tf:{name:'נכון או לא?',load:()=>import('./tf.js')},pairs:{name:'זוגות',load:()=>import('./pairs.js')},scramble:{name:'אותיות',load:()=>import('./scramble.js')}};
 /* a game by its key, from the address: only EXTRA's own keys, never "constructor" or "__proto__" (hasOwnProperty.call,
    not Object.hasOwn, for older iPhones) */
 export const extraGame=k=>Object.prototype.hasOwnProperty.call(EXTRA,k)?EXTRA[k]:null;
