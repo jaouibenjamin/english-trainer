@@ -25,11 +25,19 @@ async function sheet(a,d){const r=await fetch(SHEET,{method:'POST',body:JSON.str
 
 export async function api(a,d){
  if(MODE==='sheet')return sheet(a,d);
- if(MODE==='dual'){const r=await sheet(a,d);try{shadow(a,d,r)}catch(e){}return r}
+ if(MODE==='dual'){
+  /* X1 (review of #50): the Sheet may answer late (a cold Apps Script); if the pupil logged out meanwhile (forget()
+     raises epoch at once), the answer goes to the game as always but nothing is copied: the shadow would sign the
+     pupil in again with this request's code and end the next pupil's session */
+  const e=epoch,h=a==='save'&&d&&d.c&&d.n?ownerOf(d).catch(()=>null):null;
+  const r=await sheet(a,d);
+  if(e!==epoch)return r;
+  try{if(h&&r&&r.ok)sent(await h,d.s,e);if(e===epoch)shadow(a,d,r)}catch(x){}
+  return r}
  return supa(a,d)}
 
 /* ---------- small storage helpers: everything Supabase-side lives under its own keys, never in the game's record ---------- */
-const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log',stale:'wi-sb-stale',owner:'wi-sb-owner',stop:'wi-sb-stop',netfail:'wi-sb-netfail'};
+const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log',stale:'wi-sb-stale',owner:'wi-sb-owner',stop:'wi-sb-stop',netfail:'wi-sb-netfail',sent:'wi-sb-sent'};
 const get=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
 const set=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};   // raw: only op(), keep(), signOut() and note() call it
 /* what happened on the shadow side: time, a short kind, numbers. Never a name, a code or a token. */
@@ -49,25 +57,31 @@ async function call(path,body,token,keep){
  finally{clearTimeout(t)}}
 const fn=(name,body)=>call('/functions/v1/'+name,body);   // the public key only, never a session
 
-/* ---------- the one guard (review of #41) ----------
-   The device's session is identified by two things: gen, raised in this page whenever a session is let go (another
-   pupil, logout), and sid, a random id keep() writes into the stored session (a refresh keeps it; every tab sees it,
-   since it lives in storage). An operation takes an op() when it starts, which remembers both. Every read of the token,
-   every call made with it, and every write of the session, the base, the pending batch, the stale record, the owner
-   marks and the queue goes through that op, and the op refuses (writes nothing, sends nothing, its token is null) as
-   soon as either changed: a late answer of one pupil's operation can never touch the next pupil's session or progress,
-   in this tab or another one. The only other writers are keep() (a new session, called by op.keep), signOut() (called by
-   op.end) and note(), the device log (numbers only). The await-by-await list is in the PR of gate 4. */
+/* ---------- the one guard (reviews of #41 and #50) ----------
+   Who the device belongs to is three things: gen, raised in this page whenever a session is let go (another pupil,
+   logout); sid, a random id keep() writes into the stored session (a refresh keeps it; every tab sees it); and own,
+   the owner mark (a hash of class code and name, wi-sb-owner; every tab sees it). An operation takes an op() when it
+   starts, which remembers all three; sid alone is not enough, since "no session yet" (null) is the same for every
+   pupil (X3). Every read of the token, every call made with it, and every write of the session, the base, the pending
+   batch, the stale record, the sent record, the owner marks and the queue goes through that op, which refuses (writes
+   nothing, sends nothing, its token is null) once any of the three changed. The data is bound to the pupil as well:
+   the queue holds the owner it was queued for and is handed only to an op of the same owner (X2); the sent record
+   holds its owner too. The only other writers are keep() (called by op.keep), signOut() (called by op.end) and note(),
+   the device log (numbers only). Sign-in and the copy take turns between tabs (navigator.locks, where there is one).
+   The list of every await, timer and listener and the guard of each is in the PR of gate 5. */
 const sidNow=()=>(get(K.ses)||{}).sid||null;
 let gen=0;
 function op(){
- const g=gen,sid=sidNow(),live=()=>g===gen&&sidNow()===sid;
+ const g=gen,sid=sidNow(),own=get(K.owner),live=()=>g===gen&&sidNow()===sid&&get(K.owner)===own;
  let tk=null;                                           // one token per operation, taken once
- const o={sid,live,hidden:false,
+ let budget=60000;                                      // keepalive requests of a hidden page share 64 KiB
+ const o={sid,own,live,hidden:false,
   put(k,v){if(!live())return false;set(k,v);return true},
-  queue(s,ow){if(!live())return false;queued=s;qOverwrite=ow;return true},
-  take(){if(!live())return null;const s=queued;queued=null;return s},
-  keep(j){if(!live())return false;keep(j);return true},   // a new session: the op that made it is done with the old one
+  queue(s,ow){if(!live())return false;queued={s,own};qOverwrite=ow;return true},
+  // the queued state only for an op of the pupil it was queued for; another pupil's is dropped (X2)
+  take(){if(!live())return null;const q=queued;queued=null;return q&&q.own===own?q.s:null},
+  keep(j){if(!live()){const t=j&&j.session&&j.session.access_token;if(t)call('/auth/v1/logout?scope=local',{},t).catch(()=>{});return false}   // not kept: ended on the server at once (best effort)
+   keep(j);return true},                                // a new session: the op that made it is done with the old one
   /* the access token (an hour), refreshed when it is about to end */
   async token(){
    if(!live()||!sid)return null;if(tk)return tk;
@@ -80,13 +94,14 @@ function op(){
    return tk=s.access_token||null},                      // offline: keep what we have
   /* a call with the session's token; aborted when the session changed before or while it ran */
   async call(path,body){const t=await o.token();if(!live())return{status:0,j:null,aborted:true};if(!t)return{status:401,j:null};
+   if(o.hidden&&body!==undefined){const n=JSON.stringify(body).length;if(n>budget)return{status:0,j:null};budget-=n}   // the rest goes at the next visit
    const r=await call(path,body,t,o.hidden);return live()?r:{...r,aborted:true}},
   /* let go of this op's session: revoked on the server, forgotten here. all: everything of the pupil goes (logout,
      another pupil); otherwise only the session (the same pupil signs in again). Nothing at all if the device's
      session is already another one (S2). */
   async end(all){
    const t=await o.token();                             // a fresh token: revoking with an expired one is refused (review of #39, 4)
-   if(g!==gen||(sidNow()&&sidNow()!==sid))return false;   // another session is the device's now: not this op's to end
+   if(g!==gen||(sidNow()&&sidNow()!==sid)||get(K.owner)!==own)return false;   // another session or pupil is the device's now: not this op's to end
    if(all)signOut();else{const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null)}
    if(t){try{await call('/auth/v1/logout?scope=local',{},t)}catch(e){}}   // the refresh token dies with it
    return true}};
@@ -94,15 +109,21 @@ function op(){
 /* the session: access token, refresh token, the device token the server handed out, sid. The 4-digit code is never here. */
 function keep(j){const old=get(K.ses)||{};const s=j.session||{};
  set(K.ses,{sid:uuid(),access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at||Math.floor(Date.now()/1000)+(s.expires_in||3600),device_token:j.device_token||old.device_token,at:j.updated_at||null})}
-async function signIn(o,d,extra){const dev=(get(K.ses)||{}).device_token;
+async function signIn(o,d,extra){return turn(async()=>{
+ if(!o.live())return{ok:false,e:'net'};
+ const dev=(get(K.ses)||{}).device_token;
  const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{}),...(extra||{})});
- if(r.j&&r.j.ok&&!o.keep(r.j))return{ok:false,e:'net'};   // the device was signed out meanwhile: this session is not kept
- return r.j||{ok:false,e:'net'}}
+ if(r.j&&r.j.ok&&!o.keep(r.j))return{ok:false,e:'net'}; // the device was signed out meanwhile: this session is not kept, and ended
+ return r.j||{ok:false,e:'net'}})}
+/* tabs take turns for sign-in and the copy (review of #50, X3 and S-b): the Web Locks API where the browser has it,
+   otherwise as before (the guard above still holds). Not at hide time: the page may not live to be given the lock. */
+function turn(f,now){let L=null;try{L=!now&&W.navigator&&W.navigator.locks&&typeof W.navigator.locks.request==='function'?W.navigator.locks:null}catch(e){}
+ return L?L.request('wi-sb',()=>f()):f()}
 /* everything of the pupil on this device, at once (op.end only): saves in flight stop, the next pupil starts with
    nothing of the last one (no session, base, batch, queue, wait, or waiting save with its code) */
 function signOut(){gen++;const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null);
- for(const k of[K.base,K.pend,K.stale,K.owner,K.stop,K.netfail])set(k,null);
- queued=null;waiting={};lastSent=null;holdUntil=0;lastWrite=0;clearTimeout(timer);timer=null}
+ for(const k of[K.base,K.pend,K.stale,K.owner,K.stop,K.netfail,K.sent])set(k,null);
+ queued=null;waiting={};holdUntil=0;lastWrite=0;clearTimeout(timer);timer=null}
 /* Review of #21, B1: on a shared device the session must belong to the pupil whose progress is being saved. The device
    keeps a hash of class code and name (never the name itself); when another pupil's request comes, the old session is
    revoked on the server (best effort) and forgotten here before anything is sent. */
@@ -117,8 +138,9 @@ async function sameOwner(d){if(!d||!d.c||!d.n)return true;const g=gen,h=await ow
    then the session is revoked and everything of the pupil leaves the device. relogin (the Sheet refused the pupil):
    only the session goes; the same pupil's pending progress waits for them. Another pupil who signs in meanwhile waits
    for the logout to finish (leaving), and a logout that comes late never ends their session (S2). */
-let leaving=null;
+let leaving=null,epoch=0;
 export function forget(all){if(MODE==='sheet')return;
+ epoch++;                                               // X1: a Sheet answer still on its way is not copied
  const p=(async()=>{
   const g=gen;let owner=get(K.owner);
   if(all){const w=waiting.save;waiting={};
@@ -127,7 +149,7 @@ export function forget(all){if(MODE==='sheet')return;
     if(g!==gen)return;
     if(owner===null)owner=get(K.owner);                 // the pupil's first run had not claimed the device yet
     const o=op();                                       // the pupil's session as it is now; another tab's sign-in ends it
-    if(w&&owner&&await ownerOf(w.d)===owner)o.queue(w.d.s,true);   // the save that was waiting behind it
+    if(w&&owner&&o.own===owner&&await ownerOf(w.d)===owner)o.queue(w.d.s,true);   // the save that was waiting behind it
     if(flushP)await flushP;                             // a copy in flight finishes first
     if(o.live()&&get(K.owner)===owner)await flush(true,true)})()]).catch(()=>{})}
   if(owner===null)owner=get(K.owner);
@@ -215,7 +237,8 @@ async function writeSave(o,s,overwrite){
   if(e.status!==200||!e.j||!e.j.ok)return later_?{ok:false,...later_}:{ok:false,status:e.status,saved:true};
   points=e.j.points;if(e.j.flagged)note('flagged',{n:e.j.flagged});
   if(!o.put(K.pend,{...mine(),sent:i+1}))return ABORT}
- if(!o.put(K.base,mine().next))return ABORT;o.put(K.pend,null);
+ // the base never goes down: another tab of the same pupil may have moved it further meanwhile (S-b)
+ if(!o.put(K.base,mx(mine().next,get(K.base)||{})))return ABORT;const c=get(K.pend);if(c&&c.id===pend.id)o.put(K.pend,null);
  return later_?{ok:false,...later_,points,events:pend.ev.length}:{ok:true,points,events:pend.ev.length}}
 
 /* ---------- pacing the saves (review S8) ----------
@@ -232,12 +255,12 @@ function later(){clearTimeout(timer);timer=null;if(!queued)return;
    not waited for (the save is refused again, the events still go) */
 function flush(hidden,force){
  if(!queued)return Promise.resolve(null);
- if(flushP&&flushOp.live())return Promise.resolve(null);   // one at a time; a flush of a session that is gone holds nothing back
+ if(flushP&&flushOp.live()){later();return Promise.resolve(null)}   // one at a time; a flush of a session that is gone holds nothing back
  const now=Date.now();if((!force&&now<holdUntil)||(!hidden&&now<lastWrite+SAVE_EVERY)){later();return Promise.resolve(null)}
  const o=op();if(!o.sid)return Promise.resolve(null);   // no session (yet): the state waits, nothing is sent
  const ow=qOverwrite,s=o.take();lastWrite=now;o.hidden=!!hidden;
  const p=(async()=>{
-  let w;try{w=await writeSave(o,s,ow)}catch(e){w={ok:false,status:0}}
+  let w;try{w=s==null?{ok:false,aborted:true}:await turn(()=>o.live()?writeSave(o,s,ow):ABORT,hidden)}catch(e){w={ok:false,status:0}}
   if(!o.live()||w.aborted){later();return w}            // the session changed meanwhile: nothing of this save is kept
   if(w.retry){if(!queued)o.queue(s,ow);holdUntil=Date.now()+w.retry*1000}       // told to wait: keep it and try again
   else if(w.conflict&&!ow)o.put(K.stale,{state:w.state,at:w.at});                 // 'supabase': the game joins at its next save
@@ -257,8 +280,15 @@ export async function settled(){for(let i=0;i<20&&(busy||flushP||leaving);i++){t
    school's one address and could pause sign-in for the whole class); after a network error at most every 10 minutes.
    One run at a time (busy, its promise); what comes meanwhile waits (the newest save, the newest sign-in) and runs
    after it, checked for its owner like any other. */
-let busy=null,waiting={},lastSent=null;
+let busy=null,waiting={};
 const today=()=>new Date().toISOString().slice(0,10);
+/* S-a (review of #50): what this device itself sent to the Sheet, kept on the device with its owner, so a Sheet
+   sign-in after the page was closed still knows which answers are this device's own (the ref of lift()). Written
+   when the Sheet took the save, at once, not when the shadow copy runs. */
+function sent(h,s,e){if(!h||e!==epoch||!s||typeof s!=='object')return;const o=op();if(o.own!==h)return;const c=get(K.sent);
+ o.put(K.sent,{own:h,s:core(c&&c.own===h?mx(c.s,s):s)})}
+/* only what events() and lift() read: the counters, never the rest of the record */
+const core=x=>{x=obj(x);return{st:obj(x.st),g:{st:obj(obj(x.g).st)},m:{st:obj(obj(x.m).st)},read:obj(x.read),k:{reads:num(obj(x.k).reads)},x:{tries:arr(obj(x.x).tries).map(t=>({at:t&&t.at}))}}}
 function shadow(a,d,r){
  if(!r||!r.ok)return;                                   // the Sheet refused: nothing to copy
  if(a!=='login'&&a!=='register'&&a!=='save')return;     // the board, the teacher screen and reset stay on the Sheet
@@ -270,9 +300,13 @@ async function run(a,d,r){
  if(leaving)await leaving;                              // a logout in progress finishes first (S2)
  const owner=await sameOwner(d);if(!owner)return;       // another pupil on this device: the old session is gone first
  let o=op();                                            // the session this run works in; checked after every await (B2)
- if(a==='login'&&r.s&&typeof r.s==='object'){const b=get(K.base);   // S3: the record joined from the other devices
-  if(b){const p=get(K.pend),ref=lastSent||(p?p.next:b);o.put(K.base,lift(b,r.s,ref));if(p)o.put(K.pend,{...p,next:lift(p.next,r.s,ref)});lastSent=mx(ref,r.s)}}
- if(a==='save'){lastSent=d.s;o.queue(d.s,true)}         // the newest state waits here until it may go
+ if(a==='save'&&d.s&&typeof d.s==='object'){const c=get(K.sent);o.put(K.sent,{own:owner,s:core(c&&c.own===owner?mx(c.s,d.s):d.s)})}
+ if((a==='login'||a==='register')&&r.s&&typeof r.s==='object'){const b=get(K.base);
+  if(!b)o.put(K.base,a==='register'?{}:r.s);            // the first save after a sign-in is counted from what the Sheet had (review of #50)
+  else{const p=get(K.pend),c=get(K.sent),ref=c&&c.own===owner?c.s:(p?p.next:b);   // S3: the record joined from the other devices
+   o.put(K.base,lift(b,r.s,ref));if(p)o.put(K.pend,{...p,next:lift(p.next,r.s,ref)});o.put(K.sent,{own:owner,s:core(mx(ref,r.s))})}}
+ else if(a==='register'&&!get(K.base))o.put(K.base,{});
+ if(a==='save')o.queue(d.s,true);                       // the newest state waits here until it may go
  if(!(await o.token())){
   if(!o.live())return;
   const stop=get(K.stop);if(stop&&stop.owner===owner&&stop.day===today())return;

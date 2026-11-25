@@ -611,18 +611,23 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    `supabase` mode unless `config.js` also says `unfinished: true` (S-b). On a shared device the adapter keeps only a
    hash of class code and name; a different pupil's request first revokes and forgets the previous pupil's session
    (B1), and a pupil Supabase does not know is tried once a day, not at every sign-in (S-a).
-   One guard for every late answer (reviews of #39 and #41): the device's session has an id (`sid`, random, kept by a
-   token refresh, seen by every tab) and the page a generation counter; every operation takes an `op()` when it starts,
-   and every token read, every call with a token and every write of the session, base, pending batch, stale record,
-   owner marks or queue goes through it and is refused once either changed. So a late answer of one pupil (a save, a
+   One guard for every late answer (reviews of #39, #41 and #50): the device's session has an id (`sid`, random, kept
+   by a token refresh, seen by every tab), the device an owner mark and the page a generation counter; every operation
+   takes an `op()` when it starts, and every token read, every call with a token and every write of the session, base,
+   pending batch, stale record, sent record, owner marks or queue goes through it and is refused once any of the three
+   changed. Data is bound to the pupil too: the queue and the sent record carry their owner, a Sheet answer that comes
+   after a logout is not copied, and tabs take turns for sign-in and the copy (Web Locks, where the browser has them). So a late answer of one pupil (a save, a
    token refresh, a sign-in, a logout) can never write into, send with, or end the next pupil's session, in this tab or
    another one. Logout first sends what was played since the last copy, including the copy still on its way and the
    save waiting behind it (within 8 s), then revokes the session with a fresh token and forgets everything of the
    pupil, owner marks included; another pupil who signs in meanwhile waits for it, and a logout that comes late leaves
    the new session alone. Answers that built up during a long wait go in parts of 200 under ids derived from the
    pending batch (the part size is kept with it), so none is cut and none is counted twice. One pupil with two devices:
-   a Sheet sign-in brings the record joined from both, and what it holds beyond what this device itself sent is added
-   to this device's base, so each answer is counted by the device it was played on (S3).
+   a Sheet sign-in brings the record joined from both, and what it holds beyond what this device itself sent (kept on
+   the device as soon as the Sheet took it, so a closed tab does not forget it) is added to this device's base, so each
+   answer is counted by the device it was played on (S3). The first save after a sign-in is counted from the record
+   the Sheet had at sign-in (an empty one at registration); a base never goes down, so two tabs of one pupil do not
+   count twice. At hide time the copies share the 64 KiB keepalive budget; what does not fit waits for the next visit.
 4. **The switch** (the point of no return for sign-in): new class code (8 characters) handed out; the client's config
    points at Supabase; the Sheet backend starts answering every request with an error the old client already treats
    as "sign in again", so a stale tab cannot keep writing to the Sheet. Pupils sign in once with their old code and

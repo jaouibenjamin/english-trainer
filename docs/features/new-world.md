@@ -21,6 +21,11 @@ On a device with the design flag (`?ds=1`, see `js/dsflag.js`), the English map 
 - It is not in the progress record that `pack()` / `merge()` send to the sheet, and the file makes no request.
   `tests/world.py` checks all of this, including against the mock backend in class mode, a damaged or edited record,
   and the class code typed in another case.
+- **A browser without `crypto.subtle`** (an insecure page) cannot make the key: a signed-in pupil is told in the dock
+  that this device cannot keep a character, and nothing is stored. A write keeps only well-formed keys (`local`,
+  `h:` + 64 hex) and drops any other.
+- **The map with the flag:** the islands are sized so that a picture and its label fit between two islands of one
+  column, with the dock's 76 px kept free (`worldIw` in `js/main.js`); without the flag the map is unchanged.
 - **Deleting it:** the records stay on the device after sign-out, one per pupil who chose a character there. Clearing
   the site's data in the browser (or `localStorage.removeItem('wi_world')`) deletes them all; nothing is kept anywhere
   else.
