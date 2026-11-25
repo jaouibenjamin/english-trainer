@@ -17,6 +17,8 @@
 .map .wd__focus span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .map .wd__note{position:absolute;z-index:5;inset-inline:12px;bottom:calc(76px + var(--sb,0px));margin:0;padding:var(--wi-s2) var(--wi-s3);border-radius:var(--wi-r-md);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-sm);border:1px solid var(--wi-aqua)}
 .map.hasdock .fin{bottom:calc(76px + var(--sb,0px))}
+/* the compass (a picture by the lowest island) moves up with the reserved room, so the dock never covers it */
+.map.hasdock .compass{transform:translateY(-76px)}
 .map .wd :focus-visible{outline:3px solid var(--wi-focus);outline-offset:2px}
 
 /* ---- picker: the night sea behind it, like the map ---- */

@@ -100,6 +100,40 @@ async def flag_on(b, w, h, errs):
     await c.close()
 
 
+# contrast of every visible text in the new world's parts, against the first opaque background behind it, and the size of
+# every button in them; over the whole page, not only the dock (docs/LESSONS.md 8)
+AUDIT = """(()=>{const lum=c=>{const m=c.match(/[\\d.]+/g).map(Number);const f=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4};return [.2126*f(m[0])+.7152*f(m[1])+.0722*f(m[2]),m[3]===undefined?1:m[3]]};
+ const bg=e=>{for(;e;e=e.parentElement){const c=getComputedStyle(e).backgroundColor,[l,a]=lum(c);if(a>.9)return l}return 1};
+ const bad=[],small=[];
+ for(const e of document.querySelectorAll('.wd *,.wd__note,.wpick *')){const r=e.getBoundingClientRect();if(!r.width||!r.height)continue;
+  if([...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())){const [l]=lum(getComputedStyle(e).color),b=bg(e),k=(Math.max(l,b)+.05)/(Math.min(l,b)+.05);if(k<4.5)bad.push(e.className+' '+k.toFixed(2)+' '+e.textContent.trim().slice(0,20))}
+  if(e.tagName==='BUTTON'&&(r.height<44||r.width<44))small.push(e.className+' '+Math.round(r.width)+'x'+Math.round(r.height))}
+ return {bad,small}})()"""
+
+
+async def all_switches(b, w, h, errs):
+    """the new look with every other switch on (games, help, card, sheet): the dock and the picker still read and fit"""
+    tag = f'all switches {w}x{h}'
+    c, pg, reqs = await page(b, w, h, errs, SEED)
+    await pg.goto(P.BASE + '?ds=1&games=1&help=1&card=1&sheet=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(500)
+    a = await pg.evaluate(AUDIT)
+    check(f'[{tag}] map dock: every text at least 4.5:1, every button at least 44 px', not a['bad'] and not a['small'], a)
+    box = await pg.evaluate("(()=>{const d=document.querySelector('.wd').getBoundingClientRect();const o=[...document.querySelectorAll('.isl,.subjpill,.maphead button,.fin,.compass')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.bottom>d.top+1&&r.top<d.bottom-1&&r.right>d.left&&r.left<d.right}).map(e=>e.className);return o})()")
+    check(f'[{tag}] nothing of the map lies under the dock', not box, box)
+    await pg.click('.wd__en'); await pg.wait_for_timeout(100)
+    a = await pg.evaluate(AUDIT)
+    check(f'[{tag}] the energy note reads', not a['bad'], a)
+    await P.shot(pg, f'world-map-all-{w}x{h}')
+    await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid'); await pg.wait_for_timeout(300)
+    a = await pg.evaluate(AUDIT)
+    check(f'[{tag}] picker: every text at least 4.5:1, every button at least 44 px', not a['bad'] and not a['small'], a)
+    await pg.click('.wpick__av[data-id=owl]'); await pg.click('.wpick__ok'); await pg.wait_for_selector('.wpick__spin')
+    a = await pg.evaluate(AUDIT)
+    check(f'[{tag}] name step: every text at least 4.5:1, every button at least 44 px', not a['bad'] and not a['small'], a)
+    await P.shot(pg, f'world-name-all-{w}x{h}')
+    await c.close()
+
+
 async def class_mode(b, errs):
     api = f'http://127.0.0.1:{P.API_PORT}/'
     c, pg, reqs = await page(b, 390, 844, errs, api=api)
@@ -131,6 +165,7 @@ async def main():
             for w, h in ((390, 844), (1366, 768)):
                 await flag_off(b, w, h, errs)
                 await flag_on(b, w, h, errs)
+                await all_switches(b, w, h, errs)
             await class_mode(b, errs)
             await b.close()
     finally:
