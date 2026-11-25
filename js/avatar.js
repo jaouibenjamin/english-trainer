@@ -175,11 +175,16 @@ function line(pts,here){const s=document.createElementNS(SVGNS,'svg');s.setAttri
  part(0,here,'lit');part(here,pts.length-1,'dim');return s}
 const STARS_HE=['עוד לא שיחקתם','כוכב אחד','שני כוכבים','שלושה כוכבים'];
 const WALK_MS=450;
+/* the backdrop, loaded before the path replaces the list: if it fails (or takes longer than ART_WAIT), the list stays */
+const ART_WAIT=2500;
+function loaded(src){return new Promise(r=>{const im=new Image(),t=setTimeout(()=>r(false),ART_WAIT);
+ im.onload=()=>{clearTimeout(t);r(true)};im.onerror=()=>{clearTimeout(t);r(false)};im.src=src})}
 export async function islandPath(view,i,go,live=()=>true){
  const id=await ident();
  const sec=view.querySelector('.scr.island'),list=sec&&sec.querySelector('.lvlist');
  if(!live()||!list||!same(id))return;
  style();
+ if(!await loaded(ART['bg/english'])||!live()||!list.isConnected||!same(id))return false;   // no picture: today's list, never a blank screen
  const me=id.key?mine(id):{av:null},lv=i.levels.map(([t])=>({t,s:starsOf(i.id,t),L:LEVEL_INFO[t]}));
  const next=lv.findIndex(x=>!x.s),here=next<0?lv.length-1:next,pts=pathPoints('english',lv.length);
  const wrap=el('div','w-stagewrap wisl'),stage=el('div','w-stage');stage.style.backgroundImage='url("'+ART['bg/english']+'")';
@@ -210,6 +215,9 @@ export async function islandPath(view,i,go,live=()=>true){
   b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();open(k)});
   li.appendChild(b);ol.appendChild(li)});
  stage.appendChild(line(pts,here));stage.appendChild(ol);if(walker)stage.appendChild(walker);wrap.appendChild(stage);
+ /* a stone picture that fails: back to today's list (the stones are buttons over a picture that is not there) */
+ let back=false;const undo=()=>{if(back||!wrap.isConnected)return;back=true;clearTimeout(timer);if(walk)walk.cancel();wrap.replaceWith(list);sec.classList.remove('wpath');list.style.visibility=''};
+ for(const im of ol.querySelectorAll('img'))im.addEventListener('error',undo,{once:true});
  list.replaceWith(wrap);sec.classList.add('wpath');
  window.__world={...(window.__world||{}),path:{island:i.id,levels:lv.map(x=>x.t),here,next,walker:!!walker,key:id.key}};   // for the tests
  return true}

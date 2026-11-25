@@ -465,6 +465,19 @@ async def island_path(b, errs):
     await pg.goto(P.BASE + '?ds=1#island/4'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(200)
     check('a locked island stays locked with the flag (its address goes to the map)', await pg.evaluate('location.hash') == '#map' and await pg.locator('.w-path').count() == 0)
     await c.close()
+    # the path's art fails to load: today's list, never a blank screen (the failed loads are expected here, so their
+    # console lines go to a list of their own)
+    for what, pat in (('the backdrop', '**/assets/al/bg/english.*'), ('a stone picture', '**/assets/al/ui/stone-current.*')):
+        c, pg, reqs = await page(b, 390, 844, [], st)
+        await pg.add_init_script(seed)
+        await pg.route(pat, lambda r: r.abort())
+        await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.scr.island'); await pg.wait_for_timeout(3200)
+        v = await pg.evaluate("({rows:[...document.querySelectorAll('.lvlist .lvrow')].filter(r=>r.getBoundingClientRect().height>0&&getComputedStyle(r.closest('.lvlist')).visibility==='visible').length,path:document.querySelectorAll('.w-path').length,cls:document.querySelector('.scr.island').classList.contains('wpath')})")
+        check(f'{what} cannot load: today\'s list of levels, visible, and no path', v == {'rows': 4, 'path': 0, 'cls': False}, v)
+        if v['rows'] == 4:
+            await pg.click('.lvrow >> nth=1'); await pg.wait_for_function("location.hash==='#play/1/listen'", timeout=3000)
+        check(f'{what} cannot load: the list still opens its levels', v['rows'] == 4)
+        await c.close()
     # flag off: today's list, nothing of the path fetched
     c, pg, reqs = await page(b, 390, 844, errs, st)
     await pg.goto(P.BASE + '#island/1'); await pg.wait_for_selector('.lvrow'); await pg.wait_for_timeout(300)
