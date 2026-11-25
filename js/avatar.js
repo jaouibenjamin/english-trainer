@@ -16,6 +16,7 @@ import {S,API,totalStars,wordsKnown,isOpen} from './state.js';
 import {ISLANDS,WORDS} from './data.js';
 import {ART} from './world_art.js';
 import {AVATARS,NAME_A,NAME_B} from './world_data.js';
+import {playAv} from './avanim.js';
 
 const KEY='wi_world';
 /* energy: what each thing learned is worth, and the level thresholds (a rule of ours, for the owner and designer to tune).
@@ -87,7 +88,7 @@ export async function decorateMap(view,go,live=()=>true){
  if(me.av)meB.appendChild(pic(me.av,'wd__pic'));else if(id.key)meB.appendChild(el('span','wd__pic wd__pic--none','?'));   // no "?" ring where nothing can be chosen
  const txt=el('span','wd__txt');
  if(me.av&&me.nm){const hi=el('span','wd__hi');for(const w of nameText(me.nm).split(' '))hi.appendChild(ltr(w));txt.appendChild(hi)}   // one word per line
- else txt.appendChild(el('span','wd__hi',!id.key?'בטלפון הזה אין דמויות. משחקים כרגיל!':me.av?'שלום!':'בוחרים דמות'));
+ else txt.appendChild(el('span','wd__hi',!id.key?'במכשיר הזה אין דמויות. משחקים כרגיל!':me.av?'שלום!':'בוחרים דמות'));
  if(id.key)meB.setAttribute('aria-label',me.av?'הדמות שלי'+(me.nm?': '+nameText(me.nm):''):'בוחרים דמות');
  meB.appendChild(txt);
  const en=btn('wd__en',null,()=>{note.hidden=!note.hidden;en.setAttribute('aria-expanded',note.hidden?'false':'true')});
@@ -124,7 +125,7 @@ export async function picker(view,go,live=()=>true){
   for(const a of AVATARS){const locked=a.open>E.level,sel=pick===a.id;
    const b=btn('wpick__av'+(locked?' is-locked':'')+(sel?' is-selected':''),null,()=>{
     if(locked){note.textContent=a.he+': נפתחת ברמת אנרגיה '+a.open+'. עכשיו אתם ברמה '+E.level+'.';return}
-    pick=a.id;choose();const s=body.querySelector('.is-selected');if(s)s.focus({preventScroll:true})});
+    pick=a.id;choose();const s=body.querySelector('.is-selected');if(s){s.focus({preventScroll:true});playAv(s.querySelector('img'),a.id)}});   // its short animation, once (js/avanim.js: nothing before a tap, nothing with reduced motion or calm)
    b.dataset.id=a.id;b.appendChild(pic(a.id,'wpick__art'));
    if(locked){b.setAttribute('aria-label',a.he+', נפתחת ברמת אנרגיה '+a.open);b.appendChild(el('span','wpick__lock','🔒'))}
    else{b.setAttribute('aria-label',a.he);b.setAttribute('aria-pressed',sel?'true':'false')}
