@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
 """The progress card (js/card.js), behind its switch.
 
     python3 tests/card.py              # phone, small phone, laptop, and a signed-in pupil against the mock backend

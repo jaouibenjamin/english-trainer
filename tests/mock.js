@@ -1,3 +1,4 @@
+// suite: name=backend full=unit   // picked up by tests/all.py
 // Node stand-in for the Google Apps Script runtime, for tests only. `node mock.js unit` runs backend checks; `node mock.js` serves the API on :8765
 // (class code EN-1234, teacher code 654321; both are test values).
 const fs=require('fs'),http=require('http'),crypto=require('crypto'),vm=require('vm');
@@ -18,7 +19,7 @@ ctx.setup();sheets.config.d=[['class code','EN-1234'],['teacher code','654321']]
 const call=d=>JSON.parse(ctx.doPost({postData:{contents:JSON.stringify(d)}}).t);
 if(process.argv[2]==='unit'){
  const B={c:'en-1234',n:'נועה',p:'1234'};
- const t=(l,r,exp)=>console.log(JSON.stringify(r)===JSON.stringify(exp)?'PASS':'FAIL',l,JSON.stringify(r).slice(0,120));
+ const t=(l,r,exp)=>{const ok=JSON.stringify(r)===JSON.stringify(exp);if(!ok)process.exitCode=1;console.log(ok?'PASS':'FAIL',l,String(JSON.stringify(r)).slice(0,120))};   // a failed check fails the run
  t('wrong class',call({...B,c:'x',a:'login'}),{ok:false,e:'class'});
  t('nouser',call({...B,a:'login'}),{ok:false,e:'nouser'});
  t('register',call({...B,a:'register'}),{ok:true,s:{}});

@@ -46,20 +46,13 @@ Read this file and `docs/PLAN.md` before changing anything.
 ## Tests (run before every ship)
 
 ```
-python3 tests/play.py --quick   # English islands, class login against the mock backend (tests/mock.js)
-python3 tests/math.py --quick   # Fraction Bay
-python3 tests/mock.py --quick   # mock exam
-python3 tests/run.py            # Beach Run, phone and laptop sizes (needs WebGL: swiftshader flags inside); also tests/remote_guard.py (no URL of another host) and tests/credits.py check (assets/CREDITS.md covers every file)
-node tests/mdata_check.mjs      # math content
-python3 tests/teacher_mock.py   # mock exam rows on the teacher screen (switch off and on, older backend, rubbish from a backend)
-python3 tests/card.py          # the progress card (js/card.js), switch off and on, local and signed in
-python3 tests/settings_fit.py   # the settings screen at six window sizes, signed in and not: all on the screen, nothing over anything
-python3 tests/extra.py         # the extra practice games (js/extra.js), switch off and on, local and signed in
-python3 tests/storage_check.py  # the asset build scripts against a made-up storage (no network): refusals, no address in messages
-python3 tests/worksheet.py     # the printable worksheet (worksheet.html), switch off and on
-python3 tests/help.py --quick   # word help and slow playback (off by default; ?help=1), switch off and on
-node tests/stretch_check.mjs    # the slow-playback stretch, measured on real clips (needs ffmpeg)
+python3 tests/all.py --quick    # every suite, short form; one line per suite, exit code non-zero on any failure
+python3 tests/all.py            # the full forms (play.py alone takes about 10 minutes)
+python3 tests/all.py --list     # what is run, with each suite's one-line description
 ```
+
+New suites are picked up automatically: a file in `tests/` with a `# suite:` (or `// suite:`) line near its top is a
+suite (see `tests/all.py`). Do not add test commands to this file; describe a suite in its own docstring.
 
 Every suite starts its own servers on free ports and stops if it cannot; it never uses a server that is already running (`python3 tests/ports_check.py` proves it). So two runs on one machine do not mix.
 

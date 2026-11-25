@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: full=check   # picked up by tests/all.py
 """Writes assets/CREDITS.md: every file the game ships under assets/ and vendor/, what it is and where it came from.
 
     python3 tests/credits.py write    # rebuild assets/CREDITS.md

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
 """Mock exam results on the teacher screen, behind their switch (?tmock=1), against the mock backend.
 
     python3 tests/teacher_mock.py              # phone and laptop

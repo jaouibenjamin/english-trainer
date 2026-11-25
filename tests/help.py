@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: quick=--quick   # picked up by tests/all.py
 """Word help and the slowly button (js/help.js), which only exist on a device that was given them (?help=1).
 
     python3 tests/help.py              # 390x844 and a laptop window
