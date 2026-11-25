@@ -84,10 +84,11 @@ revoke all on function private.backup_tables() from public, anon, authenticated;
    - a name already here: its blob is replaced by the Sheet's (the Sheet is the truth until the switch); a code
      already set or wrapped is never touched; points are never given twice.
    Returns counts and the names above three times the class median of points (the tool prints their CSV rows). */
-create function private.sheet_import(p_class uuid, p_rows jsonb, p_dry boolean default true) returns jsonb
+create function private.sheet_import(p_class uuid, p_rows jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare s private.settings; r jsonb; v_id uuid; v_name text; v_pts int; v_state jsonb;
-  n_new int := 0; n_seen int := 0; n_blob int := 0; n_hash int := 0; n_bad int := 0; v_med numeric; v_out jsonb;
+  n_new int := 0; n_seen int := 0; n_blob int := 0; n_hash int := 0; n_bad int := 0; n_err int := 0; v_med numeric; v_out jsonb;
+  d_new int; d_blob int; d_hash int;
 begin
   if not exists (select 1 from public.classes where id = p_class) then raise exception 'no such class'; end if;
   if jsonb_typeof(p_rows) <> 'array' then raise exception 'rows must be an array'; end if;
@@ -97,40 +98,44 @@ begin
     if not app.name_ok(v_name) then n_bad := n_bad + 1; continue; end if;
     v_state := case when jsonb_typeof(r -> 'state') = 'object' and char_length((r -> 'state')::text) <= 40000 then r -> 'state' else '{}'::jsonb end;
     v_pts := least(app.safe_int(r -> 'points', 1000000), s.migrated_cap);
-    select id into v_id from public.pupils where class_id = p_class and name_key = app.name_key(v_name);
-    if v_id is null then
-      n_new := n_new + 1;
-      insert into public.pupils (class_id, display_name) values (p_class, v_name) returning id into v_id;
-      if v_pts > 0 then
-        insert into public.points (pupil_id, delta, reason, ref) values (v_id, v_pts, 'migrated', 'sheet');
-        update public.pupil_totals set points = points + v_pts where pupil_id = v_id;
+    d_new := 0; d_blob := 0; d_hash := 0;
+    -- one row at a time: a row the database refuses is counted and skipped. Caught here, its error and the
+    -- "Failing row contains (...)" detail never reach the server's log (review of #27, B3-bis)
+    begin
+      select id into v_id from public.pupils where class_id = p_class and name_key = app.name_key(v_name);
+      if v_id is null then
+        d_new := 1;
+        insert into public.pupils (class_id, display_name) values (p_class, v_name) returning id into v_id;
+        if v_pts > 0 then
+          insert into public.points (pupil_id, delta, reason, ref) values (v_id, v_pts, 'migrated', 'sheet');
+          update public.pupil_totals set points = points + v_pts where pupil_id = v_id;
+        end if;
       end if;
-    else
-      n_seen := n_seen + 1;
-    end if;
-    insert into public.progress (pupil_id, state, updated_at) values (v_id, v_state, now())
-      on conflict (pupil_id) do update set state = excluded.state, updated_at = excluded.updated_at
-      where public.progress.state is distinct from excluded.state;
-    if found then n_blob := n_blob + 1; end if;
-    if coalesce(r ->> 'hash', '') ~ '^[0-9a-f]{64}$' and coalesce(r ->> 'salt', '') <> ''
-       and not exists (select 1 from private.pupil_secrets where pupil_id = v_id and code_hash is not null) then
-      insert into private.legacy_import (pupil_id, salt, hash) values (v_id, r ->> 'salt', r ->> 'hash')
-        on conflict (pupil_id) do update set salt = excluded.salt, hash = excluded.hash;
-      n_hash := n_hash + 1;
-    end if;
+      insert into public.progress (pupil_id, state, updated_at) values (v_id, v_state, now())
+        on conflict (pupil_id) do update set state = excluded.state, updated_at = excluded.updated_at
+        where public.progress.state is distinct from excluded.state;
+      get diagnostics d_blob = row_count;
+      if coalesce(r ->> 'hash', '') ~ '^[0-9a-f]{64}$' and coalesce(r ->> 'salt', '') <> ''
+         and not exists (select 1 from private.pupil_secrets where pupil_id = v_id and code_hash is not null) then
+        insert into private.legacy_import (pupil_id, salt, hash) values (v_id, r ->> 'salt', r ->> 'hash')
+          on conflict (pupil_id) do update set salt = excluded.salt, hash = excluded.hash;
+        d_hash := 1;
+      end if;
+      n_new := n_new + d_new; n_seen := n_seen + (1 - d_new); n_blob := n_blob + d_blob; n_hash := n_hash + d_hash;
+    exception when others then
+      n_err := n_err + 1;
+    end;
   end loop;
   select percentile_cont(0.5) within group (order by t.points) into v_med
     from public.pupil_totals t join public.pupils p on p.id = t.pupil_id where p.class_id = p_class;
   select jsonb_build_object('new', n_new, 'existing', n_seen, 'blobs', n_blob, 'hashes_staged', n_hash, 'refused_names', n_bad,
-           'median', coalesce(v_med, 0),
+           'refused_rows', n_err, 'median', coalesce(v_med, 0),
            'look_at', coalesce((select jsonb_agg(p.display_name order by t.points desc) from public.pupil_totals t
                                 join public.pupils p on p.id = t.pupil_id
-                               where p.class_id = p_class and v_med > 0 and t.points > 3 * v_med), '[]'::jsonb),
-           'dry_run', p_dry)
+                               where p.class_id = p_class and v_med > 0 and t.points > 3 * v_med), '[]'::jsonb))
     into v_out;
-  -- a dry run is the caller's ROLLBACK (tools/migrate_sheet.py); this function never raises with pupil data in the
-  -- message, because an error and its statement end up in the server's log (review B3)
+  -- a dry run is the caller's ROLLBACK (tools/migrate_sheet.py)
   return v_out;
 end $$;
-revoke all on function private.sheet_import(uuid, jsonb, boolean) from public, anon, authenticated;
-grant execute on function private.sheet_import(uuid, jsonb, boolean) to service_role;
+revoke all on function private.sheet_import(uuid, jsonb) from public, anon, authenticated;
+grant execute on function private.sheet_import(uuid, jsonb) to service_role;

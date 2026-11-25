@@ -47,13 +47,18 @@ def read_csv(path):
             continue
         try:
             state = json.loads(d['state']) if d['state'].strip() else {}
-        except ValueError:
-            state, skipped = {}, skipped + 1          # a broken blob: the pupil comes over without it
+            # what Python reads but the database's jsonb refuses (review of #27, B3-bis): NaN, Infinity, a number too
+            # large for a float, a \u0000 in a string. Such a blob is broken: the pupil comes over without it.
+            if '\\u0000' in json.dumps(state, allow_nan=False):
+                raise ValueError('NUL')
+        except (ValueError, OverflowError, RecursionError):
+            state, skipped = {}, skipped + 1
         try:
             pts = max(0, int(float(d['points'] or 0)))
-        except ValueError:
+        except (ValueError, OverflowError):            # 'NaN', 'inf', '1e999'
             pts = 0
-        out.append({'name': d['name'], 'salt': d['salt'].strip(), 'hash': d['hash'].strip().lower(),
+        clean = lambda x: x.replace('\x00', '')
+        out.append({'name': clean(d['name']), 'salt': clean(d['salt']).strip(), 'hash': clean(d['hash']).strip().lower(),
                     'state': state if isinstance(state, dict) else {}, 'points': pts})
     return out, skipped
 
@@ -61,12 +66,19 @@ def read_csv(path):
 def import_rows(url, class_id, rows, apply):
     """The rows go as COPY data, never inside a statement (review B3: a failing statement is written whole into the
     server's log, which on Supabase is the dashboard). A dry run is the same work, rolled back."""
+    # The rows arrive as text and are read as JSON one by one inside a block that catches the error, so a row the
+    # database refuses is counted ("unreadable"), never logged with its content (review of #27, B3-bis).
     script = ("begin;\n"
-              "create temp table wi_rows (n int, r jsonb) on commit drop;\n"
+              "create temp table wi_rows (n int, r text) on commit drop;\n"
+              "create temp table wi_ok (n int, r jsonb) on commit drop;\n"
               "\\copy wi_rows (n, r) from pstdin\n"
-              f"select private.sheet_import('{class_id}'::uuid, (select coalesce(jsonb_agg(r order by n), '[]') from wi_rows), {'false' if apply else 'true'});\n"
+              "do $wi$ declare x record; begin for x in select n, r from wi_rows loop\n"
+              "  begin insert into wi_ok values (x.n, x.r::jsonb); exception when others then null; end;\n"
+              "end loop; end $wi$;\n"
+              f"select private.sheet_import('{class_id}'::uuid, (select coalesce(jsonb_agg(r order by n), '[]') from wi_ok))\n"
+              "  || jsonb_build_object('unreadable', (select count(*) from wi_rows) - (select count(*) from wi_ok));\n"
               + ("commit;\n" if apply else "rollback;\n"))
-    out, err, rc = pgurl.run_with_rows(url, script, [(i, json.dumps(r, ensure_ascii=False)) for i, r in enumerate(rows)])
+    out, err, rc = pgurl.run_with_rows(url, script, [(i, json.dumps(r, ensure_ascii=True)) for i, r in enumerate(rows)])
     if rc:
         raise SystemExit(('the import failed, nothing was written: ' if apply else 'the dry run failed: ') + (err.strip().splitlines() or ['?'])[0])
     return json.loads(out.strip().splitlines()[-1])
@@ -113,7 +125,8 @@ def main(argv=None):
     rep = import_rows(url, a.class_id, rows, a.apply)
     print(('APPLIED' if a.apply else 'DRY RUN (nothing written; add --apply)') +
           f": {len(rows)} rows read, {rep['new']} new pupils, {rep['existing']} already there, {rep['blobs']} blobs written, "
-          f"{rep['hashes_staged']} codes staged, {rep['refused_names']} names refused, {broken} broken blobs")
+          f"{rep['hashes_staged']} codes staged, {rep['refused_names']} names refused, {broken} broken blobs"
+          + (f", {rep['refused_rows'] + rep['unreadable']} rows the database refused" if rep['refused_rows'] + rep['unreadable'] else ''))
     if rep['look_at']:
         # row numbers of the CSV, not names (review S-f): the owner looks them up in the Sheet
         key = lambda n: re.sub(r'\s+', ' ', unicodedata.normalize('NFC', n).strip()).lower()

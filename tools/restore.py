@@ -69,17 +69,21 @@ def main(argv=None):
             for r in rows:
                 r['auth_user_id'] = None
         for r in rows:
-            data.append((t, len(data), json.dumps(r, ensure_ascii=False)))
+            data.append((t, len(data), json.dumps(r, ensure_ascii=True)))
         if t not in order:
             order.append(t)
-    sql = ['begin;', 'set local statement_timeout = 0;', 'create temp table wi_rows (t text, n int, r jsonb) on commit drop;',
+    sql = ['begin;', 'set local statement_timeout = 0;', 'create temp table wi_rows (t text, n int, r text) on commit drop;',
            '\\copy wi_rows (t, n, r) from pstdin']
     for t in order:
         if t in REPLACE:
             sql.append(f'delete from {t};')
-        # ids kept as they were; generated columns are computed again
-        sql.append(f"insert into {t} ({cols[t]}) overriding system value select {cols[t]} "
-                   f"from (select (jsonb_populate_record(null::{t}, r)).* from wi_rows where t = '{t}' order by n) x;")
+        # ids kept as they were; generated columns are computed again. Row by row, and a refused row stops the restore
+        # with a message that names the table, never the row: the server logs an error's detail ("Failing row
+        # contains ...") and a statement's text, and neither may hold pupil data (review of #27, B3-bis)
+        sql.append(f"do $wi$ declare x record; begin for x in select n, r from wi_rows where t = '{t}' order by n loop\n"
+                   f"  begin insert into {t} ({cols[t]}) overriding system value select {cols[t]} from jsonb_populate_record(null::{t}, x.r::jsonb);\n"
+                   f"  exception when others then raise exception 'restore: a row of {t} was refused (%)', sqlstate; end;\n"
+                   f"end loop; end $wi$;")
     # identity columns go on from the highest restored id
     sql.append("""do $s$ declare r record; begin
   for r in select a.attrelid::regclass::text as t, a.attname as c, pg_get_serial_sequence(a.attrelid::regclass::text, a.attname) as s

@@ -84,11 +84,11 @@ try:
     r = tool(['tools/migrate_sheet.py', os.path.join(HERE, 'fixtures/sheet_sample.csv'), '--class', cls], env)
     check('a CSV inside the repository is refused', r.returncode != 0 and 'inside the repository' in r.stderr, r.stderr)
     r = tool(['tools/migrate_sheet.py', csv_path, '--class', cls], env)
-    check('dry run: reports what it would do', r.returncode == 0 and 'DRY RUN' in r.stdout and '6 new pupils' in r.stdout, r.stdout + r.stderr)
+    check('dry run: reports what it would do', r.returncode == 0 and 'DRY RUN' in r.stdout and '8 new pupils' in r.stdout, r.stdout + r.stderr)
     eq('dry run: nothing written', db.one('select count(*) from public.pupils'), '0')
     r = tool(['tools/migrate_sheet.py', csv_path, '--class', cls, '--apply'], env)
     out = r.stdout + r.stderr
-    check('apply: pupils in, codes staged', r.returncode == 0 and '6 new pupils' in r.stdout and '5 codes staged' in r.stdout and '1 names refused' in r.stdout, out)
+    check('apply: pupils in, codes staged', r.returncode == 0 and '8 new pupils' in r.stdout and '5 codes staged' in r.stdout and '1 names refused' in r.stdout and '3 broken blobs' in r.stdout, out)
     salts_and_hashes = [ln.split(',')[i] for ln in text.splitlines()[1:] for i in (1, 2)]
     check('no salt or hash is ever printed', not any(s and s in out for s in salts_and_hashes))
     check('the outliers are shown as CSV row numbers, not names (review S-f)', 'CSV rows 8, 5' in r.stdout, r.stdout)
@@ -97,12 +97,14 @@ try:
        db.admin("select p.display_name, t.points from public.pupil_totals t join public.pupils p on p.id = t.pupil_id where p.display_name in ('Testa', 'Fixty', 'Mocky') order by 1"),
        [['Fixty', '50000'], ['Mocky', '0'], ['Testa', '1200']])
     eq('markup in a name is refused', db.one("select count(*) from public.pupils where display_name like '%<%'"), '0')
-    eq('a broken blob comes over as an empty one', db.one("select state::text from public.progress g join public.pupils p on p.id = g.pupil_id where p.display_name = 'Fixty'"), '{}')
+    eq('a broken blob comes over as an empty one; so do a \\u0000 in a string and 1e999 (Python reads them, jsonb does not: B3-bis)',
+       db.admin("select p.display_name, g.state::text, t.points from public.progress g join public.pupils p on p.id = g.pupil_id join public.pupil_totals t on t.pupil_id = p.id where p.display_name in ('Fixty', 'Nully', 'Huge') order by 1"),
+       [['Fixty', '{}', '50000'], ['Huge', '{}', '0'], ['Nully', '{}', '10']])
     eq('the staging table holds the fast hashes, for the server role only', db.one('select count(*) from private.legacy_import'), '5')
     pts_before = db.one('select sum(delta) from public.points')
     r = tool(['tools/migrate_sheet.py', csv_path, '--class', cls, '--apply'], env)
     check('a second run (the nightly re-sync) adds nobody and no points', r.returncode == 0 and '0 new pupils' in r.stdout and '0 blobs written' in r.stdout
-          and db.one('select sum(delta) from public.points') == pts_before and db.one('select count(*) from public.pupils') == '6', r.stdout + r.stderr)
+          and db.one('select sum(delta) from public.points') == pts_before and db.one('select count(*) from public.pupils') == '8', r.stdout + r.stderr)
     db.admin("update private.pupil_secrets set code_algo = 'v1' where false")    # nothing wrapped yet: the staging rows are re-written
     with open(csv_path, 'w') as f:
         f.write(text.replace('{""pts"":900}', '{""pts"":950}'))
@@ -194,21 +196,24 @@ try:
     blob = ''.join(open(os.path.join(out_dir, f)).read() for f in files)
     check('nothing readable lands on disk: no name, no salt', all(open(os.path.join(out_dir, f)).read().startswith('-----BEGIN PGP MESSAGE') for f in files)
           and 'Testa' not in blob and 'made-up-salt' not in blob and 'Testa' not in json.dumps(man))
-    eq('rows in the manifest = rows in the database (pupils)', man['tables']['public.pupils'], 6)
+    eq('rows in the manifest = rows in the database (pupils)', man['tables']['public.pupils'], 8)
     r = tool(['tools/backup_fetch.py', os.path.join(tmp, 'again')], fenv)
     check('the same token again within 6 hours: refused', r.returncode != 0 and 'wait' in r.stderr, r.stderr)
 
     # ---------------------------------------------------------------- restore drill into a second, empty database
     adm = [os.path.join(db.bin, 'psql'), '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-h', db.sock, '-p', str(db.port), '-U', 'supabase_admin']
-    subprocess.run(adm + ['-d', 'postgres', '-c', 'create database wi_drill'], check=True, capture_output=True)
     stub = ''.join(ln for ln in open(os.path.join(HERE, 'db/stub.sql')).readlines()
                    if not ln.startswith('create role') and not ln.startswith('grant anon, authenticated, service_role to postgres'))
-    s = subprocess.run(adm + ['-d', 'wi_drill', '-v', 'DBNAME=wi_drill', '-f', '-'], input=stub, capture_output=True, text=True)
-    for f in sorted(os.listdir(os.path.join(ROOT, 'supabase/migrations'))):
-        m = subprocess.run([os.path.join(db.bin, 'psql'), '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-h', db.sock, '-p', str(db.port), '-U', 'postgres', '-d', 'wi_drill',
-                            '-f', os.path.join(ROOT, 'supabase/migrations', f)], capture_output=True, text=True)
-        if m.returncode:
-            print(m.stderr)
+
+    def empty_db(name):
+        subprocess.run(adm + ['-d', 'postgres', '-c', f'create database {name}'], check=True, capture_output=True)
+        subprocess.run(adm + ['-d', name, '-v', f'DBNAME={name}', '-f', '-'], input=stub, capture_output=True, text=True)
+        for f in sorted(os.listdir(os.path.join(ROOT, 'supabase/migrations'))):
+            m = subprocess.run([os.path.join(db.bin, 'psql'), '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-h', db.sock, '-p', str(db.port), '-U', 'postgres', '-d', name,
+                                '-f', os.path.join(ROOT, 'supabase/migrations', f)], capture_output=True, text=True)
+            if m.returncode:
+                print(m.stderr)
+    empty_db('wi_drill')
     drill = f'postgresql://postgres@/wi_drill?host={db.sock}&port={db.port}'
     renv = {'WI_RESTORE_DATABASE_URL': drill, 'GNUPGHOME': gnupg}
     r = tool(['tools/restore.py', out_dir], {'WI_RESTORE_DATABASE_URL': drill, 'GNUPGHOME': os.path.join(tmp, 'nokeys')})
@@ -231,12 +236,33 @@ try:
     json.dump(bad, open(os.path.join(out_dir, 'manifest.json'), 'w'))
     r = tool(['tools/restore.py', out_dir], renv)
     check('a manifest naming a table it should not: refused', r.returncode != 0 and 'refused' in r.stderr, r.stderr)
+    # a restore that meets a row the drill database refuses (a name the table's rule rejects): it stops, and says which
+    # table, not which row
+    bad_dir = os.path.join(tmp, 'bad-export')
+    os.mkdir(bad_dir)
+    marker = 'Leakmarker' + 'x' * 45                                   # longer than a class name may be (40)
+    enc = subprocess.run(['gpg', '--batch', '--yes', '--armor', '--trust-model', 'always', '--encrypt', '-r', 'drill@example.invalid', '-o', os.path.join(bad_dir, '001-public.classes-0.asc')],
+                         input=json.dumps([{'id': '00000000-0000-4000-8000-00000000c1a5', 'name': marker, 'grade': '', 'roster_only': True, 'max_pupils': 60, 'created_at': '2026-11-01T00:00:00Z'}]),
+                         capture_output=True, text=True, env=genv)
+    json.dump({'at': 'x', 'tables': {'public.classes': 1}, 'chunks': [{'file': '001-public.classes-0.asc', 'table': 'public.classes', 'offset': 0, 'rows': 1}]},
+              open(os.path.join(bad_dir, 'manifest.json'), 'w'))
+    empty_db('wi_drill2')
+    r = tool(['tools/restore.py', bad_dir], {'WI_RESTORE_DATABASE_URL': f'postgresql://postgres@/wi_drill2?host={db.sock}&port={db.port}', 'GNUPGHOME': gnupg})
+    check('a restore that meets a refused row stops, naming the table only', enc.returncode == 0 and r.returncode != 0 and 'a row of public.classes was refused' in r.stderr and marker not in r.stderr, (r.returncode, r.stdout[-300:], r.stderr[-300:], enc.returncode, enc.stderr[-200:]))
+
     # ---------------------------------------------------------------- review B3: nothing of a pupil in the server's log
     r = tool(['tools/migrate_sheet.py', csv_path, '--class', '00000000-0000-4000-8000-0000000000ff'], env)
     check('a run that fails (no such class) fails without data in its message', r.returncode != 0 and 'no such class' in r.stderr, r.stderr)
     log = open(os.path.join(db.sock, 'log'), encoding='utf-8', errors='replace').read()
     check('the server log has the failed statement', 'no such class' in log)
-    leaks = [x for x in salts_and_hashes + ['Testa', 'Probe', 'Sample Two', 'Dummy', 'Mocky', 'Fixty', 'made-up-salt'] if x and x in log]
+    # rows the client would never send, sent anyway: the database reads them one by one and counts the refused ones
+    sys.path.insert(0, os.path.join(ROOT, 'tools'))
+    import migrate_sheet
+    rep_ = migrate_sheet.import_rows(url, cls, [{'name': 'Infyrow', 'salt': 'made-up-salt-9', 'hash': 'f' * 64, 'state': {'x': float('nan')}, 'points': 1},
+                                                {'name': 'Okrow', 'salt': '', 'hash': '', 'state': {}, 'points': 1}], False)
+    eq('a row jsonb cannot read (NaN) is counted, not logged; the rest goes on (dry run)', (rep_['unreadable'], rep_['new']), (1, 1))
+    log = open(os.path.join(db.sock, 'log'), encoding='utf-8', errors='replace').read()
+    leaks = [x for x in salts_and_hashes + ['Testa', 'Probe', 'Sample Two', 'Dummy', 'Mocky', 'Fixty', 'Nully', 'Huge', 'Infyrow', 'made-up-salt', 'f' * 64, 'Leakmarker'] if x and x in log]
     check('and no name, salt or hash anywhere in it, after dry runs, imports, a failed import and a restore', not leaks, leaks[:3])
 finally:
     if srv:

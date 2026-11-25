@@ -26,7 +26,8 @@ jobs:
         run: |
           if [ -z "$SUPABASE_URL$SUPABASE_ANON_KEY$BACKUP_TOKEN" ]; then echo "not set up yet: nothing contacted"; exit 0; fi
           # set up only in part, or an address that is not a Supabase project: a mistake, so the job goes red
-          if ! printf '%s' "$SUPABASE_URL" | grep -qE '^https://[a-z0-9-]+\.supabase\.co$' || [ -z "$SUPABASE_ANON_KEY" ]; then
+          # bash's own match on the whole value (grep would accept a value with a newline and a good line inside it)
+          if ! [[ "$SUPABASE_URL" =~ ^https://[a-z0-9-]+\.supabase\.co$ ]] || [ -z "$SUPABASE_ANON_KEY" ]; then
             echo "set up only in part (SUPABASE_URL and SUPABASE_ANON_KEY must both be set, the URL https://<project>.supabase.co)"; exit 1; fi
           curl -fsS --retry 3 -X POST "$SUPABASE_URL/rest/v1/rpc/ping" -H "apikey: $SUPABASE_ANON_KEY" \
                -H "authorization: Bearer $SUPABASE_ANON_KEY" -H 'content-type: application/json' -d '{}' -o /dev/null
