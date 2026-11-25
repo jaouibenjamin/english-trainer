@@ -25,9 +25,9 @@ PUPILS[LONG] = []
 POST = "async ([api,d])=>(await fetch(api,{method:'POST',body:JSON.stringify(d)})).json()"
 DS = """(()=>{const lum=c=>{const m=c.match(/[\\d.]+/g).map(Number);const f=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4};return [.2126*f(m[0])+.7152*f(m[1])+.0722*f(m[2]),m[3]===undefined?1:m[3]]};
  const back=e=>{for(;e;e=e.parentElement){const b=getComputedStyle(e).backgroundColor;const l=lum(b);if(l[1]>=.99)return l[0]}return 1};
- const low=[];for(const e of document.querySelectorAll('#view .teacher *')){if(!e.offsetParent)continue;const own=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());if(!own)continue;
+ const low=[];for(const e of document.querySelectorAll('#stage *')){if(!e.offsetParent)continue;const own=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());if(!own)continue;
   const a=lum(getComputedStyle(e).color)[0],b=back(e),r=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);if(r<4.5)low.push([e.tagName,e.className,e.textContent.trim().slice(0,20),r.toFixed(2)])}
- const small=[...document.querySelectorAll('#view button,#view a,#view input')].filter(e=>e.offsetParent).map(e=>[e.className,Math.round(e.getBoundingClientRect().height)]).filter(x=>x[1]<48);
+ const small=[...document.querySelectorAll('#stage button,#stage a,#stage input')].filter(e=>e.offsetParent).map(e=>[e.className,Math.round(e.getBoundingClientRect().height)]).filter(x=>x[1]<48);
  return {ds:document.documentElement.classList.contains('ds'),css:[...document.styleSheets].some(x=>(x.href||'').endsWith('/css/ds-teacher.css')),low,small}})()"""
 CARDS = """(()=>Object.fromEntries([...document.querySelectorAll('.kid')].map(k=>[k.querySelector('.kn b').textContent,{km:[...k.querySelectorAll('.km')].map(p=>p.innerText.replace(/\\s+/g,' ').trim()),rows:k.querySelectorAll('p').length,wide:k.scrollWidth>k.clientWidth+1||[...k.querySelectorAll('*')].some(e=>{const r=e.getBoundingClientRect(),K=k.getBoundingClientRect();return r.left<K.left-1||r.right>K.right+1})}])))()"""
 
@@ -154,6 +154,17 @@ async def run(b, w, h, errs, api, first):
 
     for look in ('?ds=1', '?ds=0'):
         await resets(b, w, h, errs, api, tag, look)
+    # ---- the new look with every other switch on at once (docs/LESSONS.md 8): same scan, toast included ----
+    ALL = '?ds=1&card=1&help=1&games=1&sheet=1&tmock=1'
+    await resets(b, w, h, errs, api, tag, ALL)
+    c2, pg2 = await new_page(b, w, h, api=api, errs=errs)
+    await pg2.goto(P.BASE + ALL); await pg2.wait_for_selector('#lc')
+    await sign_in(pg2, ALL)
+    R = await pg2.evaluate(DS)
+    check(f'[{tag}] new look with card, help, games, sheet and tmock on: every button 48px or more, every text 4.5:1 or more', R['ds'] and not R['small'] and not R['low'], R)
+    for q in ('?ds=0', '?card=0&games=0&sheet=0&tmock=0'):
+        await pg2.wait_for_load_state('networkidle'); await pg2.goto(P.BASE + q); await pg2.wait_for_selector('#lc')
+    await pg2.wait_for_load_state('networkidle'); await c2.close()
 
     # ---- an older deployment: the backend sends no "mock" field ----
     async def old(route):
