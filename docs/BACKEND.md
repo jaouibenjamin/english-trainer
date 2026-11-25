@@ -352,11 +352,16 @@ Who is asking (review S2, S3):
   and the salt is deleted after 2 days. The address is the **last** entry of `X-Forwarded-For` (the one the
   platform's proxy appends; the first is whatever the caller wrote), or a single-address header the platform sets,
   chosen with the function secret `CLIENT_IP_FROM` once section 10 item 10 shows which header the project uses
-  (pre-live review S5). A request whose address cannot be read gets a bucket of its own, never one shared by all.
+  (pre-live review S5). An IPv6 address counts by its /64 (a home or school has a whole /64), and a port is dropped.
+  A request whose address cannot be read gets a bucket of its own, never one shared by all, and is counted in the
+  teacher's `backend_health` (`unreadable_day`), so a wrong `CLIENT_IP_FROM` shows instead of quietly switching the
+  per-address limits off.
   No guarantee rests on the address alone: the per-name and per-class limits below hold even if every request claims
   a new address.
 - **All at once** (pre-live review S1): every limit is a count followed by a write, so the counts are taken under
-  database advisory locks held to the end of the request: the address first, then the class and kind, then the name.
+  database advisory locks held to the end of the request: the address first, then the class and kind, then the name,
+  each in its own key namespace (so a pupil called "Code" never shares the class's lock), and `auth_finish` takes the
+  name lock before the attempt row, in the same order as a teacher's reset (no deadlock; both tested).
   Tested with 35 tries at the same moment: exactly 10 wrong picture pairs compared for the class (17 without the
   locks) and exactly 30 wrong codes from one address.
 
@@ -593,6 +598,12 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
 3. **Before the switch** (all must be true): section 10 green on the real project; the owner's checklist done; the
    teacher signed in with Google and saw her class; a restore drill done; the client reports every event type and
    the per-source gap is zero for 3 school days; the owner approved section 3.
+   Before `dual` is switched on (review of #21, S-c): the page's Content-Security-Policy must allow the project,
+   `connect-src 'self' https://script.google.com https://script.googleusercontent.com https://<project>.supabase.co`,
+   or every copy is blocked by the browser (the game itself goes on, on the Sheet). The adapter refuses the half-built
+   `supabase` mode unless `config.js` also says `unfinished: true` (S-b). On a shared device the adapter keeps only a
+   hash of class code and name; a different pupil's request first revokes and forgets the previous pupil's session
+   (B1), and a pupil Supabase does not know is tried once a day, not at every sign-in (S-a).
 4. **The switch** (the point of no return for sign-in): new class code (8 characters) handed out; the client's config
    points at Supabase; the Sheet backend starts answering every request with an error the old client already treats
    as "sign in again", so a stale tab cannot keep writing to the Sheet. Pupils sign in once with their old code and
@@ -660,13 +671,13 @@ same assertions as the local suites where a local version exists. None can be an
 | 1 | `generateLink` + `verifyOtp` issue a session with sign-up off and an `.invalid` address; `email_confirm` works on create | sign a test pupil in through `pupil-login` |
 | 2 | 35 sign-ins in a minute pass the Auth rate limits (and no per-user spacing blocks a second device) | 35 parallel sign-ins, then one pupil twice in 10 s |
 | 3 | A pupil token cannot change its user: `PUT /auth/v1/user` with password, with email; `POST /auth/v1/factors`; identity linking; `/otp` and `/recover` for the label address | each must fail, and the user row must be unchanged |
-| 4 | Triggers on `auth.users` (update) and `auth.mfa_factors` can be created and fire | migration applies; test 3 passes even with setting 5 of the checklist switched back on in a scratch project |
+| 4 | Triggers on `auth.users` (update), `auth.mfa_factors` and `auth.identities` can be created and fire; the migrations' owner can read `auth.mfa_factors` and `auth.identities` (otherwise `auth_user_clean` cannot see a factor or a linked identity and passes it) | the migration's notices name no trigger "not created"; `select count(*) from auth.identities` as `postgres`; test 3 passes even with setting 5 of the checklist switched back on in a scratch project |
 | 5 | Sign-up, anonymous and phone sign-in are refused with the public key | three calls |
 | 6 | After a reset or recovery the old access token reads and writes nothing; the old refresh token is dead | use the old tokens right after |
 | 7 | The server role (and the migrations' owner) may reference, read and delete `auth.users`, and delete old `auth.audit_log_entries` | `teacher_delete_pupil`, `maintenance()` |
 | 8 | The owner-rights views return rows for a teacher and none for a pupil through the real API; RLS is on everywhere | the access tests of `tests/db.py`, run over HTTP |
 | 9 | Only `public` is reachable: `private` and `app` through REST and GraphQL give nothing | calls with a pupil token |
-| 10 | Which header holds the caller's address in a function, and that a client-sent copy does not win | call with a forged header, read the bucket |
+| 10 | Which header holds the caller's address in a function, whether it carries a port or a proxy's address, and that a client-sent copy does not win; then `CLIENT_IP_FROM` is set to match | call with a forged header, read the bucket; `backend_health.unreadable_day` stays 0 after a day of use |
 | 11 | One PBKDF2 of 600,000 rounds, and three in one request, fit the function CPU limit | timing through the function, 20 runs |
 | 12 | `verify_jwt = false` works with the project's key format, and `teacher-reset` refuses a pupil token, an expired token and no token | calls |
 | 13 | Google sign-in lands on the pre-created teacher user | by hand, once |

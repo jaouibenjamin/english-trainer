@@ -8,13 +8,16 @@
    'dual' (Phase 2 of docs/PLAN.md): the Sheet is asked first and its answer is the answer; afterwards, and only when
    the Sheet said ok, the same progress is copied to Supabase in the background. A failure there is never shown to
    the pupil, never slows the game, and is written to a small log on the device (shadowLog()).
-   'supabase': the new backend alone. Not complete: it needs the sign-in screens with the secret pictures.
+   'supabase': the new backend alone. Not complete: it needs the sign-in screens with the secret pictures, so it is
+   refused unless config.js also says unfinished: true.
    A mode that is not spelled exactly, or has no https project address and key, falls back to 'sheet'. */
 const W=typeof window!=='undefined'?window:globalThis;
 const SHEET=(W.API_URL||'').trim();
 const B=W.BACKEND&&typeof W.BACKEND==='object'?W.BACKEND:{};
 const URL_OK=typeof B.url==='string'&&/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(B.url)&&typeof B.key==='string'&&B.key.length>20;
-export const MODE=(B.mode==='dual'||B.mode==='supabase')&&URL_OK?B.mode:'sheet';
+// 'supabase' alone is not finished (see supa() below): it needs a second, deliberate key, so one mistyped word in
+// config.js cannot switch the live class to it (review of #21, S-b)
+export const MODE=URL_OK&&(B.mode==='dual'||(B.mode==='supabase'&&B.unfinished===true))?B.mode:'sheet';
 
 /* exactly what js/state.js did: a failed request (no connection) throws; an answer that is not JSON (an Apps Script
    error page) gives {ok:false,e:'server'} */
@@ -26,7 +29,7 @@ export async function api(a,d){
  return supa(a,d)}
 
 /* ---------- small storage helpers: everything Supabase-side lives under its own keys, never in the game's record ---------- */
-const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log',stale:'wi-sb-stale'};
+const K={ses:'wi-sb-session',base:'wi-sb-base',pend:'wi-sb-pending',log:'wi-sb-log',stale:'wi-sb-stale',owner:'wi-sb-owner',stop:'wi-sb-stop'};
 const get=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
 const set=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 /* what happened on the shadow side: time, a short kind, numbers. Never a name, a code or a token. */
@@ -59,7 +62,23 @@ function keep(j){const old=get(K.ses)||{};const s=j.session||{};
 async function signIn(d,extra){const dev=(get(K.ses)||{}).device_token;
  const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{}),...(extra||{})});
  if(r.j&&r.j.ok)keep(r.j);return r.j||{ok:false,e:'net'}}
-export function signOut(){const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null);set(K.base,null);set(K.pend,null)}   // this device only
+export function signOut(){const s=get(K.ses)||{};set(K.ses,s.device_token?{device_token:s.device_token}:null);set(K.base,null);set(K.pend,null);set(K.stale,null);queued=null}   // this device only
+/* Review of #21, B1: on a shared device the session must belong to the pupil whose progress is being saved. The device
+   keeps a hash of class code and name (never the name itself); when another pupil's request comes, the old session is
+   revoked on the server (best effort) and forgotten here before anything is sent. */
+async function ownerOf(d){const t=String(d&&d.c||'').trim().toUpperCase()+'|'+String(d&&d.n||'').normalize('NFC').trim().replace(/\s+/g,' ').toLowerCase();
+ const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('wi-owner|'+t));return Array.from(new Uint8Array(h).slice(0,12),b=>b.toString(16).padStart(2,'0')).join('')}
+async function dropSession(keepProgress){const s=get(K.ses)||{};
+ if(s.access_token){try{await call('/auth/v1/logout?scope=local',{},s.access_token)}catch(e){}}   // the refresh token dies with it
+ if(keepProgress)set(K.ses,s.device_token?{device_token:s.device_token}:null);   // the same pupil: only the session goes
+ else signOut()}
+/* For js/state.js (review of #21, B1): logout forgets everything of this pupil on the device and revokes the session
+   on the server; relogin (the Sheet refused the pupil) drops only the session, so the same pupil's pending progress
+   waits for them. With no session on the device (the Sheet mode of today) nothing is sent anywhere. */
+export function forget(all){dropSession(!all).catch(()=>{})}
+async function sameOwner(d){if(!d||!d.c||!d.n)return true;const h=await ownerOf(d),cur=get(K.owner);
+ if(cur&&cur!==h){await dropSession();set(K.stop,null)}
+ set(K.owner,h);return h}
 
 /* ---------- typed events out of two saves ----------
    The game still saves one record (pack() in js/state.js). Until every game reports its events itself, the adapter
@@ -92,17 +111,18 @@ async function writeSave(s,overwrite){
  if(r.status===200&&r.j&&r.j.conflict){
   if(!overwrite)return{ok:false,conflict:true,state:r.j.state,at:r.j.updated_at};
   set(K.ses,{...ses,at:r.j.updated_at});r=await rpc('save_progress',{p_state:s,p_base:r.j.updated_at})}   // shadow: the Sheet is the truth
- // the server rations saves (5 s apart, 300 a day): not a failure, a "later" with the seconds to wait
- if(r.status===200&&r.j&&!r.j.ok&&(r.j.e==='wait'||r.j.e==='daycap'))return{ok:false,e:r.j.e,retry:Math.max(1,num(r.j.retry_after))};
- if(r.status!==200||!r.j||!r.j.ok)return{ok:false,status:r.status};
- set(K.ses,{...(get(K.ses)||{}),at:r.j.updated_at});
+ // the server rations saves (5 s apart, 300 a day): not a failure, a "later" with the seconds to wait. The events still
+ // go now (review of #21, B2): they do not depend on the blob, and held back they would meet the next day's caps.
+ const later_=r.status===200&&r.j&&!r.j.ok&&(r.j.e==='wait'||r.j.e==='daycap')?{e:r.j.e,retry:Math.max(1,num(r.j.retry_after))}:null;
+ if(!later_&&(r.status!==200||!r.j||!r.j.ok))return{ok:false,status:r.status};
+ if(!later_)set(K.ses,{...(get(K.ses)||{}),at:r.j.updated_at});
  let points=null;
  if(pend.ev.length){const e=await rpc('record_events',{p_batch:pend.id,p_events:pend.ev});
-  if(e.status===200&&e.j&&e.j.e==='brake'){note('brake');return{ok:false,e:'brake',saved:true,retry:BRAKE_RETRY}}   // the database is full for now: the batch waits on the device
-  if(e.status!==200||!e.j||!e.j.ok)return{ok:false,status:e.status,saved:true};
+  if(e.status===200&&e.j&&e.j.e==='brake'){note('brake');return{ok:false,e:'brake',saved:!later_,retry:Math.max(BRAKE_RETRY,later_?later_.retry:0)}}   // the database is full for now: the batch waits on the device
+  if(e.status!==200||!e.j||!e.j.ok)return later_?{ok:false,...later_}:{ok:false,status:e.status,saved:true};
   points=e.j.points;if(e.j.flagged)note('flagged',{n:e.j.flagged})}
  set(K.base,pend.next);set(K.pend,null);
- return{ok:true,points,events:pend.ev.length}}
+ return later_?{ok:false,...later_,points,events:pend.ev.length}:{ok:true,points,events:pend.ev.length}}
 
 /* ---------- pacing the saves (review S8) ----------
    The game saves 2.5 s after every change; the server takes one write every 5 s and 300 a day per pupil. So only the
@@ -117,6 +137,7 @@ function later(){clearTimeout(timer);timer=null;if(!queued)return;
 async function flush(hidden){
  if(!queued||flushing)return null;
  const now=Date.now();if(now<holdUntil||(!hidden&&now<lastWrite+SAVE_EVERY)){later();return null}
+ if(!(get(K.ses)||{}).refresh_token)return null;        // no session (yet): the state waits, nothing is sent
  const s=queued;queued=null;lastWrite=now;flushing=true;hiding=!!hidden;
  let w;try{w=await writeSave(s,qOverwrite)}catch(e){w={ok:false,status:0}}finally{flushing=false;hiding=false}
  if(w.retry){if(!queued)queued=s;holdUntil=Date.now()+w.retry*1000}             // told to wait: keep it and try again
@@ -129,18 +150,28 @@ if(MODE!=='sheet'&&typeof W.addEventListener==='function'){
  if(typeof document!=='undefined')document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')away()})}
 
 /* ---------- 'dual': the shadow copy. Runs after the Sheet answered; nothing here can reach the pupil. ---------- */
-let busy=false,lastTry=0;
+/* Sign-in on the shadow side (review of #21, S-a): only when there is no session for this pupil; never again the
+   same day after the server said no (a pupil Supabase does not know would otherwise count as wrong codes from the
+   school's one address and could pause sign-in for the whole class); after a network error at most every 10 minutes. */
+let busy=false,netFail=null,waiting=null;
+const today=()=>new Date().toISOString().slice(0,10);
 function shadow(a,d,r){
  if(!r||!r.ok)return;                                   // the Sheet refused: nothing to copy
  if(a!=='login'&&a!=='register'&&a!=='save')return;     // the board, the teacher screen and reset stay on the Sheet
- if(a==='save'){queued=d.s;qOverwrite=true}             // the newest state waits here until it may go
- if(busy)return;busy=true;
+ if(busy){if(a==='save')waiting=d;return}             // after the run in progress, and checked for its owner like any other
+ busy=true;
  (async()=>{try{
-  if(a!=='save'||!(await token())){
-   if(a==='save'&&Date.now()-lastTry<600000)return;     // no session and a recent refusal: do not hammer the sign-in
-   lastTry=Date.now();const j=await signIn(d);note('signin',{e:j.ok?'ok':String(j.e||'net').slice(0,12)});if(!j.ok)return}
+  const owner=await sameOwner(d);                       // another pupil on this device: the old session is gone first
+  if(a==='save'){queued=d.s;qOverwrite=true}            // the newest state waits here until it may go
+  if(!(await token())){
+   const stop=get(K.stop);if(stop&&stop.owner===owner&&stop.day===today())return;
+   if(netFail&&netFail.owner===owner&&Date.now()-netFail.at<600000)return;
+   await dropSession(true);set(K.owner,owner);
+   const j=await signIn(d);note('signin',{e:j.ok?'ok':String(j.e||'net').slice(0,12)});
+   if(!j.ok){const s0=get(K.ses)||{};set(K.ses,s0.device_token?{device_token:s0.device_token}:null);if(!j.e||j.e==='net'||j.e==='server')netFail={owner,at:Date.now()};else set(K.stop,{owner,day:today()});return}
+   if(a==='save')queued=d.s}
   if(a==='save'){note('sheet',{pts:num(d.s&&d.s.pts)});await flush(false)}
- }catch(e){note('error',{e:String(e&&e.name||'x').slice(0,20)})}finally{busy=false}})()}
+ }catch(e){note('error',{e:String(e&&e.name||'x').slice(0,20)})}finally{busy=false;if(waiting){const w=waiting;waiting=null;shadow('save',w,{ok:true})}}})()}
 
 /* ---------- 'supabase': the new backend alone ----------
    NOT COMPLETE. It needs screens the game does not have yet (two secret pictures at registration, at the first
@@ -150,6 +181,7 @@ async function supa(a,d){
  try{
   if(a==='login'){const j=await signIn(d,d.np?{new_code:d.np,pictures:d.pics}:null);return j.ok?{ok:true,s:j.s||{}}:{ok:false,e:j.e||'net',wait:j.wait}}
   if(a==='register'){const r=await fn('pupil-register',{class_code:d.c,name:d.n,code:d.p,pictures:d.pics});if(r.j&&r.j.ok){keep(r.j);return{ok:true,s:{}}}return{ok:false,e:(r.j&&r.j.e)||'net'}}
+  if(a==='login'||a==='register'||a==='save')await sameOwner(d);
   if(a==='save'){if(!(await token()))return{ok:false,e:'pin'};   // no session: the game asks to sign in again and keeps the progress
    const st=get(K.stale);if(st){set(K.stale,null);set(K.ses,{...(get(K.ses)||{}),at:st.at});return{ok:false,e:'stale',s:st.state}}   // a kept save met another device's
    queued=d.s;qOverwrite=false;

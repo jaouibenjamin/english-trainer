@@ -15,7 +15,8 @@ export function gotrueSessions(url: string, serverKey: string, fetchFn: typeof f
     ...extra,
   });
   async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = admin()): Promise<{ status: number; j: Record<string, unknown> | null }> {
-    const r = await fetchFn(auth + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    // a hanging Auth must not hold a function (and a pupil's sign-in) for ever: 10 s, then an error (review of #35)
+    const r = await fetchFn(auth + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(10_000) });
     let j: Record<string, unknown> | null = null;
     try {
       j = await r.json();
