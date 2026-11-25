@@ -203,7 +203,7 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=math|misland|mpla
 
 ## Rollout step 5: the mock exam, a light touch, behind the same flag
 Under `html.ds #stage[data-scr=mock|mockrun|mockprac]`. The exam stays on paper and keeps its calm: the question cards, answers, stations trail, report bars and their colours are today's. Only the shell matches the other screens: the dark surround on wide screens, the heading on a navy plate, the round back and quit buttons, the gold main button (no pulse), the navy toast, the paper focus ring (`--wi-focus-paper`), the fonts.
-- The exam's quit button: its icon was missing (`ico('x')`, not in the set) and is fixed in #60 (`ico('close')`). With the flag on it is a navy disc with a white X, and the stations trail keeps 60 px of air on each side so the X never touches the writing-station circle.
+- The exam's quit button: its icon was missing (`ico('x')`, not in the set) and is fixed in #60 (`ico('close')`). With the flag on it is a navy disc with a white X, drawn as a background on a square 48 px hit box (Chrome does not hit-test rounded-off corners, so a `border-radius` would let corner taps fall through to the trail); the stations trail's inline padding is 60 px, which leaves a real gap of 12 to 17 px between the X and the writing-station circle.
 - Checked: flag on, `tests/mock.py --quick` 12 pass, screenshots of every state (intro, the four stations, each question type, report, practice, hub) at 390x844, and the hub and a question at 1366x768.
 
 ## Rollout step 6: Beach Run HUD and menus, behind the same flag
