@@ -8,7 +8,14 @@ alter table private.settings
   add column ip_hour  int not null default 120,            -- any calls from one address in an hour
   -- Phase 2 only (docs/BACKEND.md section 8): a right Sheet-era code opens a session without a new code or pictures,
   -- so the dual-write copy has something to write with. Off by default; private.shadow_set() switches it.
-  add column shadow_mode boolean not null default false;
+  add column shadow_mode boolean not null default false,
+  -- after a teacher's lift (docs/BACKEND.md 4.3): a smaller allowance for the rest of the day, not a fresh one
+  add column code_unlock_allow int not null default 5,       -- wrong codes from strangers on a name after an unlock
+  add column code_unlock_day   int not null default 2,       -- unlocks of one name in 24 hours
+  add column code_lift_allow   int not null default 30;      -- wrong codes from strangers in a class after a brake lift
+-- a wrong try the teacher lifted: it no longer counts towards the per-name, per-address and class limits, but still
+-- towards the name's daily ceiling, so a lift never hands out a fresh day
+alter table private.auth_attempts add column lifted boolean not null default false;
 create index auth_attempts_ip_at on private.auth_attempts (ip_bucket, at);
 create index auth_attempts_class on private.auth_attempts (class_id, kind, at);
 create index pupil_devices_hash on private.pupil_devices (device_hash);
@@ -58,6 +65,16 @@ language sql security definer set search_path = '' as
 
 create function private.wait_s(p_until timestamptz, p_now timestamptz) returns int language sql immutable set search_path = '' as
   $$ select case when p_until = 'infinity' then -1 else greatest(1, ceil(extract(epoch from p_until - p_now)))::int end $$;
+
+-- how many wrong codes from strangers a name, or a class, may take today: fewer after the teacher lifted a lock
+create function private.name_allow(p_class uuid, p_key text, p_now timestamptz) returns int language sql stable security definer set search_path = '' as
+  $$ select case when exists (select 1 from private.auth_lock_events where class_id = p_class and name_key = p_key and kind = 'unlock'
+                                and at > p_now - interval '24 hours')
+                 then s.code_unlock_allow else s.code_name_day end from private.settings s $$;
+create function private.class_allow(p_class uuid, p_now timestamptz) returns int language sql stable security definer set search_path = '' as
+  $$ select case when exists (select 1 from private.auth_lock_events where class_id = p_class and name_key = '' and kind = 'unlock-class'
+                                and at > p_now - interval '24 hours')
+                 then s.code_lift_allow else s.code_class_brake end from private.settings s $$;
 
 -- today's random salt for hashing addresses; the caller offers a fresh one, the first offer of a day wins
 create function private.ip_salt(p_day date, p_new text) returns text
@@ -150,22 +167,22 @@ begin
        and (case when v_known then bucket = 'd:' || p_dev else bucket in ('i:' || p_ip, 'i:' || p_ip_prev) end);
     if v_until is not null then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_until, p_now)); end if;
     -- wrong (or unfinished) codes of the last 24 hours: this name; this address on this name; this device
-    select count(*), count(*) filter (where not trusted), count(*) filter (where trusted and dev_bucket = p_dev),
-           count(*) filter (where not trusted and ip_bucket in (p_ip, p_ip_prev)), min(at)
+    select count(*), count(*) filter (where not trusted and not lifted), count(*) filter (where trusted and dev_bucket = p_dev and not lifted),
+           count(*) filter (where not trusted and not lifted and ip_bucket in (p_ip, p_ip_prev)), min(at)
       into n_all, n_str, n_dev, n_ip, v_oldest
       from private.auth_attempts
      where class_id = v_class and name_key = v_key and kind = 'code' and outcome <> 'ok' and at > p_now - day;
     if n_all >= s.code_ceiling_day or (v_known and n_dev >= s.code_bucket_day)
-       or (not v_known and (n_str >= s.code_name_day or n_ip >= s.code_bucket_day)) then
+       or (not v_known and (n_str >= private.name_allow(v_class, v_key, p_now) or n_ip >= s.code_bucket_day)) then
       return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_oldest + day, p_now));
     end if;
     if not v_known then
       -- strangers, across the names of the class: one address, and everybody together (the class brake)
       select count(*) filter (where ip_bucket in (p_ip, p_ip_prev)), count(*), min(at) filter (where ip_bucket in (p_ip, p_ip_prev)), min(at)
         into n_ipc, n_cls, v_oldest, v_old2
-        from private.auth_attempts where class_id = v_class and kind = 'code' and outcome <> 'ok' and not trusted and at > p_now - day;
+        from private.auth_attempts where class_id = v_class and kind = 'code' and outcome <> 'ok' and not trusted and not lifted and at > p_now - day;
       if n_ipc >= s.code_ip_class_day then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_oldest + day, p_now)); end if;
-      if n_cls >= s.code_class_brake then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_old2 + day, p_now)); end if;
+      if n_cls >= private.class_allow(v_class, p_now) then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_old2 + day, p_now)); end if;
     end if;
     if sec.code_hash is not null then
       v_salt := sec.code_salt; v_iter := sec.code_iter; v_algo := sec.code_algo; v_legacy := sec.legacy_salt;
@@ -175,7 +192,7 @@ begin
     -- per address and per class first (they hold for names that do not exist too)
     select count(*) filter (where ip_bucket in (p_ip, p_ip_prev)), count(*), min(at) filter (where ip_bucket in (p_ip, p_ip_prev)), min(at)
       into n_ipc, n_cls, v_oldest, v_old2
-      from private.auth_attempts where class_id = v_class and kind = 'picture' and outcome <> 'ok' and at > p_now - day;
+      from private.auth_attempts where class_id = v_class and kind = 'picture' and outcome <> 'ok' and not lifted and at > p_now - day;
     if n_ipc >= s.pic_ip_day then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_oldest + day, p_now)); end if;
     if n_cls >= s.pic_class_day then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_old2 + day, p_now)); end if;
     insert into private.auth_buckets (class_id, name_key, kind, bucket) values (v_class, v_key, 'picture', '*') on conflict do nothing;
@@ -262,18 +279,18 @@ begin
     if not v_ok then
       update private.auth_attempts set outcome = 'wrong' where id = a.id;
       v_until := private.bucket_fail(a.class_id, a.name_key, case when a.trusted then 'd:' || a.dev_bucket else 'i:' || a.ip_bucket end, p_now);
-      select count(*), count(*) filter (where not trusted) into n_all, n_str from private.auth_attempts
+      select count(*), count(*) filter (where not trusted and not lifted) into n_all, n_str from private.auth_attempts
        where class_id = a.class_id and name_key = a.name_key and kind = 'code' and outcome <> 'ok' and at > p_now - day;
-      if n_all = s.code_ceiling_day or (not a.trusted and n_str = s.code_name_day) then
+      if n_all = s.code_ceiling_day or (not a.trusted and n_str = private.name_allow(a.class_id, a.name_key, p_now)) then
         perform private.lock_event(a.class_id, a.name_key, 'name', p_now, null);       -- the name is closed for the day
       elsif v_until is not null then
         perform private.lock_event(a.class_id, a.name_key, 'code', p_now, v_until);
       end if;
       if not a.trusted then     -- the class as a whole: tell the teacher at the alarm mark and at the brake
         select count(*) into n_cls from private.auth_attempts
-         where class_id = a.class_id and kind = 'code' and outcome <> 'ok' and not trusted and at > p_now - day;
-        if n_cls in (s.code_class_alarm, s.code_class_brake) then
-          perform private.lock_event(a.class_id, '', case when n_cls = s.code_class_brake then 'class-brake' else 'class-alarm' end, p_now, null);
+         where class_id = a.class_id and kind = 'code' and outcome <> 'ok' and not trusted and not lifted and at > p_now - day;
+        if n_cls in (s.code_class_alarm, private.class_allow(a.class_id, p_now)) then
+          perform private.lock_event(a.class_id, '', case when n_cls = private.class_allow(a.class_id, p_now) then 'class-brake' else 'class-alarm' end, p_now, null);
         end if;
       end if;
       return jsonb_build_object('ok', false);
@@ -305,7 +322,7 @@ begin
          where class_id = a.class_id and name_key = a.name_key and kind = 'picture' and bucket = '*' and locked_until is distinct from 'infinity';
         if found then perform private.lock_event(a.class_id, a.name_key, 'picture', p_now, 'infinity'); end if;
       end if;
-      select count(*) into n_cls from private.auth_attempts where class_id = a.class_id and kind = 'picture' and outcome <> 'ok' and at > p_now - day;
+      select count(*) into n_cls from private.auth_attempts where class_id = a.class_id and kind = 'picture' and outcome <> 'ok' and not lifted and at > p_now - day;
       if n_cls = s.pic_class_day then perform private.lock_event(a.class_id, '', 'class-picture', p_now, null); end if;
       return jsonb_build_object('ok', false);
     end if;
@@ -411,8 +428,14 @@ begin
    where pu.id = p_pupil and t.user_id = p_teacher;
   if p.id is null or (select shadow_mode from private.settings) then return jsonb_build_object('ok', false); end if;
   perform private.name_lock(p.class_id, p.name_key);
+  if (select count(*) from private.auth_lock_events where class_id = p.class_id and name_key = p.name_key and kind = 'unlock'
+        and at > p_now - interval '24 hours') >= (select code_unlock_day from private.settings) then
+    return jsonb_build_object('ok', false, 'e', 'limit');      -- twice a day at most; after that, the reset
+  end if;
   delete from private.auth_buckets  where class_id = p.class_id and name_key = p.name_key and kind in ('code', 'picture');
-  delete from private.auth_attempts where class_id = p.class_id and name_key = p.name_key and kind in ('code', 'picture') and outcome <> 'ok';
+  -- lifted, not deleted: they still count towards the name's daily ceiling, and the next tries get a small allowance
+  update private.auth_attempts set lifted = true
+   where class_id = p.class_id and name_key = p.name_key and kind in ('code', 'picture') and outcome <> 'ok' and at > p_now - interval '24 hours';
   perform private.lock_event(p.class_id, p.name_key, 'unlock', p_now, null);
   return jsonb_build_object('ok', true, 'name', p.display_name);
 end $$;
@@ -425,8 +448,9 @@ begin
   if not exists (select 1 from public.teachers where user_id = p_teacher and class_id = p_class) or (select shadow_mode from private.settings) then
     return jsonb_build_object('ok', false);
   end if;
-  -- the tries are kept as history under another kind, so they stop counting but the day's story stays readable
-  update private.auth_attempts set kind = 'class', class_id = null, name_key = ''
+  -- lifted, not deleted: the class gets code_lift_allow more wrong codes from strangers today, not a fresh 100, and
+  -- every name keeps its daily ceiling
+  update private.auth_attempts set lifted = true
    where class_id = p_class and kind in ('code', 'picture') and outcome <> 'ok' and not trusted and at > p_now - interval '24 hours';
   perform private.lock_event(p_class, '', 'unlock-class', p_now, null);
   return jsonb_build_object('ok', true);

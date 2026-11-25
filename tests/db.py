@@ -79,13 +79,14 @@ def fixture(db):
     sql.append("insert into public.items (game, item_key) values " + ', '.join(f"('en', '{k}')" for k in keys) + ';')
     sql.append("insert into public.levels (game, level_key, size) values " + ', '.join(f"('math', 'bay:{i}', 0)" for i in range(1, 9))
                + ", ('read', 't1', 0), ('read', 't2', 0), ('exam', 'p1', 20);")
+    sql.append('update private.settings set save_gap_s = 0;')      # the 5-second rule has its own test (test_saves)
     db.admin('\n'.join(sql))
 
 
 PUBLIC_TABLES = ['classes', 'roster', 'teachers', 'pupils', 'items', 'levels', 'level_best', 'answers', 'points', 'pupil_totals', 'progress', 'flags', 'answer_daily']
-VIEWS = ['class_board', 'teacher_view', 'teacher_items']
+VIEWS = ['class_board', 'teacher_view', 'teacher_items', 'backend_health']
 PRIVATE_TABLES = ['class_codes', 'pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'auth_attempts', 'auth_buckets',
-                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions']
+                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions', 'maintenance_log']
 PUPIL_KEYED = ['pupil_totals', 'progress', 'answers', 'points', 'flags', 'answer_daily', 'level_best']
 PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days']
 
@@ -124,9 +125,9 @@ def test_catalogue(db):
         """select n.nspname || '.' || p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
            where n.nspname in ('public', 'private', 'app') and p.prosecdef
              and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c in ('search_path=""', 'search_path='))"""), [])
-    eq('the three views are security barriers', db.admin(
+    eq('every view is a security barrier', db.admin(
         """select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
-           where n.nspname = 'public' and c.relkind = 'v' and c.reloptions::text like '%security_barrier=true%'"""), [['3']])
+           where n.nspname = 'public' and c.relkind = 'v' and c.reloptions::text like '%security_barrier=true%'"""), [[str(len(VIEWS))]])
     eq('this file knows every table (a new table must be added to the lists above and so to the tests)',
        sorted(r[0] for r in db.admin("select n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname in ('public', 'private') and c.relkind = 'r'")),
        sorted(['public.' + t for t in PUBLIC_TABLES] + ['private.' + t for t in PRIVATE_TABLES]))
@@ -296,8 +297,8 @@ def test_points(db):
         record(db, 'F', [])
     stored = int(db.one(f"select count(*) from public.answers where pupil_id = '{pid('F')}'"))
     batches = int(db.one(f"select count(*) from private.answer_batches where pupil_id = '{pid('F')}'"))
-    check(f'{sent} answers sent: at most 1,000 rows stored for the day, and one batch row per call that stored something', stored <= 1000 and batches <= 6, f'{stored} rows, {batches} batch rows')
-    eq('the rest is one counter on one flag row', db.admin(f"select n > 40000 from public.flags where pupil_id = '{pid('F')}' and kind = 'daycap'"), [['t']])
+    check(f'{sent} answers sent: at most 300 rows stored for the day, and one batch row per call that stored something', stored <= 300 and batches <= 6, f'{stored} rows, {batches} batch rows')
+    eq('the rest is one counter on one flag row', db.admin(f"select n > 49000 from public.flags where pupil_id = '{pid('F')}' and kind = 'daycap'"), [['t']])
     db.admin('update private.settings set max_calls_day = 300')
     r, _ = record(db, 'F', [dict(type='level', game='math', level='bay:1', stars=3)])
     db.admin('update private.settings set max_calls_day = 1500')
@@ -405,8 +406,19 @@ def test_teacher(db):
     check('a name with a direction-override character is refused', bad('Da\u202ena') is not None and bad('\ufeffDana') is not None)
     denied("the class list has the same rule: a teacher's token cannot store markup in it", db.insert(TEACHER1, 'roster', dict(class_id=C1, name_key='<b onclick=x>', display_name='<b onclick=x>')), 'violates check constraint')
     denied('nor an invisible character', db.insert(TEACHER1, 'roster', dict(class_id=C1, name_key='da\u200bna', display_name='Da\u200bna')), 'violates check constraint')
-    check('the same name in other letter case and spacing is the same pupil', 'duplicate key' in (bad(' ' + NAMES['A'] + '  ') or ''))
-    check('the same name in another class is allowed', bad("  O'Neil-Ben ") is None and db.psql(f"insert into public.pupils (class_id, display_name) values ('{C2}', $n$o'neil-ben$n$)")[1] is None)
+    check('the same name twice in a class is one pupil', 'duplicate key' in (bad(NAMES['A']) or ''))
+    check('the same name in another class is allowed; letter case does not make a second pupil',
+          bad("O'Neil-Ben") is None and db.psql(f"insert into public.pupils (class_id, display_name) values ('{C2}', $n$O'Neil-Ben$n$)")[1] is None
+          and 'duplicate key' in (db.psql(f"insert into public.pupils (class_id, display_name) values ('{C2}', $n$o'neil-ben$n$)")[1] or ''))
+    print('-- names: an allow-list (Hebrew or Latin letters), not a list of what is forbidden')
+    for n, why in [('\u3164\u3164', 'Hangul filler (renders blank)'), ('Da\u2060na', 'word joiner'), ('Da\u00adna', 'soft hyphen'), ('Da\u180ena', 'Mongolian vowel separator'),
+                   ('Da\u061cna', 'Arabic letter mark (bidi)'), ('D\u0430na', 'Cyrillic a'), ('\u0394ana', 'Greek letter'), ('Dana\U0001F600', 'emoji'), ('Da\u00a0na', 'no-break space'),
+                   ('Dana\u0301\u0301\u0301', 'stacked combining marks'), (' Dana', 'a leading space'), ('Dana ', 'a trailing space'), ('D4na', 'a digit'),
+                   ('Dana\u200f', 'right-to-left mark'), ('a' * 21, '21 letters')]:
+        check(f'refused: {why}', bad(n) is not None)
+    for n in ['Noa', 'נועה', "O'Neil", 'Chloé', 'בר-לב', 'ג׳ני', 'Ana Mae', 'Dan.']:
+        r = db.psql(f"select app.name_ok($n${n}$n$)")[0][0][0]
+        check(f'allowed: {n}', r == 't', r)
 
     print('-- maintenance (server role only)')
     record(db, 'H', ans(4, minute=0, key='old') + ans(1, 5, key='hard', correct=False, first=False) + ans(1, 6, key='hard', correct=False, first=False) + ans(1, 7, key='hard'))
@@ -424,6 +436,89 @@ def test_teacher(db):
     db.psql('grant delete on auth.audit_log_entries to postgres', user='supabase_admin')
     eq('where the platform does not allow that purge, maintenance reports it instead of hiding it', (m2.get('audit_purged'), m2.get('ok')), (False, False))
     rows_n('the server role reads everything (RLS does not apply to it)', db.select(SERVER, 'pupils'), 10)
+
+
+def test_storage(db):
+    """The free plan's 500 MB: what one pupil's device can add in a day, and the brake for everybody (PR 12 re-check)."""
+    print('\n== storage: saves, batches, the brake, housekeeping ==')
+    sv_uid, sv_pid = U(0xD01), U(0xD02)
+    db.admin(f"insert into auth.users (id) values ('{sv_uid}'); insert into public.pupils (id, class_id, display_name, auth_user_id) values ('{sv_pid}', '{C2}', 'Saver', '{sv_uid}')")
+    S = ('authenticated', sv_uid)
+    day = lambda: db.admin(f"select saves, save_kb from private.pupil_days where pupil_id = '{sv_pid}' and day = (now() at time zone 'Asia/Jerusalem')::date")
+    print('-- save_progress is rationed (review PB1b)')
+    r1, err = db.rpc(S, 'save_progress', dict(p_state={'a': 1}))
+    r2, _ = db.rpc(S, 'save_progress', dict(p_state={'a': 1}, p_base=r1['updated_at']))
+    eq('the same blob again: nothing written, nothing counted', (r2.get('unchanged'), r2['updated_at'] == r1['updated_at'], day()[0][0]), (True, True, '1'))
+    db.admin('update private.settings set save_gap_s = 5')
+    r3, _ = db.rpc(S, 'save_progress', dict(p_state={'a': 2}, p_base=r1['updated_at']))
+    check('a second write within 5 seconds is refused with the wait', r3['ok'] is False and r3['e'] == 'wait' and 1 <= r3['retry_after'] <= 5, r3)
+    eq('and nothing was written', db.one(f"select state ->> 'a' from public.progress where pupil_id = '{sv_pid}'"), '1')
+    db.admin('update private.settings set save_gap_s = 0, max_saves_day = 3')
+    got = [db.rpc(S, 'save_progress', dict(p_state={'a': 10 + i}, p_base=db.one(f"select updated_at from public.progress where pupil_id = '{sv_pid}'")))[0] for i in range(5)]
+    eq('at most max_saves_day writes a day (3 here, 300 normally)', [g['ok'] for g in got], [True, True, False, False, False])
+    check('past it: daycap and the seconds until midnight in Israel', got[2]['e'] == 'daycap' and 0 < got[2]['retry_after'] <= 86400, got[2])
+    eq('one flag for the teacher, however many tries', db.one(f"select n from public.flags where pupil_id = '{sv_pid}' and kind = 'saves'"), '1')
+    db.admin(f"update private.settings set max_saves_day = 300; delete from private.pupil_days where pupil_id = '{sv_pid}'; delete from public.flags where pupil_id = '{sv_pid}'")
+    size0 = int(db.one("select pg_total_relation_size('public.progress')"))
+    t0 = time.time()
+    rows, err = db.as_('authenticated', sv_uid, """
+      do $f$ declare r jsonb; b timestamptz; okn int := 0; i int; blob text;
+      begin
+        for i in 1..5000 loop
+          select string_agg(md5(random()::text || i || j), '') into blob from generate_series(1, 1200) j;      -- about 39 KB, a new one each time
+          select updated_at into b from public.progress where pupil_id = app.pupil_id();
+          r := public.save_progress(jsonb_build_object('x', blob), b);
+          if (r ->> 'ok')::boolean then okn := okn + 1; end if;
+        end loop;
+        perform set_config('wi.okn', okn::text, true);
+      end $f$;
+      select current_setting('wi.okn')""")
+    okn = int(rows[-1][0]) if rows and not err else -1
+    grown = int(db.one("select pg_total_relation_size('public.progress')")) - size0
+    check(f'5,000 saves of a 39 KB blob, as fast as possible: {okn} written (4 MB a day at most)', 0 < okn <= 110, err or okn)
+    check(f'the table grew by {grown / 1048576:.1f} MB, not hundreds (before the fix: 428 MB from 28,000 saves)', grown < 6 * 1048576, grown)
+    print(f'     ({time.time() - t0:.0f} s)')
+    eq('the day is flagged once', db.one(f"select n from public.flags where pupil_id = '{sv_pid}' and kind = 'saves'"), '1')
+
+    print('-- record_events: batches per day, one Beach Run row per day, the storage brake')
+    db.admin('update private.settings set max_batches_day = 2')
+    rr = [record_as(db, S, ans(1, 0, key=f'w{i}'))[0] for i in range(3)]
+    eq('a batch row only for a call that stored something, at most max_batches_day a day', [bool(x.get('capped')) for x in rr], [False, False, True])
+    db.admin('update private.settings set max_batches_day = 300')
+    for p_ in (10, 15, 5):
+        record_as(db, S, [dict(type='run', points=p_)])
+    eq('three Beach Runs in a day: one ledger row, grown in place', db.admin(f"select count(*), sum(delta) from public.points where pupil_id = '{sv_pid}' and reason = 'run'"), [['1', '30']])
+    db.admin('update private.settings set storage_brake = true')
+    n0 = db.one(f"select count(*) from public.answers where pupil_id = '{sv_pid}'")
+    r, _ = record_as(db, S, ans(1, 0, key='w9'))
+    eq('with the brake on, events are counted, not stored', (r.get('capped'), db.one(f"select count(*) from public.answers where pupil_id = '{sv_pid}'"),
+       db.one(f"select n from public.flags where pupil_id = '{sv_pid}' and kind = 'storage'")), (True, n0, '1'))
+    db.admin('update private.settings set storage_brake = false')
+
+    print('-- the nightly housekeeping: its log, the brake, the purges')
+    db.admin(f"""insert into private.pupil_devices values ('{sv_pid}', '\\x01', now() - interval '40 days'), ('{sv_pid}', '\\x02', now());
+                insert into public.flags (pupil_id, kind, day) values ('{sv_pid}', 'rate', current_date - 400);
+                insert into private.maintenance_log (at, result) values (now() - interval '70 days', '{{}}');
+                insert into public.points (pupil_id, delta, reason, ref, at) values ('{sv_pid}', 20, 'day', 'x1', now() - interval '100 days'),
+                  ('{sv_pid}', 20, 'day', 'x2', now() - interval '99 days'), ('{sv_pid}', 7, 'run', 'x3', now() - interval '98 days');
+                update public.pupil_totals set points = points + 47 where pupil_id = '{sv_pid}';""")
+    db.admin('update private.settings set storage_brake_mb = 1')
+    m, err = db.rpc(SERVER, 'maintenance')
+    check('over the storage mark: the brake goes on and the answer is not ok', err is None and m['storage_brake'] is True and m['ok'] is False and db.one('select storage_brake from private.settings') == 't', err or m)
+    h, err = db.select(TEACHER2, 'backend_health')
+    check("the teacher's health row warns", err is None and len(h) == 1 and h[0]['warn'] is True and h[0]['storage_brake'] is True, err or h)
+    rows_n('a pupil reads no health row', db.select(S, 'backend_health'), 0)
+    db.admin('update private.settings set storage_brake_mb = 350')
+    m, err = db.rpc(SERVER, 'maintenance')
+    check('below it again: the brake goes off', err is None and m['storage_brake'] is False and db.one('select storage_brake from private.settings') == 'f', err or m)
+    h, _ = db.select(TEACHER2, 'backend_health')
+    check('and the health row is quiet when the night went well', h and h[0]['warn'] is (not m['ok']), (h, m))
+    eq("each night's answer is in the log; rows older than 60 days are gone", db.admin("select count(*) >= 2, count(*) filter (where at < now() - interval '60 days') from private.maintenance_log"), [['t', '0']])
+    eq('devices not seen for 30 days are forgotten', db.one(f"select count(*) from private.pupil_devices where pupil_id = '{sv_pid}'"), '1')
+    eq('flags older than a year are deleted', db.one(f"select count(*) from public.flags where pupil_id = '{sv_pid}' and day < current_date - 365"), '0')
+    eq('old daily-bonus and Beach Run rows become one row per reason; the total is unchanged',
+       sorted(tuple(x) for x in db.admin(f"select reason, delta from public.points where pupil_id = '{sv_pid}' and ref = 'rolled'")), [('day', '40'), ('run', '7')])
+    eq('the totals still equal the ledgers', db.admin('select * from private.totals_check()'), [])
 
 
 def test_load(db):
@@ -502,7 +597,7 @@ def main():
     try:
         if '--load' not in args:
             fixture(db)
-            test_catalogue(db); test_anon(db); test_pupil(db); test_points(db); test_teacher(db)
+            test_catalogue(db); test_anon(db); test_pupil(db); test_points(db); test_teacher(db); test_storage(db)
         if '--no-load' not in args:
             test_load(db)
     finally:

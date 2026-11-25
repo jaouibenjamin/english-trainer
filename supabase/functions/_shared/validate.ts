@@ -1,6 +1,8 @@
-// Input rules. Names: the same characters as the Sheet backend allowed (backend/Code.gs NAME_RE), narrowed to
-// Hebrew and Latin letters and normalised (NFC), so two look-alike spellings cannot be two pupils.
-export const NAME_RE = /^[\p{Script=Hebrew}\p{Script=Latin}\p{M}'’״׳ .\-]{2,20}$/u;
+// Input rules. Names: the allow-list of the database's CHECK (app.name_ok, 0001_schema.sql), applied after NFC and
+// squeezing spaces, so the function answers "input" instead of the table refusing the row: Hebrew letters, Latin
+// letters (with the Latin-1 ones such as é), and space ' ’ ׳ ״ . - inside; 2 to 20; starts with a letter.
+const L = "A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u05D0-\u05EA";
+export const NAME_RE = new RegExp(`^[${L}][${L}\u05F3\u05F4\u2019' .-]{0,18}[${L}.]$`);
 export const normName = (x: unknown): string => String(x ?? "").normalize("NFC").trim().replace(/\s+/g, " ");
 export const isName = (x: unknown): x is string => typeof x === "string" && x.length <= 60 && NAME_RE.test(normName(x));
 export const isCode = (x: unknown): x is string => typeof x === "string" && /^\d{4}$/.test(x);

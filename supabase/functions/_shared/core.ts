@@ -178,7 +178,7 @@ export async function teacherReset(d: Deps, body: Body, ctx: Ctx): Promise<Reply
     const u = action === "unlock"
       ? (await d.sql`select private.teacher_unlock(${teacher}::uuid, ${body.pupil_id}::uuid, ${now}::timestamptz) as v`)[0].v
       : (await d.sql`select private.teacher_unlock_class(${teacher}::uuid, ${body.class_id}::uuid, ${now}::timestamptz) as v`)[0].v;
-    return u.ok ? { ok: true } : fail("forbidden");
+    return u.ok ? { ok: true } : fail(u.e === "limit" ? "limit" : "forbidden"); // limit: twice a day, then the reset
   }
   const iter = (await d.sql`select kdf_iter from private.settings`)[0].kdf_iter as number;
   const otc = randomDigits(6);
