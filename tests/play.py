@@ -332,7 +332,9 @@ async def new_page(b, w, h, api=None, errs=None, speech=SPEECH_OK, clips='ok'):
     # an error: it answers 404, which the response check below catches.
     aborted_clip = lambda r: CLIPS_HOST in r.url and r.resource_type == 'media' and r.failure == 'net::ERR_ABORTED'
     aborted_pic = lambda r: r.resource_type == 'image' and r.failure == 'net::ERR_ABORTED' and urllib.parse.urlsplit(r.url).hostname == '127.0.0.1' and urllib.parse.urlsplit(r.url).path.startswith('/assets/')
-    pg.on('requestfailed', lambda r: errs.append(f'requestfailed: {r.url} ({r.resource_type}, {r.failure})') if not (aborted_clip(r) or aborted_pic(r)) else None)
+    # The tab icon: Chrome fetches it as resource type "other" and drops it when the test navigates on at once (ERR_ABORTED).
+    aborted_icon = lambda r: r.failure == 'net::ERR_ABORTED' and urllib.parse.urlsplit(r.url).hostname == '127.0.0.1' and urllib.parse.urlsplit(r.url).path.startswith('/assets/icons/favicon-')
+    pg.on('requestfailed', lambda r: errs.append(f'requestfailed: {r.url} ({r.resource_type}, {r.failure})') if not (aborted_clip(r) or aborted_pic(r) or aborted_icon(r)) else None)
     pg.on('response', lambda r: errs.append(f'http {r.status}: {r.url}') if r.status >= 400 else None)   # a missing voice file is an error
     # Everything the pages load is ours: a request to any other host is an error. Allowed: the test's own static server,
     # the mock backend when the page was given one, and data: / blob: URLs. (The real class backend is never contacted:

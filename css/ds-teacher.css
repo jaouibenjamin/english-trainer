@@ -51,7 +51,7 @@ html.ds .teacher .hard .pbar i{background:var(--wi-fix)}
 /* a pupil's card */
 html.ds .teacher .kids{gap:var(--wi-s3)}
 html.ds .teacher .kid .kn{row-gap:var(--wi-s1)}
-html.ds .teacher .kid .kn b{font-size:var(--wi-fs-md);color:var(--wi-text)}
+html.ds .teacher .kid .kn b{font-size:var(--wi-fs-md);color:var(--wi-text);min-width:0;overflow-wrap:anywhere}
 html.ds .teacher .kid .kw{font-size:var(--wi-fs-sm);color:var(--wi-text)}
 html.ds .teacher .kid .ks{font-size:var(--wi-fs-xs);color:var(--wi-text-dim);row-gap:2px}
 html.ds .teacher .kid .km{border-block-start:1px solid var(--wi-navy-700)}
@@ -66,5 +66,9 @@ html.ds .teacher .treset:active{background:var(--wi-azure-press)}
 html.ds .teacher .treset[data-arm]{background:var(--wi-navy-900);border-color:var(--wi-fix);color:var(--wi-fix)}
 html.ds .teacher .treset:disabled{opacity:1;background:var(--wi-navy-700);border-color:var(--wi-locked);color:var(--wi-text-dim)}
 html.ds .teacher>.credit{color:var(--wi-text-dim);font-size:var(--wi-fs-xs);background:var(--wi-navy-800);border:1px solid var(--wi-navy-700);border-radius:var(--wi-r-md);padding:var(--wi-s2) var(--wi-s3)}
+
+/* the toast ("reset done", an error) is a dark card here too, like on the other screens in the new look (ds-game.css) */
+html.ds #stage[data-scr=teacher] .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);font-family:var(--wi-font-ui)}
+html.ds #stage[data-scr=teacher] .toastin b{color:var(--wi-gold)}
 
 @media (prefers-reduced-motion:reduce){html.ds .teacher .btn{transition:none}}
