@@ -6,8 +6,9 @@
 import {SET,saveSet,esc} from './state.js';
 import * as tf from './tf.js';
 import * as pairs from './pairs.js';
+import * as scramble from './scramble.js';
 
-export const EXTRA={tf:{name:'נכון או לא?',mod:tf},pairs:{name:'זוגות',mod:pairs}};
+export const EXTRA={tf:{name:'נכון או לא?',mod:tf},pairs:{name:'זוגות',mod:pairs},scramble:{name:'אותיות',mod:scramble}};
 export const extraOn=()=>SET.games===true;
 export function initExtra(){let v=null;try{v=new URLSearchParams(location.search).get('games')}catch(e){}
  if(v==='1'||v==='0'){SET.games=v==='1';saveSet()}}
