@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import play as P
 from play import check, fails
 
-SB, KEY = 'https://abcdefghijklmnop.supabase.co', 'sb_publishable_test_0123456789abcdef'
+SB, KEY = 'https://abcdefghijklmnop.supabase.co', 'public-key-for-tests-0123456789'
 PAGE = f'http://127.0.0.1:{P.PORT}/teacher.html'
 EVIL = '<img src=x onerror="window.__pwned=1">'
 C1, P1, P2 = '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333'
