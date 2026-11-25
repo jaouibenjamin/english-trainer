@@ -5,7 +5,8 @@
     python3 tests/teacher_mock.py              # phone and laptop
     python3 tests/teacher_mock.py --shots DIR  # also save PNGs
 
-Checks: without the switch the screen is as before; with it each pupil's card shows the papers taken, the last and
+Checks: without the switch the screen is as before; in the new look (?ds=1) the same cards, every button 48px or more,
+no text under 4.5:1 against its own backing and no card wider than its box; with it each pupil's card shows the papers taken, the last and
 the first result and the last paper by skill; a backend that does not send the new field yet (an older deployment)
 draws the cards as before; nothing a backend sends is drawn as text; and looking at the screen changes nothing in a
 pupil's record."""
@@ -20,6 +21,12 @@ TRY1 = {'at': 1000, 'total': [9, 20], 'sc': {'words': [3, 5], 'grammar': [2, 5],
 TRY2 = {'at': 2000, 'total': [15, 20], 'sc': {'words': [5, 5], 'grammar': [4, 5], 'reading': [3, 5], 'writing': [3, 5]}, 'miss': [], 'wrong': []}
 PUPILS = {'אביגיל': [TRY1, TRY2], 'בארי': [], 'גילי': [TRY1], 'דליה': [dict(TRY1, at=1000 + i) for i in range(19)] + [TRY2]}   # 20 papers: the device keeps only the last 20
 POST = "async ([api,d])=>(await fetch(api,{method:'POST',body:JSON.stringify(d)})).json()"
+DS = """(()=>{const lum=c=>{const m=c.match(/[\\d.]+/g).map(Number);const f=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4};return [.2126*f(m[0])+.7152*f(m[1])+.0722*f(m[2]),m[3]===undefined?1:m[3]]};
+ const back=e=>{for(;e;e=e.parentElement){const b=getComputedStyle(e).backgroundColor;const l=lum(b);if(l[1]>=.99)return l[0]}return 1};
+ const low=[];for(const e of document.querySelectorAll('#view .teacher *')){if(!e.offsetParent)continue;const own=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());if(!own)continue;
+  const a=lum(getComputedStyle(e).color)[0],b=back(e),r=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);if(r<4.5)low.push([e.tagName,e.className,e.textContent.trim().slice(0,20),r.toFixed(2)])}
+ const small=[...document.querySelectorAll('#view button,#view a,#view input')].filter(e=>e.offsetParent).map(e=>[e.className,Math.round(e.getBoundingClientRect().height)]).filter(x=>x[1]<48);
+ return {ds:document.documentElement.classList.contains('ds'),css:[...document.styleSheets].some(x=>(x.href||'').endsWith('/css/ds-teacher.css')),low,small}})()"""
 CARDS = """(()=>Object.fromEntries([...document.querySelectorAll('.kid')].map(k=>[k.querySelector('.kn b').textContent,{km:[...k.querySelectorAll('.km')].map(p=>p.innerText.replace(/\\s+/g,' ').trim()),rows:k.querySelectorAll('p').length,wide:k.scrollWidth>k.clientWidth+1}])))()"""
 
 
@@ -82,6 +89,27 @@ async def run(b, w, h, errs, api, first):
     if P.SHOTS:
         os.makedirs(P.SHOTS, exist_ok=True); await pg.screenshot(path=os.path.join(P.SHOTS, f'teacher-mock-{tag}.png'), full_page=False)
         await pg.locator('.kid', has_text='אביגיל').screenshot(path=os.path.join(P.SHOTS, f'teacher-mock-card-{tag}.png'))
+
+    # ---- the new look (?ds=1): the same cards, in the dark shell ----
+    await pg.wait_for_load_state('networkidle'); await pg.goto('about:blank'); await pg.goto(P.BASE + '?ds=1#teacher'); await pg.wait_for_selector('#tt')
+    R = await pg.evaluate(DS)
+    check(f'[{tag}] new look: the sign-in form is in the new look, buttons and fields 48px, every text 4.5:1 or more', R['ds'] and R['css'] and not R['small'] and not R['low'], R)
+    if P.SHOTS: await pg.screenshot(path=os.path.join(P.SHOTS, f'teacher-ds-signin-{tag}.png'))
+    await sign_in(pg, '?ds=1')
+    cards_ds = await pg.evaluate(CARDS)
+    check(f'[{tag}] new look: the same cards and rows as the old look, none wider than its box', {n: (v['km'], v['rows']) for n, v in cards_ds.items()} == {n: (v['km'], v['rows']) for n, v in cards.items()} and not any(v['wide'] for v in cards_ds.values()), cards_ds)
+    R = await pg.evaluate(DS)
+    check(f'[{tag}] new look: every button 48px or more and every text 4.5:1 or more against its own backing', R['ds'] and not R['small'] and not R['low'], R)
+    if P.SHOTS:
+        await pg.screenshot(path=os.path.join(P.SHOTS, f'teacher-ds-{tag}.png'))
+        await pg.screenshot(path=os.path.join(P.SHOTS, f'teacher-ds-full-{tag}.png'), full_page=True)
+        await pg.locator('.kid', has_text='אביגיל').screenshot(path=os.path.join(P.SHOTS, f'teacher-ds-card-{tag}.png'))
+    await pg.click('.kid:has-text("בארי") [data-a=treset]')
+    armed = await pg.evaluate("(()=>{const b=document.querySelector('.treset[data-arm]');if(!b)return null;const s=getComputedStyle(b);return [b.textContent,s.color,Math.round(b.getBoundingClientRect().height)]})()")
+    check(f'[{tag}] new look: "reset code" asks for a second tap and shows it in the warm colour, nothing sent yet', armed and armed[2] >= 48 and armed[1] == 'rgb(255, 138, 122)' and not any('"reset"' in x for x in bodies), armed)
+    if P.SHOTS: await pg.locator('.kid', has_text='בארי').screenshot(path=os.path.join(P.SHOTS, f'teacher-ds-armed-{tag}.png'))
+    await pg.wait_for_load_state('networkidle'); await pg.goto(P.BASE + '?ds=0'); await pg.wait_for_selector('#lc'); await pg.wait_for_load_state('networkidle')
+    check(f'[{tag}] ?ds=0 takes the new look away', await pg.evaluate("localStorage.getItem('wi_ds')===null&&!document.documentElement.classList.contains('ds')"))
 
     # ---- an older deployment: the backend sends no "mock" field ----
     async def old(route):

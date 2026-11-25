@@ -177,3 +177,13 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=map|island]`. No 
 - The map sea now carries quiet details near the edges (whale, two lantern boats, lighthouse, jellyfish); the old boat and whale sprites are hidden. The route is round aqua dots, drawn as a stroke, no blur.
 - Painted frames as `border-image` (9-slice), text stays live on top: panel (login card, settings panels, the all-played banner; in `world.html` the cards and the focus banner), gold button (the login button; the primary buttons of `world.html`), HUD pill (the star count, the island chip; the HUD chips of `world.html`). Disabled and secondary buttons keep their flat look, so "not yet" still reads differently.
 
+
+## Rollout step 7: the teacher screen, behind the same flag
+Files: `css/ds-teacher.css` (the skin), one more entry in the stylesheet list of `js/dsflag.js`. Styling only, every rule under `html.ds #stage[data-scr=teacher]` or `.teacher`. No markup, script, request or saving change; pupil names still come from the backend at run time, escaped by `js/main.js`.
+- Dark shell, flat navy cards with a line edge (the painted frame is not used: many cards, small data). No paper picture behind.
+- Sign-in form: fields 48px, navy-900 with a line border; "כניסה" is the one gold button. Pitzi listens in the new art.
+- Hard words: the share of wrong answers and its bar in the warm "fix" colour.
+- A pupil's card: name, status tag outlined in its colour (green "מוכן/ה", warm "fix" for a nudge, dim "בדרך"; the word carries the meaning), stars bar in aqua, data rows in dim text, mock exam rows (with `?tmock=1`) under a quiet divider.
+- "איפוס קוד" is a 48px azure secondary button (was 30px); armed for the second tap it turns warm "fix", never red.
+- Data rows, tags and the footnote are 14px (were 12.5px): below the 16px body rule, on purpose for a data-heavy adult screen. Designer to confirm.
+- Checked (`tests/teacher_mock.py`, mock backend, 390x844 and 1366x768): with the flag on, the same cards and rows as without it, no card wider than its box, every button and field 48px or more, every text 4.5:1 or more against its own backing, the first tap on "reset code" sends nothing; `?ds=0` takes the look away.
