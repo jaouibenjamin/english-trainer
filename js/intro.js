@@ -6,7 +6,7 @@
    - Closing (skip, Escape, end) stores wi_intro=1 on this device and removes everything, the video's source included.
    - Calm mode or prefers-reduced-motion: the poster and the buttons show, the film still waits for a tap.
    DOM is built with createElement and textContent only. The narration text is flagged for the teacher (docs/INTRO.md). */
-const FILM='assets/al/intro/intro.hf_20261125_160942_30220de2-7942-4db5-bb82-9f99b71a615f.mp4';
+const FILM='assets/al/intro/intro.hf_20261125_162146_00980a2b-0f5a-4695-b31f-982280cb406b.mp4';
 const POSTER='assets/al/intro/poster.hf_20261125_160942_30220de2-7942-4db5-bb82-9f99b71a615f.webp';
 /* [from, to, text] in seconds of the film, from the pauses in the narration */
 const CUES=[

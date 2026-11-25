@@ -13,17 +13,19 @@ unless `?intro=1` asks (so the other suites run as before); `tests/intro.py` che
 
 The platform is **ניצני אופק**. The closing title is live text, "ברוכים הבאים לניצני אופק!".
 
-## Story (version 5, the owner's notes)
+## Story (version 6, the owner's notes)
 
 1. A generic illustrated school gate at sunset: the four (girl with braids, boy with cap, fox, penguin: our avatars) wave
    goodbye to friends and walk toward the camera.
 2. The camera circles to their side on the seaside path; sunset turns to dusk.
 3. They sit on the grass above the sea; push in to their faces: each laughs in their own way (a bright giggle, a
    hearty laugh, a sly chuckle, a squeaky honk), no words.
-4. At "ופתאום" the laughter stops, the camera pulls back and to the side, and a huge island rises slowly out of the sea.
-5. Pitzi leaps out of the water with a splash, lands by them and calls: "Hey kids! Are you ready for an adventure?"
+4. At "ופתאום" the laughter stops: they freeze in shock (jaws dropped, eyes wide) as the camera pulls back and to the
+   side and a huge island rises slowly out of the sea.
+5. Small Pitzi (smaller than the kids) leaps out of the water with a splash, lands by them and calls: "Hey kids! Are you ready for an adventure?"
 6. "Yeah, let's go!": they run with Pitzi down to the beach; the picture freezes and the title flies in from the front
-   ("ברוכים הבאים לניצני אופק!", in the film itself, rendered in the game's font).
+   ("ברוכים הבאים לניצני אופק!", in the film itself: the letters pop in one by one, "ברוכים הבאים" in aqua
+   Rubik Bubbles, "לניצני אופק!" in gold Rubik Moonrocks with moon craters, then a glint passes over them).
 
 ## Narration (written by us, **flagged for the teacher's review**)
 
@@ -51,7 +53,7 @@ Sound: each sentence is cut from the take and placed at its shot; one linear gai
 denoising (the pauses between lines are true silence). Under it a music bed, original and
 instrumental (ElevenLabs Music, job c9f440f8-64c5-4dfe-ac0c-db1ae20e57bd; calm, warm, a little adventurous: plucked
 arpeggios over pads, about 84 bpm). It fades in over the first 4 s, sits about 12 dB under the speech, and fades out on
-the title (33.5 to 37 s). Encoded once: AAC-LC, stereo, 48 kHz, 128 kbps. Measured: -16.2 LUFS, peak -1.5 dBTP; picture 540 x 982, about 1.8 Mbit/s (8.3 MB), so the foam and water stay clean; the narration take's noise floor -70 dB.
+the title (33.5 to 37 s). Encoded once: AAC-LC, stereo, 48 kHz, 128 kbps. Measured: -15.7 LUFS, peak -1.5 dBTP; picture 540 x 982, about 1.8 Mbit/s (8.3 MB), so the foam and water stay clean; the narration take's noise floor -70 dB.
 
 The music is meant to become the platform's own theme (the map too). The generated piece ends with a short decay at
 28 s; a clean loop can be cut at its phrase boundary near 23.2 s for no credits when the map needs it.
