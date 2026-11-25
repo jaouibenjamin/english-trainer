@@ -270,7 +270,8 @@ html.ds #stage[data-scr=play] .lv .slot.gap i{color:var(--wi-gold)}
 
 /* buttons in a level: the main one gold, the others navy with an aqua edge */
 html.ds #stage[data-scr=play] .lv .btn.green,html.ds .result .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),var(--wi-e2);padding:0 var(--wi-s5);font-family:var(--wi-font-ui)}
-html.ds #stage[data-scr=play] .lv.read>.row .btn{padding:0 var(--wi-s2)}
+html.ds #stage[data-scr=play] .lv.read>.row .btn{padding:0 6px}
+html.ds #stage[data-scr=play] .lv.read>.row .btn.hslow{flex:0 0 56px}
 html.ds #stage[data-scr=play] .lv .btn.cream,html.ds .result .btn.cream{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e1);padding:0 var(--wi-s4);font-family:var(--wi-font-ui)}
 html.ds #stage[data-scr=play] .lv .btn .ico,html.ds .result .btn .ico{stroke:currentColor}
 html.ds #stage[data-scr=play] .lv .spk{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua);padding:0 var(--wi-s4);min-block-size:var(--wi-tap);font-family:var(--wi-font-ui)}
