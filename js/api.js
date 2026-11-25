@@ -20,7 +20,14 @@ const B=W.BACKEND&&typeof W.BACKEND==='object'?W.BACKEND:{};
 const URL_OK=typeof B.url==='string'&&/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(B.url)&&typeof B.key==='string'&&B.key.length>20;
 // 'supabase' alone is not finished (see supa() below): it needs a second, deliberate key, so one mistyped word in
 // config.js cannot switch the live class to it (review of #21, S-b)
-export const MODE=URL_OK&&(B.mode==='dual'||(B.mode==='supabase'&&B.unfinished===true))?B.mode:'sheet';
+/* trial: true in config.js turns the backend on only for a device that opened the game once with ?dual=1 (a test
+   device first, then the class without trial); ?dual=0 turns it off again. Without a BACKEND key nothing is read. */
+let tryOn=true;
+if(URL_OK&&B.trial===true){tryOn=false;
+ try{const q=new URLSearchParams(W.location&&W.location.search||'').get('dual');
+  if(q==='1')W.localStorage.setItem('wi_dual','1');else if(q==='0')W.localStorage.removeItem('wi_dual');
+  tryOn=W.localStorage.getItem('wi_dual')==='1'}catch(e){}}
+export const MODE=URL_OK&&tryOn&&(B.mode==='dual'||(B.mode==='supabase'&&B.unfinished===true))?B.mode:'sheet';
 
 /* exactly what js/state.js did: a failed request (no connection) throws; an answer that is not JSON (an Apps Script
    error page) gives {ok:false,e:'server'} */
@@ -292,7 +299,8 @@ function flush(hidden,force){
  flushP=p;flushOp=o;return p}
 /* G4 (review of #55): two tabs of one device with two pupils would take the device from each other at every save (a
    stream of sign-ins from the school's one address). A tab whose pupil is no longer the device's owner, because another
-   tab signed someone else in, stops copying and reloads, so it shows the device's pupil. Not in sheet mode. */
+   tab signed someone else in, stops copying; the page then reloads to show the device's pupil, after the child's tap
+   (D1, js/state.js). Not in sheet mode. */
 let mine=null,displaced=false;
 if(MODE!=='sheet'&&typeof W.addEventListener==='function'){
  const away=()=>{flush(true).catch(()=>{})};
@@ -301,7 +309,15 @@ if(MODE!=='sheet'&&typeof W.addEventListener==='function'){
  W.addEventListener('storage',ev=>{
   if(!ev||ev.key!==K.owner||!ev.newValue||displaced)return;
   let h=null;try{h=JSON.parse(ev.newValue)}catch(e){}
-  if(mine&&h&&h!==mine){displaced=true;waiting={};note('displaced');try{W.location.reload()}catch(e){}}})}
+  if(!mine||!h||h===mine)return;
+  displaced=true;waiting={};note('displaced');
+  /* D1 (review of #63): the page decides when to reload. js/state.js takes the event (preventDefault), sends the
+     pupil's last save to the Sheet and shows a calm message; the reload waits for the child's tap and for this tab's
+     own work in flight (a sign-in whose session is then refused and ended). A page without js/state.js reloads now. */
+  const ready=Promise.race([settled(),new Promise(r=>setTimeout(r,8000))]);
+  let ev2=null;try{ev2=new CustomEvent('wi-displaced',{cancelable:true,detail:{ready}})}catch(e){}
+  const taken=ev2&&typeof W.dispatchEvent==='function'&&!W.dispatchEvent(ev2);
+  if(!taken)try{W.location.reload()}catch(e){}})}
 /* for the tests: resolves when no shadow run and no flush is in progress */
 export async function settled(){for(let i=0;i<20&&(busy||flushP||leaving);i++){try{await Promise.all([busy,flushP,leaving])}catch(e){}}}
 

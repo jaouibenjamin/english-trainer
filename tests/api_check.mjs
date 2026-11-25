@@ -88,7 +88,7 @@ const sheetOk = c => c.url === SHEET ? { json: { ok: true, s: { pts: 5 } } } : n
   let threw = false; try { await m2.api('save', {}); } catch (e) { threw = true; }
   check('default config: a network failure is thrown to the caller as before (the game turns it into "no connection")', threw);
   const src = fs.readFileSync(path.join(ROOT, 'js/state.js'), 'utf8');
-  check('js/state.js gets api() from the adapter and still exports it', /import \{api,forget\} from '\.\/api\.js';export \{api\};/.test(src) && !/fetch\(API,/.test(src));
+  check('js/state.js gets api() from the adapter and still exports it', /import \{api,forget,MODE as BACKEND\} from '\.\/api\.js';export \{api\};/.test(src) && !/fetch\(API,/.test(src));
   check('and tells it at logout and at relogin (B1)', /export function relogin\(\)\{const u=S\.u;if\(!u\)return null;forget\(false\);/.test(src) && /return false;\n forget\(true\);/.test(src));
 }
 
@@ -539,7 +539,7 @@ const bearer = c => (c.init.headers || {}).authorization || '';
   globalThis.dispatchEvent = () => {}; globalThis.Event = class { constructor(t) { this.type = t; } };
   globalThis.document.documentElement = { classList: { toggle() {} } };
   on();
-  S = await import(pathToFileURL(path.join(ROOT, 'js/state.js')).href + '?real');   // with the plain js/api.js it imports
+  S = await import(pathToFileURL(path.join(ROOT, 'js/state.js')).href);   // its plain URL, the one js/audio.js imports too: one copy
   eq('state.js loads js/api.js in the mode under test', (await import(pathToFileURL(path.join(ROOT, 'js/api.js')).href)).MODE, 'dual');
   for (const wait of [0, 500]) {                                 // logout straight after the last answer, and 500 ms after it
     const b0 = st.batches.reduce((a, b) => a + b.p_events.length, 0), l0 = (st.logouts || []).length;
@@ -762,6 +762,7 @@ locks(false);
 }
 {
   // fight (G4): two tabs, two pupils, saving in turn. The tab whose pupil lost the device stops copying and reloads.
+  globalThis.dispatchEvent = () => true;                          // a page without js/state.js: nobody takes 'wi-displaced'
   for (const L of [false, true]) {
     locks(L); reloads = 0;
     const st = fresh({ login: perPupil, sheet: { ok: true, s: {} } });
@@ -777,6 +778,74 @@ locks(false);
     eq(`fight${L ? ' (with locks)' : ''}: two sign-ins in all, not a stream; tab 1 reloads once; B's 8 answers counted`, [st.logins.length, reloads, counted(st, 'dog')], [2, 1, 8]);
   }
   locks(false);
+}
+{
+  // D1 (review of #63), the real flow: A plays in this tab (js/state.js), B signs in from another tab. This tab sends
+  // A's last answers to the Sheet first, shows a calm message, and reloads only when the child taps.
+  const st = fresh({ login: perPupil, sheet: { ok: true, s: {} } });
+  const sheetSaves = [];
+  const base = supabase(st);
+  R = c => { if (c.url === SHEET && c.body.a === 'save') sheetSaves.push(JSON.parse(JSON.stringify(c.body))); return base(c); };
+  real.on();
+  const shown = [];
+  const el = tag => { const e = { tag, style: {}, attrs: {}, kids: [], on: {}, textContent: '', setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.on[t] = f; }, append(...k) { this.kids.push(...k); }, focus() {} }; return e; };
+  const dom = () => Object.assign(globalThis.document, { createElement: el, getElementById: id => shown.find(x => x.id === id) || null, body: { appendChild: x => shown.push(x) } });
+  globalThis.dispatchEvent = e => { for (const [t, f] of real.listeners) if (t === e.type) f(e); return !e.defaultPrevented; };
+  reloads = 0;
+  eq('D1: A signs in through state.js', await S.auth('login', A.c, A.n, A.p), null);
+  await idle();
+  S.mark({ en: 'cat' }, true); S.mark({ en: 'cat' }, true);          // 2 answers, not yet sent to the Sheet (2.5 s)
+  const before = sheetSaves.length;
+  const tab2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 600 }, R, real);
+  dom(); real.on();                                              // the page's own document and storage again
+  await tab2.m.api('login', Bp); await idle(); await tick(100);
+  const dlg = shown.find(x => x.id === 'wi-displaced');
+  const aSave = sheetSaves.slice(before).find(b => b.n === 'Testa');
+  eq('D1: the displaced tab sends A\'s last answers to the Sheet at once, shows the message, and does not reload by itself',
+    [!!aSave && aSave.s.st.cat[0] >= 2, !!dlg && dlg.kids[0].textContent, reloads], [true, 'מישהו אחר נכנס במכשיר הזה', 0]);
+  check('the message is a dialog with one button, "המשך", 56 px high', !!dlg && dlg.attrs.role === 'alertdialog' && dlg.kids[1].tag === 'button' && dlg.kids[1].textContent === 'המשך' && /min-height:56px/.test(dlg.kids[1].style.cssText));
+  if (dlg) dlg.kids[1].on.click(); await tick(50);
+  eq('D1: the page reloads when the child taps', reloads, 1);
+  globalThis.dispatchEvent = () => {};
+}
+{
+  // D1, nice to have: a tab displaced while its own sign-in is still on the way. The reload waits for that answer, and
+  // the session it brings (refused: the device is B's now) is ended on the server, not left behind.
+  locks(false);
+  const g = gate();
+  const st = fresh({ login: perPupil, sheet: { ok: true, s: {} } });
+  const base = supabase(st);
+  let first = true;
+  const route = async c => { if (c.url.endsWith('/pupil-login') && c.body.name === 'Testa' && first) { first = false; const r = base(c); await g.p; return r; } return base(c); };
+  const t1 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route);
+  const t2 = await load({ mode: 'dual', url: SB, key: KEY, saveEveryS: 0 }, route, t1);
+  let ev = null;
+  globalThis.dispatchEvent = e => { if (e.type === 'wi-displaced') { ev = e; e.preventDefault(); } return !e.defaultPrevented; };
+  t1.m.api('login', A); await idle(400);                         // tab 1: A's sign-in is on its way
+  await t2.m.api('login', Bp); await idle(400);                  // tab 2: B signs in
+  let ready = false;
+  if (ev) ev.detail.ready.then(() => { ready = true; });
+  await tick(100);
+  const early = ready;
+  g.open(); await idle();
+  eq('orphan: the displaced tab\'s reload waits for its sign-in in flight, and that session is ended on the server', [!!ev, early, ready, (st.logouts || []).includes('Bearer tok-Testa')], [true, false, true, true]);
+  globalThis.dispatchEvent = () => {};
+}
+{
+  // trial: the backend on for one test device first (?dual=1 once), the rest of the class stays on the Sheet
+  const cfg = { mode: 'dual', url: SB, key: KEY, trial: true };
+  globalThis.location.search = '';
+  const a = await load(cfg, sheetOk);
+  globalThis.location.search = '?dual=1';
+  const b = await load(cfg, sheetOk);
+  globalThis.location.search = '';
+  const c = await load(cfg, sheetOk, b);
+  globalThis.location.search = '?dual=0';
+  const d = await load(cfg, sheetOk, b);
+  globalThis.location.search = '';
+  eq('trial: a device without ?dual=1 stays on the Sheet; ?dual=1 turns it on and is remembered; ?dual=0 turns it off',
+    [a.m.MODE, b.m.MODE, c.m.MODE, d.m.MODE, b.store.has('wi_dual')], ['sheet', 'dual', 'dual', 'sheet', false]);
+  eq('trial off the class\'s devices: nothing registered on the page', a.listeners.length, 0);
 }
 {
   // a sign-in paused for the address ('locked') is tried again after its wait, not only tomorrow (G4)

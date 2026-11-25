@@ -619,8 +619,12 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    after a logout is not copied, and tabs take turns for sign-in and the copy (Web Locks, where the browser has them;
    a tab that waits 20 s for its turn keeps its state for later). Every object handed in or out is copied before it is
    kept (the game edits its own). A tab whose pupil lost the device to another tab (another pupil signed in there)
-   stops copying and reloads, so two tabs never take the device from each other; a sign-in paused for the address
-   ('locked') is tried again after its wait, not the next day.
+   stops copying, so two tabs never take the device from each other: it sends the pupil's last save to the Sheet at
+   once, shows a calm message ("מישהו אחר נכנס במכשיר הזה", one button "המשך"; ours, for the teacher's review), and
+   reloads to show the device's pupil only when the child taps, never under a child mid-level (D1). **Known limit:**
+   that pupil's answers since their last copy reach the Sheet but are not counted on the server (the device belongs
+   to the other pupil now); they are counted again from the next copy after that pupil signs in. A sign-in paused for
+   the address ('locked') is tried again after its wait, not the next day.
    **Known limit (no Web Locks: Safari before 15.4, about 2022):** two tabs of the same pupil may copy at the same
    time. Nothing crosses between pupils (the guard does not need the locks), and a base never goes down, but one of
    the two copies can count a few answers twice (the review saw 1 run in 5). Current Safari, Chrome, Edge and Firefox
