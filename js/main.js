@@ -1,6 +1,7 @@
 /* Word Islands: router and all non-level screens. */
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
 import {S,SET,saveSet,save,API,ERR,api,cred,auth,takeNewPin,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
+import {initHelp,helpKnown,setHelp,clearNotes} from './help.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
 import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 import * as sling from './sling.js';
@@ -124,7 +125,7 @@ function settings(){setBg('paper','center');
  const lnk=(inner,icon,t,d)=>`<${inner} class="setrow link">${spr(icon,'si')}<span class="sl">${t}<small>${d}</small></span>${ico('next','go')}</${inner.split(' ')[0]}>`;
  view.innerHTML=`<section class="scr settings${cardOn()?' hascard':''}">${top('הגדרות')}
   <div class="fill">
-  <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}${tog('calm','תצוגה רגועה<small>בלי תנועה וקונפטי</small>','ic_check')}</div>
+  <div class="panel label">${tog('music','מוזיקה','ic_note')}${tog('sfx','צלילים','ic_speaker')}${tog('calm','תצוגה רגועה<small>בלי תנועה וקונפטי</small>','ic_check')}${helpKnown()?tog('help','עזרה במילים<small>לחיצה על מילה מראה פירוש, ו־🐢 משמיע לאט</small>','ic_book'):''}</div>
   <div class="panel label">${lnk('button data-a="nav" data-to="help"','ic_buoy','איך משחקים?','הסבר קצר על ארבעת השלבים')}
    ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}${cardOn()?lnk('button data-a="nav" data-to="card"','trophy','הכרטיס שלי','להראות או לשמור כתמונה'):''}</div>
   <div class="panel label"><div class="prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter(v=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
@@ -231,7 +232,7 @@ const A={
  mpzok(){if(level&&level.ok)level.ok()},
  mmerge(){if(level&&level.merge)level.merge()},
  ball(d){S.g.ball=+d.i;save();SND.pop();collection()},
- toggle(d){SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);if(d.k==='calm')applyCalm();SND.tap();settings()},
+ toggle(d){if(d.k==='help'){setHelp(!SET.help);SND.tap();return settings()}SET[d.k]=!SET[d.k];saveSet();if(d.k==='music')musicOn(SET.music);if(d.k==='calm')applyCalm();SND.tap();settings()},
  lmode(d){SND.tap();V={name:'login',m:d.m,c:$('#lc').value.trim(),n:$('#ln').value,p:$('#lp').value};login()},
  async auth(d){const m=d.m,c=$('#lc').value.trim(),n=$('#ln').value.trim().replace(/\s+/g,' '),p=$('#lp').value;
   if(!c||n.length<2||!/^\d{4}$/.test(p)){V={name:'login',m,c,n,p,err:ERR.input};return login()}
@@ -246,7 +247,7 @@ const A={
   else{el.disabled=false;delete el.dataset.arm;el.textContent='איפוס קוד';toast(esc(ERR[r.e]||ERR.net),3500)}},
  relogin(){SND.tap();const o=relogin();if(!o)return go('login');
   V={name:'login',m:'login',c:o.c,n:o.n,p:'',err:(RELOG_MSG[o.e]||RELOG_MSG.nouser)+'\nההתקדמות מהמכשיר הזה שמורה, והיא תעבור לחשבון כשתתחברו.'};login();syncBar()},
- async logout(){if(await logout())go('login');else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
+ async logout(){if(await logout()){clearNotes();go('login')}else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r,c,t}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};   // the teacher code is kept on this screen only, for resetting a pupil's code
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el,e)}});
@@ -269,6 +270,7 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
   case'mock':X.hub();break;case'mockrun':{const my=navId;X.run({go,live:()=>my===navId,setLevel:l=>{level=l}});break}case'mockprac':{const my=navId;X.prac(a,{go,live:()=>my===navId,setLevel:l=>{level=l}});break}
   case'help':help();break;case'card':if(!cardOn())return go('settings');setBg('paper','center');cardScreen(top);break;case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
 initCard();   // the progress card (js/card.js) is behind a switch a device gets with ?card=1
+initHelp();   // word help and the slowly button: only on a device that was given them (?help=1), see js/help.js
 addEventListener('hashchange',route);
 /* a pupil who also plays on another device: bring that progress in when the game opens or comes back to the front.
    Only the calm screens are drawn again; a level in play just keeps the better record underneath. */

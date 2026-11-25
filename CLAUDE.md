@@ -55,6 +55,8 @@ python3 tests/card.py          # the progress card (js/card.js), switch off and 
 python3 tests/settings_fit.py   # the settings screen at six window sizes, signed in and not: all on the screen, nothing over anything
 python3 tests/storage_check.py  # the asset build scripts against a made-up storage (no network): refusals, no address in messages
 python3 tests/worksheet.py     # the printable worksheet (worksheet.html), switch off and on
+python3 tests/help.py --quick   # word help and slow playback (off by default; ?help=1), switch off and on
+node tests/stretch_check.mjs    # the slow-playback stretch, measured on real clips (needs ffmpeg)
 ```
 
 Every suite starts its own servers on free ports and stops if it cannot; it never uses a server that is already running (`python3 tests/ports_check.py` proves it). So two runs on one machine do not mix.
