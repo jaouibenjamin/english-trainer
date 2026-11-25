@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import play as P
 from play import check, fails
 
-SB, KEY = 'https://abcdefghijklmnop.supabase.co', 'sb_publishable_test_0123456789abcdef'
+SB, KEY = 'https://abcdefghijklmnop.supabase.co', 'public-key-for-tests-0123456789'
 PAGE = f'http://127.0.0.1:{P.PORT}/teacher.html'
 EVIL = '<img src=x onerror="window.__pwned=1">'
 ROWS = {'teacher_view': [dict(display_name='נועה', points=44, answers=4, error_pct=25, stars=3, locked_today=2, code_status='set', recovery_status='open', flags_week=0),
