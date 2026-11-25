@@ -1,4 +1,5 @@
 // The backend adapter js/api.js, without a browser:  node tests/api_check.mjs
+// suite:   // picked up by tests/all.py
 // 1. With today's config (no BACKEND key) it sends byte for byte what js/state.js sent before the adapter existed.
 // 2. 'dual': the Sheet's answer is the answer, whatever Supabase does; the shadow copy never counts twice.
 // 3. The events read off two saves. All names, codes and addresses are made up.
@@ -25,7 +26,7 @@ async function load(backend, route) {
     calls.push(c);
     const r = await route(c);
     if (r instanceof Error) throw r;
-    return { ok: (r.status || 200) < 400, status: r.status || 200, json: async () => r.json };
+    return { ok: (r.status || 200) < 400, status: r.status || 200, json: async () => { if (r.badJson) throw new SyntaxError('Unexpected token <'); return r.json; } };
   };
   const m = await import(pathToFileURL(path.join(ROOT, 'js/api.js')).href + '?v=' + (++n));
   return { m, calls, store };
@@ -36,7 +37,7 @@ const sheetOk = c => c.url === SHEET ? { json: { ok: true, s: { pts: 5 } } } : n
 {
   /* the function js/state.js had before the adapter, verbatim, as the reference */
   const reference = async (API, a, d) => { const sent = []; const f = async (u, i) => { sent.push([u, i]); return { json: async () => ({ ok: true }) }; };
-    const fetch = f; const r = await fetch(API, { method: 'POST', body: JSON.stringify({ a, ...d }), keepalive: a === 'save' }); await r.json(); return sent[0]; };
+    const fetch = f; const r = await fetch(API, { method: 'POST', body: JSON.stringify({ a, ...d }), keepalive: a === 'save' }); try { await r.json(); } catch (e) { return { ok: false, e: 'server' }; } return sent[0]; };
   for (const [a, d] of [['login', { c: 'EN-0000', n: 'נועה', p: '4827' }], ['save', { c: 'EN-0000', n: 'נועה', p: '4827', s: { pts: 7, st: { cat: [2, 1] } } }], ['board', { c: 'x', n: 'y', p: '0000' }], ['teacher', { c: 'x', t: '123456' }], ['reset', { c: 'x', t: '1', n: 'y' }], ['register', { c: 'x', n: 'y', p: '4827' }]]) {
     const { m, calls } = await load(undefined, sheetOk);
     const out = await m.api(a, d);
@@ -52,6 +53,8 @@ const sheetOk = c => c.url === SHEET ? { json: { ok: true, s: { pts: 5 } } } : n
     await x.m.api('save', { s: {} }); await tick();
     eq(`a wrong or half-filled BACKEND ${JSON.stringify(bad).slice(0, 60)} falls back to the Sheet alone`, [x.m.MODE, x.calls.map(c => c.url)], ['sheet', [SHEET]]);
   }
+  const { m: mbad } = await load(undefined, c => c.url === SHEET ? { badJson: true } : null);
+  eq('default config: an answer that is not JSON (an Apps Script error page) gives {ok:false, e:"server"}, as js/state.js does', await mbad.api('save', {}), { ok: false, e: 'server' });
   const { m: m2 } = await load(undefined, () => new Error('offline'));
   let threw = false; try { await m2.api('save', {}); } catch (e) { threw = true; }
   check('default config: a network failure is thrown to the caller as before (the game turns it into "no connection")', threw);

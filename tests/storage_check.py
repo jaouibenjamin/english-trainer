@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
 """The download code of the build scripts against a made-up storage on this machine: python3 tests/storage_check.py
 Whatever goes wrong (a redirect, an error status, wrong bytes, a file that is too large), the script must refuse, keep
 nothing in the cache, and say which file and what happened without printing any part of the storage's address.

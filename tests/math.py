@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: quick=--quick   # picked up by tests/all.py
 """End-to-end play-through for Fraction Bay (מפרץ השברים), the math world (headless Chrome via Playwright).
 
     python3 tests/math.py              # every level of every math island, at 390x844 and 360x740, plus a laptop pass

@@ -15,7 +15,9 @@ const B=W.BACKEND&&typeof W.BACKEND==='object'?W.BACKEND:{};
 const URL_OK=typeof B.url==='string'&&/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(B.url)&&typeof B.key==='string'&&B.key.length>20;
 export const MODE=(B.mode==='dual'||B.mode==='supabase')&&URL_OK?B.mode:'sheet';
 
-async function sheet(a,d){const r=await fetch(SHEET,{method:'POST',body:JSON.stringify({a,...d}),keepalive:a==='save'});return r.json()}
+/* exactly what js/state.js did: a failed request (no connection) throws; an answer that is not JSON (an Apps Script
+   error page) gives {ok:false,e:'server'} */
+async function sheet(a,d){const r=await fetch(SHEET,{method:'POST',body:JSON.stringify({a,...d}),keepalive:a==='save'});try{return await r.json()}catch(e){return{ok:false,e:'server'}}}
 
 export async function api(a,d){
  if(MODE==='sheet')return sheet(a,d);

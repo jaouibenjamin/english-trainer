@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
 """No server key in the repo. Run by the `security` workflow next to gitleaks, and by hand: python3 tests/secret_guard.py
 
 It replaces a grep for the *name* of Supabase's server role. That name has to appear in the migrations (grants) and
