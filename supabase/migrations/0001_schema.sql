@@ -8,13 +8,15 @@ create schema if not exists app;
 create schema if not exists private;
 
 -- What a first name may be (docs/BACKEND.md 4.4): an allow-list, not a list of what is forbidden. Letters only,
--- Hebrew (U+05D0-U+05EA) or Latin (A-Z, a-z and the Latin-1 letters U+00C0-U+00FF without the two signs U+00D7 and
--- U+00F7), with a space, apostrophe ' or ’, geresh ׳, gershayim ״, dot or hyphen inside; 2 to 20 characters; it
--- starts with a letter and ends with a letter or a dot. Everything else is refused: markup, digits, emoji, look-alike
--- letters of other scripts, invisible and direction characters, blank-looking letters, combining marks, a leading or
--- trailing space. Written with \u escapes so no invisible character hides in this file.
+-- Hebrew (U+05D0-U+05EA) or Latin (A-Z, a-z, Latin-1 U+00C0-U+00FF without the signs U+00D7 and U+00F7, and Latin
+-- Extended-A U+0100-U+017F: Łukasz, Žofie), with a space, apostrophe ' or ’, geresh ׳, gershayim ״, dot or hyphen
+-- inside; 2 to 20 characters; it starts with a letter and ends with a letter, a dot, or an apostrophe or geresh
+-- right after a letter (ג׳ורג׳, ג'ורג'). Everything else is refused: markup, digits, emoji, look-alike letters of other
+-- scripts, invisible and direction characters, blank-looking letters, combining marks, a leading or trailing space.
+-- Written with \u escapes so no invisible character hides in this file. supabase/functions/_shared/validate.ts has
+-- the same rule, and both are tested with the same names.
 create function app.name_ok(n text) returns boolean language sql immutable set search_path = '' as
-  $$ select n ~ '^[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u05D0-\u05EA][A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u05D0-\u05EA\u05F3\u05F4\u2019'' .-]{0,18}[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u05D0-\u05EA.]$' $$;
+  $$ select n ~ '^[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017F\u05D0-\u05EA](?:[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017F\u05D0-\u05EA\u05F3\u05F4\u2019'' .-]{0,18}[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017F\u05D0-\u05EA.]|(?:[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017F\u05D0-\u05EA\u05F3\u05F4\u2019'' .-]{0,17}[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017F\u05D0-\u05EA])?[\u05F3\u2019''])$' $$;
 
 -- "Noa", " noa " and "NOA" are one pupil: trimmed, inner spaces squeezed, lower-cased
 create function app.name_key(n text) returns text language sql immutable

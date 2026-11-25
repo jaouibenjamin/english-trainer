@@ -12,7 +12,19 @@ alter table private.settings
   -- after a teacher's lift (docs/BACKEND.md 4.3): a smaller allowance for the rest of the day, not a fresh one
   add column code_unlock_allow int not null default 5,       -- wrong codes from strangers on a name after an unlock
   add column code_unlock_day   int not null default 2,       -- unlocks of one name in 24 hours
-  add column code_lift_allow   int not null default 30;      -- wrong codes from strangers in a class after a brake lift
+  add column code_lift_allow   int not null default 30,      -- wrong codes from strangers in a class after a brake lift
+  add column class_lift_day    int not null default 2,       -- brake lifts of one class in 24 hours (review S7)
+  add column class_miss_hour   int not null default 2000;    -- wrong class codes from all addresses together in an hour
+-- Wrong class codes (review S3): a counter per address bucket and clock hour, not a row per try, so forged addresses
+-- cannot grow the database: once class_miss_hour wrong codes arrived in an hour, no new bucket is opened that hour.
+create table private.class_misses (
+  bucket text not null,
+  hour   timestamptz not null,
+  n      int not null default 0,
+  primary key (bucket, hour)
+);
+alter table private.class_misses enable row level security;
+create index class_misses_hour on private.class_misses (hour);
 -- a wrong try the teacher lifted: it no longer counts towards the per-name, per-address and class limits, but still
 -- towards the name's daily ceiling, so a lift never hands out a fresh day
 alter table private.auth_attempts add column lifted boolean not null default false;
@@ -46,12 +58,30 @@ exception when others then raise notice 'trigger on auth.users not created: %', 
 do $$ begin
   create trigger pupil_user_no_factor before insert on auth.mfa_factors for each row execute function private.pupil_user_no_factor();
 exception when others then raise notice 'trigger on auth.mfa_factors not created: %', sqlerrm; end $$;
+-- no second way in (review S6): a pupil's user keeps its one email identity; linking Google or anything else is refused
+create function private.pupil_user_no_link() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.provider <> 'email' and exists (select 1 from auth.users u where u.id = new.user_id and u.email like 'p-%@pupils.invalid') then
+    raise exception 'this account cannot be changed' using errcode = '42501';
+  end if;
+  return new;
+end $$;
+do $$ begin
+  create trigger pupil_user_no_link before insert or update on auth.identities for each row execute function private.pupil_user_no_link();
+exception when others then raise notice 'trigger on auth.identities not created: %', sqlerrm; end $$;
 
--- is this still the auth user we created: our label, no password, no phone
+-- is this still the auth user we created: our label, no password, no phone, no second factor, no other identity
 create function private.auth_user_clean(p_user uuid) returns boolean language plpgsql security definer set search_path = '' as $$
 declare ok boolean;
 begin
   select email like 'p-%@pupils.invalid' and coalesce(encrypted_password, '') = '' and coalesce(phone, '') = '' into ok from auth.users where id = p_user;
+  if coalesce(ok, false) then
+    begin      -- where the platform hides these tables from us, the triggers above are the guard; say nothing, refuse nothing
+      ok := not exists (select 1 from auth.mfa_factors f where f.user_id = p_user)
+        and not exists (select 1 from auth.identities i where i.user_id = p_user and i.provider <> 'email');
+    exception when insufficient_privilege or undefined_table then null;
+    end;
+  end if;
   return coalesce(ok, false);
 end $$;
 
@@ -121,24 +151,37 @@ declare
   v_pupil uuid; sec private.pupil_secrets; b private.auth_buckets; rc private.reset_codes;
   v_known boolean := false; v_until timestamptz; v_attempt bigint; v_oldest timestamptz; v_old2 timestamptz;
   n_all int; n_str int; n_dev int; n_ip int; n_ipc int; n_cls int;
-  v_salt bytea; v_iter int; v_algo text := 'v1'; v_legacy text;
+  v_salt bytea; v_iter int; v_algo text := 'v1'; v_legacy text; v_hour timestamptz;
   day constant interval := interval '24 hours';
 begin
   if p_kind not in ('code', 'picture', 'otc', 'register') then raise exception 'bad kind'; end if;
   select * into s from private.settings;
 
-  -- the address: any calls, then wrong class codes
+  -- Every limit below is a count followed by an insert. Parallel requests must not all read the same count (review
+  -- S1), so the counts are taken under advisory locks held to the end of this statement: first the address, then the
+  -- class and kind (then, further down, the name). Always in this order, so two requests cannot wait on each other.
+  perform pg_advisory_xact_lock(hashtextextended('ip/' || p_ip, 42));
+  v_hour := date_trunc('hour', p_now);
+
+  -- the address: any calls, then wrong class codes (counted per hour, review S3)
   select count(*), min(at) into n_ip, v_oldest from private.auth_attempts where ip_bucket in (p_ip, p_ip_prev) and at > p_now - interval '1 hour';
-  if n_ip >= s.ip_hour then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_oldest + interval '1 hour', p_now)); end if;
-  select count(*), min(at) into n_ip, v_oldest from private.auth_attempts
-   where ip_bucket in (p_ip, p_ip_prev) and kind = 'class' and at > p_now - interval '1 hour';
-  if n_ip >= s.class_ip_hour then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_oldest + interval '1 hour', p_now)); end if;
+  n_ip := n_ip + coalesce((select n from private.class_misses where bucket = p_ip and hour = v_hour), 0);
+  if n_ip >= s.ip_hour then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(coalesce(v_oldest, v_hour) + interval '1 hour', p_now)); end if;
+  if coalesce((select n from private.class_misses where bucket = p_ip and hour = v_hour), 0) >= s.class_ip_hour then
+    return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_hour + interval '1 hour', p_now));
+  end if;
 
   select class_id into v_class from private.class_codes where code_lookup = decode(p_class_lookup, 'hex');
   if v_class is null then
-    insert into private.auth_attempts (at, kind, dev_bucket, ip_bucket, outcome) values (p_now, 'class', p_dev, p_ip, 'wrong');
+    perform pg_advisory_xact_lock(hashtextextended('class-misses', 42));
+    if (select coalesce(sum(n), 0) from private.class_misses where hour = v_hour) >= s.class_miss_hour then
+      return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_hour + interval '1 hour', p_now));      -- everyone, this hour
+    end if;
+    insert into private.class_misses (bucket, hour, n) values (p_ip, v_hour, 1)
+      on conflict (bucket, hour) do update set n = private.class_misses.n + 1;
     return jsonb_build_object('s', 'class');
   end if;
+  perform pg_advisory_xact_lock(hashtextextended(v_class::text || '/' || p_kind, 42));
 
   -- while the copy phase runs, this side only receives copies: no registration, no recovery
   if s.shadow_mode and p_kind <> 'code' then return jsonb_build_object('s', 'locked', 'wait', -1); end if;
@@ -172,8 +215,10 @@ begin
       into n_all, n_str, n_dev, n_ip, v_oldest
       from private.auth_attempts
      where class_id = v_class and name_key = v_key and kind = 'code' and outcome <> 'ok' and at > p_now - day;
-    if n_all >= s.code_ceiling_day or (v_known and n_dev >= s.code_bucket_day)
-       or (not v_known and (n_str >= private.name_allow(v_class, v_key, p_now) or n_ip >= s.code_bucket_day)) then
+    -- a known device (the pupil's own phone, review S2) is judged only by its own wrong codes, so strangers and unlocks
+    -- can never use up its reserve; strangers stop at the name's daily ceiling, whatever was lifted
+    if (v_known and n_dev >= s.code_bucket_day)
+       or (not v_known and (n_all >= s.code_ceiling_day or n_str >= private.name_allow(v_class, v_key, p_now) or n_ip >= s.code_bucket_day)) then
       return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_oldest + day, p_now));
     end if;
     if not v_known then
@@ -216,6 +261,11 @@ begin
     select count(*), min(at) into n_ip, v_oldest from private.auth_attempts
      where class_id = v_class and name_key = v_key and kind = 'otc' and outcome <> 'ok' and ip_bucket in (p_ip, p_ip_prev) and at > p_now - day;
     if n_ip >= s.otc_ip_tries then return jsonb_build_object('s', 'locked', 'wait', private.wait_s(v_oldest + day, p_now)); end if;
+    if rc.pupil_id is not null and rc.fails >= s.otc_tries then      -- used up (also by tries running in parallel, N1)
+      delete from private.reset_codes where pupil_id = v_pupil;
+      perform private.lock_event(v_class, v_key, 'otc', p_now, null);
+      return jsonb_build_object('s', 'locked', 'wait', -1);
+    end if;
     if rc.pupil_id is not null then
       update private.reset_codes set fails = fails + 1 where pupil_id = v_pupil;
       v_salt := rc.salt; v_iter := rc.iter;
@@ -394,6 +444,10 @@ create function private.pupil_state(p_pupil uuid) returns jsonb language sql sec
 /* The teacher resets a pupil of her own class (checked here again, not only in the function): the code stops working,
    every device is signed out, the name's locks are cleared, and a one-time code (already hashed) is stored. Recovery
    by pictures stays closed while that code waits. Returns {ok, old_auth_user, expires_at, name} or {ok: false}. */
+-- is this a pupil of her class: asked before any slow hashing (review N3), and asked again inside teacher_reset
+create function private.teacher_has_pupil(p_teacher uuid, p_pupil uuid) returns boolean language sql stable security definer set search_path = '' as
+  $$ select exists (select 1 from public.pupils pu join public.teachers t on t.class_id = pu.class_id where pu.id = p_pupil and t.user_id = p_teacher) $$;
+
 create function private.teacher_reset(p_teacher uuid, p_pupil uuid, p_salt text, p_hash text, p_iter int, p_now timestamptz) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare s private.settings; p public.pupils; v_exp timestamptz;
@@ -447,6 +501,11 @@ language plpgsql security definer set search_path = '' as $$
 begin
   if not exists (select 1 from public.teachers where user_id = p_teacher and class_id = p_class) or (select shadow_mode from private.settings) then
     return jsonb_build_object('ok', false);
+  end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_class::text || '/code', 42));
+  if (select count(*) from private.auth_lock_events where class_id = p_class and name_key = '' and kind = 'unlock-class'
+        and at > p_now - interval '24 hours') >= (select class_lift_day from private.settings) then
+    return jsonb_build_object('ok', false, 'e', 'limit');      -- twice a day at most (review S7)
   end if;
   -- lifted, not deleted: the class gets code_lift_allow more wrong codes from strangers today, not a fresh 100, and
   -- every name keeps its daily ceiling

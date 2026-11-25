@@ -231,7 +231,7 @@ whole class, and shown to the teacher.
   `wrong tries allowed x share of pupils whose code is among the codes tried / number of codes tried`. With 3 codes
   and 3% of pupils on them: about 1 account a day expected at the brake; from one network 0.3 expected a day, which
   is a 26% chance a day that at least one account opens. The weak-code rule
-  exists to push that 3% towards zero: it refuses 965 of the 10,000 codes (below).
+  exists to push that 3% towards zero: it refuses 970 of the 10,000 codes (below).
 
 ## 4. How it works underneath
 
@@ -243,7 +243,9 @@ Supabase Auth issues sessions only to an auth user, and an auth user needs an em
 reserved top-level domain that can never receive mail; the label holds no name. The user is created by the function
 (admin API), with no password. Public sign-up is off. To sign a pupil in, the function, after its own checks, asks
 the admin API for a one-use sign-in token for that user (`generateLink`; nothing is sent anywhere), redeems it on the
-server (`verifyOtp`) and returns the session. The browser refreshes the session by itself afterwards.
+server (`verifyOtp`) and returns the session. The browser refreshes the session by itself afterwards. These calls go
+to Supabase Auth's HTTP API with plain `fetch` (`supabase/functions/_shared/gotrue.ts`): no client library to pin or
+trust (pre-live review S10); a test checks each request against a stand-in, and section 10 against the project.
 
 Rejected:
 
@@ -260,10 +262,13 @@ Rejected:
 
 1. **Project settings** make most of it impossible (section 9, the owner's checklist).
 2. **A trigger on `auth.users`** refuses any change of email, phone or password on a `@pupils.invalid` user unless it
-   comes from the server role, and a trigger on `auth.mfa_factors` refuses a factor for such a user. (Supabase allows
-   triggers on `auth.users`; to be confirmed for updates and for `mfa_factors`, section 10.)
-3. **Every sign-in checks** in the database that the auth user still has the label we gave it and no password. If
-   not, that user is thrown away and a new one is made.
+   comes from the server role, a trigger on `auth.mfa_factors` refuses a factor for such a user, and a trigger on
+   `auth.identities` refuses any identity but its one email identity (no linked Google or GitHub: pre-live review
+   S6). (Supabase allows triggers on `auth.users`; to be confirmed for updates, `mfa_factors` and `identities`,
+   section 10.)
+3. **Every sign-in checks** in the database that the auth user still has the label we gave it, no password, no phone,
+   no second factor and no other identity. If not, that user is thrown away and a new one is made (tested with each
+   trigger switched off).
 
 **Signing out everywhere = a new auth user.** On every teacher reset and every recovery, `pupils.auth_user_id` is set
 to null in the same transaction and the old auth user is deleted through the admin API; the next session belongs to a
@@ -307,12 +312,12 @@ Honest strength (review S6):
   function would widen what a function bug can leak.
 
 **Weak codes** are refused at registration and whenever a new code is set: four equal digits, ascending or descending
-runs, `abab`, `aabb`, `19xx` and `20xx` (402 codes), every code that reads as a date (`DDMM` or `MMDD`, 588 codes: a
-classmate often knows the birthday; 39 of them are already in the first group, so 951 together) and these 14 keypad
-lines, none of which is in the first two groups: `2580 0852 1470 0741 3690 0963 1357 2468 9753 8642 1379 7913 1397
-2684`. Together 965 codes; 9,035 remain, so a pupil easily finds one. The functions' list is this rule, and a test
-reads the keypad codes from this paragraph and counts 965 (`supabase/functions/tests`). The message is friendly:
-"pick one that is harder to guess".
+runs, also across 9-0 (`7890`, `8901`, `0987`), `abab`, `aabb`, `19xx` and `20xx` (408 codes), every code that reads
+as a date (`DDMM` or `MMDD`, 588 codes: a classmate often knows the birthday; 40 of them are already in the first
+group, so 956 together) and these 14 keypad lines, none of which is in the first two groups: `2580 0852 1470 0741
+3690 0963 1357 2468 9753 8642 1379 7913 1397 2684`. Together 970 codes; 9,030 remain, so a pupil easily finds one.
+The functions' list is this rule, and a test reads the keypad codes from this paragraph and counts 970
+(`supabase/functions/tests`). The message is friendly: "pick one that is harder to guess".
 
 **Hashes from the Sheet** (`SHA-256(salt + ":" + code)`, fast, so dangerous alone):
 
@@ -340,11 +345,20 @@ Who is asking (review S2, S3):
 
 - **Known device:** after a correct sign-in the server hands the device a random token (256 bits). Only its HMAC is
   stored. A device counts as known for a pupil if it signed in correctly as that pupil in the last 30 days **and is
-  not known for any other pupil** (a shared class computer is a stranger for everyone).
+  not known for any other pupil** (a shared class computer is a stranger for everyone). A known device is judged
+  only by its own wrong codes (10 a day), never by what strangers or unlocks did to the name, so the pupil's own phone
+  always keeps its reserve (pre-live review S2; tested after strangers reached the ceiling of 29 through two unlocks).
 - **Address:** `HMAC(today's random salt, address)`, 8 bytes kept; the raw address is never stored or logged by us
-  and the salt is deleted after 2 days. Which header carries the true address, and whether a caller can forge it, is
-  unverified (section 10). So no guarantee rests on the address alone: the per-name and per-class limits below hold
-  even if every request claims a new address.
+  and the salt is deleted after 2 days. The address is the **last** entry of `X-Forwarded-For` (the one the
+  platform's proxy appends; the first is whatever the caller wrote), or a single-address header the platform sets,
+  chosen with the function secret `CLIENT_IP_FROM` once section 10 item 10 shows which header the project uses
+  (pre-live review S5). A request whose address cannot be read gets a bucket of its own, never one shared by all.
+  No guarantee rests on the address alone: the per-name and per-class limits below hold even if every request claims
+  a new address.
+- **All at once** (pre-live review S1): every limit is a count followed by a write, so the counts are taken under
+  database advisory locks held to the end of the request: the address first, then the class and kind, then the name.
+  Tested with 35 tries at the same moment: exactly 10 wrong picture pairs compared for the class (17 without the
+  locks) and exactly 30 wrong codes from one address.
 
 | Limit | Value | Counts |
 |---|---|---|
@@ -352,14 +366,15 @@ Who is asking (review S2, S3):
 | Wrong codes in 24 h, one address, one name | 10 | strangers |
 | Wrong codes in 24 h, one address, **all names of a class** | 30 | strangers (review B2) |
 | Wrong codes in 24 h, one name, strangers | **20** | every address together |
-| Wrong codes in 24 h, one name, everything | **29** (9 reserved for the pupil's known devices) | |
+| Wrong codes in 24 h, one name, strangers including lifted tries | **29**: the daily ceiling, whatever was unlocked | known devices are not counted here and keep their own 10 |
 | Wrong codes in 24 h, one class, strangers | 60 → the teacher sees "many wrong codes today"; 100 → sign-in from unknown devices is paused for the class until the count drops **or the teacher lifts it** | class brake; known devices are never paused |
 | Wrong picture pairs, one name | **3 → recovery closed until the teacher reopens it** (review B1) | no decay |
 | Wrong picture pairs in 24 h, one address, all names | 5 | |
 | Wrong picture pairs in 24 h, one class | 10 → recovery by pictures is paused for the class until the count drops, teacher sees it | class brake |
 | Recovery by pictures | once per pupil in 30 days; not at all while a teacher reset is waiting | |
 | Wrong one-time codes | 5 per address, then that address is refused for this code; 30 in total, then the code is cancelled and the teacher sees it (review S4) | a bully with one network cannot burn it |
-| Wrong class codes per address | 30 an hour | |
+| Wrong class codes per address | 30 an hour, kept as one counter per address and hour, not a row per try | |
+| Wrong class codes, all addresses together | 2,000 an hour, then everyone waits for the next hour | so forged addresses cannot grow the database (pre-live review S3) |
 | Calls per address, any kind | 120 an hour | |
 | Registrations per address | 60 an hour (a class registering from the school's one address must fit) | |
 
@@ -369,7 +384,8 @@ wrong guesses), and **lift the class brake** does the same for the class-wide pa
 cannot cost a lesson. Each use is on record and counted. A lift must not hand whoever caused the lock a fresh day:
 after an unlock the name gets a smaller allowance (5 wrong codes from strangers until the next day, not 20) and the
 wrong codes before the unlock still count towards the name's daily ceiling of 29; a name can be unlocked at most 2
-times a day. After a brake lift the class gets 30 more wrong codes from strangers that day, not another 100.
+times a day. After a brake lift the class gets 30 more wrong codes from strangers that day, not another 100, and
+the brake can be lifted at most 2 times a day (pre-live review S7).
 Exempting "addresses that signed in correctly for this class in the last 30 days", as the review suggests, would
 need the address kept 30 days (a per-class keyed hash could do it); we chose not to keep addresses longer than two
 days.
@@ -384,18 +400,23 @@ What this gives, and what it does not:
   unknown-device sign-in for a class, for a day. Open sessions and known devices are not affected, the teacher sees
   it, and her reset clears a name.
 - A bully with many networks can still cancel a one-time code with 30 wrong tries (review N3). That only denies: the
-  teacher sees it and issues another.
+  teacher sees it and issues another. Tries arriving together cannot pass 30: the 30th ends the code, and nothing
+  after it is compared (tested with 45 at once).
 - The one-time code is consumed in the same transaction that sets the new code, and the auth user is replaced before
   the session is issued.
 
 Answers of the functions: `ok`, `class`, `pin` (name or code not right; also "no such pupil" and "code was reset"),
 `locked` (with seconds to wait, or -1 for "ask the teacher"), `setup` (old code right, now choose the new code and
-pictures), `weak` (code on the deny-list), `picture`, `otc`, `taken`, `roster`, `full`, `input`, `forbidden`.
+pictures), `weak` (code on the deny-list), `picture`, `otc`, `taken`, `roster`, `full`, `input`, `forbidden`, and for
+the teacher `limit` (a third unlock of a name, or a third brake lift, in a day). `teacher-reset` checks that the pupil
+is hers before any slow hashing, so a stranger's token makes it do no work (pre-live review N3).
 
 ### 4.4 The functions
 
 All: POST with JSON under 2 KB; every field validated (names, after NFC and squeezing spaces: an allow-list of Hebrew
-letters, Latin letters including é and the like, and space ' ’ ׳ ״ . - inside; 2 to 20; starting with a letter. The
+letters, Latin letters including é, Ł, Ž (Latin-1 and Latin Extended-A), and space ' ’ ׳ ״ . - inside; 2 to 20;
+starting with a letter and ending with a letter, a dot, or ' ’ ׳ right after a letter, so ג׳ורג׳ and ג'ורג' fit
+(pre-live review S9). The
 same rule is a CHECK on the tables, written with \u escapes, so markup, digits, emoji, other scripts' look-alikes and
 invisible or direction characters never reach a row); CORS to the game's origin (hygiene, not protection); never log names, codes or addresses; names
 never in a query string; the same amount of work on every path.
@@ -439,7 +460,9 @@ tested: 5,000 saves of a 39 KB blob as fast as possible write 105 and grow the t
 made it 428 MB). A refused save loses nothing: the device keeps its progress and the next save carries it.
 The storage brake: when `maintenance()` finds the database at 350 MB it switches `storage_brake` on, and events are
 then counted but not stored for everybody (saves still work) until the owner frees space; the teacher's
-`backend_health` warns. Nothing is bought. Housekeeping deletes devices not seen for 30 days, flags older than a
+`backend_health` warns. `record_events` then answers `{ok: false, e: 'brake'}`, so the device keeps the batch and
+sends it again later with the same id; nothing is lost silently (pre-live review S4). Under the brake the nightly
+roll-up waits too: it writes new rows before vacuum can reuse the space of the deleted ones (S3). Nothing is bought. Housekeeping deletes devices not seen for 30 days, flags older than a
 year, and folds daily-bonus and Beach Run rows older than the raw window into one row per pupil and reason; a text's
 `read` row stays (it pays once, ever). At 35 pupils all at every cap the database still reaches the brake in weeks,
 not days, and the brake holds it there.
