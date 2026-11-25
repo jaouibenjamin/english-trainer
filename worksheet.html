@@ -2,6 +2,11 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<!-- Content-Security-Policy: the same on every page (tests/csp_check.py holds them to it). Scripts only from this site (the
+     one inline script allowed is run.html's import map, by its hash); requests only to this site and the class's Apps Script
+     (script.google.com answers through script.googleusercontent.com). SUPABASE: when BACKEND mode 'dual' is switched on, its
+     project host (https://<project>.supabase.co) is added to connect-src on every page; until then it stays out. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-6p13ug9Y/2TWPZMF0aIT0xv2TqxNkp62hhuZFDN2uAM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com data: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>דף עבודה · איי המילים</title>
 <meta name="robots" content="noindex">

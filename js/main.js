@@ -43,8 +43,9 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
  /* islands zigzag in two columns, so neighbours in a column are two rows apart; the lowest island and its label end 14px above the bottom */
  /* every level of every island has been played: a banner along the beach. "Finished" is said only at full stars;
     until then it says how many stars are missing, and every island that still has stars to collect is ringed */
- const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),finH=played?84:0;
- const iw=Math.min(W*.37,150,H*.19),cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
+ const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),finH=(played?84:0)+(dsOn()?WORLD_DOCK:0);   // with the design flag, room for the new world's dock (js/avatar.js)
+ const iw=worldIw(Math.min(W*.37,150,(H-(dsOn()?WORLD_DOCK:0))*.19),H,mt,finH),   // with the design flag, sized from the height left after the dock
+  cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
  /* the crab waits on the newest island that is open and still has stars to collect */
  const curI=ISLANDS.filter(i=>isOpen(i)&&islandStars(i)<i.levels.length*3).sort((a,b)=>b.id-a.id)[0]||null;
 
@@ -67,7 +68,19 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
    return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}${cur?' cur':''}${todo?' todo':''}${x<50?' lc':''}" style="left:${x}%;top:${y.toFixed(1)}px" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}">
     <span class="pw">${spr('isl_'+i.id,'pic')}${o?'':spr('lock','lk')}${cur?`<span class="here">${spr('crab_wave','bc')}</span>`:''}</span>
     <span class="tag">${cur?`<em class="hb">${tot?'ממשיכים כאן':'מתחילים כאן'}</em>`:''}<b>${esc(i.he)}</b>${i.bonus?`<small class="bn">אי בונוס · שני שלבים</small>`:''}<small>${o?`${star()}${num(st+'/'+mx)}${st===mx?spr('ic_check','ck'):''}`:`נפתח ב־${num(i.need)}${star()}`}</small></span></button>`}).join('')}
- </section>`}
+ </section>`;worldMap()}
+/* the new world behind the design flag (?ds=1): js/avatar.js is fetched only on such a device; without the flag this does nothing */
+const dsOn=()=>document.documentElement.classList.contains('ds');
+const WORLD_DOCK=76;
+/* With the design flag, the island pictures are 7:6 (4:3 under 700px; css/ds-game.css) and the labels a little taller,
+   so an island and its label need more height than the game's own layout gives them. Islands in one column are two
+   rows apart: shrink them until a picture and its label fit in that space (the bonus island's label has three lines).
+   Without the flag the size is returned unchanged. */
+function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=H<=700?.75:6/7,TAG=74;
+ const room=w=>2*(H-mt-(w*.76+48)-14-finH)/5;
+ while(iw>64&&iw*pr+TAG>room(iw))iw-=2;
+ return iw}   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
+function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
 
 /* ---------- island ---------- */
 function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');preload([BG(i.bg),BG('listen'),BG('read'),BG('bridge')]);
@@ -221,7 +234,7 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
  view.innerHTML=`<section class="scr teacher wide">${top('מסך המורה',back)}
   <div class="panel label"><h3>המילים הקשות לכיתה</h3>${hardList.length?`<div class="hard">${hardList.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]])}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
   ${D.kids.length?`<div class="kids">${D.kids.map(d=>{const s=tag(d),dd=String(d.day||'').split('-');
-   return `<div class="kid label"><p class="kn"><b>${esc(d.n)}</b><span class="pill ${s[0]}">${s[1]}</span><button class="treset" data-a="treset" data-n="${esc(d.n)}">איפוס קוד</button></p>
+   return `<div class="kid label"><p class="kn"><b><bdi>${esc(d.n)}</bdi></b><span class="pill ${s[0]}">${s[1]}</span><button class="treset" data-a="treset" data-n="${esc(d.n)}">איפוס קוד</button></p>
     ${hasStars(d)?`<p class="kw"><span>כוכבים</span>${num(d.stars+' / '+MAX_STARS)}</p><div class="pbar"><i style="width:${Math.min(100,d.stars/MAX_STARS*100)}%"></i></div>
     <p class="ks"><span>שלבים ${num(d.levels+' / '+NL)}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span></p>
     <p class="ks"><span>מילים שנלמדו ${num(d.words+' / 59')}</span><span>קטעי קריאה בלי טעות ${num(d.reads+' / 5')}</span>${d.tries?`<span>${num(Math.round(d.miss/d.tries*100)+'%')} טעויות</span>`:''}`
@@ -255,9 +268,10 @@ const A={
   if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err,sw:err===ERR.nouser?'register':err===ERR.taken?'login':''};return login()}
   const np=takeNewPin();go('title');if(np)setTimeout(()=>toast(`זה הקוד הסודי החדש שלכם: <b dir="ltr">${esc(np)}</b><br>כתבו אותו במקום שלא יאבד`,8000),400)},
  forgot(){SND.tap();V={name:'login',m:'login',c:$('#lc').value.trim(),n:$('#ln').value,p:'',err:'שכחתם את הקוד? בקשו מהמורה או מההורה שמנהל את הכיתה לאפס אותו.\nאחרי האיפוס נכנסים עם השם וכל 4 ספרות שבוחרים: הן הקוד החדש.'};login()},
- async treset(d,el){if(!V.data)return;SND.tap();
-  if(!el.dataset.arm){el.dataset.arm=1;el.textContent='לאפס? לחצו שוב';setTimeout(()=>{if(el.isConnected){delete el.dataset.arm;el.textContent='איפוס קוד'}},4000);return}
-  el.disabled=true;el.textContent='רגע…';let r;try{r=await api('reset',{c:V.c,t:V.t,n:d.n})}catch(e){r={e:'net'}}
+ async treset(d,el){if(!V.data||el.disabled)return;SND.tap();
+  if(!el.dataset.arm){el.dataset.arm=1;el.textContent='לאפס? לחצו שוב';clearTimeout(el._disarm);el._disarm=setTimeout(()=>{if(el.isConnected&&!el.disabled){delete el.dataset.arm;el.textContent='איפוס קוד'}},4000);return}
+  clearTimeout(el._disarm);el.disabled=true;   // confirmed: the 4 s disarm must not write "איפוס קוד" over the result
+  el.textContent='רגע…';let r;try{r=await api('reset',{c:V.c,t:V.t,n:d.n})}catch(e){r={e:'net'}}
   if(r.ok){el.textContent='הקוד אופס';toast(`הקוד של ${esc(d.n)} אופס.<br>עכשיו נכנסים עם השם וכל 4 ספרות, והן הקוד החדש`,6000)}
   else{el.disabled=false;delete el.dataset.arm;el.textContent='איפוס קוד';toast(esc(ERR[r.e]||ERR.net),3500)}},
  relogin(){SND.tap();const o=relogin();if(!o)return go('login');
@@ -274,7 +288,8 @@ document.addEventListener('contextmenu',e=>{if(!e.target.closest('input'))e.prev
 document.addEventListener('touchmove',e=>{if(e.target.closest('.lv canvas'))e.preventDefault()},{passive:false});
 
 /* ---------- router ---------- */
-function route(){navId++;document.getElementById('toast').classList.remove('on');if(level){level.destroy();level=null}clearFx();hush();
+function route(){navId++;if(stage.classList.contains('wdock'))stage.classList.remove('wdock');   // the new world's dock class (js/avatar.js), only when it is there: without the flag #stage is not touched
+ document.getElementById('toast').classList.remove('on');if(level){level.destroy();level=null}clearFx();hush();
  let h=location.hash.slice(1),[n,a,b]=h.split('/');
  if(API&&!S.u&&n!=='teacher')n='login';
  if(!API&&(n==='login'||n==='board'))n='map';
@@ -286,7 +301,10 @@ function route(){navId++;document.getElementById('toast').classList.remove('on')
   case'help':help();break;case'card':if(!cardOn())return go('settings');setBg('paper','center');cardScreen(top);break;
   /* extra practice games (js/extra.js): only on a device that was given the switch, only for an open island */
   case'extra':{const i=isl(a),G=extraGame(b);if(!extraOn()||!i||!isOpen(i)||!G)return go('map');const my=navId;setBg('paper','center');loader();
-   G.load().then(m=>my===navId?m.start(view,{island:i,parts:partsOf(i)},{}):null).then(l=>{if(!l)return;if(my!==navId)l.destroy();else level=l}).catch(()=>{if(my===navId)go('island/'+i.id)});break}case'login':login();break;case'board':board();break;case'teacher':teacher();break;default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
+   G.load().then(m=>my===navId?m.start(view,{island:i,parts:partsOf(i)},{}):null).then(l=>{if(!l)return;if(my!==navId)l.destroy();else level=l}).catch(()=>{if(my===navId)go('island/'+i.id)});break}case'login':login();break;case'board':board();break;case'teacher':teacher();break;
+  /* the character picker of the new world (js/avatar.js), behind the design flag; without the flag it is an unknown address like any other */
+  case'avatar':if(dsOn()){const my=navId;setBg('paper','center');loader();import('./avatar.js').then(m=>{if(my===navId)return m.picker(view,go,()=>my===navId)}).catch(()=>{if(my===navId)go('map')});break}   // falls through
+  default:V.name='title';stage.dataset.scr='title';title()}syncBar()}
 initCard();   // the progress card (js/card.js) is behind a switch a device gets with ?card=1
 initHelp();   // word help and the slowly button: only on a device that was given them (?help=1), see js/help.js
 try{const v=new URLSearchParams(location.search).get('tmock');if(v==='1'||v==='0'){SET.tmock=v==='1';saveSet()}}catch(e){}

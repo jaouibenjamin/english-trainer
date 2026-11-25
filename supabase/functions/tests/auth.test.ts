@@ -3,7 +3,7 @@
 import { asUser, clock, DAY, deps, e, eq, freshIp, HOUR, log, MIN, newClass, ok, pepper, pupilId, recOtc, recPic, reg, reset, saves, SCHOOL, settings, sql, user } from "./helpers.ts";
 import { kdf, legacySheetHash, stats, tag } from "../_shared/crypto.ts";
 import { adminClass, type Body, login, type Reply, teacherReset, wrapLegacy } from "../_shared/core.ts";
-import { clientIp, handler } from "../_shared/http.ts";
+import { addressBucket, clientIp, handler } from "../_shared/http.ts";
 import { gotrueSessions } from "../_shared/gotrue.ts";
 import { isName, isWeakCode } from "../_shared/validate.ts";
 
@@ -640,7 +640,16 @@ T("S5: the caller's address comes from the platform's end of X-Forwarded-For; an
   const rq = (h: Record<string, string>) => new Request("http://x/", { headers: h });
   eq(clientIp(rq({ "x-forwarded-for": "6.6.6.6, 203.0.113.5" }), "xff-last"), "203.0.113.5", "the entry the platform appended, not the caller's");
   eq(clientIp(rq({ "x-forwarded-for": "203.0.113.5, not-an-address" }), "xff-last"), "", "garbage is no address");
-  eq(clientIp(rq({ "cf-connecting-ip": "2001:DB8::1", "x-forwarded-for": "6.6.6.6" }), "cf-connecting-ip"), "2001:db8::1", "a platform header, when the project shows that is the one");
+  eq(clientIp(rq({ "cf-connecting-ip": "2001:DB8::1", "x-forwarded-for": "6.6.6.6" }), "cf-connecting-ip"), "2001:db8:0:0::/64", "a platform header, when the project shows that is the one");
+  // IPv6 by /64, ports dropped (review of #35)
+  for (const [a, want] of [["2001:db8:aa:bb:1:2:3:4", "2001:db8:aa:bb::/64"], ["2001:db8:aa:bb:ffff::9", "2001:db8:aa:bb::/64"], ["[2001:db8::7]:443", "2001:db8:0:0::/64"],
+    ["198.51.100.7:52011", "198.51.100.7"], ["::ffff:198.51.100.7", "198.51.100.7"], ["::ffff:cb00:7107", "203.0.113.7"], ["0:0:0:0:0:ffff:203.0.113.7", "203.0.113.7"],
+    ["0000:0000:0000:0000:0000:FFFF:CB00:7107", "203.0.113.7"], ["0::ffff:203.0.113.7", "203.0.113.7"], ["::0:ffff:cb00:7107", "203.0.113.7"], ["[::ffff:203.0.113.7]:443", "203.0.113.7"],
+    ["::ffff:300.0.113.7", ""], ["2001:db8::1.2.3.4", "2001:db8:0:0::/64"], ["::203.0.113.7", "203.0.113.7"], ["::cb00:7107", "203.0.113.7"],
+    ["::ffff:0:203.0.113.7", "203.0.113.7"], ["0:0:0:0:ffff:0:cb00:7107", "203.0.113.7"], ["64:ff9b::203.0.113.7", "203.0.113.7"], ["64:FF9B:0:0:0:0:CB00:7107", "203.0.113.7"],
+    ["::1", "0:0:0:0::/64"], ["::", "0:0:0:0::/64"], ["64:ff9b:1::203.0.113.7", "64:ff9b:1:0::/64"], ["010.1.1.1", "10.1.1.1"], ["300.1.1.1", ""], ["1:2:3", ""], ["::1::2", ""], ["fe80::1%eth0", ""]]) {
+    eq(addressBucket(a), want, "address bucket of " + a);
+  }
   eq(clientIp(rq({}), "xff-last"), "", "none");
   const c = await newClass();
   await reg(c, "Uri", "4827");
@@ -648,6 +657,9 @@ T("S5: the caller's address comes from the platform's end of X-Forwarded-For; an
   for (let i = 0; i < 3; i++) await login(deps, { class_code: c.code, name: "Uri", code: "9053" }, { ip: "" });
   const b = await sql`select count(distinct ip_bucket)::int as n from private.auth_attempts where class_id = ${c.id} and kind = 'code'`;
   eq(b[0].n, 3, "three callers without a readable address: three buckets, not one shared by everybody");
+  const t = await teacherOf(c);
+  const h = await asUser(t, (tx) => tx`select warn, unreadable_day from public.backend_health`);
+  ok(h[0].warn === true && h[0].unreadable_day >= 3, "and the teacher's health row counts them and warns: " + JSON.stringify(h));
   clock.ms += 2 * DAY;
 });
 
@@ -675,7 +687,7 @@ T("S6: a pupil's auth user gets no second identity; one that has one is replaced
 
 T("S9: names: the same allow-list as the database, with ׳ ' ’ after a letter and Latin Extended-A", async () => {
   for (const n of ["ג׳ורג׳", "ג'ורג'", "ג’ורג’", "Łukasz", "Žofie", "D'", "Chloé", "ג׳ני", "Ana Mae", "Dan."]) ok(isName(n), "allowed: " + n);
-  for (const n of ["'Dana", "Dana-", "׳נועה", "Dá́na", "Dаna", "1Dan"]) ok(!isName(n), "refused: " + JSON.stringify(n));
+  for (const n of ["'Dana", "Dana-", "׳נועה", "Dá́na", "Dаna", "1Dan", "D\u0131na", "\u017Fara", "\u0138im", "\u0149ina", "\u0133ssel", "Mi\u0133nt"]) ok(!isName(n), "refused: " + JSON.stringify(n));
   const c = await newClass();
   eq(e(await reg(c, "ג׳ורג׳", "4827")), "ok", "and the database takes the same name");
   clock.ms += HOUR;
@@ -722,6 +734,54 @@ T("S3: wrong class codes are counters, not rows; forged addresses cannot grow th
   eq((await sql`select count(*)::int as n from private.auth_attempts where kind = 'class'`)[0].n, 0, "no try row per wrong class code");
   await settings({ class_miss_hour: 2000 });
   clock.ms += 2 * HOUR;
+});
+
+T("lock keys never collide: pupils named Code, Picture, Otc and Register, everything at once (review of #35)", async () => {
+  const c = await newClass();
+  const names = ["Code", "Picture", "Otc", "Register"];
+  for (const n of names) await reg(c, n, "4827", [3, 11], freshIp());
+  clock.ms += HOUR;
+  const jobs: Promise<Reply>[] = [];
+  for (let i = 0; i < 30; i++) for (const n of names) {
+    jobs.push(log(c, n, i % 3 ? "9053" : "4827", { ip: freshIp() }));
+    jobs.push(recPic(c, n, [5, 6], "5839", [7, 2], freshIp()));
+  }
+  const out = await Promise.allSettled(jobs);
+  eq(out.filter((x) => x.status === "rejected").map((x) => String((x as PromiseRejectedResult).reason).slice(0, 80)), [], "240 sign-ins and recoveries at once on those names: no deadlock, no error");
+  clock.ms += 2 * DAY;
+});
+
+T("a reset during a stream of guesses: no deadlock (auth_finish takes the name lock first; review of #35)", async () => {
+  const c = await newClass();
+  await reg(c, "Noam", "4827");
+  const pid = await pupilId(c, "Noam");
+  const t = await teacherOf(c);
+  clock.ms += HOUR;
+  const errors: string[] = [];
+  for (let round = 0; round < 15; round++) {
+    const guesses = Array.from({ length: 6 }, () => log(c, "Noam", "9053", { ip: freshIp() }));
+    const r = [reset("t:" + t, pid), teacherReset(deps, { action: "unlock", pupil_id: pid }, { ip: SCHOOL, token: "t:" + t })];
+    for (const x of await Promise.allSettled([...guesses, ...r])) if (x.status === "rejected") errors.push(String(x.reason).slice(0, 80));
+    clock.ms += 10 * MIN;
+  }
+  eq(errors, [], "15 rounds of 6 guesses racing a reset and an unlock");
+  clock.ms += 2 * DAY;
+});
+
+T("the postgres.js guard drops exactly the stray null write, nothing else (S-h)", async () => {
+  const PG = "at nextWrite (file:///root/.cache/deno/npm/registry.npmjs.org/postgres/3.4.7/src/connection.js:250:24)";
+  const ev = (code: string, stack: string) => new ErrorEvent("error", { error: Object.assign(new TypeError("x"), { code, stack: "TypeError: x\n    " + stack }), cancelable: true });
+  const stray = ev("ERR_STREAM_NULL_VALUES", PG), other = ev("ECONNRESET", PG), elsewhere = ev("ERR_STREAM_NULL_VALUES", "at ours (file:///app/_shared/core.ts:1:1)");
+  // dispatched to the guard alone: a capturing listener that stops the event first would hide a bug, so we read defaultPrevented
+  globalThis.dispatchEvent(stray);
+  const seen: boolean[] = [];
+  // a listener added after the guard sees whether the guard prevented the event, then keeps the test runner alive
+  const keep = (e: Event) => { seen.push(e.defaultPrevented); e.preventDefault(); };
+  globalThis.addEventListener("error", keep);
+  globalThis.dispatchEvent(other);
+  globalThis.dispatchEvent(elsewhere);
+  globalThis.removeEventListener("error", keep);
+  eq([stray.defaultPrevented, seen], [true, [false, false]], "the stray write is dropped; another error is not touched by the guard");
 });
 
 T("teardown", async () => {

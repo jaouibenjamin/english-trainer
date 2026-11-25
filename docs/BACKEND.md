@@ -352,11 +352,16 @@ Who is asking (review S2, S3):
   and the salt is deleted after 2 days. The address is the **last** entry of `X-Forwarded-For` (the one the
   platform's proxy appends; the first is whatever the caller wrote), or a single-address header the platform sets,
   chosen with the function secret `CLIENT_IP_FROM` once section 10 item 10 shows which header the project uses
-  (pre-live review S5). A request whose address cannot be read gets a bucket of its own, never one shared by all.
+  (pre-live review S5). An IPv6 address counts by its /64 (a home or school has a whole /64), and a port is dropped.
+  A request whose address cannot be read gets a bucket of its own, never one shared by all, and is counted in the
+  teacher's `backend_health` (`unreadable_day`), so a wrong `CLIENT_IP_FROM` shows instead of quietly switching the
+  per-address limits off.
   No guarantee rests on the address alone: the per-name and per-class limits below hold even if every request claims
   a new address.
 - **All at once** (pre-live review S1): every limit is a count followed by a write, so the counts are taken under
-  database advisory locks held to the end of the request: the address first, then the class and kind, then the name.
+  database advisory locks held to the end of the request: the address first, then the class and kind, then the name,
+  each in its own key namespace (so a pupil called "Code" never shares the class's lock), and `auth_finish` takes the
+  name lock before the attempt row, in the same order as a teacher's reset (no deadlock; both tested).
   Tested with 35 tries at the same moment: exactly 10 wrong picture pairs compared for the class (17 without the
   locks) and exactly 30 wrong codes from one address.
 
@@ -416,7 +421,7 @@ is hers before any slow hashing, so a stranger's token makes it do no work (pre-
 All: POST with JSON under 2 KB; every field validated (names, after NFC and squeezing spaces: an allow-list of Hebrew
 letters, Latin letters including é, Ł, Ž (Latin-1 and Latin Extended-A), and space ' ’ ׳ ״ . - inside; 2 to 20;
 starting with a letter and ending with a letter, a dot, or ' ’ ׳ right after a letter, so ג׳ורג׳ and ג'ורג' fit
-(pre-live review S9). The
+(pre-live review S9). Look-alikes are refused: ı Ĳ ĳ ĸ ŉ ſ. The
 same rule is a CHECK on the tables, written with \u escapes, so markup, digits, emoji, other scripts' look-alikes and
 invisible or direction characters never reach a row); CORS to the game's origin (hygiene, not protection); never log names, codes or addresses; names
 never in a query string; the same amount of work on every path.
@@ -458,6 +463,10 @@ rows). The blob: `save_progress` writes nothing when the blob is unchanged, refu
 last (`retry_after`), and stops at 300 writes or 4 MB a pupil a day (each write leaves a dead copy until vacuum;
 tested: 5,000 saves of a 39 KB blob as fast as possible write 105 and grow the table by about 4 MB; before, 28,000
 made it 428 MB). A refused save loses nothing: the device keeps its progress and the next save carries it.
+The client paces itself to fit (pre-live review S8, `js/api.js`): the game saves 2.5 s after every change, so the
+adapter keeps only the newest state and sends it at most every 30 s (`saveEveryS`) and at once, with keepalive, when
+the page is hidden; on `wait`, `daycap` or `brake` it keeps the state (and the pending batch) and tries again after
+the time the server names. An honest pupil playing all day sends well under 300 writes.
 The storage brake: when `maintenance()` finds the database at 350 MB it switches `storage_brake` on, and events are
 then counted but not stored for everybody (saves still work) until the owner frees space; the teacher's
 `backend_health` warns. `record_events` then answers `{ok: false, e: 'brake'}`, so the device keeps the batch and
@@ -596,6 +605,29 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
 3. **Before the switch** (all must be true): section 10 green on the real project; the owner's checklist done; the
    teacher signed in with Google and saw her class; a restore drill done; the client reports every event type and
    the per-source gap is zero for 3 school days; the owner approved section 3.
+   Before `dual` is switched on (review of #21, S-c): the page's Content-Security-Policy must allow the project,
+   `connect-src 'self' https://script.google.com https://script.googleusercontent.com https://<project>.supabase.co`,
+   or every copy is blocked by the browser (the game itself goes on, on the Sheet). The adapter refuses the half-built
+   `supabase` mode unless `config.js` also says `unfinished: true` (S-b). On a shared device the adapter keeps only a
+   hash of class code and name; a different pupil's request first revokes and forgets the previous pupil's session
+   (B1), and a pupil Supabase does not know is tried once a day, not at every sign-in (S-a).
+   One guard for every late answer (reviews of #39, #41 and #50): the device's session has an id (`sid`, random, kept
+   by a token refresh, seen by every tab), the device an owner mark and the page a generation counter; every operation
+   takes an `op()` when it starts, and every token read, every call with a token and every write of the session, base,
+   pending batch, stale record, sent record, owner marks or queue goes through it and is refused once any of the three
+   changed. Data is bound to the pupil too: the queue and the sent record carry their owner, a Sheet answer that comes
+   after a logout is not copied, and tabs take turns for sign-in and the copy (Web Locks, where the browser has them). So a late answer of one pupil (a save, a
+   token refresh, a sign-in, a logout) can never write into, send with, or end the next pupil's session, in this tab or
+   another one. Logout first sends what was played since the last copy, including the copy still on its way and the
+   save waiting behind it (within 8 s), then revokes the session with a fresh token and forgets everything of the
+   pupil, owner marks included; another pupil who signs in meanwhile waits for it, and a logout that comes late leaves
+   the new session alone. Answers that built up during a long wait go in parts of 200 under ids derived from the
+   pending batch (the part size is kept with it), so none is cut and none is counted twice. One pupil with two devices:
+   a Sheet sign-in brings the record joined from both, and what it holds beyond what this device itself sent (kept on
+   the device as soon as the Sheet took it, so a closed tab does not forget it) is added to this device's base, so each
+   answer is counted by the device it was played on (S3). The first save after a sign-in is counted from the record
+   the Sheet had at sign-in (an empty one at registration); a base never goes down, so two tabs of one pupil do not
+   count twice. At hide time the copies share the 64 KiB keepalive budget; what does not fit waits for the next visit.
 4. **The switch** (the point of no return for sign-in): new class code (8 characters) handed out; the client's config
    points at Supabase; the Sheet backend starts answering every request with an error the old client already treats
    as "sign in again", so a stale tab cannot keep writing to the Sheet. Pupils sign in once with their old code and
@@ -663,13 +695,13 @@ same assertions as the local suites where a local version exists. None can be an
 | 1 | `generateLink` + `verifyOtp` issue a session with sign-up off and an `.invalid` address; `email_confirm` works on create | sign a test pupil in through `pupil-login` |
 | 2 | 35 sign-ins in a minute pass the Auth rate limits (and no per-user spacing blocks a second device) | 35 parallel sign-ins, then one pupil twice in 10 s |
 | 3 | A pupil token cannot change its user: `PUT /auth/v1/user` with password, with email; `POST /auth/v1/factors`; identity linking; `/otp` and `/recover` for the label address | each must fail, and the user row must be unchanged |
-| 4 | Triggers on `auth.users` (update) and `auth.mfa_factors` can be created and fire | migration applies; test 3 passes even with setting 5 of the checklist switched back on in a scratch project |
+| 4 | Triggers on `auth.users` (update), `auth.mfa_factors` and `auth.identities` can be created and fire; the migrations' owner can read `auth.mfa_factors` and `auth.identities` (otherwise `auth_user_clean` cannot see a factor or a linked identity and passes it) | the migration's notices name no trigger "not created"; `select count(*) from auth.identities` as `postgres`; test 3 passes even with setting 5 of the checklist switched back on in a scratch project |
 | 5 | Sign-up, anonymous and phone sign-in are refused with the public key | three calls |
 | 6 | After a reset or recovery the old access token reads and writes nothing; the old refresh token is dead | use the old tokens right after |
 | 7 | The server role (and the migrations' owner) may reference, read and delete `auth.users`, and delete old `auth.audit_log_entries` | `teacher_delete_pupil`, `maintenance()` |
 | 8 | The owner-rights views return rows for a teacher and none for a pupil through the real API; RLS is on everywhere | the access tests of `tests/db.py`, run over HTTP |
 | 9 | Only `public` is reachable: `private` and `app` through REST and GraphQL give nothing | calls with a pupil token |
-| 10 | Which header holds the caller's address in a function, and that a client-sent copy does not win | call with a forged header, read the bucket |
+| 10 | Which header holds the caller's address in a function, whether it carries a port or a proxy's address, and that a client-sent copy does not win; then `CLIENT_IP_FROM` is set to match | call with a forged header, read the bucket; `backend_health.unreadable_day` stays 0 after a day of use |
 | 11 | One PBKDF2 of 600,000 rounds, and three in one request, fit the function CPU limit | timing through the function, 20 runs |
 | 12 | `verify_jwt = false` works with the project's key format, and `teacher-reset` refuses a pupil token, an expired token and no token | calls |
 | 13 | Google sign-in lands on the pre-created teacher user | by hand, once |

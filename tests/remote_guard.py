@@ -13,6 +13,9 @@ import glob, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 URL = re.compile(r"""(?:https?:)?//[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+[^\s"'`)<>]*""")
 ALLOWED = {'config.js': re.compile(r'https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec')}
+# The pages' Content-Security-Policy names the class backend's two hosts (bare origins, no path) in connect-src: allowed
+# there and only there, on the line of a page's <meta http-equiv="Content-Security-Policy">.
+CSP_HOSTS = re.compile(r'https://script\.google(usercontent)?\.com')
 NAMESPACE = re.compile(r'http://www\.w3\.org/(2000/svg|1999/xlink|1999/xhtml|1998/Math/MathML)')
 # No file is excused. A new entry would be: file -> the one exact URL tolerated in it, once.
 OLD = 'https://cdn.example.net/account_x/'      # a made-up storage address, used by the self-test
@@ -39,6 +42,8 @@ def remote_urls(read=read):
             for u in found:
                 if NAMESPACE.fullmatch(u) or (f in ALLOWED and ALLOWED[f].fullmatch(u)):
                     continue
+                if f.endswith('.html') and 'http-equiv="Content-Security-Policy"' in line and CSP_HOSTS.fullmatch(u):
+                    continue
                 if PENDING.get(f) == u and not seen_pending:      # the one known constant, once
                     seen_pending = 1
                     continue
@@ -60,6 +65,8 @@ def self_test():
              ('css/game.css', "\n.x{background:url(https://example.org/a.png)}\n", 'https://example.org/a.png'),
              ('trainer.html', '\n<link href="https://fonts.googleapis.com/css2?family=Rubik" rel="stylesheet">\n', 'https://fonts.googleapis.com/css2?family=Rubik'),
              ('index.html', '\n<script src="https://script.google.com/macros/s/abc/exec"></script>\n', 'https://script.google.com/macros/s/abc/exec'),      # the backend URL is allowed in config.js only
+             ('index.html', '\n<img src="https://script.googleusercontent.com">\n', 'https://script.googleusercontent.com'),      # the backend hosts only in the CSP line
+             ('run.html', '\n<meta http-equiv="Content-Security-Policy" content="connect-src https://evil.example.org">\n', 'https://evil.example.org'),      # and no other host there
              ('js/main.js', ''.join(["\n// abc123.Cloud", "Front.net\n"]), None)]
     base, out = remote_urls(), []
     for target, extra, want in cases:
