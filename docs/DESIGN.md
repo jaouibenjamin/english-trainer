@@ -160,4 +160,4 @@ Files: `js/dsflag.js` (the flag), `css/ds-game.css` (the skin), one `<script>` l
 - Backdrop: `bg/world` (night sea with the moon). Title: the three subjects are three tiles of equal weight; the mock exam tile is paper, because the exam stays light. Login: one dark card with a keyline; fields are navy-900 with a line border and white text; the main button is the only gold one. Settings: dark cards, aqua switches.
 - Targets: the two login tabs and the three fields are 48px tall with the flag on (44 to 47px today).
 - Known seams, on purpose for step 1: the map, help, class table and teacher screens are still in the old look, so moving from the title to the map changes style. The old painted icons in settings are kept.
-- Checked: `tests/play.py --quick` gives the same 171 checks on `game`, on this branch with the flag off, and with the flag on (class login against the mock backend included).
+- Checked: `tests/play.py --quick` gives the same 170 checks on `game`, on this branch with the flag off, and with the flag on (class login against the mock backend included); `math.py --quick` 21 and `mock.py --quick` 12 are unchanged with the flag off.
