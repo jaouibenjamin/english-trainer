@@ -248,14 +248,7 @@ async def klass(b, errs):
 
 
 async def main():
-    procs = []
-    if not port_open(P.PORT):
-        procs.append(subprocess.Popen([sys.executable, '-m', 'http.server', str(P.PORT), '--bind', '127.0.0.1'], cwd=P.ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-    if not port_open(P.API_PORT):
-        procs.append(subprocess.Popen(['node', P.MOCK], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-    for _ in range(40):
-        if port_open(P.PORT) and port_open(P.API_PORT): break
-        time.sleep(.1)
+    procs = P.start_servers(mock=True)      # its own servers on free ports (tests/play.py)
     errs = []
     try:
         async with async_playwright() as pw:
