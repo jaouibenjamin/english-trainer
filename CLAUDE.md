@@ -34,6 +34,7 @@ Read this file and `docs/PLAN.md` before changing anything.
   - `index.html` + `js/main.js`: the island game (English), Fraction Bay (math, `js/math.js`, `mdata.js`, `msling.js`, `mui.js`), and the mock exam (`js/mock.js`, `js/xdata.js`).
   - `run.html` + `js/run.js`: Beach Run, a three.js runner (vendored in `vendor/`). Looks: anime (default) and `?style=lowpoly`. The runner models are Higgsfield GLBs served from the repo (`assets/3d/`, built by `tests/assets_local.py` from `assets/sources.tsv`); the procedural crab Pitzi is the fallback.
   - `trainer.html`: the older quiz trainer.
+  - `worksheet.html` + `js/worksheet.js`: a printable worksheet of an island, light paper. Behind a device switch (`?sheet=1` once, `?sheet=0` to remove); off by default.
 - Voice: recorded clips (Higgsfield; English via seed_audio, Hebrew narration via ElevenLabs, preset voice Kaia). Never browser speech for content.
 
 ## Branches and deploy
@@ -52,6 +53,7 @@ python3 tests/run.py            # Beach Run, phone and laptop sizes (needs WebGL
 node tests/mdata_check.mjs      # math content
 python3 tests/settings_fit.py   # the settings screen at six window sizes, signed in and not: all on the screen, nothing over anything
 python3 tests/storage_check.py  # the asset build scripts against a made-up storage (no network): refusals, no address in messages
+python3 tests/worksheet.py     # the printable worksheet (worksheet.html), switch off and on
 ```
 
 Every suite starts its own servers on free ports and stops if it cannot; it never uses a server that is already running (`python3 tests/ports_check.py` proves it). So two runs on one machine do not mix.

@@ -516,3 +516,7 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
    the account panel the screen needs a little less air to keep the sign-out button on it */
 @media (max-height:810px) and (max-width:699px){.settings .guide{display:none}}
 @media (max-height:700px){.settings,.settings .fill{gap:6px}.settings .setrow{min-height:44px}}
+
+/* link to the printable worksheet on an island (only on a device that was given the switch) */
+.chips .wsl{text-decoration:none;color:inherit;min-height:44px;display:inline-flex;align-items:center;cursor:pointer}
+.chips .wsl:focus-visible{outline:3px solid #2d6f8e;outline-offset:2px}
