@@ -532,6 +532,15 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 | `assets/al/avanim/octopus.hf_20261125_130919_719b4000-fc5c-460a-a244-508cc849d7ce.webp` | character animation, 2 s, plays once on tap: octopus | 2026-11-25 | 719b4000-fc5c-460a-a244-508cc849d7ce | grok_video |
 | `assets/al/avanim/robot-bell.hf_20261125_130924_c1de682e-ac27-40f8-b210-34792001ae2d.webp` | character animation, 2 s, plays once on tap: robot, green diving bell | 2026-11-25 | c1de682e-ac27-40f8-b210-34792001ae2d | grok_video |
 
+### Welcome film
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/intro/poster.hf_20261125_160942_30220de2-7942-4db5-bb82-9f99b71a615f.webp` | welcome film v5: poster (the four leaving school at sunset, the gate key image) | 2026-11-25 | 30220de2-7942-4db5-bb82-9f99b71a615f | gpt_image_2_5 |
+| `assets/al/intro/intro.hf_20261125_164702_e78eef89-88e1-4b0e-ab69-1469ee330bf6.mp4` | welcome film v7, 36 s: the four leave school, walk, sit and laugh while small Pitzi peeks out of the sea behind them; at the rumble they turn in shock as the camera swings to the island rising in front of them; Pitzi leaps out of the sea toward them and says his line; 'Yeah, let's go!', they run to that same island; the title pops in. Grok Video shots d69a525d, 95ba6021, 33b2a7ea, 61679f79, e0b4570c, 525c9966, e78eef89 (their own generated sound and voices, not clones); key images 5f2c23a8, 14f86136, c3ab51b6, c70906f9 (gpt_image_2_5); narration Kaia dd64b78b, 9e3d099a and b1e4b4c4 (the closing line, re-recorded so the name is said right), music c9f440f8. Full: 540 x 982, built by tools/intro_film.py | 2026-11-25 | e78eef89-88e1-4b0e-ab69-1469ee330bf6 | grok_video + gpt_image_2_5 + text2speech_v2 |
+| `assets/al/intro/intro-light.hf_20261125_164702_e78eef89-88e1-4b0e-ab69-1469ee330bf6.mp4` | welcome film v7, light: 390 x 710, about 3 MB, for slow or saved-data connections (tools/intro_film.py) | 2026-11-25 | e78eef89-88e1-4b0e-ab69-1469ee330bf6 | grok_video + gpt_image_2_5 + text2speech_v2 |
+| `assets/al/intro/master.hf_20261125_164702_e78eef89-88e1-4b0e-ab69-1469ee330bf6.mp4` | welcome film v7, master: no title, the final sound mix; tools/intro_film.py MASTER OUT --at 32 adds the title (a rename costs no credits). Not played by the game | 2026-11-25 | e78eef89-88e1-4b0e-ab69-1469ee330bf6 | grok_video + gpt_image_2_5 + text2speech_v2 |
+
 ### Pitzi
 
 | File | What | Made | Job id | Model |
