@@ -29,7 +29,7 @@ DS = """(()=>{const lum=c=>{const m=c.match(/[\\d.]+/g).map(Number);const f=v=>{
   const a=lum(getComputedStyle(e).color)[0],b=back(e),r=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);if(r<4.5)low.push([e.tagName,e.className,e.textContent.trim().slice(0,20),r.toFixed(2)])}
  const small=[...document.querySelectorAll('#stage button,#stage a,#stage input')].filter(e=>e.offsetParent).map(e=>[e.className,Math.round(e.getBoundingClientRect().height)]).filter(x=>x[1]<48);
  return {ds:document.documentElement.classList.contains('ds'),css:[...document.styleSheets].some(x=>(x.href||'').endsWith('/css/ds-teacher.css')),low,small}})()"""
-CARDS = """(()=>Object.fromEntries([...document.querySelectorAll('.kid')].map(k=>[k.querySelector('.kn b').textContent,{km:[...k.querySelectorAll('.km')].map(p=>p.innerText.replace(/\\s+/g,' ').trim()),rows:k.querySelectorAll('p').length,wide:k.scrollWidth>k.clientWidth+1||[...k.querySelectorAll('*')].some(e=>{const r=e.getBoundingClientRect(),K=k.getBoundingClientRect();return r.left<K.left-1||r.right>K.right+1})}])))()"""
+CARDS = """(()=>Object.fromEntries([...document.querySelectorAll('.kid')].map(k=>[k.querySelector('.kn b').textContent,{km:[...k.querySelectorAll('.km')].map(p=>p.innerText.replace(/\\s+/g,' ').trim()),rows:k.querySelectorAll('p').length,gap:(()=>{const n=k.querySelector('.kn b'),r=document.createRange();r.selectNodeContents(n);const L=[...r.getClientRects()];return L.length?Math.round(k.querySelector('.kn').getBoundingClientRect().right-Math.max(...L.map(x=>x.right))):-1})(),wide:k.scrollWidth>k.clientWidth+1||[...k.querySelectorAll('*')].some(e=>{const r=e.getBoundingClientRect(),K=k.getBoundingClientRect();return r.left<K.left-1||r.right>K.right+1})}])))()"""
 
 
 def servers():
@@ -123,7 +123,8 @@ async def run(b, w, h, errs, api, first):
     check(f'[{tag}] on: one paper shows no "first" result', len(g) == 2 and 'ניסיון אחד' in g[0] and 'אחרון 9 / 20' in g[0] and 'ראשון' not in g[0], g)
     d20 = cards['דליה']['km']
     check(f'[{tag}] on: with 20 papers the oldest score is called the oldest of the last 20, not the first', len(d20) == 2 and '20 ניסיונות' in d20[0] and 'הוותיק מ־20 האחרונים 9 / 20' in d20[0] and 'ראשון' not in d20[0], d20)
-    check(f'[{tag}] on: no card is wider than its box (except the 20-letter name in the old look, a known overflow fixed only in the new look)', not any(v['wide'] for n, v in cards.items() if n != LONG))
+    check(f'[{tag}] on: no card is wider than its box, not even with a 20-letter name', not any(v['wide'] for v in cards.values()) and LONG in cards)
+    check(f'[{tag}] every name starts at the right edge of its card, also a long English name that wraps (it keeps the card\'s right alignment)', all(0 <= v['gap'] <= 2 for v in cards.values()), {n: v['gap'] for n, v in cards.items()})
     text = await pg.inner_text('.kids')
     check(f'[{tag}] on: what a pupil typed in the exam is not on the screen', 'zzz' not in text and 'a:1' not in text)
     if P.SHOTS:
