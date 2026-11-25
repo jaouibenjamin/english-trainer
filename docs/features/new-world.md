@@ -62,6 +62,12 @@ Pace, roughly: 15 minutes a day is about two levels played, worth about 100 ener
 for three stars, about 25 for words learned), so a new character every day or two at first; later the stars are
 already earned and energy comes mostly from words, so it slows down. The last one asks for about 84% of all there is.
 
+The maximum (980) is computed in `js/avatar.js` (`MAX_ENERGY`, next to `LEVELS`), and `tests/world.py` fails if the
+level that opens the last character is above it. When content adds energy, the ladder is to be revisited.
+
+**Open decision for the owner:** Fraction Bay (math) progress gives no energy today: stars and levels in math do not
+count. Counting them would raise the maximum (and open characters sooner for a pupil who plays math); not done here.
+
 ## For the teacher's review: the name words (ours, not from Unit 1)
 None of these words is in the teacher's Unit 1 list; the words and their Hebrew are ours. The describing words show
 both genders.

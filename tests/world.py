@@ -284,6 +284,17 @@ async def ladder(b, errs):
     await c.close()
 
 
+async def reachable(b, errs):
+    """the ladder fits what a pupil can earn: the level that opens the last character is reachable with today's content
+    (js/avatar.js MAX_ENERGY; when content adds energy, the ladder is to be revisited)"""
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+    R = await pg.evaluate("async()=>{const A=await import('./js/avatar.js'),D=await import('./js/world_data.js');const top=Math.max(...D.AVATARS.map(a=>a.open));return {max:A.MAX_ENERGY,levels:A.LEVELS,top,need:A.LEVELS[top-1]}}")
+    check(f'the last character (level {R["top"]}) opens at {R["need"]} energy, within the {R["max"]} a pupil can earn today', R['top'] <= len(R['levels']) and R['need'] is not None and R['need'] <= R['max'], R)
+    check('the ladder in the test is the one in js/avatar.js', R['levels'] == LEVELS, R['levels'])
+    await c.close()
+
+
 async def kept(b, errs):
     """a pupil who already has a character that would now be locked keeps it (picker and map), and nothing is taken away"""
     c, pg, reqs = await page(b, 390, 844, errs)
@@ -443,6 +454,7 @@ async def main():
             await brand(b, errs)
             await anim(b, errs)
             await ladder(b, errs)
+            await reachable(b, errs)
             await kept(b, errs)
             await old_names(b, errs)
             await names(b, errs)

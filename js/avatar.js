@@ -17,7 +17,7 @@
      as the highest value seen, so a word that is forgotten again never takes energy away.
    DOM is built with createElement and textContent only. */
 import {S,API,totalStars,wordsKnown,isOpen} from './state.js';
-import {ISLANDS,WORDS} from './data.js';
+import {ISLANDS,WORDS,MAX_STARS,TEXTS} from './data.js';
 import {ART} from './world_art.js';
 import {AVATARS,NAME_A,NAME_B,NAME_V} from './world_data.js';
 import {playAv} from './avanim.js';
@@ -29,7 +29,12 @@ const KEY='wi_world';
    (js/world_data.js) all fit inside it: the last at 820. Every threshold is at or below the earlier ones
    (0,120,220,340,480,640,820,1020), so a level shown on a device never goes down. */
 const WORTH={star:10,word:5,story:5};
-const LEVELS=[0,40,90,150,220,300,380,460,540,620,700,760,820];
+export const LEVELS=[0,40,90,150,220,300,380,460,540,620,700,760,820];
+/* The most energy a pupil can earn with today's content: every star, every word of the unit known, every story read
+   (10 x 66 + 5 x 59 + 5 x 5 = 980). REVISIT THE LADDER when content adds energy (new islands, a new unit, Fraction Bay
+   if it is ever counted): the last character must stay reachable, and should not come too early either.
+   tests/world.py fails if the level that opens the last character is above this. */
+export const MAX_ENERGY=WORTH.star*MAX_STARS+WORTH.word*WORDS.filter(w=>w.p<6).length+WORTH.story*TEXTS.length;
 const FOCUS_MAX=5;
 const EN_MAX=100000;   // a stored energy above this is read as this (a damaged or edited record must not freeze the map)
 
