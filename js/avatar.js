@@ -84,10 +84,10 @@ export async function decorateMap(view,go,live=()=>true){
  const dock=el('div','wd');
  /* without a digest (a browser with no crypto.subtle) a character could not be kept: say so instead of offering one */
  const meB=id.key?btn('wd__me',null,()=>go('avatar')):el('span','wd__me wd__me--off');
- if(me.av)meB.appendChild(pic(me.av,'wd__pic'));else meB.appendChild(el('span','wd__pic wd__pic--none','?'));
+ if(me.av)meB.appendChild(pic(me.av,'wd__pic'));else if(id.key)meB.appendChild(el('span','wd__pic wd__pic--none','?'));   // no "?" ring where nothing can be chosen
  const txt=el('span','wd__txt');
  if(me.av&&me.nm){const hi=el('span','wd__hi');for(const w of nameText(me.nm).split(' '))hi.appendChild(ltr(w));txt.appendChild(hi)}   // one word per line
- else txt.appendChild(el('span','wd__hi',!id.key?'במכשיר הזה אי אפשר לשמור דמות':me.av?'שלום!':'בוחרים דמות'));
+ else txt.appendChild(el('span','wd__hi',!id.key?'בטלפון הזה אין דמויות. משחקים כרגיל!':me.av?'שלום!':'בוחרים דמות'));
  if(id.key)meB.setAttribute('aria-label',me.av?'הדמות שלי'+(me.nm?': '+nameText(me.nm):''):'בוחרים דמות');
  meB.appendChild(txt);
  const en=btn('wd__en',null,()=>{note.hidden=!note.hidden;en.setAttribute('aria-expanded',note.hidden?'false':'true')});

@@ -43,8 +43,10 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
  /* islands zigzag in two columns, so neighbours in a column are two rows apart; the lowest island and its label end 14px above the bottom */
  /* every level of every island has been played: a banner along the beach. "Finished" is said only at full stars;
     until then it says how many stars are missing, and every island that still has stars to collect is ringed */
- const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),finH=(played?84:0)+(dsOn()?WORLD_DOCK:0);   // with the design flag, room for the new world's dock (js/avatar.js)
- const iw=worldIw(Math.min(W*.37,150,(H-(dsOn()?WORLD_DOCK:0))*.19),H,mt,finH),   // with the design flag, sized from the height left after the dock
+ const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),iw0=Math.min(W*.37,150,(H-(dsOn()?WORLD_DOCK:0))*.19);   // with the design flag, sized from the height left after the dock
+ /* the banner shows when every level was played; with the design flag only if the islands still fit with it and the dock (worldFits) */
+ const fin=played&&(!dsOn()||worldFits(iw0,H,mt,84+WORLD_DOCK)),finH=(fin?84:0)+(dsOn()?WORLD_DOCK:0);   // with the design flag, room for the new world's dock (js/avatar.js)
+ const iw=worldIw(iw0,H,mt,finH),
   cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
  /* the crab waits on the newest island that is open and still has stars to collect */
  const curI=ISLANDS.filter(i=>isOpen(i)&&islandStars(i)<i.levels.length*3).sort((a,b)=>b.id-a.id)[0]||null;
@@ -58,7 +60,7 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
   <header class="maphead${API&&S.u?' cls':''}"><button class="mb" data-a="nav" data-to="settings"><span class="rb t1">${spr('ic_gear','rbi')}</span><small>הגדרות</small></button>
    <div class="sign total"><b>${star()}<span>${num(tot+' / '+MAX_STARS)}</span></b></div>
    <span class="tr">${API&&S.u?`<button class="mb" data-a="nav" data-to="board"><span class="rb t3">${spr('trophy','rbi')}</span><small>טבלה</small></button>`:''}<button class="mb" data-a="nav" data-to="collection"><span class="rb t2">${spr('chest','rbi')}</span><small>האוסף</small></button></span></header>
-  ${played?`<div class="fin label${all?' all':''}" role="status">${spr(all?'crab_star':'crab_wave','fc bob')}<p>${all?`<b>כל הכבוד! סיימתם את כל האיים</b><small>כל ${num(MAX_STARS)} הכוכבים שלכם. אפשר לשחק שוב בכל שלב${API&&S.u?' ולצבור נקודות':''}</small>`
+  ${fin?`<div class="fin label${all?' all':''}" role="status">${spr(all?'crab_star':'crab_wave','fc bob')}<p>${all?`<b>כל הכבוד! סיימתם את כל האיים</b><small>כל ${num(MAX_STARS)} הכוכבים שלכם. אפשר לשחק שוב בכל שלב${API&&S.u?' ולצבור נקודות':''}</small>`
    :`<b>עברתם בכל האיים!</b><small><span class="nb">${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`}</span> <span class="nb">באיים שבמסגרת הצהובה</span></small>`}</p>${all?spr('trophy','ft'):`<span class="fs">${star()}<i>${num(tot+'/'+MAX_STARS)}</i></span>`}</div>`:''}
   <button class="subjpill" data-a="nav" data-to="">${ico('back')}<span>מקצועות</span></button>
   ${deco('boat',24,0,58)}${deco('whale',76,1,46)}
@@ -71,15 +73,21 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
  </section>`;worldMap()}
 /* the new world behind the design flag (?ds=1): js/avatar.js is fetched only on such a device; without the flag this does nothing */
 const dsOn=()=>document.documentElement.classList.contains('ds');
-const WORLD_DOCK=76;
-/* With the design flag, the island pictures are 7:6 (4:3 under 700px; css/ds-game.css) and the labels a little taller,
+const WORLD_DOCK=76;   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
+/* With the design flag, the island pictures are 7:6 (4:3 when the viewport is at most 700px high) and the labels a
+   little taller. THESE NUMBERS COPY css/ds-game.css (img.pic[src*="/isl_"] aspect-ratio 7/6, and 4/3 under
+   @media (max-height:700px)): change them together. The media test below is the same viewport test as the CSS.
+   TAG is the tallest label (the bonus island's three lines, 74px); 56px is the smallest island (320x568).
    so an island and its label need more height than the game's own layout gives them. Islands in one column are two
    rows apart: shrink them until a picture and its label fit in that space (the bonus island's label has three lines).
    Without the flag the size is returned unchanged. */
-function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=H<=700?.75:6/7,TAG=74;
- const room=w=>2*(H-mt-(w*.76+48)-14-finH)/5;
- while(iw>64&&iw*pr+TAG>room(iw))iw-=2;
- return iw}   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
+const WORLD_TAG=74,worldPr=()=>matchMedia('(max-height:700px)').matches?.75:6/7,worldRoom=(w,H,mt,finH)=>2*(H-mt-(w*.76+48)-14-finH)/5;
+function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=worldPr();
+ while(iw>56&&iw*pr+WORLD_TAG>worldRoom(iw,H,mt,finH))iw-=2;
+ return iw}
+/* do the islands fit at all (even at the smallest size) with this much kept free at the bottom? On a very short phone
+   (320x568) the all-played banner and the dock together leave too little: then the banner is left out */
+function worldFits(iw0,H,mt,finH){const iw=worldIw(iw0,H,mt,finH);return iw*worldPr()+WORLD_TAG<=worldRoom(iw,H,mt,finH)}
 function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
 
 /* ---------- island ---------- */

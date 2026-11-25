@@ -123,14 +123,14 @@ def build():
         'and sounds. Tool: Higgsfield, model named per file. Each picture was cut, resized and encoded as WebP from its\n'
         'original; each sound was cut, levelled and encoded as mono MP3. Original work: no known characters, brands, tunes\n'
         'or real people, no voices. Two HUD icons can share one job (they were drawn in one picture).\n')
-    for name, title in (('al-avatar', 'Character portraits'), ('al-intro', 'Welcome film'), ('al-pitzi', 'Pitzi'), ('al-island', 'Islands on the world map'), ('al-bg', 'Backgrounds'), ('al-ui', 'Mission stones and HUD icons'), ('al-music', 'Island themes'), ('al-sound', 'Signature sounds')):
+    for name, title in (('al-avatar', 'Character portraits'), ('al-avanim', 'Character animations (2 s, played once on tap)'), ('al-intro', 'Welcome film'), ('al-pitzi', 'Pitzi'), ('al-island', 'Islands on the world map'), ('al-bg', 'Backgrounds'), ('al-ui', 'Mission stones and HUD icons'), ('al-music', 'Island themes'), ('al-sound', 'Signature sounds')):
         rows = [r for r in al if r['kind'] == name]
         for r in rows:
             if job(r['file'])[0] != r['job']:
                 raise SystemExit(f"{r['file']}: the job column does not match the job id in the file name")
         add(f'### {title}\n')
         add(table(['File', 'What', 'Made', 'Job id', 'Model'], [[f('assets/' + r['file']), cell(r['what']), job(r['file'])[1], r['job'], cell(r['model'])] for r in rows]))
-    if {r['kind'] for r in al} - {'al-avatar', 'al-intro', 'al-pitzi', 'al-island', 'al-bg', 'al-ui', 'al-music', 'al-sound'}:
+    if {r['kind'] for r in al} - {'al-avatar', 'al-avanim', 'al-intro', 'al-pitzi', 'al-island', 'al-bg', 'al-ui', 'al-music', 'al-sound'}:
         raise SystemExit('assets/al/sources.tsv: unknown kind')
 
     add('## Older art: sprites, backgrounds, app icons\n')

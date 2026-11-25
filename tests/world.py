@@ -192,7 +192,7 @@ async def no_digest(b, errs):
     await pg.add_init_script("try{Object.defineProperty(window.crypto,'subtle',{get:()=>undefined,configurable:true})}catch(e){}")
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     t = await pg.inner_text('.wd')
-    check('no digest: the dock says this device cannot keep a character, and offers no picker', 'אי אפשר לשמור דמות' in t and await pg.locator('button.wd__me').count() == 0, t)
+    check('no digest: the dock says, kindly, that there are no characters on this phone; no picker, no "?" ring', 'אין דמויות' in t and 'משחקים כרגיל' in t and await pg.locator('button.wd__me').count() == 0 and await pg.locator('.wd__pic').count() == 0, t)
     await pg.evaluate("location.hash='avatar'"); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(200)
     check('no digest: #avatar goes back to the map', await pg.locator('.wpick').count() == 0)
     check('no digest: nothing is stored', 'wi_world' not in await pg.evaluate(LS))
@@ -223,11 +223,14 @@ async def name_with_focus(b, errs):
 async def finished(b, errs):
     """every level played: the all-played banner sits above the dock, both whole on the screen"""
     st = {f'{i}-{t}': 2 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge'), (6, 'sling listen')) for t in ts.split()}
-    for w, h in ((390, 844), (360, 740), (1366, 768)):
+    for w, h in ((390, 844), (360, 740), (320, 568), (1366, 768)):
         c, pg, reqs = await page(b, w, h, errs, {'g': {'st': st}})
         await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(400)
         r = await pg.evaluate("(()=>{const f=document.querySelector('.fin'),d=document.querySelector('.wd'),s=document.getElementById('stage').getBoundingClientRect();if(!f)return null;const a=f.getBoundingClientRect(),b=d.getBoundingClientRect();return {clear:a.bottom<=b.top+1,inside:a.top>=s.top&&b.bottom<=s.bottom+1}})()")
-        check(f'[finished {w}x{h}] the all-played banner shows above the dock, both on the screen', r and r['clear'] and r['inside'], r)
+        if (w, h) == (320, 568):      # too short for the banner, the dock and six islands: the banner is left out (worldFits in js/main.js)
+            check(f'[finished {w}x{h}] the all-played banner is left out on a phone this short; the islands keep their rings', r is None and await pg.locator('.isl.todo').count() > 0, r)
+        else:
+            check(f'[finished {w}x{h}] the all-played banner shows above the dock, both on the screen', r and r['clear'] and r['inside'], r)
         # a tap anywhere on an island's picture lands on that island (centre, top quarter, bottom quarter), and labels do not lie over another island's picture
         taps = await pg.evaluate("""(()=>[...document.querySelectorAll('.isl')].map(b=>{const id=[...b.classList].find(c=>/^i\\d$/.test(c)),r=b.querySelector('.pic').getBoundingClientRect(),x=r.left+r.width/2;
           return [r.top+r.height*.5,r.top+r.height*.25+2,r.top+r.height*.75].map(y=>{const e=document.elementFromPoint(x,y),hit=e&&e.closest('.isl');return hit&&hit.classList.contains(id)?null:id+'@'+Math.round(y)+'->'+(hit?[...hit.classList].find(c=>/^i\\d$/.test(c)):e&&e.className)})}).flat().filter(Boolean))()""")
