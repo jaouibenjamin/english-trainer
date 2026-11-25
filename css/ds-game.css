@@ -1,4 +1,4 @@
-/* The new look for three screens of the existing game: title, login, settings. Loaded only by js/dsflag.js, and every
+/* The new look for screens of the existing game: title, login, settings (step 1); the English map and level list (step 2). Loaded only by js/dsflag.js, and every
    rule sits under html.ds, so with the flag off nothing here applies. Colours and sizes come from css/ds.css tokens.
    Styling only: no element is added, removed or moved by this file, and the login form keeps every field and button.
    Rules: no blur, only transform and opacity move, nothing bare on the picture (cards, plates and keylines carry
@@ -35,7 +35,7 @@ html.ds .login .btn:disabled{opacity:1;background:var(--wi-navy-700);color:var(-
 /* ---- title: three subjects to choose from, as three tiles of the same weight ---- */
 html.ds .title .label.pick{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s4);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-md);font-weight:700}
 html.ds .title .tgo{gap:var(--wi-s3);inline-size:100%}
-html.ds .title .tgo .btn.sb{inline-size:min(100%,340px);block-size:auto;min-block-size:68px;padding:var(--wi-s2) var(--wi-s4);justify-content:flex-start;text-align:start;background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-inline-start:8px solid var(--wi-aqua);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds .title .tgo .btn.sb{inline-size:min(100%,340px);block-size:auto;min-block-size:76px;font-size:var(--wi-fs-md);padding:var(--wi-s2) var(--wi-s4);justify-content:flex-start;text-align:start;background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-inline-start:8px solid var(--wi-aqua);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
 html.ds .title .tgo .btn.sb:active{background:var(--wi-navy-700);box-shadow:0 0 0 2px var(--wi-scrim),0 1px 0 var(--wi-scrim)}
 html.ds .title .tgo .btn.sb span{flex-direction:column;align-items:flex-start;gap:2px;white-space:normal}
 html.ds .title .tgo .btn.sb b{font-size:var(--wi-fs-lg);line-height:1.2}
@@ -77,7 +77,7 @@ html.ds .login .btn.tlink:active{background:var(--wi-navy-700);transform:none}
 /* ---- settings ---- */
 html.ds .settings .rb{background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:50%}
 html.ds .settings .rb .ico{stroke:var(--wi-text)}
-html.ds .settings .ribbon{background:none;inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds .settings .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
 html.ds .settings .ribbon span{padding:0}
 html.ds .settings .panel.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-xl);background:var(--wi-navy-800);padding:var(--wi-s2) var(--wi-s4);box-shadow:var(--wi-e1)}
 html.ds .settings .setrow{color:var(--wi-text);font-family:var(--wi-font-ui)}
@@ -97,3 +97,85 @@ html.ds .settings .acct .btn{background:var(--wi-azure);color:var(--wi-text);box
 html.ds .settings .guide p.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-lg);background:var(--wi-navy-900);color:var(--wi-text);padding:var(--wi-s2) var(--wi-s3)}
 
 @media (prefers-reduced-motion:reduce){html.ds .title .btn,html.ds .login .btn,html.ds .settings .btn{transition:none}}
+
+/* ======== Rollout step 2: the English island map (#map) and an island's level list (#island/N) ========
+   Same rules as above: styling only, every rule under html.ds and the map or island screen. The six painted islands,
+   the boat, the whale, the compass and the level icons keep their pictures (no new art); Pitzi, the stars, the lock
+   and the gear get the new ones. A swapped picture keeps its <img> and its size: the old picture is moved out of the
+   box (object-position) and the new one is drawn as the background. */
+html.ds #stage[data-scr=map],html.ds #stage[data-scr=island]{
+ --ink:#FFFFFF;--ink2:var(--wi-text-dim);--paper:var(--wi-navy-900);--butter:var(--wi-gold);
+ background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage[data-scr=map] .en,html.ds #stage[data-scr=island] .en{font-family:var(--wi-font-en)}
+html.ds #stage[data-scr=map] :focus-visible,html.ds #stage[data-scr=island] :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+/* the map: the sea from above, no painted islands in it. The level list: the English island backdrop, dimmed */
+html.ds #stage[data-scr=map] #bg .bgl{background-image:url(../assets/al/bg/sea.hf_20261124_210013_f6e9010a-f742-47cc-a849-a034fbb86389.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900)}
+html.ds #stage[data-scr=island] #bg .bgl{background-image:url(../assets/al/bg/english.hf_20261124_204750_bfb9c336-44b5-4c94-bda9-e8cea4054138.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900);opacity:.3}
+html.ds #stage[data-scr=island] #bg .bgl:not(.on){opacity:0}
+html.ds:has(#stage[data-scr=map]),html.ds:has(#stage[data-scr=island]),html.ds:has(#stage[data-scr=map]) body,html.ds:has(#stage[data-scr=island]) body{background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=map]) #backdrop,html.ds:has(#stage[data-scr=island]) #backdrop{display:none}
+
+/* new pictures in the old <img> boxes */
+html.ds .map img.st,html.ds .island img.st,html.ds .map .isl .lk,html.ds .map .here .bc,html.ds .map .fin .fc,html.ds .island .guide img,html.ds .map .mb .rb.t1 .rbi{object-position:-9999px 0;background:center/contain no-repeat}
+html.ds .map img.st[src$="/star.webp"],html.ds .island img.st[src$="/star.webp"]{background-image:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp)}
+html.ds .map img.st[src$="/star_off.webp"],html.ds .island img.st[src$="/star_off.webp"]{background-image:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp);opacity:.5;filter:grayscale(1)}
+html.ds .map .isl .lk{background-image:url(../assets/al/ui/lock.hf_20261124_204751_addbed5a-f8d3-44ba-a8a6-199048276867.webp);transform:translate(-50%,-50%)}
+html.ds .map .here .bc,html.ds .island .guide img{background-image:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp)}
+html.ds .map .fin .fc{background-image:url(../assets/al/pitzi/star.hf_20261124_204534_0bba02d5-095c-4463-82a0-a38d364fea44.webp)}
+html.ds .map .mb .rb.t1 .rbi{background-image:url(../assets/al/ui/gear.hf_20261124_204754_5c2c044b-27ad-4163-bd88-d7a7167def82.webp)}
+
+/* ---- the top row: round glass buttons with a plate under each name, the star count as a chip ---- */
+html.ds .map .rb,html.ds .island .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds .map .rb .ico,html.ds .island .rb .ico{stroke:var(--wi-text)}
+html.ds .map .mb small{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);margin-top:2px;padding:0 var(--wi-s2)}
+html.ds .map .sign.total{background:none;aspect-ratio:auto;padding:0;top:var(--wi-s1)}
+html.ds .map .sign.total b{background:var(--wi-navy-900);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s4);min-block-size:40px;box-shadow:var(--wi-e1)}
+html.ds .map .subjpill{top:calc(84px + var(--st));min-block-size:var(--wi-tap);padding:0 var(--wi-s4);background:var(--wi-navy-900);color:var(--wi-aqua);border:2px solid var(--wi-line);border-radius:var(--wi-r-pill);box-shadow:var(--wi-e1)}
+html.ds .map .subjpill .ico{stroke:var(--wi-aqua)}
+
+/* ---- the route and the islands: the dashed route glows aqua, each name is a dark plate, the next island has a gold ring ---- */
+html.ds .map .route path{stroke:var(--wi-aqua);opacity:.7;stroke-width:3}
+html.ds .map .isl .tag{background:var(--wi-navy-900);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-md);box-shadow:var(--wi-e1)}
+html.ds .map .isl .tag small{color:var(--wi-text-dim)}
+html.ds .map .isl .tag .bn{color:var(--wi-text-dim)}
+html.ds .map .isl.locked .tag{background:var(--wi-navy-800);border:2px dashed var(--wi-locked-line);color:var(--wi-locked)}
+html.ds .map .isl.locked .tag small{color:var(--wi-locked)}
+html.ds .map .isl.locked .pic{filter:grayscale(1) brightness(.55)}
+html.ds .map .isl.cur .tag,html.ds .map .isl.todo .tag{background:var(--wi-navy-800);border-color:var(--wi-gold);box-shadow:0 0 0 3px var(--wi-scrim),0 0 14px 2px rgba(255,210,63,.45)}
+html.ds .map .isl.cur .pic{filter:drop-shadow(0 0 10px rgba(46,230,197,.55))}
+html.ds .map .isl.full .tag{border-color:var(--wi-good)}
+html.ds .map .isl .tag .hb{inline-size:max-content;background:var(--wi-gold);color:var(--wi-navy-900);border:2px solid var(--wi-scrim);border-radius:var(--wi-r-pill)}
+html.ds .map .compass,html.ds .map .deco{opacity:.75}
+/* the banner when every island has been played */
+html.ds .map .fin{border:2px solid var(--wi-gold);border-image:none;border-radius:var(--wi-r-xl);background:var(--wi-navy-800);color:var(--wi-text);padding:var(--wi-s2) var(--wi-s3);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds .map .fin small,html.ds .map .fin .fs i{color:var(--wi-text-dim)}
+
+/* ---- an island's level list: four dark rows, each with its own colour edge ---- */
+html.ds .island .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds .island .ribbon span{padding:0}
+html.ds .island .isub{background:var(--wi-navy-900);color:var(--wi-text-dim);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s3);margin:0}
+html.ds .island .isub .en{color:var(--wi-text)}
+html.ds .island .chip{background:var(--wi-navy-900);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-pill);box-shadow:var(--wi-e1)}
+html.ds .island .ihero .pic{filter:drop-shadow(0 0 12px rgba(46,230,197,.35))}
+html.ds .island .lvrow{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-inline-start:8px solid var(--wi-aqua);border-radius:var(--wi-r-lg);padding:var(--wi-s2) var(--wi-s4);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds .island .lvrow.p1{border-inline-start-color:var(--wi-gold)}
+html.ds .island .lvrow.p2{border-inline-start-color:var(--wi-magenta)}
+html.ds .island .lvrow.p3{border-inline-start-color:var(--wi-good)}
+html.ds .island .lvrow:active{background:var(--wi-navy-700);transform:translateY(2px);box-shadow:0 0 0 2px var(--wi-scrim),0 1px 0 var(--wi-scrim)}
+html.ds .island .lvrow small{color:var(--wi-text-dim)}
+html.ds .island .lvrow .lic{background:var(--wi-navy-900);border-radius:var(--wi-r-md)}
+html.ds .island .guide p.label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-lg);background:var(--wi-navy-900);color:var(--wi-text);padding:var(--wi-s2) var(--wi-s3)}
+
+@media (prefers-reduced-motion:reduce){html.ds .map .isl .pw,html.ds .island .lvrow{transition:none}}
+/* short phones: game.css drops the settings rows to 44px; the new look keeps them at 48 (there is room) */
+@media (max-height:700px){html.ds .settings .setrow{min-height:var(--wi-tap)}}
+/* short phones: the crab's tip on the level list would cover the last row (as #24 did on settings, it goes) */
+@media (max-height:700px){html.ds .island .guide{display:none}}
+
+/* ---- shared by every screen in the new look: the toast (a locked island, a hint, a sign-out note) is a dark card ---- */
+html.ds #stage:is([data-scr=title],[data-scr=login],[data-scr=settings],[data-scr=map],[data-scr=island]) .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);font-family:var(--wi-font-ui)}
+/* ---- the level list with the other switches on: worksheet link (?sheet=1) and the extra games (?games=1) ---- */
+html.ds .island .chips .wsl{min-block-size:var(--wi-tap);color:var(--wi-aqua);border-color:var(--wi-line)}
+html.ds .island .xtr small{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s3);font-size:var(--wi-fs-xs)}
+html.ds .island .xtb{min-block-size:var(--wi-tap);padding:0 var(--wi-s4);background:var(--wi-navy-900);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-pill);box-shadow:var(--wi-e1);font-family:var(--wi-font-ui)}
+html.ds .island .xtb:active{background:var(--wi-navy-700)}

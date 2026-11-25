@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# suite: needs=psql   # picked up by tests/all.py
 """Backend database tests (docs/BACKEND.md sections 2 and 5). One command, no Docker, no Supabase project:
 
     python3 tests/db.py            # access rules, points, then the load test

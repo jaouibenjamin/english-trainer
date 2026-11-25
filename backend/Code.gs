@@ -134,22 +134,50 @@ function handle(d) {
   return { ok: false, e: 'action' };
 }
 
+/* The mock exam for the teacher screen, read from what the pupil's record already holds (x.tries; nothing new is
+   saved and the sheet is not written): how many papers (of the last 20 the device keeps), the oldest and the last
+   total among them, and the last paper by skill. null = no paper yet. The record is written by the pupil's own
+   browser, so anything in it may be damaged or made up: every value is read with nv() and clamped, and an error in
+   one record gives null, never an error for the whole teacher screen. */
+/* a number from pupil-written JSON. Number() of an object such as {"toString":1} throws, so only real numbers and strings are read */
+function nv(v) { return typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN; }
+function mockOf(x) {
+  try {
+    const int = function (v) { v = Math.floor(nv(v)); return v > 0 ? Math.min(v, 999) : 0; };
+    const pair = function (p) { const b = int(p[1]); return [Math.min(int(p[0]), b), b]; };
+    const t = x && Array.isArray(x.tries) ? x.tries.filter(function (r) { return r && Array.isArray(r.total) && int(r.total[1]) > 0; }) : [];
+    if (!t.length) return null;
+    const last = t[t.length - 1], sc = {};
+    ['words', 'grammar', 'reading', 'writing'].forEach(function (k) {
+      const p = last.sc && last.sc[k];
+      if (Array.isArray(p) && int(p[1]) > 0) sc[k] = pair(p);
+    });
+    return { n: Math.min(t.length, 99), first: pair(t[0].total), last: pair(last.total), sc: sc };
+  } catch (e) { return null; }   // one record must never take the whole teacher screen down
+}
+
+/* A key of the class's hard-words list: written by the pupil's own browser, so only something that looks like an
+   English word or short phrase is counted there (letters, spaces, apostrophes, hyphens; at most 40 characters). */
+function wordKey(w) { return typeof w === 'string' && /^[A-Za-z][A-Za-z' -]{0,39}$/.test(w); }
 function teacherView(rows) {
-  const agg = {};
+  const agg = Object.create(null);   // no inherited keys: a pupil's "__proto__" or "constructor" is just another key, and is not a word
   const kids = rows.map(function (x) {
     const state = parse(x[10]), st = state.st || {}, lv = (state.g && state.g.st) || {};
     let tries = 0, miss = 0, stars = 0, levels = 0;
     Object.keys(st).forEach(function (w) {
       if (!Array.isArray(st[w])) return;   // one damaged record must not take the whole screen down
-      const a = agg[w] || (agg[w] = [0, 0]), t = Number(st[w][0]) || 0, m = Number(st[w][1]) || 0;
-      a[0] += t; a[1] += m; tries += t; miss += m;
+      const t = nv(st[w][0]) || 0, m = nv(st[w][1]) || 0;   // nv(): Number() of a pupil-written object can throw
+      tries += t; miss += m;
+      if (!wordKey(w)) return;   // the pupil's own counts above still include it; the class list does not
+      const a = agg[w] || (agg[w] = [0, 0]);
+      a[0] += t; a[1] += m;
     });
-    Object.keys(lv).forEach(function (k) { const v = Math.min(3, Math.floor(Number(lv[k]) || 0)); if (v > 0) { stars += v; levels++; } });
+    Object.keys(lv).forEach(function (k) { const v = Math.min(3, Math.floor(nv(lv[k]) || 0)); if (v > 0) { stars += v; levels++; } });
     return { n: String(x[0]), pts: Number(x[3]) || 0, words: Number(x[4]) || 0, reads: Number(x[5]) || 0, streak: Number(x[6]) || 0, day: dayStr(x[7]),
-      stars: stars, levels: levels, tries: tries, miss: miss };
+      stars: stars, levels: levels, tries: tries, miss: miss, mock: mockOf(state.x) };
   }).sort(function (a, b) { return b.stars - a.stars || b.words - a.words; });
   const hard = Object.keys(agg).filter(function (w) { return agg[w][0] >= 3 && agg[w][1] > 0; })
-    .map(function (w) { return [w, Math.round(agg[w][1] / agg[w][0] * 100), agg[w][0]]; })
+    .map(function (w) { return [w, Math.min(100, Math.round(agg[w][1] / agg[w][0] * 100)), agg[w][0]]; })   // more misses than tries cannot pass 100%
     .sort(function (a, b) { return b[1] - a[1]; }).slice(0, 9);
   return { ok: true, kids: kids, hard: hard };
 }

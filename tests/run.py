@@ -1,3 +1,4 @@
+# suite:   # picked up by tests/all.py
 """Beach Run (run.html): start, play a whole run with the right and wrong answers, check scoring, and take screenshots.
    Also: the runner model is our own file and loads in both looks, Pitzi the crab runs when the model is missing, and
    nothing in the game's files points to another host (tests/remote_guard.py).
