@@ -17,6 +17,9 @@ Also checked, with the flag on:
 and with the flag off: no srcset, no early requests, nothing of the new look."""
 import asyncio, json, os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tempfile
+REQLOG = os.path.join(tempfile.mkdtemp(prefix='wi-weight-'), 'served.txt')
+os.environ['WI_REQLOG'] = REQLOG   # the test server writes every path it is asked for (tests/static_server.py)
 import slow_net as N
 import play as P
 from play import check, fails
@@ -87,6 +90,7 @@ async def structure(b, errs):
             warn, got = [], []
             pg.on('console', lambda m: warn.append(m.text) if 'preload' in m.text and 'not used' in m.text else None)
             pg.on('request', lambda r: got.append(r.url))
+            open(REQLOG, 'w').close()   # what the server serves for this page only
             await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body=f"window.API_URL='{api}';"))
             await pg.add_init_script("if(!sessionStorage.s){sessionStorage.s=1;localStorage.setItem('aam-unit1-v1',%s)}" % json.dumps(json.dumps(seed)))
             await pg.goto(N.base_url() + 'index.html' + ('?ds=1' if ds else '') + path)
@@ -98,12 +102,16 @@ async def structure(b, errs):
             if ds:
                 check(f'{tag} every old picture the new look draws over has the 1x1 srcset ({S["n"]}), and every one that has it has its new art', not S['bad'] and not S['odd'], S)
                 old = [u for u in got if re.search(r'/assets/sp/(isl_\d|star|star_off|lock|ic_gear)\.webp$', u)]
+                served = [u for u in open(REQLOG, encoding='utf-8').read().split() if re.search(r'/assets/sp/(isl_\d|star|star_off|lock|ic_gear)\.webp$', u)]
                 if path in ('#map', '#island/1', '#math'):
-                    check(f'{tag} none of the swapped old pictures is downloaded', not old, old)
+                    # counted twice: as the browser reports it, and as the server saw it (docs/LESSONS.md 13)
+                    check(f'{tag} none of the swapped old pictures is requested (browser) or served (server)', not old and not served, (old, served))
                 check(f'{tag} everything asked for early is used (Chrome warns of no unused preload)', not warn, warn)
             else:
                 L = await pg.evaluate("[document.querySelectorAll('img[srcset]').length,document.querySelectorAll('link[rel=modulepreload],link[rel=preload][as=image],link[rel=preload][as=style]').length,document.documentElement.classList.contains('ds'),[...document.querySelectorAll('link[rel=stylesheet]')].map(l=>l.getAttribute('href')).filter(h=>/ds|avatar|worldpath/.test(h))]")
                 check(f'{tag} nothing of the new look: no srcset, no early requests, no new-look style sheets', L == [0, 0, False, []], L)
+                if path == '#map':   # the server's log works: the live look's own island picture is there (the control for the check above)
+                    check(f'{tag} the server log sees the live look\'s pictures (isl_1.webp served)', '/assets/sp/isl_1.webp' in open(REQLOG, encoding='utf-8').read().split())
             await c.close()
 
 
