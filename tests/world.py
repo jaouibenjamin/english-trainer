@@ -325,24 +325,35 @@ async def map_token(b, errs):
 
 async def island_path(b, errs):
     """an island as a path of stones: the levels in their order, each with its name; the character on the next stone,
-    walking to a tapped one before the level opens; a second tap and the back button never held up"""
+    gliding to a tapped one before the level opens; a second tap and the back button never held up (docs/DESIGN.md)"""
     st = {'g': {'st': {'1-sling': 3, '1-listen': 2}}}
     rec = json.dumps({'v': 1, 'p': {'local': {'av': 'fox', 'nm': [0, 0], 'en': 0, 'at': 1}}})
     seed = "if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(rec)
     NAMES = ['קלע המילים', 'תופסים צלילים', 'בקבוק הסיפור', 'גשר המשפטים']
+    SUBS = ['פוגעים במילה הנכונה', 'שומעים מילה ולוחצים עליה', 'קוראים סיפור ועונים', 'בונים משפט וחוצים']
     GEO = """(()=>{const v=document.documentElement.getBoundingClientRect(),W=innerWidth,H=innerHeight;
       const st=[...document.querySelectorAll('.w-path .w-st')].map(b=>{const r=b.getBoundingClientRect(),n=b.querySelector('.w-st__name').getBoundingClientRect();
-        return {to:b.dataset.to,name:b.querySelector('.w-st__name').textContent,w:r.width,h:r.height,in:r.left>=0&&r.right<=W&&n.left>=0&&n.right<=W,state:b.className.replace(/.*w-st--/,'')}});
+        const fs=[...b.querySelectorAll('.w-st__name b,.w-st__name small')].map(e=>parseFloat(getComputedStyle(e).fontSize));
+        return {to:b.dataset.to,name:b.querySelector('.w-st__name b').textContent,sub:b.querySelector('.w-st__name small').textContent,fs:Math.min(...fs),
+          w:r.width,h:r.height,in:r.left>=0&&r.right<=W&&n.left>=0&&n.right<=W&&n.top>=0&&n.bottom<=H,state:b.className.replace(/.*w-st--/,''),plate:[n.left,n.top,n.right,n.bottom]}});
+      const ov=(a,c)=>!(a[2]<=c[0]||a[0]>=c[2]||a[3]<=c[1]||a[1]>=c[3]);
+      const clash=st.some((x,i)=>st.some((y,j)=>j>i&&ov(x.plate,y.plate)));
+      const lit=document.querySelector('.w-line__lit'),dim=document.querySelector('.w-line__dim');
+      const line={lit:lit?lit.getAttribute('points').split(' ').length:0,dim:dim?dim.getAttribute('points').split(' ').length:0};
+      const gc=document.querySelector('.w-st--current .w-st__art'),glow=gc?getComputedStyle(gc).animationName:null;
       const wk=document.querySelector('.w-walker'),wr=wk&&wk.getBoundingClientRect(),cur=document.querySelector('.w-st--current');
       const near=wk&&cur?Math.abs((wr.left+wr.width/2)-(cur.getBoundingClientRect().left+cur.getBoundingClientRect().width/2))<4:null;
-      return {st,near,list:!!document.querySelector('.lvlist')}})()"""
+      return {st,near,clash,line,glow,wk:wr?[wr.width,wr.height]:null,list:!!document.querySelector('.lvlist')}})()"""
     for w, h in ((390, 844), (360, 740), (320, 568), (768, 1024), (1366, 768)):
         tag = f'path {w}x{h}'
         c, pg, reqs = await page(b, w, h, errs, st)
         await pg.add_init_script(seed)
         await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st'); await pg.wait_for_timeout(400)
         g = await pg.evaluate(GEO)
-        check(f'[{tag}] the stones are the levels in order, with the names of today\'s list', [x['to'] for x in g['st']] == ['play/1/sling', 'play/1/listen', 'play/1/read', 'play/1/bridge'] and [x['name'] for x in g['st']] == NAMES and not g['list'], g['st'])
+        check(f'[{tag}] the stones are the levels in order, with the names and sub-lines of today\'s list', [x['to'] for x in g['st']] == ['play/1/sling', 'play/1/listen', 'play/1/read', 'play/1/bridge'] and [x['name'] for x in g['st']] == NAMES and [x['sub'] for x in g['st']] == SUBS and not g['list'], g['st'])
+        check(f'[{tag}] labels never below 15 px, and no two labels overlap', all(x['fs'] >= 15 for x in g['st']) and not g['clash'], [(x['fs'], x['plate']) for x in g['st']])
+        check(f'[{tag}] a dotted line joins the stones: gold up to the glowing stone (3 stones), dim after it (2)', g['line'] == {'lit': 3, 'dim': 2}, g['line'])
+        check(f'[{tag}] the glowing stone pulses; the character is a 52 px token', g['glow'] == 'wglow' and g['wk'] == [52, 52], (g['glow'], g['wk']))
         check(f'[{tag}] played stones lit, the first not played glowing, the rest open (no level is locked today)', [x['state'] for x in g['st']] == ['done', 'done', 'current', 'open'], [x['state'] for x in g['st']])
         check(f'[{tag}] every stone at least 48 px, every stone and its name on the screen', all(x['w'] >= 48 and x['h'] >= 48 and x['in'] for x in g['st']), g['st'])
         check(f'[{tag}] the character stands on the glowing stone', g['near'] is True, g['near'])
@@ -359,16 +370,30 @@ async def island_path(b, errs):
     await pg.click('.w-st[data-to="play/1/bridge"]')
     await pg.wait_for_function("location.hash==='#play/1/bridge'", timeout=3000)
     dt = await pg.evaluate('performance.now()') - t0
-    check('a tapped stone: the character walks there and that level opens, in under 0.6 s', dt < 650 and await pg.evaluate("window.__lv?true:true"), round(dt))
+    check('a tapped stone: the character glides there and that level opens, in under 0.6 s', dt < 650, round(dt))
     await P.lv(pg, 'bridge')
+    await c.close()
+    # the label is part of the stone's button: a tap on it opens that level
+    c, pg, reqs = await page(b, 390, 844, errs, st)
+    await pg.add_init_script(seed)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    await pg.click('.w-st[data-to="play/1/listen"] .w-st__name small')
+    await pg.wait_for_function("location.hash==='#play/1/listen'", timeout=3000)
+    check('a tap on a label opens its level (stone and label are one button)', True)
     await c.close()
     # a second tap during the walk wins; the back button during the walk is never held up
     c, pg, reqs = await page(b, 390, 844, errs, st)
     await pg.add_init_script(seed)
     await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
-    await pg.click('.w-st[data-to="play/1/bridge"]'); await pg.wait_for_timeout(120); await pg.click('.w-st[data-to="play/1/sling"]')
-    await pg.wait_for_function("location.hash.startsWith('#play/')", timeout=3000); await pg.wait_for_timeout(500)
-    check('a second tap during the walk wins: that level opens, and only it', await pg.evaluate('location.hash') == '#play/1/sling')
+    await pg.evaluate("window.__opens=[];addEventListener('hashchange',()=>{if(location.hash.startsWith('#play/'))__opens.push(location.hash)})")
+    await pg.click('.w-st[data-to="play/1/bridge"]'); await pg.wait_for_timeout(120)
+    t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/1/sling"]')
+    await pg.wait_for_function("location.hash.startsWith('#play/')", timeout=3000); dt = await pg.evaluate('performance.now()') - t0; await pg.wait_for_timeout(600)
+    check('a second tap during the glide ends it and goes at once: that level opens, and only it', await pg.evaluate('__opens') == ['#play/1/sling'] and dt < 200, (await pg.evaluate('__opens'), round(dt)))
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    await pg.evaluate("window.__opens=[]")   # the same page (only the address after # changed): its listener is still there
+    await pg.click('.w-st[data-to="play/1/read"]'); await pg.click('.w-st[data-to="play/1/read"]', force=True, no_wait_after=True); await pg.wait_for_timeout(800)
+    check('two quick taps on a stone open its level once', await pg.evaluate('__opens') == ['#play/1/read'], await pg.evaluate('__opens'))
     await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
     await pg.click('.w-st[data-to="play/1/read"]'); await pg.wait_for_timeout(100); await pg.click('[data-a=nav][data-to="map"]')
     await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(700)
@@ -393,6 +418,8 @@ async def island_path(b, errs):
     t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/1/read"]')
     await pg.wait_for_function("location.hash==='#play/1/read'", timeout=3000)
     check('reduced motion: no walk, the level opens at once', await pg.evaluate('performance.now()') - t0 < 200)
+    await pg.goto(P.BASE + '?ds=1#island/1'); await pg.wait_for_selector('.w-path .w-st')
+    check('reduced motion: the glowing stone does not pulse', await pg.evaluate("getComputedStyle(document.querySelector('.w-st--current .w-st__art')).animationName") == 'none')
     await c.close()
     # no character: no walker, a tap opens at once; the bonus island has its two stones
     c, pg, reqs = await page(b, 390, 844, errs, {'g': {'st': {f'{i}-{t}': 3 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge')) for t in ts.split()}}})

@@ -152,9 +152,18 @@ function token(sec,id,me){
    The island's levels, in their order, as stones along the painted path of the island backdrop (the same path and
    stones as the world.html preview: js/worldpath.js). Played levels are lit with their stars; the first level not
    played yet glows; the others are open as today (every level of an open island can be played) and are shown plain.
-   Each stone carries the level's name. The character stands on the glowing stone (on the last one when all are
-   played) and walks to a tapped stone before the level opens (under 0.6 s; none with reduced motion or calm mode);
-   a second tap or the back button is never held up. Same routes, same order, same labels as the list it replaces. */
+   Each stone carries the level's name and sub-line, as in the list; a dotted line joins the stones, gold up to the
+   glowing one. The character stands on the glowing stone (on the last one when all are played) and glides to a tapped
+   stone before the level opens (0.45 s; none with reduced motion or calm mode); a second tap ends the glide and goes at
+   once, and the back button is never held up. Same routes, same order, same labels as the list it replaces
+   (docs/DESIGN.md "the island as a path"). */
+/* the dotted line that joins the stones: gold up to the glowing stone, dim after it (drawn in the stage's percent) */
+const SVGNS='http://www.w3.org/2000/svg';
+function line(pts,here){const s=document.createElementNS(SVGNS,'svg');s.setAttribute('class','w-line');s.setAttribute('viewBox','0 0 100 100');
+ s.setAttribute('preserveAspectRatio','none');s.setAttribute('aria-hidden','true');s.setAttribute('focusable','false');
+ const part=(a,b,c)=>{if(b<=a)return;const p=document.createElementNS(SVGNS,'polyline');p.setAttribute('class','w-line__'+c);
+  p.setAttribute('points',pts.slice(a,b+1).map(q=>q[0]+','+q[1]).join(' '));s.appendChild(p)};
+ part(0,here,'lit');part(here,pts.length-1,'dim');return s}
 const STARS_HE=['עוד לא שיחקתם','כוכב אחד','שני כוכבים','שלושה כוכבים'];
 const WALK_MS=450;
 export async function islandPath(view,i,go,live=()=>true){
@@ -170,25 +179,28 @@ export async function islandPath(view,i,go,live=()=>true){
  const at=k=>({x:pts[k][0],y:pts[k][1]});
  if(me.av){walker=el('span','w-walker');walker.setAttribute('aria-hidden','true');walker.appendChild(pic(me.av,'w-walker__pic'));
   walker.style.left=at(here).x+'%';walker.style.top=at(here).y+'%'}
- function open(k){const route='play/'+i.id+'/'+lv[k].t;clearTimeout(timer);
-  if(!walker||!canMove()){if(walker){walker.style.left=at(k).x+'%';walker.style.top=at(k).y+'%'}return go(route)}
-  /* from wherever it is now (even mid-walk) to the tapped stone; the level opens when it arrives */
+ function open(k){const route='play/'+i.id+'/'+lv[k].t,busy=!!timer;clearTimeout(timer);timer=0;
+  /* no glide, or a second tap during one: it ends there and the level opens at once */
+  if(busy||!walker||!canMove()){if(walk)walk.cancel();if(walker){walker.style.left=at(k).x+'%';walker.style.top=at(k).y+'%'}return go(route)}
+  /* a straight glide to the tapped stone; the level opens when it arrives */
   const r=stage.getBoundingClientRect(),w=walker.getBoundingClientRect(),fx=w.left+w.width/2-r.left,fy=w.top+w.height/2-r.top;
-  if(walk)walk.cancel();
   walker.style.left=at(k).x+'%';walker.style.top=at(k).y+'%';
   const tx=at(k).x*r.width/100,ty=at(k).y*r.height/100;
-  walk=walker.animate([{transform:`translate(calc(-50% + ${fx-tx}px),calc(-50% + ${fy-ty}px))`},{transform:'translate(-50%,-50%)'}],{duration:WALK_MS,easing:'ease-in-out'});
-  timer=setTimeout(()=>{if(live())go(route)},WALK_MS)}
+  walk=walker.animate([{transform:`translate(calc(-50% + ${fx-tx}px),calc(-50% + ${fy-ty}px))`},{transform:'translate(-50%,-50%)'}],{duration:WALK_MS,easing:'ease-out'});
+  timer=setTimeout(()=>{timer=0;if(live())go(route)},WALK_MS)}
  lv.forEach((x,k)=>{
   const state=x.s?'done':k===next?'current':'open',li=el('li');li.style.left=pts[k][0]+'%';li.style.top=pts[k][1]+'%';
   const b=stone(state,'שלב '+(k+1)+': '+x.L.name+', '+STARS_HE[x.s]+(k===next?', כאן אתם עכשיו':''),state==='open'?'current':state);
   b.dataset.to='play/'+i.id+'/'+x.t;
   b.appendChild(el('span','w-st__mark',String(k+1)));
   if(x.s){const st=el('span','w-st__stars');st.insertAdjacentHTML('beforeend',starRow(x.s));b.appendChild(st)}   // the game's own star row (ui.js), no outside text
-  b.appendChild(el('span','w-st__name '+(pts[k][0]<50?'w-st__name--r':'w-st__name--l'),x.L.name));   // toward the middle, never off the picture
+  /* the label: the level's name and sub-line exactly as in the list, toward the middle, never off the picture; it is
+     inside the button, so stone and label are one target */
+  const lab=el('span','w-st__name '+(pts[k][0]<50?'w-st__name--r':'w-st__name--l'));
+  lab.append(el('b',null,x.L.name),el('small',null,x.L.sub));b.appendChild(lab);
   b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();open(k)});
   li.appendChild(b);ol.appendChild(li)});
- stage.appendChild(ol);if(walker)stage.appendChild(walker);wrap.appendChild(stage);
+ stage.appendChild(line(pts,here));stage.appendChild(ol);if(walker)stage.appendChild(walker);wrap.appendChild(stage);
  list.replaceWith(wrap);sec.classList.add('wpath');
  window.__world={...(window.__world||{}),path:{island:i.id,levels:lv.map(x=>x.t),here,next,walker:!!walker,key:id.key}};   // for the tests
  return true}
