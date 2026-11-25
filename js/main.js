@@ -225,7 +225,7 @@ function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
  view.innerHTML=`<section class="scr teacher wide">${top('מסך המורה',back)}
   <div class="panel label"><h3>המילים הקשות לכיתה</h3>${hardList.length?`<div class="hard">${hardList.map(w=>`<div><span>${en(w[0])}<i>${esc(he[w[0]])}</i><b>${num(w[1]+'%')} טעויות</b></span><div class="pbar"><i style="width:${w[1]}%"></i></div></div>`).join('')}</div>`:'<p class="msg">עדיין אין מספיק תרגול כדי לדעת.</p>'}</div>
   ${D.kids.length?`<div class="kids">${D.kids.map(d=>{const s=tag(d),dd=String(d.day||'').split('-');
-   return `<div class="kid label"><p class="kn"><b>${esc(d.n)}</b><span class="pill ${s[0]}">${s[1]}</span><button class="treset" data-a="treset" data-n="${esc(d.n)}">איפוס קוד</button></p>
+   return `<div class="kid label"><p class="kn"><b><bdi>${esc(d.n)}</bdi></b><span class="pill ${s[0]}">${s[1]}</span><button class="treset" data-a="treset" data-n="${esc(d.n)}">איפוס קוד</button></p>
     ${hasStars(d)?`<p class="kw"><span>כוכבים</span>${num(d.stars+' / '+MAX_STARS)}</p><div class="pbar"><i style="width:${Math.min(100,d.stars/MAX_STARS*100)}%"></i></div>
     <p class="ks"><span>שלבים ${num(d.levels+' / '+NL)}</span><span>${pts(d.pts)} נקודות</span><span>${dd.length===3?'תרגול אחרון '+num(dd[2]+'/'+dd[1]):'עוד לא תרגל/ה'}</span></p>
     <p class="ks"><span>מילים שנלמדו ${num(d.words+' / 59')}</span><span>קטעי קריאה בלי טעות ${num(d.reads+' / 5')}</span>${d.tries?`<span>${num(Math.round(d.miss/d.tries*100)+'%')} טעויות</span>`:''}`
@@ -259,9 +259,10 @@ const A={
   if(err){V={name:'login',m,c,n,p:err===ERR.pin||err===ERR.locked?'':p,err,sw:err===ERR.nouser?'register':err===ERR.taken?'login':''};return login()}
   const np=takeNewPin();go('title');if(np)setTimeout(()=>toast(`זה הקוד הסודי החדש שלכם: <b dir="ltr">${esc(np)}</b><br>כתבו אותו במקום שלא יאבד`,8000),400)},
  forgot(){SND.tap();V={name:'login',m:'login',c:$('#lc').value.trim(),n:$('#ln').value,p:'',err:'שכחתם את הקוד? בקשו מהמורה או מההורה שמנהל את הכיתה לאפס אותו.\nאחרי האיפוס נכנסים עם השם וכל 4 ספרות שבוחרים: הן הקוד החדש.'};login()},
- async treset(d,el){if(!V.data)return;SND.tap();
-  if(!el.dataset.arm){el.dataset.arm=1;el.textContent='לאפס? לחצו שוב';setTimeout(()=>{if(el.isConnected){delete el.dataset.arm;el.textContent='איפוס קוד'}},4000);return}
-  el.disabled=true;el.textContent='רגע…';let r;try{r=await api('reset',{c:V.c,t:V.t,n:d.n})}catch(e){r={e:'net'}}
+ async treset(d,el){if(!V.data||el.disabled)return;SND.tap();
+  if(!el.dataset.arm){el.dataset.arm=1;el.textContent='לאפס? לחצו שוב';clearTimeout(el._disarm);el._disarm=setTimeout(()=>{if(el.isConnected&&!el.disabled){delete el.dataset.arm;el.textContent='איפוס קוד'}},4000);return}
+  clearTimeout(el._disarm);el.disabled=true;   // confirmed: the 4 s disarm must not write "איפוס קוד" over the result
+  el.textContent='רגע…';let r;try{r=await api('reset',{c:V.c,t:V.t,n:d.n})}catch(e){r={e:'net'}}
   if(r.ok){el.textContent='הקוד אופס';toast(`הקוד של ${esc(d.n)} אופס.<br>עכשיו נכנסים עם השם וכל 4 ספרות, והן הקוד החדש`,6000)}
   else{el.disabled=false;delete el.dataset.arm;el.textContent='איפוס קוד';toast(esc(ERR[r.e]||ERR.net),3500)}},
  relogin(){SND.tap();const o=relogin();if(!o)return go('login');

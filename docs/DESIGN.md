@@ -188,3 +188,15 @@ Files: `css/run-ds.css` (the skin), a seven-line block at the top of `js/run.js`
 - Start, pause and end menus: the painted panel frame, the painted gold button for the one main action, "חזרה למשחק" as an azure secondary button (48px), pace choice with an aqua ring, scores in gold.
 - Checked: `tests/run.py` plays the whole run with the flag on at 390x844 (and 1366x768 in the full form): same scoring checks, every visible button and link 48px or more on the start menu, the HUD, the question card and the end menu; with the flag off it checks no class, nothing stored and only `css/run.css` requested. Computed styles of the start menu with the flag off match `game` at both sizes.
 - Known seams: the signs on the gate are drawn in the 3D scene in today's hand font and colours; the copy "נגמרו הלבבות" is unchanged (copy is the designer's).
+
+## Rollout step 7: the teacher screen, behind the same flag
+Files: `css/ds-teacher.css` (the skin), one more entry in the stylesheet list of `js/dsflag.js`. Styling only, every rule under `html.ds #stage[data-scr=teacher]` or `.teacher`. No markup, script, request or saving change; pupil names still come from the backend at run time, escaped by `js/main.js`.
+- Dark shell, flat navy cards with a line edge (the painted frame is not used: many cards, small data). No paper picture behind.
+- Sign-in form: fields 48px, navy-900 with a line border; "כניסה" is the one gold button. Pitzi listens in the new art.
+- Hard words: the share of wrong answers and its bar in the warm "fix" colour.
+- A pupil's card: name, status tag outlined in its colour (green "מוכן/ה", warm "fix" for a nudge, dim "בדרך"; the word carries the meaning), stars bar in aqua, data rows in dim text, mock exam rows (with `?tmock=1`) under a quiet divider.
+- "איפוס קוד" is a 48px azure secondary button (was 30px); armed for the second tap it turns warm "fix", never red.
+- Data rows, tags and the footnote are 14px (were 12.5px): below the 16px body rule, on purpose for a data-heavy adult screen. Designer to confirm.
+- Toasts on this screen ("the code was reset", an error) are the same dark card with a gold edge as on the other new-look screens. A pupil name with no space (up to 20 letters) wraps inside its card.
+- Not behind the flag (teacher view only): after a confirmed reset, the 4 s disarm timer no longer writes "איפוס קוד" back over "הקוד אופס", and a tap on a disabled reset button does nothing; a pupil's name sits in a `<bdi>` (an English name keeps the card's right alignment) and may wrap, so a 20-letter name with no space stays inside its card in today's look too.
+- Checked (`tests/teacher_mock.py`, mock backend, 390x844 and 1366x768): toasts after a reset that worked and one that failed are 4.5:1 or more in both looks; with the flag on, the same cards and rows as without it, no card wider than its box, every button and field 48px or more, every text 4.5:1 or more against its own backing, the first tap on "reset code" sends nothing; `?ds=0` takes the look away.

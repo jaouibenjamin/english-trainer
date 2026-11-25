@@ -1,0 +1,74 @@
+/* The teacher screen (#teacher) in the new look ("Arcade Lagoon"), behind the same flag as the rest (?ds=1, js/dsflag.js).
+   Every rule sits under html.ds and the teacher screen, so with the flag off nothing here applies.
+   Styling only: the sign-in form, the hard words, the pupils' cards, the "reset code" buttons and the mock exam rows
+   keep every element, field, id, handler and request. Pupil names come from the backend at run time and are drawn
+   by js/main.js (escaped) exactly as before.
+   Dark shell, dark cards: it is data-heavy, so text is white or dim on navy, numbers stay LTR, tags are outlined in
+   their colour (green "ready", warm "fix" for a nudge, never alarm red), and every button is 48px. */
+
+html.ds #stage[data-scr=teacher]{
+ --ink:#FFFFFF;--ink2:var(--wi-text-dim);--paper:var(--wi-navy-900);--bad:var(--wi-fix);--good:var(--wi-good);--sage:var(--wi-aqua);--coral:var(--wi-fix);
+ background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage[data-scr=teacher] .en,html.ds #stage[data-scr=teacher] bdi[dir=ltr]{font-family:var(--wi-font-en)}
+html.ds #stage[data-scr=teacher] :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+/* no paper picture behind: plain navy, and plain dark around the board on wide screens */
+html.ds #stage[data-scr=teacher] #bg .bgl{background-image:none!important;background-color:var(--wi-navy-900)}
+html.ds:has(#stage[data-scr=teacher]),html.ds:has(#stage[data-scr=teacher]) body{background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=teacher]) #backdrop{display:none}
+html.ds .teacher.wide{background:var(--wi-navy-900)}
+
+/* header: round back button and the title on a plate */
+html.ds .teacher .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds .teacher .rb .ico{stroke:var(--wi-text)}
+html.ds .teacher .ribbon{background:var(--wi-navy-800);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds .teacher .ribbon span{padding:0}
+
+/* panels and cards: flat navy with a line edge (the painted label frame is not used here: many cards, small text) */
+html.ds .teacher .label{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-lg);background:var(--wi-navy-800);color:var(--wi-text);padding:var(--wi-s3) var(--wi-s4);box-shadow:var(--wi-e1)}
+html.ds .teacher .panel h3{margin:0 0 var(--wi-s2);font-size:var(--wi-fs-md);color:var(--wi-text)}
+html.ds .teacher .msg{color:var(--wi-text-dim);font-size:var(--wi-fs-sm)}
+
+/* sign-in form: same fields and order as today */
+html.ds .teacher #tf label{color:var(--wi-text);font-size:var(--wi-fs-sm);font-weight:600;margin-block-start:var(--wi-s2)}
+html.ds .teacher .in{min-block-size:var(--wi-tap);background:var(--wi-navy-900);color:var(--wi-text);caret-color:var(--wi-aqua);border:2px solid var(--wi-line);border-radius:var(--wi-r-md)}
+html.ds .teacher .in:focus{outline:3px solid var(--wi-focus);outline-offset:2px;border-color:var(--wi-aqua)}
+html.ds .teacher .err{color:var(--wi-fix);font-size:var(--wi-fs-sm)}
+html.ds .teacher .btn{border:0;border-image:none;border-radius:var(--wi-r-lg);padding:0 var(--wi-s5);min-block-size:var(--wi-tap);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:var(--wi-e2);font-family:var(--wi-font-ui);animation:none}
+html.ds .teacher .btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--wi-scrim);background:var(--wi-gold-press)}
+html.ds .teacher .btn span{padding-bottom:0}
+html.ds .teacher .btn:disabled{opacity:1;background:var(--wi-navy-700);color:var(--wi-text-dim);box-shadow:inset 0 0 0 2px var(--wi-locked)}
+html.ds .teacher .guide p.label{background:var(--wi-navy-900);padding:var(--wi-s2) var(--wi-s3)}
+html.ds .teacher .guide img{box-sizing:border-box;block-size:0;padding-block-start:84px;inline-size:84px;background:url(../assets/al/pitzi/listen.hf_20261124_210014_1f234b5a-9ec8-4fcc-b2e2-772bb152ee73.webp) center/contain no-repeat;overflow:hidden}
+
+/* the class's hard words: word, Hebrew, share of wrong answers, and a bar in the warm "fix" colour */
+html.ds .teacher .hard span{font-size:var(--wi-fs-sm);color:var(--wi-text)}
+html.ds .teacher .hard span i{color:var(--wi-text-dim)}
+html.ds .teacher .hard span b{font-size:var(--wi-fs-sm);color:var(--wi-fix)}
+html.ds .teacher .pbar{block-size:10px;border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);background:var(--wi-navy-900)}
+html.ds .teacher .pbar i{background:var(--wi-aqua)}
+html.ds .teacher .hard .pbar i{background:var(--wi-fix)}
+
+/* a pupil's card */
+html.ds .teacher .kids{gap:var(--wi-s3)}
+html.ds .teacher .kid .kn{row-gap:var(--wi-s1)}
+html.ds .teacher .kid .kn b{font-size:var(--wi-fs-md);color:var(--wi-text);min-width:0;overflow-wrap:anywhere}
+html.ds .teacher .kid .kw{font-size:var(--wi-fs-sm);color:var(--wi-text)}
+html.ds .teacher .kid .ks{font-size:var(--wi-fs-xs);color:var(--wi-text-dim);row-gap:2px}
+html.ds .teacher .kid .km{border-block-start:1px solid var(--wi-navy-700)}
+html.ds .teacher .kid .km b{color:var(--wi-text)}
+/* status tags: an outline in their colour on navy, so the meaning is in the word and the colour is only a help */
+html.ds .teacher .pill{border-radius:var(--wi-r-pill);padding:1px var(--wi-s3);font-size:var(--wi-fs-xs);background:var(--wi-navy-900);border:2px solid var(--wi-line);color:var(--wi-text-dim)}
+html.ds .teacher .pill.g{color:var(--wi-good);border-color:var(--wi-good)}
+html.ds .teacher .pill.r{color:var(--wi-fix);border-color:var(--wi-fix)}
+/* "reset code": a quiet secondary button, 48px; armed (second tap confirms) it turns to the warm "fix" colour */
+html.ds .teacher .treset{min-block-size:var(--wi-tap);padding:0 var(--wi-s3);font-size:var(--wi-fs-sm);color:var(--wi-text);background:var(--wi-azure);border:2px solid var(--wi-aqua);border-radius:var(--wi-r-md)}
+html.ds .teacher .treset:active{background:var(--wi-azure-press)}
+html.ds .teacher .treset[data-arm]{background:var(--wi-navy-900);border-color:var(--wi-fix);color:var(--wi-fix)}
+html.ds .teacher .treset:disabled{opacity:1;background:var(--wi-navy-700);border-color:var(--wi-locked);color:var(--wi-text-dim)}
+html.ds .teacher>.credit{color:var(--wi-text-dim);font-size:var(--wi-fs-xs);background:var(--wi-navy-800);border:1px solid var(--wi-navy-700);border-radius:var(--wi-r-md);padding:var(--wi-s2) var(--wi-s3)}
+
+/* the toast ("reset done", an error) is a dark card here too, like on the other screens in the new look (ds-game.css) */
+html.ds #stage[data-scr=teacher] .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);font-family:var(--wi-font-ui)}
+html.ds #stage[data-scr=teacher] .toastin b{color:var(--wi-gold)}
+
+@media (prefers-reduced-motion:reduce){html.ds .teacher .btn{transition:none}}
