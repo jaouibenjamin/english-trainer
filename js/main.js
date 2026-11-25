@@ -95,7 +95,8 @@ function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=worldPr();
 /* do the islands fit at all (even at the smallest size) with this much kept free at the bottom? On a very short phone
    (320x568) the all-played banner and the dock together leave too little: then the banner is left out */
 function worldFits(iw0,H,mt,finH){const iw=worldIw(iw0,H,mt,finH);return iw*worldPr()+WORLD_TAG<=worldRoom(iw,H,mt,finH)}
-function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
+let AV=null;   // js/avatar.js once loaded (flag on only)
+function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{AV=m;if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
 
 /* ---------- island ---------- */
 function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');const next=[BG(i.bg),BG('listen'),BG('read'),BG('bridge')];if(!dsOn())preload(next);
@@ -110,8 +111,11 @@ function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('pa
    ready; until then, or if they are not, today's list stays as it is. The levels' backgrounds are fetched ahead only
    once that has settled, so they never come before the screen's own art. Without the flag this does nothing (island()
    fetches them ahead at once, as before) */
-function worldIsland(i,next){if(!dsOn())return;if(!view.querySelector('.scr.island .lvlist'))return;const my=navId;   // the list stays shown until the path is ready to take its place
- import('./avatar.js').then(m=>my===navId&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{}).then(()=>preload(next))}
+function worldIsland(i,next){if(!dsOn())return;const list=view.querySelector('.scr.island .lvlist');if(!list)return;const my=navId;   // the list stays shown until the path is ready to take its place
+ /* when the path's pictures are already in, the path is about to replace the list: hold the list back a moment so it
+    does not flash first, at most 300 ms (if the path is not drawn by then, the list shows) */
+ if(AV&&AV.pathReady()){list.style.visibility='hidden';setTimeout(()=>{if(list.isConnected)list.style.visibility=''},300)}
+ import('./avatar.js').then(m=>(AV=m,my===navId)&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{}).then(()=>preload(next))}
 
 /* ---------- play + result ---------- */
 async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type);if(!lv||!isOpen(i))return go('map');

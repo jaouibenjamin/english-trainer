@@ -139,7 +139,7 @@ export async function decorateMap(view,go,live=()=>true){
   const pics=el('div','wnew__pics');for(const x of fresh.slice(-3).reverse())pics.appendChild(pic(x.id,'wnew__pic'));   // the newest first, up to three
   if(fresh.length>3)pics.appendChild(el('span','wnew__more','ועוד '+(fresh.length-3)));
   if(fresh.length>1){pics.classList.add('wnew__pics--many');box.classList.add('wnew--many')}
-  box.append(pics,h,el('p','wnew__t',fresh.length>1?fresh.length+' דמויות חדשות מחכות לכם. רוצים להחליף?':a.he+' מחכה לכם. רוצים להחליף?'),ok,btn('wnew__later','אחר כך',()=>box.remove()));
+  box.append(pics,h,el('p','wnew__t',fresh.length>1?fresh.length+' דמויות חדשות מחכות לכם. רוצים להחליף?':a.he+' מחכה לכם. רוצים להחליף?'),ok,btn('wnew__later','אחר כך',()=>{box.remove();const q=sec.querySelector('.wask');if(q)q.hidden=false}));
   sec.appendChild(box);ok.focus({preventScroll:true});style().then(()=>{if(box.isConnected)placeNew(sec,box)})}
  window.__world={avatar:me.av,name:me.nm,energy:E,focus:F,key:id.key,fresh:fresh.map(a=>a.id),token:tok};   // for the tests
  preload(sec);
@@ -173,7 +173,10 @@ function placeNew(sec,box){const t=sec.querySelector('.wtok,.wask');if(!t)return
  const at=up=>{box.classList.toggle('wnew--top',up);box.style.top=up?Math.round(top+4)+'px':''};
  /* above the dock; else under the header; on a short screen, the same two without the sentence (the heading says it) */
  for(const tight of [false,true]){box.classList.toggle('wnew--tight',tight);for(const up of [false,true]){at(up);if(!hit())return}}
- box.classList.remove('wnew--tight');at(false)}   // no free place on this screen: above the dock, whole, as before
+ box.classList.remove('wnew--tight');at(false);   // no free place on this screen: above the dock, whole, as before
+ /* that only happens with Pitzi's "?" badge on a short screen: the notice offers the same choice ("לבחירת דמות"), so the
+    badge steps aside while the notice is up, and comes back with "אחר כך" */
+ if(t.classList.contains('wask')&&hit())t.hidden=true}
 
 /* ---------- the character on the map ----------
    The chosen character stands on the island the pupil plays now (the one marked "ממשיכים כאן"; when every island is
@@ -187,10 +190,11 @@ function placeNew(sec,box){const t=sec.querySelector('.wtok,.wask');if(!t)return
 const ASK=48,ASK_MIN=32;
 function ask(sec,isl,go){const c=isl.querySelector('.here');if(!c)return null;const r=c.getBoundingClientRect(),s=sec.getBoundingClientRect();if(!r.width)return null;
  const p=(isl.querySelector('.pw')||isl).getBoundingClientRect(),out=(r.left+r.right)/2<(p.left+p.right)/2?-1:1;   // the sea side: away from the island's middle
- const pics=[...sec.querySelectorAll('.isl .pw,.isl .tag')].map(e=>e.getBoundingClientRect());   // an island's picture and its tag are both its button
+ const pics=[...sec.querySelectorAll('.isl .pw,.isl .tag,.isl .hb')].map(e=>e.getBoundingClientRect());   // an island's picture, its tag and the "ממשיכים כאן" pill are all its button
  const free=(x,y,h)=>x-h/2>=s.left&&x+h/2<=s.right&&y-h/2>=s.top&&y+h/2<=s.bottom&&pics.every(q=>x+h/2<=q.left||x-h/2>=q.right||y+h/2<=q.top||y-h/2>=q.bottom);
- /* places by Pitzi, nearest first: on the sea side at his head, his middle, his feet; then under and over him */
- const cx=(r.left+r.right)/2,edge=out<0?p.left:p.right,spots=h=>[r.top+r.height*.1,r.top+r.height*.5,r.bottom].map(y=>[out<0?Math.min(cx,edge-h/2):Math.max(cx,edge+h/2),y])
+ /* places by Pitzi, nearest first: on the sea side at his head, his middle, his feet, just above his head and a little
+    higher; then under and over him */
+ const cx=(r.left+r.right)/2,edge=out<0?p.left:p.right,spots=h=>[r.top+r.height*.1,r.top+r.height*.5,r.bottom,r.top-h/2,r.top-h].map(y=>[out<0?Math.min(cx,edge-h/2):Math.max(cx,edge+h/2),y])
   .concat([[cx,r.bottom+h/2],[cx,r.top-h/2]]);
  let hit=ASK,at=spots(ASK).find(([x,y])=>free(x,y,ASK));
  if(!at){hit=ASK_MIN;at=spots(ASK_MIN).find(([x,y])=>free(x,y,ASK_MIN))||[Math.max(s.left+ASK_MIN/2,Math.min(s.right-ASK_MIN/2,edge+out*ASK_MIN/2)),r.top+r.height*.1]}
@@ -259,6 +263,7 @@ const WALK_MS=450;
 /* The path replaces today's list only when its pictures are here: already loaded (the map fetches them when idle), or
    arriving within ART_WAIT. Otherwise the list stays for this visit. The list is never hidden while we wait, so the
    island area is never empty, and the island never flips from list to path late. */
+export const pathReady=()=>!!(pre&&pre.ok);   // the path's pictures are fetched and decoded (main.js holds the list back a moment)
 const ART_WAIT=300;
 const wait=ms=>new Promise(r=>setTimeout(()=>r(false),ms));
 async function ready(){
@@ -303,7 +308,7 @@ export async function islandPath(view,i,go,live=()=>true){
   li.appendChild(b);ol.appendChild(li)});
  stage.appendChild(line(pts,here));stage.appendChild(ol);if(walker)stage.appendChild(walker);wrap.appendChild(stage);
  /* a stone picture that fails: back to today's list (the stones are buttons over a picture that is not there) */
- let back=false;const undo=()=>{if(back||!wrap.isConnected)return;back=true;wrap.replaceWith(list);sec.classList.remove('wpath');if(hint)hint.remove()};   // a glide already under way still opens its level
+ let back=false;const undo=()=>{if(back||!wrap.isConnected)return;back=true;wrap.replaceWith(list);list.style.visibility='';sec.classList.remove('wpath');if(hint)hint.remove()};   // a glide already under way still opens its level
  for(const im of ol.querySelectorAll('img'))im.addEventListener('error',undo,{once:true});
  /* Pitzi's hint from the list screen (the same words), one line under the path */
  const g=sec.querySelector('.guide .label'),hint=g&&g.textContent.trim()?el('p','w-hint',g.textContent.trim()):null;

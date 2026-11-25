@@ -257,12 +257,13 @@ async def notice_clear(b, errs):
     It stays between the map's header and the dock, its buttons are 48 px, and on the island screen (the path) there is
     no notice at all"""
     LOOK = """(()=>{const n=document.querySelector('.wnew'),t=document.querySelector('.wtok,.wask');if(!n||!t)return {n:!!n,t:!!t};
+      if(t.hidden)return {n:true,t:true,hit:false,band:true,btn:[...n.querySelectorAll('button')].every(x=>x.getBoundingClientRect().height>=48),h:true,island:(window.__world.token||{}).island,tight:false,aside:true};
       const a=n.getBoundingClientRect(),c=t.getBoundingClientRect(),d=document.querySelector('.wd').getBoundingClientRect();
       let top=0;for(const e of document.querySelectorAll('.maphead,.subjpill'))top=Math.max(top,e.getBoundingClientRect().bottom);
       return {n:true,t:true,hit:!(a.right<=c.left||a.left>=c.right||a.bottom<=c.top||a.top>=c.bottom),band:a.top>=top-0.5&&a.bottom<=d.top+0.5,
         btn:[...n.querySelectorAll('button')].every(x=>x.getBoundingClientRect().height>=48),h:!!n.querySelector('.wnew__h').getBoundingClientRect().height,
         island:(window.__world.token||{}).island,tight:n.classList.contains('wnew--tight')}})()"""
-    bad, seen, tight = [], set(), []
+    bad, seen, tight, aside = [], set(), [], []
     for w, h in ((390, 844), (360, 740), (320, 640), (320, 568)):
         for done in range(0, 6):
             st = {f'{i}-{t}': 3 for i in range(1, done + 1) for t in ('sling', 'listen', 'read', 'bridge')}
@@ -278,9 +279,15 @@ async def notice_clear(b, errs):
                     if L.get('tight'): tight.append((w, h, L.get('island'), av))
                     if not (L['n'] and L['t'] and not L['hit'] and L['band'] and L['btn'] and L['h']): bad.append((w, h, done, av, sl, en, L))
                     if (w, h, done, av, en) == (320, 568, 1, None, LEVELS[5]): await P.shot(pg, 'world-notice-320x568-tight')
+                    if L.get('aside'):
+                        aside.append((w, h, L.get('island')))
+                        await pg.click('.wnew__later'); await pg.wait_for_timeout(100)
+                        back = await pg.evaluate("(()=>{const q=document.querySelector('.wask');return !!q&&!q.hidden&&!document.querySelector('.wnew')})()")
+                        if not back: bad.append((w, h, done, av, sl, en, 'the badge did not come back after "אחר כך"'))
                     if (w, h, done, av, en) == (390, 844, 0, 'girl-curls', LEVELS[1]): await P.shot(pg, 'world-notice-390x844-top')
                     await c.close()
     check(f'the notice never covers the character (or the "?" badge), stays between header and dock, 48 px buttons (islands {sorted(x for x in seen if x)})', not bad and {1, 2, 4, 6} <= seen, bad[:3])
+    check(f'where no place clears Pitzi\'s "?" badge, it steps aside while the notice (which offers the same choice) is up, and comes back with "אחר כך"; never the character token ({sorted(set(aside))})', all(True for _ in aside) and not [x for x in bad if isinstance(x[-1], str)], aside)
     check('it drops its sentence only where nothing else fits (a short screen)', all(x[1] < 640 for x in tight), tight)
     c, pg, reqs = await page(b, 390, 844, errs)
     await pg.add_init_script("if(!sessionStorage.t){sessionStorage.t=1;localStorage.setItem('wi_world',%s)}" % json.dumps(json.dumps({'v': 1, 'p': {'local': {'av': 'girl-curls', 'nm': [0, 0], 'nv': 2, 'en': LEVELS[5], 'sl': 1}}})))
@@ -538,7 +545,7 @@ async def map_token(b, errs):
         c, pg, reqs = await page(b, w, h, errs, seedx)
         await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wask'); await pg.wait_for_timeout(300)
         k = await pg.evaluate("""(()=>{const b=document.querySelector('.wask').getBoundingClientRect(),d=document.querySelector('.wask__dot').getBoundingClientRect(),c=document.querySelector('.isl.cur .here').getBoundingClientRect();
-          const ov=[...document.querySelectorAll('.isl .pw,.isl .tag')].map(p=>{const r=p.getBoundingClientRect();return Math.max(0,Math.min(b.right,r.right)-Math.max(b.left,r.left))*Math.max(0,Math.min(b.bottom,r.bottom)-Math.max(b.top,r.top))}).reduce((x,y)=>x+y,0);
+          const ov=[...document.querySelectorAll('.isl .pw,.isl .tag,.isl .hb')].map(p=>{const r=p.getBoundingClientRect();return Math.max(0,Math.min(b.right,r.right)-Math.max(b.left,r.left))*Math.max(0,Math.min(b.bottom,r.bottom)-Math.max(b.top,r.top))}).reduce((x,y)=>x+y,0);
           const cx=b.left+b.width/2,cy=b.top+b.height/2,near=Math.hypot(cx-(c.left+c.width/2),cy-(c.top+c.height/2))<=c.width+b.width/2;
           return {w:b.width,dot:d.width,ov,near,cur:+[...document.querySelector('.isl.cur').classList].find(x=>/^i\\d$/.test(x)).slice(1),here:getComputedStyle(document.querySelector('.isl.cur .here')).display,
           label:document.querySelector('.wask').getAttribute('aria-label'),in:b.left>=0&&b.right<=innerWidth&&b.top>=0&&b.bottom<=innerHeight}})()""")
@@ -729,6 +736,25 @@ async def island_path(b, errs):
         await pg.wait_for_timeout(100); seen.append(await pg.evaluate(SAMPLE))
     check('then the island opens on its path, at once and for good', set(seen) == {'path'}, ''.join(x[0] for x in seen))
     await c.close()
+    # on a slow CPU, with the pictures already in: the list never flashes before the path, and the island area is empty
+    # for at most about 0.3 s (every frame recorded)
+    for rate in (1, 4):
+        c, pg, reqs = await page(b, 390, 844, [], st)
+        await pg.add_init_script(seed)
+        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+        assert await pg.evaluate('window.__world.pathArt') is True
+        cdp = await c.new_cdp_session(pg); await cdp.send('Emulation.setCPUThrottlingRate', {'rate': rate})
+        await pg.evaluate("""(()=>{window.__fr=[];const t0=performance.now(),S=()=>{const L=document.querySelector('.lvlist'),rows=L&&getComputedStyle(L).visibility==='visible'?L.querySelectorAll('.lvrow').length:0;
+          const st=document.querySelectorAll('.w-path .w-st').length;return rows?'list':st?'path':(document.querySelector('.scr.island')?'empty':'map')};
+          const f=()=>{__fr.push([Math.round(performance.now()-t0),S()]);if(performance.now()-t0<1500)requestAnimationFrame(f)};requestAnimationFrame(f);location.hash='island/1'})()""")
+        await pg.wait_for_timeout(1800)
+        fr = await pg.evaluate('window.__fr')
+        await cdp.send('Emulation.setCPUThrottlingRate', {'rate': 1})
+        isl = [x for x in fr if x[1] != 'map']
+        empty = [t for t, k in isl if k == 'empty']
+        span = (max(empty) - min(empty)) if empty else 0
+        check(f'CPU x{rate}, pictures already in: the list never shows before the path, the area is empty at most about 0.35 s, then the path for good', isl and 'list' not in [k for _, k in isl] and isl[-1][1] == 'path' and span <= 350, (span, ''.join(k[0] for _, k in isl)))
+        await c.close()
     # leaving the map for anything but an island drops a preload still under way; the next map fetches again
     c, pg, reqs = await page(b, 390, 844, [], st)
     await pg.add_init_script(seed)
