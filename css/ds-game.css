@@ -227,50 +227,55 @@ html.ds .settings .panel.label{border-width:14px;border-image-width:14px}
    planks) keep their own painted backing and dark ink. Only the chrome around them changes: HUD, sign, tips,
    feedback lines, buttons and the result card. The result card is shared with Fraction Bay. */
 html.ds #stage:is([data-scr=play],[data-scr=result]){background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-navy-700)}
-html.ds #stage:is([data-scr=play],[data-scr=result]) #bg::after{content:"";position:absolute;inset:0;background:#2a4a8c;mix-blend-mode:multiply;opacity:.9;pointer-events:none}
+html.ds #stage:is([data-scr=play],[data-scr=result]) #bg::after{content:"";position:absolute;inset:0;background:#2a4a8c;mix-blend-mode:multiply;opacity:.58;pointer-events:none}
+/* the sling level draws its aiming dots (#4F4A50) on the sky: a lighter evening there keeps them at 3:1 or more */
+html.ds #stage:is([data-scr=play],[data-scr=mplay]):has(.lv.sling) #bg::after{opacity:.2}
 html.ds:has(#stage[data-scr=play]),html.ds:has(#stage[data-scr=result]),html.ds:has(#stage[data-scr=play]) body,html.ds:has(#stage[data-scr=result]) body{background:var(--wi-scrim)}
 html.ds:has(#stage[data-scr=play]) #backdrop,html.ds:has(#stage[data-scr=result]) #backdrop{display:none}
 html.ds #stage:is([data-scr=play],[data-scr=result]) :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
 html.ds #stage:is([data-scr=play],[data-scr=result]) .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);font-family:var(--wi-font-ui)}
 
 /* HUD: glass buttons with plates, the level's stars, progress dots */
-html.ds .lv .hud .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
-html.ds .lv .hud .rb .ico{stroke:var(--wi-text)}
-html.ds .lv .hud .mb small,html.ds .lv .hst small{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);margin-top:2px;padding:0 var(--wi-s2);font-family:var(--wi-font-ui)}
-html.ds .lv .hst .stars{background:var(--wi-navy-900);border:2px solid var(--wi-gold);border-radius:var(--wi-r-pill);padding:0 var(--wi-s2);height:40px;margin-top:5px}
-html.ds .lv .hud img.st[src$="/star.webp"],html.ds .result img[src$="/star.webp"]{object-position:-9999px 0;background:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp) center/contain no-repeat}
-html.ds .lv .hud img.st[src$="/star_off.webp"],html.ds .result img[src$="/star_off.webp"]{object-position:-9999px 0;background:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp) center/contain no-repeat;opacity:.5;filter:grayscale(1)}
-html.ds .lv .pips i{border:2px solid var(--wi-line);border-radius:50%;background:var(--wi-navy-900)}
-html.ds .lv .pips i.d{background:var(--wi-aqua);border-color:var(--wi-aqua)}
-html.ds .lv .pips i.c{background:var(--wi-gold);border-color:var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim)}
-html.ds .lv .pips .pb{background:var(--wi-navy-900)}
-html.ds .lv .pips .pb.c{background:var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud .rb .ico{stroke:var(--wi-text)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud .mb small,html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hst small{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);margin-top:2px;padding:0 var(--wi-s2);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hst .stars{background:var(--wi-navy-900);border:2px solid var(--wi-gold);border-radius:var(--wi-r-pill);padding:0 var(--wi-s2);height:40px;margin-top:5px}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud img.st[src$="/star.webp"],html.ds .result img[src$="/star.webp"]{object-position:-9999px 0;background:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp) center/contain no-repeat}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud img.st[src$="/star_off.webp"],html.ds .result img[src$="/star_off.webp"]{object-position:-9999px 0;background:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp) center/contain no-repeat;opacity:.5;filter:grayscale(1)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips i{border:2px solid var(--wi-text-dim);border-radius:50%;background:var(--wi-navy-900)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips i.d{background:var(--wi-aqua);border-color:var(--wi-aqua)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips i.c{background:var(--wi-gold);border-color:var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips .pb{background:var(--wi-navy-900)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips .pb.c{background:var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim)}
 
 /* the hanging wooden sign becomes a dark panel; same box, so every level places things exactly as before */
-html.ds .lv .sign.prompt{background:none;border:18px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 18px / 2px round;padding:2% 5%;color:var(--wi-text);font-family:var(--wi-font-ui)}
-html.ds .lv .sign.prompt small{color:var(--wi-text-dim)}
-html.ds .lv .sign.prompt b{color:var(--wi-text)}
-html.ds .lv .sign.prompt .en,html.ds .lv .sign.prompt b.en,html.ds .lv #lw{font-family:var(--wi-font-en)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt{background:none;border:18px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 18px / 2px round;padding:14px 5% var(--wi-s2);aspect-ratio:auto;margin-top:14px;color:var(--wi-text);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt small{color:var(--wi-text-dim)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt b{color:var(--wi-text)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt .en,html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt b.en,html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv #lw{font-family:var(--wi-font-en)}
 
 /* one-line notes, rules and feedback: dark plates; right is green, a slip is coral, both on the dark */
-html.ds .lv :is(.tip,.rule,.fb,.ctip){background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);font-family:var(--wi-font-ui)}
-html.ds .lv :is(.tip,.fb).on{border-color:var(--wi-gold)}
-html.ds .lv :is(.tip,.rule,.fb).good{background:var(--wi-navy-900);color:var(--wi-good);border-color:var(--wi-good)}
-html.ds .lv .rule.bad{color:var(--wi-fix);border-color:var(--wi-fix)}
-html.ds .lv .cap{color:var(--wi-text)}
-html.ds .lv .cap.label{border:2px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-lg);background:var(--wi-navy-900);padding:var(--wi-s1) var(--wi-s4);box-shadow:var(--wi-e2)}
-html.ds .lv .cap.bad{color:var(--wi-fix)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv :is(.tip,.rule,.fb,.ctip){background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv :is(.tip,.fb).on{border-color:var(--wi-gold)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv :is(.tip,.rule,.fb).good{background:var(--wi-navy-900);color:var(--wi-good);border-color:var(--wi-good)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .rule.bad{color:var(--wi-fix);border-color:var(--wi-fix)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .cap:not(.label){color:var(--wi-text);-webkit-text-stroke:5px var(--wi-scrim);paint-order:stroke fill}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .cap:not(.label).bad{color:var(--wi-fix)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .cap.label{color:var(--wi-ink);-webkit-text-stroke:0;font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .cap.label.bad{color:var(--wi-fix-ink)}
 /* the bridge's empty slots read on the tinted sea */
-html.ds .lv .slot:not(.f){border-color:var(--wi-line);background:rgba(11,30,63,.55)}
-html.ds .lv .slot.gap{border-color:var(--wi-gold)}
-html.ds .lv .slot.gap i{color:var(--wi-gold)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .slot:not(.f){border-color:var(--wi-text-dim);background:rgba(11,30,63,.55)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .slot.gap{border-color:var(--wi-gold)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .slot.gap i{color:var(--wi-gold)}
 
 /* buttons in a level: the main one gold, the others navy with an aqua edge */
-html.ds .lv .btn.green,html.ds .result .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),var(--wi-e2);padding:0 var(--wi-s5);font-family:var(--wi-font-ui)}
-html.ds .lv .btn.cream,html.ds .result .btn.cream{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e1);padding:0 var(--wi-s4);font-family:var(--wi-font-ui)}
-html.ds .lv .btn .ico,html.ds .result .btn .ico{stroke:currentColor}
-html.ds .lv .spk{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua);padding:0 var(--wi-s4);min-block-size:var(--wi-tap);font-family:var(--wi-font-ui)}
-html.ds .lv .spk .eqz i{background:var(--wi-aqua)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .btn.green,html.ds .result .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),var(--wi-e2);padding:0 var(--wi-s5);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv.read>.row .btn{padding:0 6px}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv.read>.row .btn.hslow{flex:0 0 56px}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .btn.cream,html.ds .result .btn.cream{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e1);padding:0 var(--wi-s4);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .btn .ico,html.ds .result .btn .ico{stroke:currentColor}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .spk{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua);padding:0 var(--wi-s4);min-block-size:var(--wi-tap);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .spk .eqz i{background:var(--wi-aqua)}
 html.ds .result .btn.sm{min-block-size:var(--wi-tap)}
 
 /* the result card: a dark panel; the review words and the next-island note keep a light backing with dark text */
@@ -285,8 +290,6 @@ html.ds .result .unlock{color:var(--wi-navy-900)}
 html.ds .result .rcrab[src$="/crab_star.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/star.hf_20261124_204534_0bba02d5-095c-4463-82a0-a38d364fea44.webp) center/contain no-repeat}
 html.ds .result .rcrab[src$="/crab_happy.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
 html.ds .result .rcrab[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat}
-@media (prefers-reduced-motion:reduce){html.ds .lv .btn,html.ds .result .btn{transition:none}}
-
 /* ======== The extra games (?games=1: true or not, pairs, letters) in the new look ========
    Same rules: styling only, under html.ds #stage[data-scr=extra]. The light cards become dark cards with white text;
    right is a green edge, wrong a coral edge, never colour alone (the game's own words and marks stay). */
@@ -325,6 +328,7 @@ html.ds #stage[data-scr=extra] .btn .ico{stroke:currentColor}
 html.ds #stage[data-scr=extra] :is(.tfend,.tfe:not(:empty),.prx:not(:empty)){background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:var(--wi-r-xl);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);padding:var(--wi-s3) var(--wi-s4)}
 html.ds #stage[data-scr=extra] .tfe .tfm{border:0;padding:0;background:none}
 html.ds #stage[data-scr=extra] .tfend img[src$="/crab_happy.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_star.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
+@media (prefers-reduced-motion:reduce){html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .btn,html.ds .result .btn{transition:none}}
 
 /* ======== Fraction Bay (#math, #misland/N, #mplay/N/type) in the new look ========
    The maths screens reuse the English classes (.map, .island, .lv, .result), so most rules above reach them. Here:
@@ -336,7 +340,7 @@ html.ds #stage[data-scr=mplay]{background:var(--wi-navy-900);box-shadow:0 0 0 1p
 html.ds #stage[data-scr=math] #bg .bgl{background-image:url(../assets/al/bg/sea-details.hf_20261125_075052_17486f52-96ee-4372-9033-9dd45cfa5736.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900)}
 html.ds #stage[data-scr=misland] #bg .bgl{background-image:url(../assets/al/bg/math.hf_20261124_204751_6e57a9de-39a3-4daf-9575-b6c82d806521.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900);opacity:.3}
 html.ds #stage[data-scr=misland] #bg .bgl:not(.on){opacity:0}
-html.ds #stage[data-scr=mplay] #bg::after{content:"";position:absolute;inset:0;background:#2a4a8c;mix-blend-mode:multiply;opacity:.9;pointer-events:none}
+html.ds #stage[data-scr=mplay] #bg::after{content:"";position:absolute;inset:0;background:#2a4a8c;mix-blend-mode:multiply;opacity:.58;pointer-events:none}
 html.ds:has(#stage:is([data-scr=math],[data-scr=misland],[data-scr=mplay])),html.ds:has(#stage:is([data-scr=math],[data-scr=misland],[data-scr=mplay])) body{background:var(--wi-scrim)}
 html.ds:has(#stage:is([data-scr=math],[data-scr=misland],[data-scr=mplay])) #backdrop{display:none}
 html.ds #stage:is([data-scr=math],[data-scr=misland],[data-scr=mplay]) :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}

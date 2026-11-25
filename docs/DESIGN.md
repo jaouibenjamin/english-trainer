@@ -198,7 +198,7 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=math|misland|mpla
 - Bay map: the sea with details, the new island pictures (the bay uses the same six pictures as the English map, locked versions included), the bay's name on a plate under the star chip.
 - Island screen: the maths backdrop (`bg/math`), dimmed, under the level rows of step 2.
 - Levels: the same night tint and HUD as the English levels. Keypad keys navy with white digits, the check key gold; choice cards navy with a green or coral edge for right and wrong; the pizza footer notes on plates. The worksheet paper and the pizza task note stay light, like the mock exam: they are written work.
-- The slingshot's caption (English and maths) is a dark plate, so a long message never sits as white text on paper.
+- The level rules of step 3 are scoped to `#stage[data-scr=play|mplay]`, so the maths levels get all of them (with #44 alone they reach only the English levels). The slingshot's caption keeps its paper label with dark ink, as in step 3.
 - Checked: flag on, `tests/math.py --quick` 21 pass, screenshots of every state (map, island, pizza ask, build, cut, eat, merge, wholes, count; sling aim and miss; sheet question, form, solution; every result) at 390x844, 360x740 and 1366x768. Flag off: `ds-game.css` is not loaded.
 
 ## Rollout step 5: the mock exam, a light touch, behind the same flag
