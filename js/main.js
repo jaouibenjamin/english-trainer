@@ -33,7 +33,7 @@ const BRAND='ניצני אופק';
 function title(){setBg('title','bottom');
  const d=Math.ceil((new Date(2026,10,25)-new Date())/864e5),md=M.daysToExam(),m=bgMap('bottom');
  view.innerHTML=`<section class="scr title">
-  <div class="logo">${dsOn()?`<h1>${BRAND}</h1><p>ברוכים הבאים ל${BRAND}</p>`:`<h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p>`}</div>
+  <div class="logo">${dsOn()?`<h1>${BRAND}</h1><p>אנגלית, חשבון ועוד: כל יום קצת</p>`:`<h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p>`}</div>
   <div class="tgo subj"><p class="label pick">במה מתאמנים היום?</p>
    <button class="btn green xl sb" data-a="nav" data-to="map"><span><b>אנגלית</b><small>איי המילים${d>0&&d<60?` · מבחן בעוד ${num(d)} ימים`:''}</small></span></button>
    <button class="btn coral sb xm" data-a="nav" data-to="mock"><span><b>מבחן דמו באנגלית</b><small>${XS_last()}</small></span></button>
@@ -74,17 +74,20 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
    return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}${cur?' cur':''}${todo?' todo':''}${x<50?' lc':''}" style="left:${x}%;top:${y.toFixed(1)}px" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}">
     <span class="pw">${spr('isl_'+i.id,'pic')}${o?'':spr('lock','lk')}${cur?`<span class="here">${spr('crab_wave','bc')}</span>`:''}</span>
     <span class="tag">${cur?`<em class="hb">${tot?'ממשיכים כאן':'מתחילים כאן'}</em>`:''}<b>${esc(i.he)}</b>${i.bonus?`<small class="bn">אי בונוס · שני שלבים</small>`:''}<small>${o?`${star()}${num(st+'/'+mx)}${st===mx?spr('ic_check','ck'):''}`:`נפתח ב־${num(i.need)}${star()}`}</small></span></button>`}).join('')}
- </section>`;worldMap()}
+ </section>`;worldMap();
+ /* with the design flag, a very short screen leaves the all-played banner out (worldFits): say its line once per visit */
+ if(played&&!fin&&!finSaid){finSaid=true;toast(all?'כל הכבוד! סיימתם את כל האיים':`עברתם בכל האיים! ${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`} באיים שבמסגרת הצהובה`,3200)}}
+let finSaid=false;   // the all-played line was said as a toast in this visit (a logout resets it, for the next pupil on this tab)
 /* the new world behind the design flag (?ds=1): js/avatar.js is fetched only on such a device; without the flag this does nothing */
 const dsOn=()=>document.documentElement.classList.contains('ds');
 const WORLD_DOCK=76;   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
-/* With the design flag, the island pictures are 7:6 (4:3 when the viewport is at most 700px high) and the labels a
-   little taller. THESE NUMBERS COPY css/ds-game.css (img.pic[src*="/isl_"] aspect-ratio 7/6, and 4/3 under
-   @media (max-height:700px)): change them together. The media test below is the same viewport test as the CSS.
-   TAG is the tallest label (the bonus island's three lines, 74px); 56px is the smallest island (320x568).
-   so an island and its label need more height than the game's own layout gives them. Islands in one column are two
-   rows apart: shrink them until a picture and its label fit in that space (the bonus island's label has three lines).
-   Without the flag the size is returned unchanged. */
+/* The islands' size with the design flag. Its island pictures are 7:6 (4:3 when the viewport is at most 700px high)
+   and its labels a little taller, so an island and its label need more height than the game's own layout gives them.
+   Islands in one column are two rows apart: worldIw shrinks them until a picture and its label fit in that space.
+   - THESE NUMBERS COPY css/ds-game.css (img.pic[src*="/isl_"] aspect-ratio 7/6, and 4/3 under @media (max-height:700px)):
+     change them together. The media test below is the same viewport test as the CSS.
+   - WORLD_TAG is the tallest label (the bonus island's three lines, 74px); 56px is the smallest island (320x568).
+   - Without the flag the size is returned unchanged. */
 const WORLD_TAG=74,worldPr=()=>matchMedia('(max-height:700px)').matches?.75:6/7,worldRoom=(w,H,mt,finH)=>2*(H-mt-(w*.76+48)-14-finH)/5;
 function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=worldPr();
  while(iw>56&&iw*pr+WORLD_TAG>worldRoom(iw,H,mt,finH))iw-=2;
@@ -295,7 +298,7 @@ const A={
   else{el.disabled=false;delete el.dataset.arm;el.textContent='איפוס קוד';toast(esc(ERR[r.e]||ERR.net),3500)}},
  relogin(){SND.tap();const o=relogin();if(!o)return go('login');
   V={name:'login',m:'login',c:o.c,n:o.n,p:'',err:(RELOG_MSG[o.e]||RELOG_MSG.nouser)+'\nההתקדמות מהמכשיר הזה שמורה, והיא תעבור לחשבון כשתתחברו.'};login();syncBar()},
- async logout(){if(await logout()){clearNotes();go('login')}else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
+ async logout(){if(await logout()){clearNotes();finSaid=false;go('login')}else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r,c,t}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};   // the teacher code is kept on this screen only, for resetting a pupil's code
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el,e)}});

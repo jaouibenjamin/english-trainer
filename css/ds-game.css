@@ -51,6 +51,8 @@ html.ds .title .who{background:var(--wi-navy-900);border:1px solid var(--wi-line
         the new one is drawn as its background (no change to markup or script) ---- */
 html.ds .title .tcrab,html.ds .login .lcrab,html.ds .settings .guide img{box-sizing:border-box;block-size:0;padding-block-start:var(--pz);inline-size:var(--pz);background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat;overflow:hidden}
 html.ds .title .tcrab{--pz:118px;margin:-108px 0 0 -59px}
+/* a short screen (320x568): the crab would sit on the last subject button; it is only a decoration, so it goes */
+@media (max-height:600px){html.ds .title .tcrab{display:none}}
 html.ds .login .lcrab{--pz:78px;top:-60px;inset-inline-start:8px}
 html.ds .settings .guide img{--pz:84px;background-image:url(../assets/al/pitzi/listen.hf_20261124_210014_1f234b5a-9ec8-4fcc-b2e2-772bb152ee73.webp)}
 
@@ -229,8 +231,9 @@ html.ds .settings .panel.label{border-width:14px;border-image-width:14px}
    feedback lines, buttons and the result card. The result card is shared with Fraction Bay. */
 html.ds #stage:is([data-scr=play],[data-scr=result]){background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-navy-700)}
 html.ds #stage:is([data-scr=play],[data-scr=result]) #bg::after{content:"";position:absolute;inset:0;background:#2a4a8c;mix-blend-mode:multiply;opacity:.58;pointer-events:none}
-/* the sling level draws its aiming dots (#4F4A50) on the sky: a lighter evening there keeps them at 3:1 or more */
-html.ds #stage:is([data-scr=play],[data-scr=mplay]):has(.lv.sling) #bg::after{opacity:.2}
+/* the sling level draws its aiming dots (#4F4A50) on the sky: no evening tint there, so they read as they do today
+   (measured median 2.7:1 untinted, 2.2:1 at .2) */
+html.ds #stage:is([data-scr=play],[data-scr=mplay]):has(.lv.sling) #bg::after{opacity:0}
 html.ds:has(#stage[data-scr=play]),html.ds:has(#stage[data-scr=result]),html.ds:has(#stage[data-scr=play]) body,html.ds:has(#stage[data-scr=result]) body{background:var(--wi-scrim)}
 html.ds:has(#stage[data-scr=play]) #backdrop,html.ds:has(#stage[data-scr=result]) #backdrop{display:none}
 html.ds #stage:is([data-scr=play],[data-scr=result]) :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
@@ -323,6 +326,8 @@ html.ds #stage[data-scr=extra] .scl{background:var(--wi-navy-800);color:var(--wi
 html.ds #stage[data-scr=extra] .scl.glow{background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:0 0 0 3px var(--wi-scrim)}
 html.ds #stage[data-scr=extra] .scw i{border-bottom-color:var(--wi-text)}
 html.ds #stage[data-scr=extra] .tfrev span{color:var(--wi-text)}
+/* the green "found it" line (e.g. Israel = ישראל) sat bare on the painted picture: a dark plate under it */
+html.ds #stage[data-scr=extra] .tfr.ok{inline-size:fit-content;max-inline-size:100%;margin-inline:auto;padding:4px 14px;background:rgba(6,15,38,.82);border-radius:var(--wi-r-md);color:var(--wi-good)}
 html.ds #stage[data-scr=extra] .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),var(--wi-e2);padding:0 var(--wi-s5)}
 html.ds #stage[data-scr=extra] .btn:not(.green){border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e1);padding:0 var(--wi-s4)}
 html.ds #stage[data-scr=extra] .btn .ico{stroke:currentColor}
@@ -366,7 +371,7 @@ html.ds .mmap .mtitle small{color:var(--wi-text-dim)}
 html.ds .mmap .mb .rb.t1{background:var(--wi-navy-800)}
 
 /* maths pieces in a level */
-html.ds .mlv .key{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-md);box-shadow:var(--wi-e2);font-family:var(--wi-font-en)}
+html.ds .mlv .key{min-height:48px;background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-md);box-shadow:var(--wi-e2);font-family:var(--wi-font-en)}
 html.ds .mlv .key .ico{stroke:var(--wi-text)}
 html.ds .mlv .key.kok{background:var(--wi-gold);color:var(--wi-navy-900);border-color:var(--wi-gold-press);font-family:var(--wi-font-ui)}
 html.ds .mlv .key:active{background:var(--wi-navy-700)}

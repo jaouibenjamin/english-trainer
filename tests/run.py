@@ -3,7 +3,7 @@
    Also: the runner model is our own file and loads in both looks, Pitzi the crab runs when the model is missing, and
    nothing in the game's files points to another host (tests/remote_guard.py).
    python3 tests/run.py [--shots DIR]"""
-import asyncio, os, subprocess, sys, time, socket
+import asyncio, os, re, subprocess, sys, time, socket
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import remote_guard
 from csp_wait import csp_wait
@@ -99,6 +99,11 @@ async def looks(b):
         await c.close()
 
 
+SMALL = """[...document.querySelectorAll('#rstage *')].filter(e=>e.offsetParent&&[...e.childNodes].some(n=>n.nodeType===3&&/[\\p{L}\\p{N}]/u.test(n.textContent))&&parseFloat(getComputedStyle(e).fontSize)<16)
+ .map(e=>[e.className||e.tagName,e.textContent.trim().slice(0,16),getComputedStyle(e).fontSize])"""
+FLASH = """(()=>{const lum=c=>{const m=c.match(/[\\d.]+/g).map(Number);const f=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4};return [.2126*f(m[0])+.7152*f(m[1])+.0722*f(m[2]),m[3]===undefined?1:m[3]]};
+ const e=document.querySelector('#flash'),s=getComputedStyle(e),a=lum(s.color)[0],b=lum(s.backgroundColor),r=e.getBoundingClientRect();
+ return {text:e.textContent,opaque:b[1]>=.99,ratio:+((Math.max(a,b[0])+.05)/(Math.min(a,b[0])+.05)).toFixed(2),w:Math.round(r.width),stage:Math.round(document.querySelector('#rstage').getBoundingClientRect().width)}})()"""
 TARGETS = """[...document.querySelectorAll('#rstage button,#rstage a')].filter(e=>e.offsetParent&&getComputedStyle(e).visibility!=='hidden')
  .map(e=>{const r=e.getBoundingClientRect();return [e.className||e.tagName,e.dataset.k||e.dataset.go||e.dataset.pace||'',Math.round(r.width),Math.round(r.height)]})"""
 
@@ -117,31 +122,118 @@ async def ds_targets(pg, tag, where):
     t = await pg.evaluate(TARGETS)
     small = [x for x in t if x[3] < 48]
     check(t and not small, f'{tag}: {where}: every button and link is 48px or more {small}')
+    tiny = await pg.evaluate(SMALL)
+    check(not tiny, f'{tag}: {where}: no text under 16px {tiny[:4]}')
 
-BIDI = """(async()=>{const {POOL}=await import('./js/xdata.js');const tips=[...new Set(Object.values(POOL).flatMap(o=>Object.values(o).flat()).map(e=>e.tip).filter(Boolean))];
+async def ds_calm_short(b):
+    """new look with the game's own calm switch: "right" / "almost" fade and end hidden (the plate never stays over the
+    road). A returning, signed-in pupil (best score and name lines) on a short phone, 360x740 and 360x640: the gold
+    "run" button is on the screen without scrolling, and a new pupil's too"""
+    c = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=1, has_touch=True)
+    pg = csp_wait(await c.new_page()); errs = []; watch(pg, errs)
+    await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
+    await pg.add_init_script("try{localStorage.setItem('word-islands-settings-v1',JSON.stringify({music:false,sfx:false,calm:true}))}catch(e){}")
+    await pg.goto(BASE + '?ds=1'); await pg.wait_for_selector('[data-go="run"]', state='visible', timeout=15000)
+    await pg.click('[data-go="run"]'); await pg.evaluate('window.__runFast=8; __run.noHit(true)')
+    await pg.wait_for_function('!!__run.G().gate', timeout=60000)
+    await pg.evaluate('__run.goLane(__run.lanes().indexOf(__run.answer()))')
+    await pg.wait_for_function('!__run.G().gate', timeout=60000)
+    await pg.evaluate('window.__runFast=1e-9')
+    mid = await pg.evaluate("[document.documentElement.classList.contains('calm'),getComputedStyle(document.querySelector('#flash')).animationName]")
+    await pg.wait_for_timeout(1500)
+    op = await pg.evaluate("getComputedStyle(document.querySelector('#flash')).opacity")
+    check(mid == [True, 'dsstill'] and op == '0', f'new look, calm: "right" fades and is hidden again 1.5 s after the answer {mid} opacity {op}')
+    real = [e for e in errs if 'WebGL' not in e and 'GPU stall' not in e]
+    check(not real, f'new look, calm: no page errors {real[:3]}')
+    await c.close()
+    # a returning pupil: a best score and a signed-in name (a backend URL that nothing is sent to in this check)
+    REC = "try{localStorage.setItem('aam-unit1-v1',JSON.stringify({pts:120,u:{c:'TEST',n:'Testpupil',p:'0000'},r:{runs:3,best:9,pace:'mid',miss:[],dpts:0}}))}catch(e){}"
+    for w, h in ((360, 740), (360, 640)):
+        for who, rec in (('returning', True), ('new', False)):
+            c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=1, has_touch=True)
+            pg = csp_wait(await c.new_page())
+            await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='http://127.0.0.1:9/never';" if rec else "window.API_URL='';"))
+            await pg.route('http://127.0.0.1:9/**', lambda r: r.abort())
+            if rec: await pg.add_init_script(REC)
+            await pg.goto(BASE + '?ds=1'); await pg.wait_for_selector('[data-go="run"]', state='visible', timeout=15000); await pg.wait_for_timeout(300)
+            R = await pg.evaluate("(()=>{const m=document.querySelector('#menu');m.scrollTop=0;const b=document.querySelector('[data-go=run]').getBoundingClientRect();return {bottom:Math.round(b.bottom),top:Math.round(b.top),h:innerHeight,lines:document.querySelectorAll('#menu .who').length,scroll:m.scrollHeight>m.clientHeight}})()")
+            check(R['bottom'] <= R['h'] and R['top'] >= 0 and (R['lines'] >= 2 if rec else True), f'new look, {who} pupil at {w}x{h}: the "run" button is on the screen without scrolling {R}')
+            if SHOTS and rec:
+                os.makedirs(SHOTS, exist_ok=True); await pg.screenshot(path=os.path.join(SHOTS, f'ds_{who}_{w}x{h}_start.png'))
+            await c.close()
+
+async def ds_slow(b):
+    """new look on a small phone (360x740) on slow wifi, with reduced motion asked by the device: the menu stays hidden
+    until both stylesheets are in, so the old look never shows; the question card in the new look ends as high as in
+    today's look (the lanes stay above the road); the card does not slide in and "right" only fades"""
+    c = await b.new_context(viewport={'width': 360, 'height': 740}, device_scale_factor=1, has_touch=True, reduced_motion='reduce')
+    pg = csp_wait(await c.new_page())
+    errs = []; watch(pg, errs)
+    await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
+    async def slow(route):
+        await asyncio.sleep(3); await route.continue_()
+    await pg.route('**/css/run-ds.css', slow)
+    # every frame from the start: was the menu ever on screen with content before the new look's stylesheet was in?
+    await pg.add_init_script("""window.__early={frames:0,shown:0};(function f(){const m=document.querySelector('#menu');
+      if(m&&m.children.length){const css=[...document.styleSheets].some(s=>(s.href||'').endsWith('/css/run-ds.css'));__early.frames+=css?0:1;
+       if(!css&&getComputedStyle(m).visibility!=='hidden')__early.shown++}requestAnimationFrame(f)})()""")
+    await pg.goto(BASE + '?ds=1')
+    await pg.wait_for_selector('[data-go="run"]', state='visible', timeout=15000)
+    E = await pg.evaluate('__early')
+    late = await pg.evaluate("[getComputedStyle(document.querySelector('#menu')).visibility,getComputedStyle(document.querySelector('.card')).borderImageSource.includes('panel')]")
+    check(E['frames'] > 0 and E['shown'] == 0 and late == ['visible', True], f'360x740 new look, slow stylesheet: the menu stays hidden until the new look is in (frames with the menu built but the new look not yet in: {E["frames"]}, shown: {E["shown"]}) {late}')
+    fit = await pg.evaluate("(()=>{const m=document.querySelector('#menu'),h=document.querySelector('.crabhead.hero').getBoundingClientRect();m.scrollTop=1e5;const b=document.querySelector('#menu .sm-btn').getBoundingClientRect();const r=[Math.round(h.top),Math.round(b.bottom),innerHeight];m.scrollTop=0;return r})()")
+    check(fit[0] >= 0 and fit[1] <= fit[2], f'360x740 new look: the start menu shows its picture whole at the top and scrolls down to the last button {fit}')
+    await pg.click('[data-go="run"]'); await pg.evaluate('window.__runFast=8; __run.noHit(true)')
+    lows = []; motion = []
+    for _ in range(6):
+        await pg.wait_for_function('!!__run.G().gate||__run.G().ended', timeout=60000)
+        if await pg.evaluate('__run.G().ended'): break
+        await pg.wait_for_timeout(450)
+        lows.append(await pg.evaluate("Math.round(document.querySelector('#banner').getBoundingClientRect().bottom)"))
+        anim = [await pg.evaluate("getComputedStyle(document.querySelector('#banner')).animationName")]
+        await pg.evaluate('__run.goLane(__run.lanes().indexOf(__run.answer()))')
+        await pg.wait_for_function('!__run.G().gate', timeout=60000)
+        anim.append(await pg.evaluate("getComputedStyle(document.querySelector('#flash')).animationName"))
+        motion.append(anim)
+    check(lows and max(lows) <= 205, f'360x740 new look: the question card ends at 205px or higher, as in today\'s look (195), so the lanes stay above the road {lows}')
+    check(motion and all(m == ['none', 'dsstill'] for m in motion), f'360x740 new look, reduced motion: the card does not slide in and "right" only fades {motion[:2]}')
+    real = [e for e in errs if 'WebGL' not in e and 'GPU stall' not in e]
+    check(not real, f'360x740 new look: no page errors or failed requests {real[:3]}')
+    await c.close()
+
+BIDI = """(async()=>{const {POOL}=await import('./js/xdata.js');const {esc}=await import('./js/state.js');const fmt=FMT;const tips=[...new Set(Object.values(POOL).flatMap(o=>Object.values(o).flat()).map(e=>e.tip).filter(Boolean))];
  const box=document.createElement('div');box.className='banner';box.style.cssText='position:fixed;left:0;top:0;width:360px;visibility:hidden';document.body.appendChild(box);
- const out={n:tips.length,text:[],stop:[],checked:0};
- for(const t of tips){box.innerHTML=`<p class="ans">${__run.mixed(t)}</p>`;const p=box.firstChild;
-  if(p.textContent!==t)out.text.push(t);
-  /* an English sentence that ends with a full stop before a Hebrew note: the stop is drawn right after the sentence's
-     last letter (to its right), not at the far side of the line */
-  const m=t.match(/[a-z]\\. \\(/);if(!m)continue;out.checked++;
-  const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,off=0;const at=m.index;
-  while((n=w.nextNode())){if(at<off+n.length){const r=document.createRange();r.setStart(n,at-off);r.setEnd(n,at-off+1);const L=r.getBoundingClientRect();
-   const r2=document.createRange();let n2=n,o2=at-off+1;if(o2>=n.length){n2=w.nextNode();o2=0}r2.setStart(n2,o2);r2.setEnd(n2,o2+1);const D=r2.getBoundingClientRect();
-   if(!(D.left>=L.right-1&&Math.abs(D.top-L.top)<4))out.stop.push([t,Math.round(L.right),Math.round(D.left)]);break}off+=n.length}}
+ const out={n:tips.length,text:[],stop:[],checked:0,arrow:[],arrows:0};
+ /* the box drawn for the character at index i of the line's text */
+ const at=(p,i)=>{const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,off=0;while((n=w.nextNode())){if(i<off+n.length){const r=document.createRange();r.setStart(n,i-off);r.setEnd(n,i-off+1);return r.getBoundingClientRect()}off+=n.length}return null};
+ out.empty=tips.filter(t=>/\\(\\s*\\)/.test(t));
+ /* the same line as Beach Run draws it (mixed) and as the mock exam draws it (its own fmt, read from js/mock.js) */
+ for(const [who,draw] of [['run',__run.mixed],['exam',fmt]])for(const t of tips){box.innerHTML=`<p class="ans">${draw(t)}</p>`;const p=box.firstChild;
+  if(p.textContent!==t)out.text.push([who,t]);
+  /* an English sentence that ends with a full stop, question mark or "!" (at the end of the line, before a Hebrew
+     note or before a bracket): the mark is drawn right after the sentence's last letter, not at the far side */
+  for(const m of t.matchAll(/[a-z'\\u2019][.?!](?=$| \\(| [\\u0590-\\u05FF])/g)){const L=at(p,m.index),D=at(p,m.index+1);if(who==='run')out.checked++;
+   if(who==='run'&&Math.abs(D.top-L.top)<4&&!(D.left>=L.right-1))out.stop.push([t,Math.round(L.right),Math.round(D.left)])}
+  /* an arrow points at the word after it: → has it on its right, ← on its left */
+  for(const m of t.matchAll(/[\\u2192\\u2190]/g)){let j=m.index+1;while(t[j]===' ')j++;if(j>=t.length)continue;const A=at(p,m.index),N=at(p,j);
+   if(Math.abs(A.top-N.top)>=4)continue;out.arrows++;const ok=m[0]==='\\u2192'?N.left>=A.right-1:N.right<=A.left+1;if(!ok)out.arrow.push([who,t,m[0],Math.round(A.left),Math.round(N.left)])}}
  box.remove();return out})()"""
 
 async def bidi(b):
-    """explanation lines mix Hebrew and English: the words are the same as before, and an English sentence keeps its
-    full stop at its end (it used to show as ".I study English at school")"""
+    """explanation lines mix Hebrew and English: the words are the same as before, an English sentence keeps its full
+    stop (or ? or !) at its end (it used to show as ".I study English at school"), and an arrow points at its word"""
     c = await b.new_context(viewport={'width': 390, 'height': 844})
-    pg = await c.new_page()
+    pg = csp_wait(await c.new_page())
     await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
     await pg.goto(BASE); await pg.wait_for_selector('[data-go="run"]', timeout=15000)
-    R = await pg.evaluate(BIDI)
+    src = open(os.path.join(ROOT, 'js', 'mock.js'), encoding='utf-8').read()
+    fmt_src = re.search(r'^const fmt=(.*?);$', src, re.M).group(1)   # the mock exam's own formatter, as it is in the file
+    R = await pg.evaluate(BIDI.replace('FMT', fmt_src, 1))
     check(R['n'] > 50 and not R['text'], f'every explanation ({R["n"]}) reads the same words as before {R["text"][:2]}')
     check(R['checked'] > 5 and not R['stop'], f'an English sentence keeps its full stop at its end ({R["checked"]} checked) {R["stop"][:2]}')
+    check(R['arrows'] > 10 and not R['arrow'], f'every arrow in an explanation points at the word it leads to, in Beach Run and in the mock exam ({R["arrows"]} checked) {R["arrow"][:2]}')
+    check(not R['empty'], f'no explanation shows empty brackets (a word without the teacher\'s translation) {R["empty"][:2]}')
     await c.close()
 
 async def play(b, w, h, tag, qs=''):
@@ -195,6 +287,9 @@ async def play(b, w, h, tag, qs=''):
                     seen += 1
                     if seen == 1:
                         await pg.wait_for_timeout(250); await shot(pg, f'{tag}_04_wrong')
+                        if qs:
+                            F = await pg.evaluate(FLASH)
+                            check(F['opaque'] and F['ratio'] >= 4.5 and F['w'] < F['stage'], f'{tag}: "almost" over the road sits on its own solid plate, 4.5:1 or more {F}')
                     if seen == 2:
                         await pg.wait_for_timeout(250); await shot(pg, f'{tag}_05_right')
         await pg.wait_for_timeout(60)
@@ -227,7 +322,7 @@ async def play(b, w, h, tag, qs=''):
     check(await pg.is_visible('#dash'), f'{tag}: the dash button shows while a question is up')
     await pg.keyboard.press('ArrowDown')
     check(await pg.evaluate('__run.G().dash'), f'{tag}: ArrowDown dashes to the gate')
-    await pg.wait_for_function('!__run.G().gate', timeout=30000)
+    await pg.wait_for_function('!__run.G().gate', timeout=60000)
     check(not await pg.is_visible('#dash'), f'{tag}: the dash button hides after the gate')
     real = [e for e in errs if 'WebGL' not in e and 'GPU stall' not in e]
     check(not real, f'{tag}: no page errors, failed requests or requests to another host {real[:3]}')
@@ -256,6 +351,8 @@ async def main():
             await bidi(b)
             await play(b, 390, 844, 'r390x844')
             await play(b, 390, 844, 'r390x844_ds', '?ds=1')
+            await ds_slow(b)
+            await ds_calm_short(b)
             await looks(b)
             if '--quick' not in sys.argv:
                 await play(b, 1366, 640, 'r1366x640')

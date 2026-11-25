@@ -18,7 +18,7 @@ from play import check, new_page, fails
 
 CLASS = 'EN-1234'      # the mock backend's own test class
 POST = "async ([api,d])=>(await fetch(api,{method:'POST',body:JSON.stringify(d)})).json()"
-WORLD_FILES = ('js/avatar.js', 'css/avatar.css', 'js/world_data.js', 'js/world_art.js')
+WORLD_FILES = ('js/avatar.js', 'css/avatar.css', 'js/world_data.js', 'js/world_art.js', 'js/avanim.js')
 LS = "Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)]))"
 # 11 stars on islands 1-2, one word known, one story read, and four words got wrong on island 1 (parts 1)
 SEED = {'g': {'st': {'1-sling': 3, '1-listen': 2, '1-read': 3, '1-bridge': 2, '2-sling': 1}}, 'w': {'song': 3, 'kick': 0, 'far': 0, 'play': 1},
@@ -192,7 +192,7 @@ async def no_digest(b, errs):
     await pg.add_init_script("try{Object.defineProperty(window.crypto,'subtle',{get:()=>undefined,configurable:true})}catch(e){}")
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     t = await pg.inner_text('.wd')
-    check('no digest: the dock says, kindly, that there are no characters on this phone; no picker, no "?" ring', 'אין דמויות' in t and 'משחקים כרגיל' in t and await pg.locator('button.wd__me').count() == 0 and await pg.locator('.wd__pic').count() == 0, t)
+    check('no digest: the dock says, kindly, that there are no characters on this phone; no picker, no "?" ring', 'במכשיר הזה אין דמויות' in t and 'משחקים כרגיל' in t and await pg.locator('button.wd__me').count() == 0 and await pg.locator('.wd__pic').count() == 0, t)
     await pg.evaluate("location.hash='avatar'"); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(200)
     check('no digest: #avatar goes back to the map', await pg.locator('.wpick').count() == 0)
     check('no digest: nothing is stored', 'wi_world' not in await pg.evaluate(LS))
@@ -220,6 +220,64 @@ async def name_with_focus(b, errs):
         await c.close()
 
 
+async def fin_logout(b, errs):
+    """the all-played toast is said once per pupil: a logout lets the next pupil on the same tab hear it too"""
+    api = f'http://127.0.0.1:{P.API_PORT}/'
+    st = {f'{i}-{t}': 2 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge'), (6, 'sling listen')) for t in ts.split()}
+    c, pg, reqs = await page(b, 320, 568, errs, api=api)
+    await pg.goto(P.BASE); await pg.wait_for_selector('#lc')
+    for n in ('דנה', 'יואב'):
+        await pg.evaluate(POST, [api, {'a': 'register', 'c': CLASS, 'n': n, 'p': '2580'}])
+    await c.close()
+    c, pg, reqs = await page(b, 320, 568, errs, {'g': {'st': st}}, api=api, user={'c': CLASS, 'n': 'דנה', 'p': '2580'})
+    on = "document.getElementById('toast').classList.contains('on')"
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+    check('finished map, first pupil: the toast is said', await pg.evaluate(on))
+    await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('[data-a=logout]'); await pg.click('[data-a=logout]'); await pg.wait_for_selector('#lc', timeout=10000)
+    # the next pupil on this tab, with all levels played too (set in memory: the test does not replay a whole year)
+    await pg.evaluate("(st=>{const S=__game.S();S.u={c:'%s',n:'יואב',p:'2580'};S.g={st}})" % CLASS + "(%s)" % json.dumps(st))
+    await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+    check('after a logout, the next pupil on the same tab is told too', await pg.evaluate(on))
+    await c.close()
+
+
+async def anim(b, errs):
+    """the picker plays a character's short animation when it is tapped (js/avanim.js): the file is requested only then,
+    never with reduced motion, and never without the flag"""
+    for reduce in (False, True):
+        c, pg, reqs = await page(b, 390, 844, errs)
+        if reduce:
+            await pg.emulate_media(reduced_motion='reduce')
+        await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid'); await pg.wait_for_timeout(500)
+        before = [u for u, _ in reqs if '/avanim/' in u]
+        await pg.click('.wpick__av[data-id=fox]'); await pg.wait_for_timeout(600)
+        after = [u for u, _ in reqs if '/avanim/' in u]
+        if reduce:
+            check('reduced motion: tapping a character requests no animation', not before and not after, after)
+        else:
+            check('no animation file is requested before a tap', not before, before)
+            check('tapping a character plays its animation (one file, that character\'s)', len(after) == 1 and 'fox' in after[0], after)
+        await c.close()
+    # a missing animation file: straight back to the still portrait, never a broken picture
+    c, pg, reqs = await page(b, 390, 844, [])
+    await pg.route('**/assets/al/avanim/**', lambda r: r.fulfill(status=404, body=''))
+    await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid')
+    await pg.click('.wpick__av[data-id=fox]'); await pg.wait_for_timeout(400)
+    r = await pg.evaluate("(()=>{const i=document.querySelector('.wpick__av.is-selected img');return {src:i.getAttribute('src'),ok:i.complete&&i.naturalWidth>0}})()")
+    check('a missing animation file falls back to the still portrait at once (no broken picture)', '/av/fox.' in r['src'] and r['ok'], r)
+    await c.close()
+    # the title screen on a short phone: the crab never sits on a subject button
+    c, pg, reqs = await page(b, 320, 568, errs)
+    await pg.goto(P.BASE + '?ds=1'); await pg.wait_for_selector('.title .btn'); await pg.wait_for_timeout(400)
+    ov = await pg.evaluate("(()=>{const c=document.querySelector('.tcrab').getBoundingClientRect();return [...document.querySelectorAll('.title .btn')].filter(e=>{const r=e.getBoundingClientRect();return c.width&&Math.min(r.right,c.right)>Math.max(r.left,c.left)&&Math.min(r.bottom,c.bottom)>Math.max(r.top,c.top)}).length})()")
+    check('320x568, new look: the title crab lies over no button', ov == 0, ov)
+    await c.close()
+    c, pg, reqs = await page(b, 390, 844, errs, SEED)
+    await pg.goto(P.BASE + '#map'); await pg.wait_for_selector('.map .isl'); await pg.wait_for_timeout(400)
+    check('flag off: nothing of the animations is fetched', not [u for u, _ in reqs if 'avanim' in u], [u for u, _ in reqs if 'avanim' in u])
+    await c.close()
+
+
 async def brand(b, errs):
     """the platform's name (docs/PLAN.md, 25.11.2026): "ניצני אופק" with the flag, "איי המילים" without it; the English
     world keeps "איי המילים" either way"""
@@ -229,7 +287,7 @@ async def brand(b, errs):
         await pg.goto(P.BASE + ('?ds=1' if ds else '')); await pg.wait_for_selector('.title .btn'); await pg.wait_for_timeout(300)
         r = await pg.evaluate("({title:document.title,h1:document.querySelector('.title .logo h1').textContent,sub:document.querySelector('.title .logo p').textContent,en:document.querySelector('.title [data-to=map] small').textContent})")
         if ds:
-            check(f'[{tag}] the title screen and the page say ניצני אופק, with a welcome line', r['title'] == 'ניצני אופק' and r['h1'] == 'ניצני אופק' and r['sub'] == 'ברוכים הבאים לניצני אופק', r)
+            check(f'[{tag}] the title screen and the page say ניצני אופק, with a line about what is inside', r['title'] == 'ניצני אופק' and r['h1'] == 'ניצני אופק' and r['sub'] == 'אנגלית, חשבון ועוד: כל יום קצת', r)
         else:
             check(f'[{tag}] the title screen and the page keep איי המילים, as today', r['title'] == 'איי המילים' and r['h1'] == 'איי המילים' and r['sub'] == 'Word Islands · All About Me', r)
         check(f'[{tag}] the English world is still איי המילים', r['en'].startswith('איי המילים'), r['en'])
@@ -253,6 +311,10 @@ async def finished(b, errs):
         r = await pg.evaluate("(()=>{const f=document.querySelector('.fin'),d=document.querySelector('.wd'),s=document.getElementById('stage').getBoundingClientRect();if(!f)return null;const a=f.getBoundingClientRect(),b=d.getBoundingClientRect();return {clear:a.bottom<=b.top+1,inside:a.top>=s.top&&b.bottom<=s.bottom+1}})()")
         if (w, h) == (320, 568):      # too short for the banner, the dock and six islands: the banner is left out (worldFits in js/main.js)
             check(f'[finished {w}x{h}] the all-played banner is left out on a phone this short; the islands keep their rings', r is None and await pg.locator('.isl.todo').count() > 0, r)
+            t = await pg.evaluate("document.getElementById('toast').classList.contains('on')?document.getElementById('toast').textContent:''")
+            check(f'[finished {w}x{h}] instead, its line is said once as a toast', 'עברתם בכל האיים' in t and 'חסרים לכם עוד 22 כוכבים באיים שבמסגרת הצהובה' in t, t)
+            await pg.evaluate("location.hash='settings'"); await pg.wait_for_selector('.scr.settings'); await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+            check(f'[finished {w}x{h}] and only once in a visit', not await pg.evaluate("document.getElementById('toast').classList.contains('on')"))
         else:
             check(f'[finished {w}x{h}] the all-played banner shows above the dock, both on the screen', r and r['clear'] and r['inside'], r)
         # a tap anywhere on an island's picture lands on that island (centre, top quarter, bottom quarter), and labels do not lie over another island's picture
@@ -282,6 +344,8 @@ async def main():
             await name_with_focus(b, errs)
             await finished(b, errs)
             await brand(b, errs)
+            await anim(b, errs)
+            await fin_logout(b, errs)
             await b.close()
     finally:
         for p in procs: p.terminate()
