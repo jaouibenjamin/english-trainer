@@ -5,8 +5,9 @@
    One line per game in EXTRA; the island screen shows one button for each. */
 import {SET,saveSet,esc} from './state.js';
 import * as tf from './tf.js';
+import * as pairs from './pairs.js';
 
-export const EXTRA={tf:{name:'נכון או לא?',mod:tf}};
+export const EXTRA={tf:{name:'נכון או לא?',mod:tf},pairs:{name:'זוגות',mod:pairs}};
 export const extraOn=()=>SET.games===true;
 export function initExtra(){let v=null;try{v=new URLSearchParams(location.search).get('games')}catch(e){}
  if(v==='1'||v==='0'){SET.games=v==='1';saveSet()}}

@@ -168,6 +168,9 @@ the word comes back. A device gets the switch by opening the game once with `?ga
 
 - **נכון או לא?** (`js/tf.js`): a card shows an English word and a Hebrew meaning from the teacher's list; the pupil
   says whether they belong together, by swiping the card, by two buttons or by the arrow keys.
+- **זוגות** (`js/pairs.js`): twelve cards face down, six English words of the island and their six meanings from the
+  teacher's list. A word and its own meaning stay open; two that do not belong together are shown for a moment, each
+  with its own pair written under the board, and turn back. A closed card holds nothing to read.
 
 `python3 tests/extra.py` plays it at phone and laptop sizes and for a signed-in pupil, and checks the cards against
 the word list, the three ways to answer, the voice, the layout and that nothing is saved or sent.
