@@ -540,3 +540,5 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 /* link to the printable worksheet on an island (only on a device that was given the switch) */
 .chips .wsl{text-decoration:none;color:inherit;min-height:44px;display:inline-flex;align-items:center;cursor:pointer}
 .chips .wsl:focus-visible{outline:3px solid #2d6f8e;outline-offset:2px}
+/* with the card row and the account panel a 640 px screen is 2 px short (#24 took the rest): the progress icons are smaller there */
+@media (max-height:700px){.settings.hascard .prog .pi,.settings.hascard .prog p>.st{width:22px;height:22px}}

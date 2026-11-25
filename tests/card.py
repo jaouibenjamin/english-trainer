@@ -70,6 +70,7 @@ async def local(b, w, h, errs, share):
     # ---- switch on ----
     await pg.goto(P.BASE + '?card=1#settings'); await pg.wait_for_selector('[data-to=card]')
     check(f'[{tag}] ?card=1 gives the device the switch and settings a row', await pg.evaluate(f"JSON.parse(localStorage.getItem('{SET_KEY}')).card===true"))
+    check(f'[{tag}] the switch is taken out of the address after it was read, and the screen stays where it was', 'card=' not in await pg.evaluate('location.search') and await pg.evaluate('location.hash') == '#settings', await pg.evaluate('location.href'))
     off = await fits(pg)
     check(f'[{tag}] on: the settings screen still fits with the extra row', not off, off)
     row_h = await pg.evaluate("document.querySelector('[data-to=card]').getBoundingClientRect().height")

@@ -10,8 +10,12 @@ import {S,SET,saveSet,API,islandStars,totalStars,wordsKnown,esc} from './state.j
 import {view,spr,btn,num,toast} from './ui.js';
 
 export const cardOn=()=>SET.card===true;
-export function initCard(){let v=null;try{v=new URLSearchParams(location.search).get('card')}catch(e){}
- if(v==='1'||(v==='0'&&typeof SET.card==='boolean')){SET.card=v==='1';saveSet()}}   // ?card=0 on a device that never had the switch writes nothing
+/* ?card=1 gives a device the switch, ?card=0 takes it away (on a device that never had it, it writes nothing). The
+   parameter is then taken out of the address, so a link copied from the address bar does not carry the switch to
+   another device, as word help does. */
+export function initCard(){let v=null,q=null;try{q=new URLSearchParams(location.search);v=q.get('card')}catch(e){}
+ if(v==='1'||(v==='0'&&typeof SET.card==='boolean')){SET.card=v==='1';saveSet()}
+ if(v!==null)try{q.delete('card');const s=q.toString();history.replaceState(history.state,'',location.pathname+(s?'?'+s:'')+location.hash)}catch(e){}}
 
 const WORDS_MAX=WORDS.filter(w=>w.p<6).length;
 const today=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()}`};
