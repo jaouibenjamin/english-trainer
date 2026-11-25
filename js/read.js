@@ -1,7 +1,7 @@
 /* Level 3: the story bottle. Read the passage (tap any word for its meaning), then answer by choosing a bottle.
    Reading is meant to feel safe: the story is always one tap away, wrong picks just say "try again". */
 import {TEXTS,GL,TOKRE,glossKey,VOC,EVIDENCE,T,starsFor} from './data.js';
-import {S,award,save,say,sayAll,warm,hush,shuffle,esc} from './state.js';
+import {S,award,save,say,sayAll,warm,hush,shuffle,esc,hasClip} from './state.js';
 import {SND} from './audio.js';
 import {hud,confetti,ico,spr,btn,en,toast} from './ui.js';
 import {slowBtn,note} from './help.js';
@@ -23,7 +23,7 @@ export async function start(host,cfg,api){
    host.innerHTML=`<div class="lv read">${head()}
     <p class="tip" id="gl">${g.mark.length?'התשובה מתחבאת במשפט המסומן':'לחצו על מילה כדי לראות את הפירוש שלה'}</p>
     <div class="mid">${story()}</div>
-    <div class="row">${btn('readall',spr('ic_speaker','bi')+' הקריאו לי','cream')}${slowBtn('readslow')}${g.peek?btn('unpeek','חזרה לשאלה '+ico('next'),'green'):btn('toq','לשאלות '+ico('next'),'green')}</div></div>`;
+    <div class="row">${btn('readall',spr('ic_speaker','bi')+' הקריאו לי','cream')}${hasClip(t.title)?slowBtn('readslow','',true):''}${g.peek?btn('unpeek','חזרה לשאלה '+ico('next'),'green'):btn('toq','לשאלות '+ico('next'),'green')}</div></div>`;
    const tx=host.querySelector('.text'),more=()=>tx.classList.toggle('more',tx.scrollHeight-tx.scrollTop-tx.clientHeight>6);tx.addEventListener('scroll',more,{passive:true});more();setTimeout(more,400)}
   else{const q=t.qs[g.i];
    host.innerHTML=`<div class="lv read qs">${head()}

@@ -3,6 +3,7 @@
    that needs it, and then a new paper. Content: xdata.js. Progress: S.x, saved with the account. */
 import {XSKILL,XORDER,XPASS,PIC,POOL,KIDS,TRIP,INVITE,WRITE_CHECK,RULES,paper,practice,shuf} from './xdata.js';
 import {S,save,award,esc} from './state.js';
+import {WORDS} from './data.js';
 import {SND} from './audio.js';
 import {helpOn,words,sentBtn} from './help.js';
 import {view,stage,setBg,preload,SP,ico,spr,rb,btn,en,num,toast,confetti,clearFx,sleep} from './ui.js';
@@ -165,10 +166,12 @@ export async function prac(k,ctx){if(!XSKILL[k])return ctx.go('mock');setBg('pap
 const fmt=l=>esc(l).replace(/([A-Za-z][A-Za-z' .,?!\/…()·→]*[A-Za-z.?!)])/g,m=>`<bdi dir="ltr" class="en">${m}</bdi>`);
 
 /* ---------- one question on the screen ---------- */
+const NUMW=WORDS.filter(w=>w.p===7).map(w=>w.en.toLowerCase());
 function question(it,mode){
  /* word help is for practice, not for the paper: the paper is the rehearsal of the real test. Off, or in the paper, the
     lines are drawn exactly as before. A word that is the answer of this question is never a help button. */
- const H=helpOn()&&mode==='prac',skip=[String(it.a||'').toLowerCase()],tx=l=>H?words(l,skip):esc(l),bl=s=>H?tx(s).replace('___','<i class="gap">&nbsp;</i>'):blank(s),
+ const H=helpOn()&&mode==='prac',skip=[String(it.a||'').toLowerCase(),...(it.type==='who'?NUMW:[])],   // in "who is it?" a number word would give the age on the card away
+ tx=l=>H?words(l,skip):esc(l),bl=s=>H?tx(s).replace('___','<i class="gap">&nbsp;</i>'):blank(s),
   sb=s=>H?sentBtn(it.a&&/^(am|is|are)$/.test(it.a)?s.replace('___',it.a):s):'';   // the Hebrew of a whole sentence: only when the data has it; with a gap only when the gap is am / is / are (the Hebrew does not give that away)
  let body='';
  if(it.type==='who')body=`<div class="xkids">${KIDS.map(c=>`<span class="xkid"><b>${c.em}</b><span class="xkn">${en(c.n)}</span><span class="xkf" dir="ltr">🎂 age <b>${c.age}</b></span>${c.month?`<span class="xkf" dir="ltr">📅 <b>${esc(c.month)}</b></span>`:''}</span>`).join('')}</div>

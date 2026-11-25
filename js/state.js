@@ -234,7 +234,8 @@ const missed=()=>{misses++;retryAt=Date.now()+30000};
 export async function say(text,rate,slow){const my=++seq;
  const c=clipFor(text);
  if(slow&&!c){if(stopClip)stopClip();return false}   // slowly is for recorded clips only, never the browser voice
- if(c){synthStop();const r=await playClip(c,my,slow);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed()}
+ if(c){synthStop();const r=await playClip(c,my,slow);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed();
+  if(slow)return false}   // a slow replay that failed stays silent: slowly is the recorded voice or nothing, never the browser voice
  else if(stopClip)stopClip();
  return synth(text,rate)}
 /* speak several texts in order with a short breath between them ("read to me"); hush() or any newer speech stops it.
@@ -268,4 +269,4 @@ export const reduced=()=>SET.calm||matchMedia('(prefers-reduced-motion:reduce)')
 export const applyCalm=()=>document.documentElement.classList.toggle('calm',!!SET.calm);
 applyCalm();
 /* is there a recorded clip for this text? (the slowly button shows only then) */
-export const hasClip=text=>!!clipOf(text);
+export const hasClip=text=>!!clipFor(text);   // false too while the recordings are out of reach (two misses in a row): the slowly button hides until they are back

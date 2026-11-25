@@ -3,19 +3,22 @@
      node tests/help_coverage.mjs --write    # also write docs/WORD_HELP_COVERAGE.md (the lists, for the teacher)
      node tests/help_coverage.mjs --check    # fail if that file is out of date
    Counted: every English word and sentence a pupil can see in the four island levels and in the mock exam. A meaning is
-   "from the teacher's list" (the Unit 1 word list) or "from the reading glossary" (the story level's own list); a word
-   in neither has no help. A sentence has Hebrew only if the data already holds its translation. */
+   "from the teacher's list" (the Unit 1 word list) or "in the reading glossary" (the story level's own list, which word
+   help does not use while GLOSSARY in js/helpdata.js is false); a word in neither has no help. A sentence has Hebrew
+   only if the data already holds its translation. The texts are cut into words the way they would be with the glossary
+   on, so the glossary's own phrases ("years old") are counted as it would show them. */
 import {WORDS,TEXTS,SENT,TOBE_BY,BUILD} from '../js/data.js';
 import {POOL,TRIP,KIDS,INVITE} from '../js/xdata.js';
-import {meaning,tokens,sentenceHe} from '../js/helpdata.js';
+import {meaning,tokensAll,glossary,sentenceHe,GLOSSARY} from '../js/helpdata.js';
 import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 const OUT=path.join(path.dirname(path.dirname(fileURLToPath(import.meta.url))),'docs','WORD_HELP_COVERAGE.md');
 const latin=s=>/[A-Za-z]/.test(s);
 /* text = sentences and questions (where a word can be tapped); answers = words on answer buttons (never tappable) */
-const text=new Map(),answers=new Map(),sents=new Map();
-const add=(m,s,where)=>{for(const t of tokens(s))if(latin(t)){const k=t.toLowerCase();if(!m.has(k))m.set(k,new Set());m.get(k).add(where)}};
+const text=new Map(),answers=new Map(),sents=new Map(),seenIn=new Map();
+const add=(m,s,where)=>{for(const t of tokensAll(s))if(latin(t)){const k=t.toLowerCase();if(!m.has(k))m.set(k,new Set());m.get(k).add(where);
+  if(m===text){if(!seenIn.has(k))seenIn.set(k,new Set());seenIn.get(k).add(String(s).replace(/\s+/g,' ').trim())}}};
 const sentence=(s,where)=>{s=String(s).trim();if(!latin(s)||!/\s/.test(s))return;if(!sents.has(s))sents.set(s,new Set());sents.get(s).add(where)};
 const split=t=>t.match(/[^.!?]+[.!?]+["”]?\s*/g)||[t];
 for(const w of WORDS)add(answers,w.en,'word levels');
@@ -38,7 +41,9 @@ for(const k of KIDS){add(text,k.n,'mock exam');for(const l of k.likes||[])add(te
 for(const v of Object.values(INVITE))if(latin(String(v)))add(text,String(v),'mock exam');
 
 const all=new Set([...text.keys(),...answers.keys()]);
-const src=k=>{const m=meaning(k);return m?m.src:'none'};
+/* list = the teacher's word list; gl = only in the reading glossary; none = in neither */
+const src=k=>{const m=meaning(k);return m&&m.src==='list'?'list':glossary(k)?'gl':'none'};
+const shown=k=>src(k)==='list'||(GLOSSARY&&src(k)==='gl');
 const count=keys=>{const c={list:0,gl:0,none:0};for(const k of keys)c[src(k)]++;return c};
 const cAll=count(all),cText=count(text.keys());
 const miss=[...text.keys()].filter(k=>src(k)==='none').sort();
@@ -46,8 +51,9 @@ const missAns=[...all].filter(k=>!text.has(k)&&src(k)==='none').sort();
 const gl=[...text.keys()].filter(k=>src(k)==='gl').sort();
 const yes=[...sents.keys()].filter(s=>sentenceHe(s)).sort(),no=[...sents.keys()].filter(s=>!sentenceHe(s)).sort();
 const pct=(a,b)=>b?Math.round(a/b*100)+'%':'0%';
-const line1=`English words on screen in the four island levels and the mock exam: ${all.size} distinct. With a meaning in the data: ${cAll.list+cAll.gl} (${pct(cAll.list+cAll.gl,all.size)}): ${cAll.list} from the teacher's word list, ${cAll.gl} from the reading glossary. Without: ${cAll.none}.`;
-const line2=`Of those, the words inside sentences and questions (the ones a pupil can tap): ${text.size} distinct. With a meaning: ${cText.list+cText.gl} (${pct(cText.list+cText.gl,text.size)}): ${cText.list} from the teacher's word list, ${cText.gl} from the reading glossary. Without: ${cText.none}.`;
+const use=GLOSSARY?'shown too (GLOSSARY is on)':'not shown (GLOSSARY is off until the teacher has gone over it)';
+const line1=`English words on screen in the four island levels and the mock exam: ${all.size} distinct. In the teacher's word list: ${cAll.list}. Only in the reading glossary, ${use}: ${cAll.gl}. In neither: ${cAll.none}.`;
+const line2=`Of those, the words inside sentences and questions (the ones a pupil could tap): ${text.size} distinct. In the teacher's word list, so they can be tapped today: ${cText.list}. Only in the reading glossary, ${use}: ${cText.gl}. In neither: ${cText.none}.`;
 const line3=`English sentences on screen: ${sents.size} distinct. With a Hebrew translation in the data: ${yes.length}. Without: ${no.length}.`;
 const where=(m,k)=>[...m.get(k)].join(', ');
 const md=`# Word help: what the data can translate
@@ -62,20 +68,25 @@ the missing meanings and sentence translations can be asked from the teacher. No
 - ${line3}
 
 "The teacher's word list" is her Unit 1 list (\`RAW\` in \`js/data.js\`). "The reading glossary" is the list the story
-level has always used for a tap on a word (\`GL\` in \`js/data.js\`); it was written for the game's own stories, so its
-entries are the ones to show the teacher first.
+level has always used for a tap on a word (\`GL\` in \`js/data.js\`). It was written for the game's own stories, and some
+of its meanings are wrong outside them (for example "a", "is", "plays", "can", "old"). So word help does not use it:
+\`GLOSSARY\` in \`js/helpdata.js\` is ${GLOSSARY?'true':'false'}. The table below is for the teacher: every glossary entry that word help
+would show, with the sentences it would appear in. An entry she approves as it is can be switched on; one she corrects
+goes into the data with her wording.
 
 ## Words in sentences and questions that have no meaning yet (${miss.length})
 
-A tap on these does nothing today.
+These are in neither list. They are not help words.
 
 ${miss.map(k=>`- \`${k}\` (${where(text,k)})`).join('\n')}
 
-## Words in sentences and questions whose meaning comes from the reading glossary, not the teacher's list (${gl.length})
+## Reading glossary entries, for the teacher to go over (${gl.length})
 
-| Word | Meaning shown | Where |
+${GLOSSARY?'Shown today.':'Not shown today.'} Each row: the word, the meaning the glossary holds, and up to four of the sentences and lines it would appear in.
+
+| Word | Glossary meaning | Would appear in |
 |---|---|---|
-${gl.map(k=>`| \`${k}\` | ${meaning(k).he} | ${where(text,k)} |`).join('\n')}
+${gl.map(k=>`| \`${k}\` | ${glossary(k)} | ${[...seenIn.get(k)].slice(0,4).map(x=>x.replace(/\|/g,'/')).join(' · ')}${seenIn.get(k).size>4?` · and ${seenIn.get(k).size-4} more`:''} |`).join('\n')}
 
 ## Words that appear only on answer buttons and have no meaning (${missAns.length})
 

@@ -5,17 +5,20 @@ Built by `node tests/help_coverage.mjs --write` from the game's data. Do not edi
 Word help shows only meanings that are already in the game's data. This page lists what is covered and what is not, so
 the missing meanings and sentence translations can be asked from the teacher. Nothing here was translated for this page.
 
-- English words on screen in the four island levels and the mock exam: 236 distinct. With a meaning in the data: 204 (86%): 88 from the teacher's word list, 116 from the reading glossary. Without: 32.
-- Of those, the words inside sentences and questions (the ones a pupil can tap): 206 distinct. With a meaning: 178 (86%): 65 from the teacher's word list, 113 from the reading glossary. Without: 28.
+- English words on screen in the four island levels and the mock exam: 236 distinct. In the teacher's word list: 88. Only in the reading glossary, not shown (GLOSSARY is off until the teacher has gone over it): 116. In neither: 32.
+- Of those, the words inside sentences and questions (the ones a pupil could tap): 206 distinct. In the teacher's word list, so they can be tapped today: 65. Only in the reading glossary, not shown (GLOSSARY is off until the teacher has gone over it): 113. In neither: 28.
 - English sentences on screen: 191 distinct. With a Hebrew translation in the data: 33. Without: 158.
 
 "The teacher's word list" is her Unit 1 list (`RAW` in `js/data.js`). "The reading glossary" is the list the story
-level has always used for a tap on a word (`GL` in `js/data.js`); it was written for the game's own stories, so its
-entries are the ones to show the teacher first.
+level has always used for a tap on a word (`GL` in `js/data.js`). It was written for the game's own stories, and some
+of its meanings are wrong outside them (for example "a", "is", "plays", "can", "old"). So word help does not use it:
+`GLOSSARY` in `js/helpdata.js` is false. The table below is for the teacher: every glossary entry that word help
+would show, with the sentences it would appear in. An entry she approves as it is can be switched on; one she corrects
+goes into the data with her wording.
 
 ## Words in sentences and questions that have no meaning yet (28)
 
-A tap on these does nothing today.
+These are in neither list. They are not help words.
 
 - `art` (mock exam)
 - `ben` (mock exam)
@@ -46,123 +49,125 @@ A tap on these does nothing today.
 - `true` (mock exam)
 - `we` (bridge, mock exam)
 
-## Words in sentences and questions whose meaning comes from the reading glossary, not the teacher's list (113)
+## Reading glossary entries, for the teacher to go over (113)
 
-| Word | Meaning shown | Where |
+Not shown today. Each row: the word, the meaning the glossary holds, and up to four of the sentences and lines it would appear in.
+
+| Word | Glossary meaning | Would appear in |
 |---|---|---|
-| `a` | (מילת יידוע) | reading, bridge, mock exam |
-| `am` | (אני) am | reading, mock exam |
-| `and` | ו- | reading, bridge, mock exam |
-| `are` | הם / הן (are) | reading, mock exam |
-| `at` | ב- | reading, mock exam |
-| `ball` | כדור | reading, mock exam |
-| `big` | גדול | reading, bridge |
-| `birthday` | יום הולדת | reading, mock exam |
-| `blue` | כחול | reading, bridge |
-| `bus` | אוטובוס | reading, mock exam |
-| `buy` | לקנות | reading |
-| `buys` | קונה | reading |
-| `cake` | עוגה | reading, mock exam |
-| `can` | יכולה | reading, mock exam |
-| `children` | ילדים | reading |
-| `coming` | באה | reading |
-| `dad` | אבא | reading |
-| `dana` | דנה (שם) | reading, bridge, mock exam |
-| `dana's` | דנה (שם) | reading |
-| `day` | יום | reading |
-| `does` | (מילת שאלה) | reading, mock exam |
-| `eat` | לאכול | reading |
-| `eggs` | ביצים | reading |
-| `english` | אנגלית | reading, mock exam |
-| `farm` | חווה | reading |
-| `favorite` | אהוב ביותר | reading, mock exam |
-| `flowers` | פרחים | reading, bridge, mock exam |
-| `football` | כדורגל | reading, bridge, mock exam |
-| `friend` | חבר / חברה | reading, bridge, mock exam |
-| `friends` | חברים | reading, mock exam |
-| `from` | מ- | reading, bridge, mock exam |
-| `games` | משחקים | reading |
-| `get` | להשיג, לקבל | reading |
-| `gives` | נותנת | reading |
-| `go` | ללכת, לנסוע | reading, mock exam |
-| `goes` | הולכת | reading |
-| `grandma` | סבתא | reading, bridge, mock exam |
-| `grandma's` | סבתא | reading |
-| `happy` | שמח | reading, mock exam |
-| `has` | יש לו / לה | reading |
-| `have` | יש לי | reading |
-| `he` | הוא | reading, bridge, mock exam |
-| `hi` | היי | reading |
-| `him` | לו | reading |
-| `hobbies` | תחביבים | reading |
-| `home` | בית | reading |
-| `how` | איך / כמה | reading, mock exam |
-| `how many` | כמה | reading |
-| `i` | אני | reading, bridge, mock exam |
-| `in` | ב- | reading, bridge, mock exam |
-| `is` | הוא / היא (is) | reading, mock exam |
-| `it` | זה | bridge, mock exam |
-| `it's` | זה | mock exam |
-| `late` | מאחרת | reading |
-| `lia` | ליה (שם) | reading, mock exam |
-| `live` | לגור | reading |
-| `lives` | גרה | reading |
-| `living room` | סלון | reading |
-| `makes` | מכין | reading |
-| `man` | איש | reading |
-| `maya` | מאיה (שם) | reading, mock exam |
-| `maya's` | מאיה (שם) | reading, mock exam |
-| `mother` | אמא | reading |
-| `music` | מוזיקה | reading, mock exam |
-| `my` | שלי | reading, bridge, mock exam |
-| `name` | שם | reading |
-| `new` | חדש | reading, bridge, mock exam |
-| `noa` | נועה (שם) | reading, bridge, mock exam |
-| `not` | לא | reading |
-| `o'clock` | בשעה | reading, mock exam |
-| `of` | של | reading, mock exam |
-| `old` | ישן, בן כמה | reading |
-| `on` | על, ב- | reading, mock exam |
-| `one` | אחת | reading |
-| `party` | מסיבה | reading |
-| `plays` | מנגנת / משחקת | reading, mock exam |
-| `red` | אדום | reading |
-| `room` | חדר | reading |
-| `say` | לומר | reading |
-| `says` | אומרת | reading |
-| `school` | בית ספר | reading, mock exam |
-| `sea` | ים | reading |
-| `see` | לראות | reading |
-| `sells` | מוכר | reading |
-| `she` | היא | reading, bridge, mock exam |
-| `sings` | שרה | reading |
-| `small` | קטן | reading |
-| `some` | כמה, חלק | reading |
-| `story` | סיפור | reading |
-| `students` | תלמידים | reading, bridge, mock exam |
-| `sugar` | סוכר | reading |
-| `teacher` | מורה | reading, mock exam |
-| `teaches` | מלמדת | reading |
-| `ten` | עשר | reading, bridge, mock exam |
-| `the` | ה- | reading, bridge, mock exam |
-| `there` | שם / יש | reading, mock exam |
-| `they` | הם | reading, bridge, mock exam |
-| `this` | זה | reading |
-| `to` | אל, ל- | reading, mock exam |
-| `today` | היום | reading, mock exam |
-| `tom` | תום (שם) | mock exam |
-| `tom's` | תום (שם) | reading |
-| `very` | מאוד | reading |
-| `what` | מה | reading, mock exam |
-| `when` | מתי | reading, mock exam |
-| `where` | איפה | reading, mock exam |
-| `who` | מי | reading, mock exam |
-| `why` | למה | reading |
-| `with` | עם | reading |
-| `year` | שנה | reading |
-| `years old` | בן / בת (גיל) | reading, bridge, mock exam |
-| `you` | אתה / את | reading, bridge, mock exam |
-| `your` | שלך | reading |
+| `a` | (מילת יידוע) | I kick the ball and I get a goal! · A Special School · This is a story about a special school. · Every year the students go on a trip. · and 34 more |
+| `am` | (אני) am | I am ten years old. · I am from Israel. · I am thirteen years old. · I am fourteen years old. · and 3 more |
+| `and` | ו- | I kick the ball and I get a goal! · Every day the students study English and music. · The other students wait for the bus and go to a farm. · There is a small bathroom and a toilet. · and 5 more |
+| `are` | הם / הן (are) | There are forty students in the school. · How many students are in the school? · The flowers are a present. · There are twenty students in my . · and 9 more |
+| `at` | ב- | My favorite subject at school is English. · At one o'clock they eat in the dining room. · At the end of the day, Lia is late. · I English at school. · and 4 more |
+| `ball` | כדור | I kick the ball and I get a goal! · They throw a ball and play games. · I can the ball. · Please me the ball. |
+| `big` | גדול | Their classroom is big. · The flat is in a big building. · Their classroom big. |
+| `birthday` | יום הולדת | My favorite song is "Happy Birthday". · A Birthday Party · Tom's birthday is in July. · What do you do on your birthday? · and 8 more |
+| `blue` | כחול | There is a blue sofa in the living room. · The sofa blue. |
+| `bus` | אוטובוס | The other students wait for the bus and go to a farm. · I for the bus every morning. |
+| `buy` | לקנות | What does Lia buy? |
+| `buys` | קונה | Lia buys red flowers and a card for her grandma. |
+| `cake` | עוגה | Tom's dad makes a cake. · The cake is very sweet. · Who makes the cake? · Is it a cake? |
+| `can` | יכולה | Grandma can hear the song. · I can the ball. · True or False: Maya can hear music. · Maya can hear music, too. |
+| `children` | ילדים | Then the children go outside. · Where do the children play games? |
+| `coming` | באה | Noa is coming soon to see the new flat. |
+| `dad` | אבא | Tom's dad makes a cake. |
+| `dana` | דנה (שם) | Dana is eleven. · Dana has a new flat. · Dana plays the guitar in her room. · Noa plays the guitar like Dana. · and 1 more |
+| `dana's` | דנה (שם) | Dana's New Home · Dana's mother is a teacher. · What does Dana's mother teach? |
+| `day` | יום | Every day the students study English and music. · What do the students study every day? · At the end of the day, Lia is late. |
+| `does` | (מילת שאלה) | What does Maya play? · What does Dana's mother teach? · Where does Lia live? · Where does Lia go? · and 3 more |
+| `eat` | לאכול | At one o'clock they eat in the dining room. · Where do the students eat? |
+| `eggs` | ביצים | He has flour, eggs and sugar. |
+| `english` | אנגלית | My favorite subject at school is English. · Every day the students study English and music. · I English at school. · My favorite is English. |
+| `farm` | חווה | The other students wait for the bus and go to a farm. |
+| `favorite` | אהוב ביותר | My favorite song is "Happy Birthday". · My favorite subject at school is English. · What is her favorite subject? · Music is my favorite . · and 4 more |
+| `flowers` | פרחים | A man sells pretty flowers there. · Lia buys red flowers and a card for her grandma. · The flowers are a present. · She gives Grandma the flowers and the card. · and 4 more |
+| `football` | כדורגל | I play football with my friends. · My hobby football. · I like football. · football |
+| `friend` | חבר / חברה | Her friend Noa is the same age. · You my friend. |
+| `friends` | חברים | I play football with my friends. · Tom's friends give him candy. · What do Tom's friends give him? · Are they friends? |
+| `from` | מ- | I am from Israel. · My school is not far from my home. · Where is Maya from? · Is her school far from her home? · and 4 more |
+| `games` | משחקים | They throw a ball and play games. · Where do the children play games? |
+| `get` | להשיג, לקבל | I kick the ball and I get a goal! |
+| `gives` | נותנת | She gives Grandma the flowers and the card. |
+| `go` | ללכת, לנסוע | Every year the students go on a trip. · Some students go to the sea. · The other students wait for the bus and go to a farm. · Then the children go outside. · and 2 more |
+| `goes` | הולכת | Lia goes to the market. |
+| `grandma` | סבתא | A Present for Grandma · Lia buys red flowers and a card for her grandma. · "I'm sorry, Grandma," she says. · She gives Grandma the flowers and the card. · and 4 more |
+| `grandma's` | סבתא | Today is her grandma's birthday. |
+| `happy` | שמח | My favorite song is "Happy Birthday". · She is happy. · Happy birthday! Here is a for you. · At the end of the trip, the students are tired but happy. |
+| `has` | יש לו / לה | Dana has a new flat. · He has flour, eggs and sugar. |
+| `have` | יש לי | I have a lot of hobbies. |
+| `he` | הוא | He has flour, eggs and sugar. · He ten years old. |
+| `hi` | היי | Hi! |
+| `him` | לו | Tom's friends give him candy. · What do Tom's friends give him? |
+| `hobbies` | תחביבים | Maya's Hobbies · I have a lot of hobbies. |
+| `home` | בית | My school is not far from my home. · Is her school far from her home? · Dana's New Home |
+| `how` | איך / כמה | How old is Maya? · How old is Noa? · How do the students feel at the end? |
+| `how many` | כמה | How many students are in the school? |
+| `i` | אני | I am ten years old. · I am from Israel. · I have a lot of hobbies. · I play football with my friends. · and 22 more |
+| `in` | ב- | There are forty students in the school. · At one o'clock they eat in the dining room. · How many students are in the school? · The flat is in a big building. · and 12 more |
+| `is` | הוא / היא (is) | My name is Maya. · My favorite song is "Happy Birthday". · My favorite subject at school is English. · My school is not far from my home. · and 49 more |
+| `it` | זה | It a special present. · Is it a building? · Is it a dining room? · Is it a piano? · and 4 more |
+| `it's` | זה | It's my birthday! I'm years old. |
+| `late` | מאחרת | At the end of the day, Lia is late. |
+| `lia` | ליה (שם) | Lia lives in a small village. · Lia goes to the market. · Lia buys red flowers and a card for her grandma. · At the end of the day, Lia is late. · and 6 more |
+| `live` | לגור | Where does Lia live? |
+| `lives` | גרה | Lia lives in a small village. |
+| `living room` | סלון | There is a blue sofa in the living room. · What is in the living room? |
+| `makes` | מכין | Tom's dad makes a cake. · Who makes the cake? |
+| `man` | איש | A man sells pretty flowers there. |
+| `maya` | מאיה (שם) | My name is Maya. · How old is Maya? · Where is Maya from? · What does Maya play? · and 6 more |
+| `maya's` | מאיה (שם) | Maya's Hobbies · Maya's favorite subject is . |
+| `mother` | אמא | Dana's mother is a teacher. · What does Dana's mother teach? |
+| `music` | מוזיקה | Every day the students study English and music. · She teaches music. · Music is my favorite . · I like music. · and 3 more |
+| `my` | שלי | My name is Maya. · I play football with my friends. · My favorite song is "Happy Birthday". · My favorite subject at school is English. · and 11 more |
+| `name` | שם | My name is Maya. |
+| `new` | חדש | Dana's New Home · Dana has a new flat. · Noa is coming soon to see the new flat. · Her flat new. |
+| `noa` | נועה (שם) | Her friend Noa is the same age. · Noa plays the guitar like Dana. · Noa is coming soon to see the new flat. · How old is Noa? · and 3 more |
+| `not` | לא | My school is not far from my home. |
+| `o'clock` | בשעה | At one o'clock they eat in the dining room. · Time: o'clock · 4 o'clock |
+| `of` | של | At the end of the day, Lia is late. · At the end of the trip, the students are tired but happy. |
+| `old` | ישן, בן כמה | How old is Maya? · How old is Noa? |
+| `on` | על, ב- | Every year the students go on a trip. · What do you do on your birthday? · Are they on a trip? · Today they are on a special trip to a market. |
+| `one` | אחת | At one o'clock they eat in the dining room. |
+| `party` | מסיבה | A Birthday Party · Everyone is ready for the party. |
+| `plays` | מנגנת / משחקת | Dana plays the guitar in her room. · Noa plays the guitar like Dana. · Who plays the guitar? · ben plays the piano |
+| `red` | אדום | Lia buys red flowers and a card for her grandma. |
+| `room` | חדר | Dana plays the guitar in her room. |
+| `say` | לומר | Why does Lia say "I'm sorry"? |
+| `says` | אומרת | "I'm sorry, Grandma," she says. · "This is a special thing," says Grandma. |
+| `school` | בית ספר | My favorite subject at school is English. · My school is not far from my home. · Is her school far from her home? · A Special School · and 5 more |
+| `sea` | ים | Some students go to the sea. |
+| `see` | לראות | Noa is coming soon to see the new flat. |
+| `sells` | מוכר | A man sells pretty flowers there. |
+| `she` | היא | She teaches music. · "I'm sorry, Grandma," she says. · She gives Grandma the flowers and the card. · She is happy. · and 1 more |
+| `sings` | שרה | Then Lia sings a song. |
+| `small` | קטן | There is a small bathroom and a toilet. · Lia lives in a small village. |
+| `some` | כמה, חלק | Some students go to the sea. |
+| `story` | סיפור | This is a story about a special school. |
+| `students` | תלמידים | There are forty students in the school. · Every day the students study English and music. · Every year the students go on a trip. · Some students go to the sea. · and 10 more |
+| `sugar` | סוכר | He has flour, eggs and sugar. |
+| `teacher` | מורה | Dana's mother is a teacher. · Is Maya a teacher? · Every Friday, her teacher takes the class outside. |
+| `teaches` | מלמדת | She teaches music. |
+| `ten` | עשר | I am ten years old. · He ten years old. |
+| `the` | ה- | I kick the ball and I get a goal! · I also play the piano. · There are forty students in the school. · Every day the students study English and music. · and 59 more |
+| `there` | שם / יש | There are forty students in the school. · There is a blue sofa in the living room. · There is a small bathroom and a toilet. · A man sells pretty flowers there. · and 2 more |
+| `they` | הם | At one o'clock they eat in the dining room. · They throw a ball and play games. · They ready. · Are they on a trip? · and 4 more |
+| `this` | זה | This is a story about a special school. · "This is a special thing," says Grandma. |
+| `to` | אל, ל- | Some students go to the sea. · The other students wait for the bus and go to a farm. · Noa is coming soon to see the new flat. · Lia goes to the market. · and 5 more |
+| `today` | היום | Today is her grandma's birthday. · Where are they today? · Today they are on a special trip to a market. |
+| `tom` | תום (שם) | tom is thirteen years old · Tom |
+| `tom's` | תום (שם) | Tom's birthday is in July. · Tom's dad makes a cake. · Tom's friends give him candy. · When is Tom's birthday? · and 1 more |
+| `very` | מאוד | The cake is very sweet. |
+| `what` | מה | What does Maya play? · What is her favorite subject? · What do the students study every day? · What do the students do every year? · and 6 more |
+| `when` | מתי | When is Tom's birthday? · When does the class go outside? Every . |
+| `where` | איפה | Where is Maya from? · Where do the students eat? · Where is the flat? · Where do the children play games? · and 4 more |
+| `who` | מי | Who plays the guitar? · Who makes the cake? · Who takes the class outside? |
+| `why` | למה | Why does Lia say "I'm sorry"? |
+| `with` | עם | I play football with my friends. |
+| `year` | שנה | Every year the students go on a trip. · What do the students do every year? |
+| `years old` | בן / בת (גיל) | I am ten years old. · He ten years old. · I eleven years old. · I am thirteen years old. · and 3 more |
+| `you` | אתה / את | What do you do on your birthday? · You my friend. · Happy birthday! Here is a for you. |
+| `your` | שלך | What do you do on your birthday? |
 
 ## Words that appear only on answer buttons and have no meaning (4)
 
