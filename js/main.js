@@ -135,6 +135,11 @@ function collection(){setBg('paper','center');const tot=totalStars(),nxt=BALLS.f
    return `<button class="ball${ok?'':' locked'}${sel?' sel':''}" data-a="${ok?'ball':'locked'}" data-i="${k}" data-need="${b.need}" aria-pressed="${sel}"><span class="bw">${spr('ball_'+k,'bi')}${ok?'':spr('lock','lk')}${sel?spr('ic_check','sl'):''}</span><b>${b.name}</b><small>${ok?(sel?'בקלע עכשיו':'לחצו כדי לבחור'):`${num(b.need)}${star()}`}</small></button>`}).join('')}</div></section>`}
 
 /* ---------- settings + help ---------- */
+/* what the pages' security policy blocked on this device (js/csplog.js keeps the last 10: directive and origin only).
+   Nothing shows while the list is empty, which is the usual case. Read here, never sent anywhere. */
+function cspLine(){let l=[];try{l=JSON.parse(localStorage.getItem('wi_csp')||'[]')}catch(e){}
+ if(!Array.isArray(l)||!l.length)return'';const n={};for(const x of l){const k=String(x&&x.d||'?')+' '+String(x&&x.o||'?');n[k]=(n[k]||0)+1}
+ return`<p class="credit csp">חסימות אבטחה אחרונות: <bdi dir="ltr">${Object.entries(n).map(([k,c])=>esc(k)+(c>1?' ×'+c:'')).join(' · ')}</bdi></p>`}
 function settings(){setBg('paper','center');
  const tog=(k,label,icon)=>`<button class="setrow" data-a="toggle" data-k="${k}" role="switch" aria-checked="${SET[k]}">${spr(icon,'si')}<span class="sl">${label}</span><i class="sw${SET[k]?' on':''}"><em>${SET[k]?ico('check'):''}</em><b>${SET[k]?'פועל':'כבוי'}</b></i></button>`;
  const lnk=(inner,icon,t,d)=>`<${inner} class="setrow link">${spr(icon,'si')}<span class="sl">${t}<small>${d}</small></span>${ico('next','go')}</${inner.split(' ')[0]}>`;
@@ -145,7 +150,7 @@ function settings(){setBg('paper','center');
   <div class="panel label">${lnk('button data-a="nav" data-to="help"','ic_buoy','איך משחקים?','הסבר קצר על ארבעת השלבים')}
    ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}${cardOn()?lnk('button data-a="nav" data-to="card"','trophy','הכרטיס שלי','להראות או לשמור כתמונה'):''}</div>
   <div class="panel label"><div class="prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter(v=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
-   <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p></div>
+   <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p>${cspLine()}</div>
   ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br><span class="aw">${num(wordsKnown())} מילים שנלמדו<br></span>${syncLine()}</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
   </div>
   ${API&&S.u?'':`<div class="guide">${spr('crab_listen','bob')}<p class="label">ההתקדמות נשמרת במכשיר הזה</p></div>`}</section>`}   // signed in, the account panel takes the note's place

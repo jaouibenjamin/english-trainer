@@ -1,4 +1,6 @@
-<!DOCTYPE html><meta charset="utf-8"><title>cors check</title><pre id="o">checking…</pre>
+<!DOCTYPE html><meta charset="utf-8">
+<!-- A developer tool, not linked from the game: it fetches the https address given in ?u= and shows the status. Its own policy: only its one inline script (by hash) and https requests, nothing else (tests/csp_check.py). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-iAu/iuMAnvca0Hv0ULvowK+aVsu7iF03MPKaagm4dQQ='; connect-src https:; object-src 'none'; base-uri 'none'; form-action 'none'"><title>cors check</title><pre id="o">checking…</pre>
 <script>
 const u=new URLSearchParams(location.search).get('u');
 fetch(u,{mode:'cors'}).then(async r=>{const b=await r.arrayBuffer();o.textContent='OK '+r.status+' bytes='+b.byteLength+' acao='+r.headers.get('access-control-allow-origin')+' type='+r.headers.get('content-type')})
