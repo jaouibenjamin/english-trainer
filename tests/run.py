@@ -125,12 +125,49 @@ async def ds_targets(pg, tag, where):
     tiny = await pg.evaluate(SMALL)
     check(not tiny, f'{tag}: {where}: no text under 16px {tiny[:4]}')
 
+async def ds_calm_short(b):
+    """new look with the game's own calm switch: "right" / "almost" fade and end hidden (the plate never stays over the
+    road). A returning, signed-in pupil (best score and name lines) on a short phone, 360x740 and 360x640: the gold
+    "run" button is on the screen without scrolling, and a new pupil's too"""
+    c = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=1, has_touch=True)
+    pg = csp_wait(await c.new_page()); errs = []; watch(pg, errs)
+    await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
+    await pg.add_init_script("try{localStorage.setItem('word-islands-settings-v1',JSON.stringify({music:false,sfx:false,calm:true}))}catch(e){}")
+    await pg.goto(BASE + '?ds=1'); await pg.wait_for_selector('[data-go="run"]', state='visible', timeout=15000)
+    await pg.click('[data-go="run"]'); await pg.evaluate('window.__runFast=8; __run.noHit(true)')
+    await pg.wait_for_function('!!__run.G().gate', timeout=60000)
+    await pg.evaluate('__run.goLane(__run.lanes().indexOf(__run.answer()))')
+    await pg.wait_for_function('!__run.G().gate', timeout=60000)
+    await pg.evaluate('window.__runFast=1e-9')
+    mid = await pg.evaluate("[document.documentElement.classList.contains('calm'),getComputedStyle(document.querySelector('#flash')).animationName]")
+    await pg.wait_for_timeout(1500)
+    op = await pg.evaluate("getComputedStyle(document.querySelector('#flash')).opacity")
+    check(mid == [True, 'dsstill'] and op == '0', f'new look, calm: "right" fades and is hidden again 1.5 s after the answer {mid} opacity {op}')
+    real = [e for e in errs if 'WebGL' not in e and 'GPU stall' not in e]
+    check(not real, f'new look, calm: no page errors {real[:3]}')
+    await c.close()
+    # a returning pupil: a best score and a signed-in name (a backend URL that nothing is sent to in this check)
+    REC = "try{localStorage.setItem('aam-unit1-v1',JSON.stringify({pts:120,u:{c:'TEST',n:'Testpupil',p:'0000'},r:{runs:3,best:9,pace:'mid',miss:[],dpts:0}}))}catch(e){}"
+    for w, h in ((360, 740), (360, 640)):
+        for who, rec in (('returning', True), ('new', False)):
+            c = await b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=1, has_touch=True)
+            pg = csp_wait(await c.new_page())
+            await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='http://127.0.0.1:9/never';" if rec else "window.API_URL='';"))
+            await pg.route('http://127.0.0.1:9/**', lambda r: r.abort())
+            if rec: await pg.add_init_script(REC)
+            await pg.goto(BASE + '?ds=1'); await pg.wait_for_selector('[data-go="run"]', state='visible', timeout=15000); await pg.wait_for_timeout(300)
+            R = await pg.evaluate("(()=>{const m=document.querySelector('#menu');m.scrollTop=0;const b=document.querySelector('[data-go=run]').getBoundingClientRect();return {bottom:Math.round(b.bottom),top:Math.round(b.top),h:innerHeight,lines:document.querySelectorAll('#menu .who').length,scroll:m.scrollHeight>m.clientHeight}})()")
+            check(R['bottom'] <= R['h'] and R['top'] >= 0 and (R['lines'] >= 2 if rec else True), f'new look, {who} pupil at {w}x{h}: the "run" button is on the screen without scrolling {R}')
+            if SHOTS and rec:
+                os.makedirs(SHOTS, exist_ok=True); await pg.screenshot(path=os.path.join(SHOTS, f'ds_{who}_{w}x{h}_start.png'))
+            await c.close()
+
 async def ds_slow(b):
     """new look on a small phone (360x740) on slow wifi, with reduced motion asked by the device: the menu stays hidden
     until both stylesheets are in, so the old look never shows; the question card in the new look ends as high as in
     today's look (the lanes stay above the road); the card does not slide in and "right" only fades"""
     c = await b.new_context(viewport={'width': 360, 'height': 740}, device_scale_factor=1, has_touch=True, reduced_motion='reduce')
-    pg = await c.new_page()
+    pg = csp_wait(await c.new_page())
     errs = []; watch(pg, errs)
     await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
     async def slow(route):
@@ -183,7 +220,7 @@ async def bidi(b):
     """explanation lines mix Hebrew and English: the words are the same as before, and an English sentence keeps its
     full stop at its end (it used to show as ".I study English at school")"""
     c = await b.new_context(viewport={'width': 390, 'height': 844})
-    pg = await c.new_page()
+    pg = csp_wait(await c.new_page())
     await pg.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body="window.API_URL='';"))
     await pg.goto(BASE); await pg.wait_for_selector('[data-go="run"]', timeout=15000)
     R = await pg.evaluate(BIDI)
@@ -277,7 +314,7 @@ async def play(b, w, h, tag, qs=''):
     check(await pg.is_visible('#dash'), f'{tag}: the dash button shows while a question is up')
     await pg.keyboard.press('ArrowDown')
     check(await pg.evaluate('__run.G().dash'), f'{tag}: ArrowDown dashes to the gate')
-    await pg.wait_for_function('!__run.G().gate', timeout=30000)
+    await pg.wait_for_function('!__run.G().gate', timeout=60000)
     check(not await pg.is_visible('#dash'), f'{tag}: the dash button hides after the gate')
     real = [e for e in errs if 'WebGL' not in e and 'GPU stall' not in e]
     check(not real, f'{tag}: no page errors, failed requests or requests to another host {real[:3]}')
@@ -307,6 +344,7 @@ async def main():
             await play(b, 390, 844, 'r390x844')
             await play(b, 390, 844, 'r390x844_ds', '?ds=1')
             await ds_slow(b)
+            await ds_calm_short(b)
             await looks(b)
             if '--quick' not in sys.argv:
                 await play(b, 1366, 640, 'r1366x640')

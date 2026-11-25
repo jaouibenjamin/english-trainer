@@ -55,8 +55,13 @@ html.ds #flash.bad.show{animation:dsfade 1s var(--wi-ease)}
 @keyframes dsfade{0%{opacity:0}20%{opacity:1}70%{opacity:1}100%{opacity:0;transform:translateY(-12px)}}
 
 /* start, pause and end menus: a painted panel, one gold button, one quiet way back */
-html.ds .sheet{background:rgba(5,14,34,.62);justify-content:safe center}   /* taller than a small phone: start at the top and scroll, never cut the top off */
-html.ds .sheet>.card:has(.crabhead.hero){margin-top:52px}   /* room for the picture that sits half above the card, also when the menu scrolls */
+/* taller than a small phone: start at the top and scroll, never cut the top off; shorter: centred by the auto margins.
+   (Not "safe center" or :has(), which older Safari drops.) The top padding leaves room for the picture that sits half
+   above the first card. The gold button stays on the screen while the rest scrolls under it. */
+html.ds .sheet{background:rgba(5,14,34,.62);justify-content:flex-start;padding-top:72px}
+html.ds .sheet>:first-child{margin-top:auto}
+html.ds .sheet>:last-child{margin-bottom:auto}
+html.ds .sheet>.big-btn{position:sticky;bottom:8px;z-index:1}
 html.ds .card{border:22px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 22px / 4px round;background:none;box-shadow:none;color:var(--wi-text);padding:0 4px 4px;border-radius:0}
 html.ds .card h1,html.ds .card h2{color:var(--wi-text);line-height:var(--wi-lh-tight)}
 html.ds .card p{color:var(--wi-text)}
@@ -85,5 +90,6 @@ html.ds #nogl a{color:var(--wi-aqua)}
 @media (prefers-reduced-motion:reduce){html.ds .banner{animation:none}html.ds #flash.show,html.ds #flash.bad.show{animation:dsstill 1.2s linear}html.ds .pb:active,html.ds .big-btn:active{transform:none}}
 
 /* calm mode: nothing moves */
-html.ds.calm .banner,html.ds.calm #flash.show,html.ds.calm .pb,html.ds.calm .big-btn{animation:none!important;transition:none!important}
-html.ds.calm #flash.show{opacity:1}
+html.ds.calm .banner,html.ds.calm .pb,html.ds.calm .big-btn{animation:none!important;transition:none!important}
+/* "נכון!" / "כמעט!" only fade in calm mode, and end hidden: the plate never stays over the road where the next signs come down */
+html.ds.calm #flash.show{animation:dsstill 1.2s linear!important;opacity:0}
