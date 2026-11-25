@@ -33,7 +33,7 @@ function gotrue(clock) {
     },
     async fetch(u, init = {}) {
       const url = new URL(u), body = init.body ? JSON.parse(init.body) : null, auth = (init.headers || {}).authorization || '';
-      log.push({ path: url.pathname + url.search, body, auth, apikey: (init.headers || {}).apikey });
+      log.push({ path: url.pathname + url.search, body, auth, apikey: (init.headers || {}).apikey, keepalive: !!init.keepalive });
       if (g.delay) await g.delay;
       const out = (status, j) => ({ status, json: async () => j });
       if (url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'pkce') {
@@ -181,7 +181,7 @@ const tick = () => new Promise(r => setTimeout(r, 5));
   await u.signIn();
   u.auth.left();                                                  // a click to the game, a new address, closing the tab
   await tick();
-  eq('leaving the page ends the session (back again, nobody is signed in) and revokes it', [u.auth.signedIn(), u.server.log.at(-1).path, u.outs], [false, '/auth/v1/logout?scope=local', ['left']]);
+  eq('leaving the page ends the session (back again, nobody is signed in) and revokes it, with keepalive (the page is going)', [u.auth.signedIn(), u.server.log.at(-1).path, u.server.log.at(-1).keepalive, u.outs], [false, '/auth/v1/logout?scope=local', true, ['left']]);
 }
 // ---- 8. open redirect attempts
 {
