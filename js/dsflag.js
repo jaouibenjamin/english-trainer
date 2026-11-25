@@ -13,6 +13,7 @@
  }catch(e){on=q==='1'}
  if(!on)return;
  document.documentElement.classList.add('ds');
+ if(/^איי המילים$/.test(document.title))document.title='ניצני אופק';   // the platform's new name (docs/PLAN.md), with the flag only; other pages keep their own title
  ['css/ds.css','css/ds-game.css','css/ds-teacher.css'].forEach(function(h){var l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l)});
  /* the welcome film, once per device (js/intro.js): only the game page, only if not seen; ?intro=1 shows it again.
     An automated browser (navigator.webdriver, the test suites) does not get it unless ?intro=1 asks for it. */

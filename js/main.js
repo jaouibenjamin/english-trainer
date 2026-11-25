@@ -26,10 +26,14 @@ const pts=n=>num((+n||0).toLocaleString('en-US'));
 const nst=n=>`<span class="nb">${num(n)}${star()}</span>`;   // a number and its star never part at a line break
 
 /* ---------- title ---------- */
+/* The platform's name (owner's decision 25.11.2026, docs/PLAN.md). Shown only with the design flag (?ds=1) for now:
+   the live class keeps "איי המילים" until the new look goes live. "איי המילים" stays the name of the English world
+   (the English button, the card, the worksheet, Beach Run). */
+const BRAND='ניצני אופק';
 function title(){setBg('title','bottom');
  const d=Math.ceil((new Date(2026,10,25)-new Date())/864e5),md=M.daysToExam(),m=bgMap('bottom');
  view.innerHTML=`<section class="scr title">
-  <div class="logo"><h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p></div>
+  <div class="logo">${dsOn()?`<h1>${BRAND}</h1><p>ברוכים הבאים ל${BRAND}</p>`:`<h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p>`}</div>
   <div class="tgo subj"><p class="label pick">במה מתאמנים היום?</p>
    <button class="btn green xl sb" data-a="nav" data-to="map"><span><b>אנגלית</b><small>איי המילים${d>0&&d<60?` · מבחן בעוד ${num(d)} ימים`:''}</small></span></button>
    <button class="btn coral sb xm" data-a="nav" data-to="mock"><span><b>מבחן דמו באנגלית</b><small>${XS_last()}</small></span></button>
@@ -143,6 +147,13 @@ function collection(){setBg('paper','center');const tot=totalStars(),nxt=BALLS.f
    return `<button class="ball${ok?'':' locked'}${sel?' sel':''}" data-a="${ok?'ball':'locked'}" data-i="${k}" data-need="${b.need}" aria-pressed="${sel}"><span class="bw">${spr('ball_'+k,'bi')}${ok?'':spr('lock','lk')}${sel?spr('ic_check','sl'):''}</span><b>${b.name}</b><small>${ok?(sel?'בקלע עכשיו':'לחצו כדי לבחור'):`${num(b.need)}${star()}`}</small></button>`}).join('')}</div></section>`}
 
 /* ---------- settings + help ---------- */
+/* what the pages' security policy blocked on this device in the last 14 days (js/csplog.js keeps the last 10: directive, origin, day).
+   Nothing shows while the list is empty, which is the usual case. Read here, never sent anywhere. */
+function cspLine(){let l=[];try{l=JSON.parse(localStorage.getItem('wi_csp')||'[]')}catch(e){}
+ const since=Math.floor(Date.now()/864e5)-14;   // only the last 14 days: after a fix the line goes away by itself
+ l=Array.isArray(l)?l.filter(x=>x&&typeof x==='object'&&typeof x.d==='string'&&typeof x.o==='string'&&typeof x.t==='number'&&x.t>=since):[];
+ if(!l.length)return'';const n={};for(const x of l){const k=x.d.slice(0,40)+' '+x.o.slice(0,120);n[k]=(n[k]||0)+1}
+ return`<p class="credit csp">חסימות אבטחה אחרונות: <bdi dir="ltr">${Object.entries(n).map(([k,c])=>esc(k)+(c>1?' ×'+c:'')).join(' · ')}</bdi></p>`}
 function settings(){setBg('paper','center');
  const tog=(k,label,icon)=>`<button class="setrow" data-a="toggle" data-k="${k}" role="switch" aria-checked="${SET[k]}">${spr(icon,'si')}<span class="sl">${label}</span><i class="sw${SET[k]?' on':''}"><em>${SET[k]?ico('check'):''}</em><b>${SET[k]?'פועל':'כבוי'}</b></i></button>`;
  const lnk=(inner,icon,t,d)=>`<${inner} class="setrow link">${spr(icon,'si')}<span class="sl">${t}<small>${d}</small></span>${ico('next','go')}</${inner.split(' ')[0]}>`;
@@ -153,7 +164,7 @@ function settings(){setBg('paper','center');
   <div class="panel label">${lnk('button data-a="nav" data-to="help"','ic_buoy','איך משחקים?','הסבר קצר על ארבעת השלבים')}
    ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}${cardOn()?lnk('button data-a="nav" data-to="card"','trophy','הכרטיס שלי','להראות או לשמור כתמונה'):''}</div>
   <div class="panel label"><div class="prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter(v=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
-   <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p></div>
+   <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p>${cspLine()}</div>
   ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br><span class="aw">${num(wordsKnown())} מילים שנלמדו<br></span>${syncLine()}</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
   </div>
   ${API&&S.u?'':`<div class="guide">${spr('crab_listen','bob')}<p class="label">ההתקדמות נשמרת במכשיר הזה</p></div>`}</section>`}   // signed in, the account panel takes the note's place
@@ -173,7 +184,7 @@ function login(){setBg('paper','center');
  const tab=(m,t)=>`<button type="button" role="tab" aria-selected="${(m==='register')===reg}" data-a="lmode" data-m="${m}">${t}</button>`;
  const sw=V.sw?`<button type="button" class="swl" data-a="lmode" data-m="${V.sw}">${V.sw==='register'?'זאת הפעם הראשונה שלי':'כבר נרשמתי'} ${ico('next')}</button>`:'';
  const fg=`<button type="button" class="swl" data-a="forgot">שכחתי את הקוד ${ico('next')}</button>`,pinErr=V.err===ERR.pin||V.err===ERR.locked;
- view.innerHTML=`<section class="scr login"><div class="logo sm"><h1>איי המילים</h1></div>
+ view.innerHTML=`<section class="scr login"><div class="logo sm"><h1>${dsOn()?BRAND:'איי המילים'}</h1></div>
   <div class="lwrap">${spr('crab_wave','lcrab')}
   <form class="scrollp lcard" id="lf" autocomplete="off"><h3>כניסה לכיתה</h3>
    <div class="seg" role="tablist" aria-label="כניסה או הרשמה">${tab('login','כבר נרשמתי')}${tab('register','פעם ראשונה שלי')}</div>

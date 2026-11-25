@@ -220,6 +220,30 @@ async def name_with_focus(b, errs):
         await c.close()
 
 
+async def brand(b, errs):
+    """the platform's name (docs/PLAN.md, 25.11.2026): "ניצני אופק" with the flag, "איי המילים" without it; the English
+    world keeps "איי המילים" either way"""
+    for ds in (False, True):
+        tag = 'flag on' if ds else 'flag off'
+        c, pg, reqs = await page(b, 390, 844, errs)
+        await pg.goto(P.BASE + ('?ds=1' if ds else '')); await pg.wait_for_selector('.title .btn'); await pg.wait_for_timeout(300)
+        r = await pg.evaluate("({title:document.title,h1:document.querySelector('.title .logo h1').textContent,sub:document.querySelector('.title .logo p').textContent,en:document.querySelector('.title [data-to=map] small').textContent})")
+        if ds:
+            check(f'[{tag}] the title screen and the page say ניצני אופק, with a welcome line', r['title'] == 'ניצני אופק' and r['h1'] == 'ניצני אופק' and r['sub'] == 'ברוכים הבאים לניצני אופק', r)
+        else:
+            check(f'[{tag}] the title screen and the page keep איי המילים, as today', r['title'] == 'איי המילים' and r['h1'] == 'איי המילים' and r['sub'] == 'Word Islands · All About Me', r)
+        check(f'[{tag}] the English world is still איי המילים', r['en'].startswith('איי המילים'), r['en'])
+        await c.close()
+    api = f'http://127.0.0.1:{P.API_PORT}/'
+    for ds in (False, True):
+        c, pg, reqs = await page(b, 390, 844, errs, api=api)
+        await pg.goto(P.BASE + ('?ds=1' if ds else '') + '#login'); await pg.wait_for_selector('.login .logo h1')
+        h = await pg.inner_text('.login .logo h1')
+        check(f"[{'flag on' if ds else 'flag off'}] the login screen says {'ניצני אופק' if ds else 'איי המילים'}", h == ('ניצני אופק' if ds else 'איי המילים'), h)
+        await P.shot(pg, f"brand-login-{'ds' if ds else 'off'}")
+        await c.close()
+
+
 async def finished(b, errs):
     """every level played: the all-played banner sits above the dock, both whole on the screen"""
     st = {f'{i}-{t}': 2 for i, ts in ((1, 'sling listen read bridge'), (2, 'sling listen read bridge'), (3, 'sling listen read bridge'), (4, 'sling listen read bridge'), (5, 'sling listen read bridge'), (6, 'sling listen')) for t in ts.split()}
@@ -257,6 +281,7 @@ async def main():
             await no_digest(b, errs)
             await name_with_focus(b, errs)
             await finished(b, errs)
+            await brand(b, errs)
             await b.close()
     finally:
         for p in procs: p.terminate()
