@@ -45,7 +45,7 @@ def files_check():
         fmt_ok = 'h264' in st and st.get('aac', {}).get('channels') in (1, 2) and st.get('aac', {}).get('sample_rate') in ('44100', '48000') and st['h264'].get('width', 0) <= 560 and float(pr['format']['duration']) <= 40
     except Exception as e:
         fmt_ok = False; st = str(e)
-    check('the film is H.264 at most 560 px wide with AAC at 44.1 or 48 kHz (a 96 kHz track crackled on phones, LESSONS 12), at most 40 s and under 9.5 MB', fmt_ok and size < 9.5 * 1024 * 1024, [size, list(st)])
+    check('the film is H.264 at most 560 px wide with AAC at 44.1 or 48 kHz (a 96 kHz track crackled on phones, LESSONS 13), at most 40 s and under 9.5 MB', fmt_ok and size < 9.5 * 1024 * 1024, [size, list(st)])
     ls = os.path.getsize(os.path.join(ROOT, light))
     check('the light version is under 3.5 MB', ls < 3.5 * 1024 * 1024, ls)
     return film
@@ -91,6 +91,8 @@ async def run(film):
             await pg.locator('#wi-intro .wi-intro__play').tap(); await pg.wait_for_timeout(1800)
             st = await pg.evaluate("(()=>{const v=document.querySelector('#wi-intro video');const c=document.querySelector('#wi-intro .wi-intro__cap');return {t:v.currentTime,muted:v.muted,cap:c.hidden?'':c.textContent}})()")
             check('a tap requests the film and plays it with sound', [u for u in seen if '.mp4' in u] and st['t'] > 0.5 and not st['muted'], st)
+            check('on a normal connection it is the full film, not the light one', [u for u in seen if '.mp4' in u and '/intro.hf_' in u] and not [u for u in seen if 'intro-light' in u], [u for u in seen if '.mp4' in u])
+            check('"skip" stays on screen while the film plays', await pg.locator('#wi-intro .wi-intro__skip').is_visible())
             check('the narration shows as a live caption', st['cap'].startswith('הצלצול'), st['cap'])
             await pg.locator('#wi-intro .wi-intro__skip').tap(); await pg.wait_for_timeout(300)
             gone = await pg.locator('#wi-intro').count() == 0
@@ -105,6 +107,13 @@ async def run(film):
             ctx, pg, seen, errs = await page()
             await pg.goto(base + '?ds=1&intro=1'); await pg.wait_for_selector('#wi-intro'); await pg.keyboard.press('Escape'); await pg.wait_for_timeout(300)
             check('Escape closes it', await pg.locator('#wi-intro').count() == 0)
+            await ctx.close()
+
+            ctx, pg, seen, errs = await page()
+            await pg.add_init_script("Object.defineProperty(navigator,'connection',{get:()=>({saveData:false,effectiveType:'3g'})})")
+            await pg.goto(base + '?ds=1&intro=1'); await pg.wait_for_selector('#wi-intro'); await pg.locator('#wi-intro .wi-intro__play').tap(); await pg.wait_for_timeout(900)
+            mp4 = [u for u in seen if '.mp4' in u]
+            check('on a slow (3G) or saved-data connection the tap loads the light film only', mp4 and all('intro-light' in u for u in mp4), mp4)
             await ctx.close()
 
             ctx, pg, seen, errs = await page()

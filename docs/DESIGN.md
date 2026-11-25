@@ -94,7 +94,7 @@ Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"
 2. **Island map** (world map + island path, with energy and today's focus). The new structure; needs the engineer for energy rules and the weak-item recommender. *First the skin: the existing English map and level list behind the flag, see "Rollout step 2" below.*
 3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered. *Built behind the flag: see "Rollout step 3" below.*
 4. **Fraction Bay** (math). Same shell; island of the world map. *Built behind the flag: see "Rollout step 4" below.*
-5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep.
+5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep. *A light touch behind the flag: see "Rollout step 5" below.*
 6. **Beach Run HUD**. Chips and bar over the WebGL canvas; check phone performance (no blur).
 7. **Teacher screen**. Dark or paper; it is data-heavy. Last, lowest kid impact.
 
@@ -201,6 +201,11 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=math|misland|mpla
 - The level rules of step 3 are scoped to `#stage[data-scr=play|mplay]`, so the maths levels get all of them (with #44 alone they reach only the English levels). The slingshot's caption keeps its paper label with dark ink, as in step 3.
 - Checked: flag on, `tests/math.py --quick` 21 pass, screenshots of every state (map, island, pizza ask, build, cut, eat, merge, wholes, count; sling aim and miss; sheet question, form, solution; every result) at 390x844, 360x740 and 1366x768. Flag off: `ds-game.css` is not loaded.
 
+## Rollout step 5: the mock exam, a light touch, behind the same flag
+Under `html.ds #stage[data-scr=mock|mockrun|mockprac]`. The exam stays on paper and keeps its calm: the question cards, answers, stations trail, report bars and their colours are today's. Only the shell matches the other screens: the dark surround on wide screens, the heading on a navy plate, the round back and quit buttons, the gold main button (no pulse), the navy toast, the paper focus ring (`--wi-focus-paper`), the fonts.
+- The exam's quit button: its icon was missing (`ico('x')`, not in the set) and is fixed in #60 (`ico('close')`). With the flag on it is a navy disc with a white X, drawn as a background on a square 48 px hit box (Chrome does not hit-test rounded-off corners, so a `border-radius` would let corner taps fall through to the trail); the stations trail's inline padding is 60 px, which leaves a real gap of 12 to 17 px between the X and the writing-station circle.
+- Checked: flag on, `tests/mock.py --quick` 12 pass, screenshots of every state (intro, the four stations, each question type, report, practice, hub) at 390x844, and the hub and a question at 1366x768.
+
 ## Rollout step 6: Beach Run HUD and menus, behind the same flag
 Files: `css/run-ds.css` (the skin), a seven-line block at the top of `js/run.js` (the same switch as `js/dsflag.js`: `?ds=1` on and remembered in `localStorage.wi_ds`, `?ds=0` off). `run.html` is unchanged, so with the flag off the page makes exactly the same requests as before and stores nothing new. Default off.
 - Styling only. The 3D scene, the signs drawn in it, the runner models, the questions, the scoring and every element, id and handler are untouched.
@@ -210,6 +215,7 @@ Files: `css/run-ds.css` (the skin), a seven-line block at the top of `js/run.js`
 - Touch pad and "יודע/ת!": solid navy and azure, no blur (the old pad used `backdrop-filter`), 48px or more.
 - Start, pause and end menus: the painted panel frame, the painted gold button for the one main action, "חזרה למשחק" as an azure secondary button (48px), pace choice with an aqua ring, scores in gold.
 - Checked: `tests/run.py` plays the whole run with the flag on at 390x844 (and 1366x768 in the full form): same scoring checks, every visible button and link 48px or more on the start menu, the HUD, the question card and the end menu; with the flag off it checks no class, nothing stored and only `css/run.css` requested. Computed styles of the start menu with the flag off match `game` at both sizes.
+- Follow-up (review of #42): every text in the runner's new look is 16px or more (lanes, question line, hint, the "how to play" tiles, pace); "נכון!" / "כמעט!" sit on a navy plate with an edge in their colour (never bare on the 3D picture); with reduced motion the card does not slide and those two only fade; the menu stays hidden until both stylesheets are in (or failed, or 4 s), so the old look never flashes; a menu taller than a small phone starts at the top and scrolls (the picture above the card stays whole). At 360x740 the question card ends at 197px or higher, as in today's look (195).
 - Known seams: the signs on the gate are drawn in the 3D scene in today's hand font and colours; the copy "נגמרו הלבבות" is unchanged (copy is the designer's).
 
 ## Rollout step 7: the teacher screen, behind the same flag
@@ -236,3 +242,52 @@ Shown once on first open of the game page; poster first, play only on tap, 48 px
 as live text. The platform's new name, **ניצני אופק**, is in its closing title only (the in-game rename is the client
 engineer's, behind the flag). Details and the narration (flagged for the teacher's review) in `docs/INTRO.md`; art in
 batch j of the ledger.
+
+**Before the flag flips** (for the welcome film): the owner listens to the whole film with sound on a phone (Pitzi's
+line and "Yeah, let's go!" clear, the laughter wordless, no crackle) and says yes. Until then the film never reaches
+pupils. The 4K version for sharing is not in the repo.
+
+## Spec: the character on the map and the island as a path (behind the flag; for the client engineer)
+
+The owner expects his character to stand on the map and walk, as in the concept frames and `world.html`. Today the real
+game shows Pitzi on the current island and the island as a list of level rows. Everything below is under `html.ds` and
+changes nothing with the flag off. No new art: the stones, the island pictures and the portraits are all in `assets/al`.
+
+**The token (0 credits).** The chosen character is a framed portrait token, not a full-body figure: `av/<id>` in a
+circle, 44 px on the map and 52 px on the island, a 3 px gold ring (`--wi-gold`), a 2 px navy outer edge and a soft drop
+shadow, with a small dark oval "shadow" on the ground under it. Without a chosen character, Pitzi (`pitzi/wave`) stands in
+its place, as today. A full-body figure per character would cost 20 images (about 10 to 25 credits) and would have to
+match the portraits; the token reads as "me" at once and stays consistent, so it is the default.
+
+**On the map.**
+- The token stands on the current island (the one with "ממשיכים כאן" / "מתחילים כאן"), at the island's lower edge,
+  beside that tag and never covering it. It is decoration: `aria-hidden`, no tap target of its own; the island stays the
+  48 px button it is today.
+- When a new island opened since the last visit (the island the character last stood on is `at`, kept per pupil in
+  the device's `wi_world` record; an island not open counts as none),
+  the token hops once from the old island to the new one along the dotted line: an arc, 900 ms, ease-in-out, a squash on
+  landing. It plays once, only on that visit. Any tap or key skips to the end and does what the tap would have done. With
+  reduced motion or calm mode there is no hop: the token is simply on the new island.
+- Nothing else moves on the map (no idle bobbing).
+
+**The island as a path.**
+- The level rows become stones along a winding path drawn over the island's backdrop, in order, bottom to top. Use the
+  same percentage positions as `world.html` (`PATHS` in `js/worldpath.js`, shared by both); an island with more levels than positions
+  scrolls vertically, the path continuing.
+- Each stone: done = `ui/stone-done` with its stars (`ui/star`, as today); next = `ui/stone-current` with a soft gold
+  glow pulse (none with reduced motion); locked = `ui/stone-locked`, dimmed, with the lock. A dotted line joins the stones
+  (lit gold up to the next stone, dim after it).
+- Beside each stone, its label on a dark plate: the level's name and sub-line exactly as today (the teacher's words
+  unchanged, English runs LTR). Stone and label together are one button, at least 48 x 48 px; locked ones keep today's
+  explanation when tapped.
+- The token stands on the next stone. Tapping a stone: the token walks to it (a straight glide, ease-out, at most
+  500 ms, the screen never waits for it longer than 600 ms), then the level opens. A second tap during the walk is never
+  blocked: it ends the walk at once and goes. Reduced motion or calm mode: no walk, the level opens at once.
+- Sizes: 390 x 844 first, then 360 x 740 (stones 56 px, labels wrap to two lines rather than shrink below 15 px) and
+  1366 x 768 (the portrait board centred, as today). Contrast: labels 4.5:1 on their plates, stones 3:1 against the
+  backdrop.
+
+**Checks for the suite.** Flag off: the island screen and the map are byte-identical to today. Flag on: one token, on
+the current island; the hop runs once and not on the next visit; every stone is a button of 48 px or more in level
+order with today's labels; a tap opens the level within 600 ms; two quick taps open it once; reduced motion and calm
+mode: no hop, no walk, no pulse.

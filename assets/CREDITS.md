@@ -579,7 +579,7 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 | File | What | Made | Job id | Model |
 |---|---|---|---|---|
 | `assets/al/bg/world.hf_20261124_204628_1e3550f7-2092-4fef-bb11-e3fd187d71bf.webp` | night sea with a horizon and moon, for the title screen | 2026-11-24 | 1e3550f7-2092-4fef-bb11-e3fd187d71bf | gpt_image_2_5 |
-| `assets/al/bg/english.hf_20261124_204750_bfb9c336-44b5-4c94-bda9-e8cea4054138.webp` | English island path backdrop | 2026-11-24 | bfb9c336-44b5-4c94-bda9-e8cea4054138 | gpt_image_2_5 |
+| `assets/al/bg/english.hf_20261124_204750_bfb9c336-44b5-4c94-bda9-e8cea4054138.webp` | English island path backdrop (re-encoded here at its full 752x1344, WebP quality 45, 122 KB instead of 246 KB: the same picture, no new job) | 2026-11-24 | bfb9c336-44b5-4c94-bda9-e8cea4054138 | gpt_image_2_5 |
 | `assets/al/bg/math.hf_20261124_204751_6e57a9de-39a3-4daf-9575-b6c82d806521.webp` | maths island path backdrop | 2026-11-24 | 6e57a9de-39a3-4daf-9575-b6c82d806521 | gpt_image_2_5 |
 | `assets/al/bg/sea.hf_20261124_210013_f6e9010a-f742-47cc-a849-a034fbb86389.webp` | world map background, sea from above, no islands | 2026-11-24 | f6e9010a-f742-47cc-a849-a034fbb86389 | gpt_image_2_5 |
 | `assets/al/bg/sea-details.hf_20261125_075052_17486f52-96ee-4372-9033-9dd45cfa5736.webp` | world map background: the sea from above with a whale, two lantern boats, a lighthouse and jellyfish near the edges | 2026-11-25 | 17486f52-96ee-4372-9033-9dd45cfa5736 | gpt_image_2_5 |

@@ -1,0 +1,20 @@
+/* The island path of the new world: the backdrop stage, the path and the stones. Shared by world.html (with
+   css/world.css) and the live game behind ?ds=1 (loaded by js/avatar.js). Moved here unchanged from css/world.css. */
+.w-stagewrap{flex:1;min-block-size:0;display:flex;justify-content:center;container-type:size}
+.w-stage{position:relative;aspect-ratio:752/1344;block-size:100%;max-inline-size:100%;background-size:cover;background-position:center;border-radius:var(--wi-r-lg);overflow:hidden}
+@supports (width:1cqh){.w-stage{block-size:min(100cqh,100cqw * 1344 / 752);inline-size:auto}}
+.w-path{list-style:none;margin:0;padding:0}
+.w-path li{position:absolute;transform:translate(-50%,-50%)}
+.w-path li:has(.w-st--current){z-index:2}
+.w-st{position:relative;display:grid;place-items:center;inline-size:56px;block-size:56px;min-inline-size:var(--wi-tap);min-block-size:var(--wi-tap);padding:0;border:0;background:none;cursor:pointer;color:var(--wi-text);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.w-st__art{position:absolute;inset:0;inline-size:100%;block-size:100%;object-fit:contain;transition:transform var(--wi-dur-fast) var(--wi-ease)}
+.w-st:active .w-st__art{transform:translateY(2px) scale(.97)}
+.w-st__mark{position:relative;display:grid;place-items:center;inline-size:30px;block-size:30px;margin-block-end:6px;border-radius:50%;background:var(--wi-navy-900);box-shadow:0 0 0 2px var(--wi-scrim);font:700 var(--wi-fs-sm)/1 var(--wi-font-ui)}
+.w-st__mark .wi-icon{inline-size:18px;block-size:18px}
+.w-st--done .w-st__mark{color:var(--wi-gold)}
+.w-st--current .w-st__mark{color:var(--wi-aqua);box-shadow:0 0 0 2px var(--wi-aqua)}
+.w-st--locked .w-st__mark{color:var(--wi-locked)}
+.w-st--locked{cursor:help}
+.w-st__stars{position:absolute;inset-block-start:100%;left:50%;transform:translate(-50%,-10px);padding:2px 5px;border-radius:var(--wi-r-pill);background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-scrim);pointer-events:none}
+.w-st__stars .wi-star{inline-size:12px;block-size:12px;display:block}
+.w-st__who{position:absolute;top:50%;left:-40px;inline-size:44px;block-size:44px;margin-top:-30px;border-radius:50%;border:3px solid var(--wi-aqua);box-shadow:0 0 0 2px var(--wi-scrim);background:var(--wi-navy-800);pointer-events:none}

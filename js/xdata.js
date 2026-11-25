@@ -27,7 +27,7 @@ const he=en=>(WORDS.find(w=>w.en===en)||{}).he||'';
 const PICWORDS=['guitar','bathroom','market','sofa','card','building','present','village','toilet','piano','flowers','candy','dining room','classroom','cake','date'];
 const word_pic=PICWORDS.map(w=>({k:'pic:'+w,skill:'words',type:'choice',pic:w,q:'מה רואים בתמונה?',a:w,
  opts:()=>[w,...pick(PICWORDS.filter(x=>x!==w),3)],src:['guitar','bathroom','market','sofa','card','building','present','village','toilet'].includes(w)?'ws':'',
- tip:`בתמונה: ${w} (${he(w==='flowers'?'flower':w)||''})`}));
+ tip:(t=>t?`בתמונה: ${w} (${t})`:`בתמונה: ${w}`)(he(w==='flowers'?'flower':w))}));   // a word without the teacher's translation (cake) shows no empty brackets
 /* the exam has a vocabulary part from English to Hebrew: the teacher's own translations */
 const HEPOOL=WORDS.filter(w=>w.p<=5&&!/,/.test(w.he.split(' / ')[0])&&w.he.length<16);
 const word_he=HEPOOL.map(w=>({k:'he:'+w.en,skill:'words',type:'choice',en:w.en,q:'מה הפירוש בעברית?',big:w.en,a:w.he,
@@ -53,7 +53,8 @@ const word_act=ACTIONS.map(([p,a])=>({k:'act:'+p,skill:'words',type:'choice',pic
 const BE=[['The market ___ far.','is','ws'],['I ___ from Israel.','am','ws'],['The flowers ___ pretty.','are','ws'],['We ___ outside.','are','ws'],
  ['She ___ a student.','is'],['They ___ ready.','are'],['My hobby ___ football.','is'],['The village ___ pretty.','is'],['You ___ my friend.','are'],
  ['It ___ a special present.','is'],['Her flat ___ new.','is'],['The students ___ in the classroom.','are'],['He ___ ten years old.','is'],['Dana and Noa ___ the same age.','are'],['I ___ eleven years old.','am']];
-const WHO_BE={am:'I → am',is:'he / she / it, או דבר אחד → is',are:'we / you / they, או כמה דברים → are'};
+/* our own words (not the teacher's), for her review. In a Hebrew line the arrow is ←, so on screen it points at is / are */
+const WHO_BE={am:'I →\u00a0am',is:'he / she / it, או דבר אחד ←\u00a0is',are:'we / you / they, או כמה דברים ←\u00a0are'};   // a no-break space: the arrow never wraps away from its word
 const gram_be=BE.map(([s,a,src],i)=>({k:'be:'+i,skill:'grammar',type:'choice',q:'בחרו את הפועל הנכון',sent:s,a,opts:()=>['am','is','are'],fixed:1,src:src||'',
  tip:`${s.replace('___',a)} · ${WHO_BE[a]}`}));
 const ORDER=[['Is the village far?',['far','the village','Is'],'ws'],['Is the candy sweet?',['Is','the candy','sweet'],'ws'],['Are they outside?',['outside','Are','they'],'ws'],

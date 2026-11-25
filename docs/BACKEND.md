@@ -616,7 +616,23 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    takes an `op()` when it starts, and every token read, every call with a token and every write of the session, base,
    pending batch, stale record, sent record, owner marks or queue goes through it and is refused once any of the three
    changed. Data is bound to the pupil too: the queue and the sent record carry their owner, a Sheet answer that comes
-   after a logout is not copied, and tabs take turns for sign-in and the copy (Web Locks, where the browser has them). So a late answer of one pupil (a save, a
+   after a logout is not copied, and tabs take turns for sign-in and the copy (Web Locks, where the browser has them;
+   a tab that waits 20 s for its turn keeps its state for later). Every object handed in or out is copied before it is
+   kept (the game edits its own). A tab whose pupil lost the device to another tab (another pupil signed in there)
+   stops copying, so two tabs never take the device from each other: it sends the pupil's last save to the Sheet at
+   once, shows a calm message ("מישהו אחר נכנס במכשיר הזה", one button "המשך"; ours, for the teacher's review), and
+   reloads to show the device's pupil only when the child taps, never under a child mid-level (D1). **Known limit:**
+   that pupil's answers since their last copy reach the Sheet but are not counted on the server (the device belongs
+   to the other pupil now); they are counted again from the next copy after that pupil signs in. A sign-in paused for
+   the address ('locked') is tried again after its wait, not the next day.
+   One test device first (`docs/LIVE_STAGE.md`): with a project in `window.BACKEND`, the default is a trial: every
+   device stays on the Sheet except one that opened the game with `?dual=1`; `?dual=0` turns that device off again and
+   ends its session. The class is turned on only by `everyone: true`, that exact key with that exact value; a typo, a
+   nested key or any other value keeps the class off (review of #73, K2b).
+   **Known limit (no Web Locks: Safari before 15.4, about 2022):** two tabs of the same pupil may copy at the same
+   time. Nothing crosses between pupils (the guard does not need the locks), and a base never goes down, but answers
+   can be counted twice, and not only a few: one test run in three counted 11 for 6 answers (review of #73). Current Safari, Chrome, Edge and Firefox
+   have Web Locks; the school's devices should be checked once (section 10). So a late answer of one pupil (a save, a
    token refresh, a sign-in, a logout) can never write into, send with, or end the next pupil's session, in this tab or
    another one. Logout first sends what was played since the last copy, including the copy still on its way and the
    save waiting behind it (within 8 s), then revokes the session with a fresh token and forgets everything of the
@@ -625,9 +641,11 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    pending batch (the part size is kept with it), so none is cut and none is counted twice. One pupil with two devices:
    a Sheet sign-in brings the record joined from both, and what it holds beyond what this device itself sent (kept on
    the device as soon as the Sheet took it, so a closed tab does not forget it) is added to this device's base, so each
-   answer is counted by the device it was played on (S3). The first save after a sign-in is counted from the record
+   answer is counted by the device it was played on (S3); a save counts as sent the moment it goes, so a tab closed
+   before the Sheet's answer does not lose it. The first save after a sign-in is counted from the record
    the Sheet had at sign-in (an empty one at registration); a base never goes down, so two tabs of one pupil do not
-   count twice. At hide time the copies share the 64 KiB keepalive budget; what does not fit waits for the next visit.
+   count twice. At hide time the copies share the 64 KiB keepalive budget with the game's own save to the Sheet; what does not fit
+   waits for the next visit. A logout is not a closing page: its copy is whole, not cut to that budget.
 4. **The switch** (the point of no return for sign-in): new class code (8 characters) handed out; the client's config
    points at Supabase; the Sheet backend starts answering every request with an error the old client already treats
    as "sign in again", so a stale tab cannot keep writing to the Sheet. Pupils sign in once with their old code and
@@ -712,6 +730,7 @@ same assertions as the local suites where a local version exists. None can be an
 | 18 | pg_cron is available on the free plan and the nightly `maintenance()` is scheduled and runs | read `cron.job` and `cron.job_run_details` the next morning; `audit_purged` is true |
 | 19 | pgcrypto encrypts to the owner's RSA 4096 public key, and a whole-class export finishes inside the statement timeout of the public role | `backup_export` with the token, decrypt, count rows |
 | 20 | The local tests ran on PostgreSQL 16; the project's version behaves the same | `tests/db.py` and `tests/functions.py` assertions through the API |
+| 21 | The class's devices have Web Locks (`'locks' in navigator` is true in each browser the class uses; Safari 15.4 or later) | open the game once on each kind of device; without it, see section 8 (known limit) |
 
 ## 11. What the local tests cannot prove
 

@@ -8,7 +8,7 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 - **Rule:** after every `await`, and in every timer and event listener, the world may have changed. Bind the operation to the session **and the data to the pupil**: anything that reads "who is signed in" (token, session, owner, base, queue) captures an identity before the await and checks it after, before any write or send; anything held for later (a queued state, a waiting request, a record of what was sent) carries its owner and is used only for that owner. An empty identity ("no session") is not an identity: check the owner too.
 - **How to build it:** one guard that every storage write and every tokened call goes through. Do not patch call sites one by one. In the PR, list every `await` in the file and which guard covers it, **and every timer, listener and callback that re-dispatches work** (they run with whatever is current when they fire).
 - **How to test it:** hold a response, switch pupil, release the response. Hold the answer of the request that starts the work too (here the Sheet's), not only the later ones. Also: a second tab on the same storage, with its timers and page listeners firing after the other tab changed pupil; two tabs signing in at the same time; logout right after the last answer; a response that arrives after logout.
-- **In memory too:** a logout must clear everything held in variables (a queued save, a code waiting for a retry), not only what is in storage; and what must survive a closed tab (what was already sent) must be in storage, not in a variable.
+- **In memory too:** a logout must clear everything held in variables (a queued save, a code waiting for a retry), not only what is in storage; and what must survive a closed tab (what was already sent) must be in storage, not in a variable, written **when it happens** (the save is sent), not when its answer comes: a page that closes never sees the answer (review of #55, G2).
 
 ## 2. A test that passes because it waits
 
@@ -60,7 +60,13 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 - **Rule:** when a count is derived from a record that is merged from several sources, subtract what the other sources brought (what the merged record holds beyond what this source itself sent), not the merged record. A base never goes down.
 - **How to test it:** two devices on two storages, one pupil: play on one, sign in on the other, play there. Also a pull that arrives while this device still holds answers it has not sent. Total counted = answers actually played.
 
-## 12. An audio filter that resamples and lifts the pauses (welcome film, #58)
+## 12. An object you were handed is not yours: copy it before you keep it (review of #55, G1)
+
+- **What happened:** the adapter kept the Sheet's answer to use later as a pupil's starting point. The game kept the same object as its own state (`S.st` is the answer's `s.st`) and added the pupil's new answers to it. When the delayed copy finally stored it, the new answers were already inside, so they were never counted (A→B→A: 0 of 2).
+- **Rule:** anything kept past the current synchronous step (a request, an answer, a record handed in or out) is copied at the moment it is taken: `JSON.parse(JSON.stringify(x))`, or `structuredClone`. That applies both ways: what you hand back (the game's own object stays the game's) and what you were given (a caller may keep editing it).
+- **How to test it:** take the object the call returned and change it in place right after the call, before any background work runs; then check that what was stored or counted is what was sent or answered, not the edited object.
+
+## 13. An audio filter that resamples and lifts the pauses (welcome film, #58)
 
 - **What happened:** the welcome film's voice crackled and hissed on the owner's phone. The `loudnorm` filter outputs 192 kHz; nothing resampled it, so the AAC came out at 96 kHz and only 48 kbps. Its dynamic mode also raised the quiet pauses, so the room noise of the take sat under the whole film. The numbers looked fine (duration, pauses counted); nobody listened before it was sent.
 - **Rule:** after every audio step, check the output's sample rate and codec, and measure the noise floor in the pauses (silencedetect, astats). Encode once at 44.1 or 48 kHz with a fixed bitrate; use a plain linear gain, not a dynamic loudness filter, on speech. A person listens before it ships.
