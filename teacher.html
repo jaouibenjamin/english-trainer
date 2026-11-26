@@ -8,7 +8,7 @@
      Scripts and styles only from this site, no inline script or style; requests only to this site and, when config.js
      names one, the Supabase project (https://<project>.supabase.co is added to connect-src then, as on every page).
      Google needs no entry: the sign-in is a top-level navigation, not a request. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://sgzzsixokgohshdpkvkr.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
 <!-- no js/csplog.js: its log is the game's (wi_csp), shown on the game's settings screen; this page keeps no log -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">

@@ -12,10 +12,12 @@ and that assets/CREDITS.md is up to date and names every file under assets/ and 
 import glob, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 URL = re.compile(r"""(?:https?:)?//[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+[^\s"'`)<>]*""")
-ALLOWED = {'config.js': re.compile(r'https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec')}
+# config.js: the Sheet's /exec address, and the one Supabase project of the class (exactly its address, nothing wider)
+PROJECT = 'https://sgzzsixokgohshdpkvkr.supabase.co'
+ALLOWED = {'config.js': re.compile(r'https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec|' + re.escape(PROJECT) + r'(?![\w.-])')}
 # The pages' Content-Security-Policy names the class backend's two hosts (bare origins, no path) in connect-src: allowed
 # there and only there, on the line of a page's <meta http-equiv="Content-Security-Policy">.
-CSP_HOSTS = re.compile(r'https://script\.google(usercontent)?\.com')
+CSP_HOSTS = re.compile(r'https://script\.google(usercontent)?\.com|' + re.escape(PROJECT) + ';?')   # the last source of a directive ends with ';'
 NAMESPACE = re.compile(r'http://www\.w3\.org/(2000/svg|1999/xlink|1999/xhtml|1998/Math/MathML)')
 # No file is excused. A new entry would be: file -> the one exact URL tolerated in it, once.
 OLD = 'https://cdn.example.net/account_x/'      # a made-up storage address, used by the self-test
@@ -67,6 +69,10 @@ def self_test():
              ('index.html', '\n<script src="https://script.google.com/macros/s/abc/exec"></script>\n', 'https://script.google.com/macros/s/abc/exec'),      # the backend URL is allowed in config.js only
              ('index.html', '\n<img src="https://script.googleusercontent.com">\n', 'https://script.googleusercontent.com'),      # the backend hosts only in the CSP line
              ('run.html', '\n<meta http-equiv="Content-Security-Policy" content="connect-src https://evil.example.org">\n', 'https://evil.example.org'),      # and no other host there
+             ('run.html', '\n<meta http-equiv="Content-Security-Policy" content="connect-src https://other0project1.supabase.co">\n', 'https://other0project1.supabase.co'),      # another project is not the class's
+             ('index.html', '\n<meta http-equiv="Content-Security-Policy" content="connect-src ' + PROJECT + '.evil.example.org">\n', PROJECT + '.evil.example.org'),      # nor a look-alike of it
+             ('js/api.js', "\nfetch('" + PROJECT + "/rest/v1/x');\n", PROJECT + '/rest/v1/x'),      # the project's address in config.js and the CSP only
+             ('config.js', "\nwindow.X='https://other0project1.supabase.co';\n", 'https://other0project1.supabase.co'),      # and only this project in config.js
              ('js/main.js', ''.join(["\n// abc123.Cloud", "Front.net\n"]), None)]
     base, out = remote_urls(), []
     for target, extra, want in cases:
