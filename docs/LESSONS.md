@@ -66,8 +66,20 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 - **Rule:** anything kept past the current synchronous step (a request, an answer, a record handed in or out) is copied at the moment it is taken: `JSON.parse(JSON.stringify(x))`, or `structuredClone`. That applies both ways: what you hand back (the game's own object stays the game's) and what you were given (a caller may keep editing it).
 - **How to test it:** take the object the call returned and change it in place right after the call, before any background work runs; then check that what was stored or counted is what was sent or answered, not the edited object.
 
+## 13. A made-up key that looks like a vendor's turns the whole repo red (#82)
+
+- **What happened:** a test stand-in used `sb_publishable_test_0123456789abcdef` as its key. It was invented, but gitleaks read it as a real key. Gitleaks scans the history of every branch, so the `secrets` check went red on every open pull request and on `game`, and fixing the file did not clear it: the string stays in the branch's history.
+- **Rule:** in tests, never write a fake value with a real credential's prefix or shape (`sb_publishable_`, `sb_secret_`, any `eyJ…` token whatever its role, `sk_`/`rk_live_` and `_test_`, `ghp_`/`gho_`/`ghs_`, `github_pat_`, `AKIA…`, `AIza…`, `xoxb-`), also glued after other letters. Write it so it cannot pass for one: `public-key-for-tests-0123456789`, as `tests/api_check.mjs` does. Where a test really needs the real shape (a JWT for the gateway), build it from pieces at run time.
+- **How it is checked:** `tests/secret_guard.py` rule 10 fails a test file with a vendor-shaped value, before it is ever committed; run `python3 tests/secret_guard.py` before pushing.
+
 ## 14. A regular expression run on a secret leaves it in RegExp statics (review of #86, B4)
 
 - **What happened:** the teacher's page checked the six-digit one-time code with `/^[0-9]{6}$/.test(code)`. After the dialog was closed, after sign-out and after a return from the back-forward cache, `RegExp.$_` and `RegExp.lastMatch` still held the six digits, readable from the console by the next person at the computer. A heap snapshot showed this as the only thing keeping the code in memory (`RegExpMatchInfo`, held by the page's global context).
 - **Rule:** never run a regexp (`test`, `match`, `replace`, `split` with a regexp) on a secret: a code, a token, a PIN. Check it with plain code instead (length and character codes). Clearing the field you read it from is not enough.
 - **How to test it:** after every path that should forget the secret, read `RegExp.$_`, `RegExp.lastMatch` and `RegExp.input`, and take a heap snapshot after a garbage collection and search its strings for the secret (`tests/teacher.py`, `traces()`).
+
+## 15. A migration that already ran is never edited (review of #87)
+
+- **What happened:** a fix to `teacher_view` (the class's day from `settings.tz`) was written into `0002_access.sql` in place. `supabase db push` runs each migration file once and records it; a project that had already run `0002` would never run the edited file, and would keep the old view without any error. From gate 8 on, the owner may run the runbook's B1 at any time, so any file on `game` may already be on the project.
+- **Rule:** migrations on `game` are append-only. A change to a table, a view or a function is a new file after the last one (`create or replace …`, `alter table …`), never an edit of an older file, also before the project exists.
+- **How it is checked:** `tests/migrations_check.py`: every file on `game` is unchanged byte for byte, new files sort after it, and a database built fresh from all the files has the same schema, grants included, as one built from `game`'s files first and then the new ones.
