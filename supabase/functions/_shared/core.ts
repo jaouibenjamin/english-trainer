@@ -40,13 +40,15 @@ export interface Ctx {
 }
 // deno-lint-ignore no-explicit-any
 export type Body = Record<string, any>;
-export type Reply = { ok: true; [k: string]: unknown } | { ok: false; e: string; wait?: number; by?: string };
+export type Reply = { ok: true; [k: string]: unknown } | { ok: false; e: string; wait?: number; by?: string; help?: string };
 
 const ZERO = "00000000-0000-0000-0000-000000000000";
 const fail = (e: string, wait?: number): Reply => (wait === undefined ? { ok: false, e } : { ok: false, e, wait });
-/** a "locked" answer with whom it is for (0008_lock_scope.sql): name, device, address, class, everyone or system */
+/** a "locked" answer with whom it is for (name, device, address, class, everyone, system) and who can end it (teacher or
+    only waiting: anything unknown reads as "wait", so a screen never promises a lift that cannot happen); 0008_lock_scope.sql */
 const SCOPES = ["name", "device", "address", "class", "everyone", "system"];
-const locked = (b: { wait?: number; by?: unknown }): Reply => ({ ok: false, e: "locked", wait: b.wait as number, by: SCOPES.includes(b.by as string) ? b.by as string : "name" });
+const locked = (b: { wait?: number; by?: unknown; help?: unknown }): Reply =>
+  ({ ok: false, e: "locked", wait: b.wait as number, by: SCOPES.includes(b.by as string) ? b.by as string : "name", help: b.help === "teacher" ? "teacher" : "wait" });
 /** loose shape before the class's own settings are known: a short list of small whole numbers */
 const picsLike = (x: unknown): x is number[] => isPictures(x, Array.isArray(x) ? x.length : 0, 99) && (x as number[]).length <= 4;
 
