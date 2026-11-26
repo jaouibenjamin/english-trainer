@@ -636,6 +636,29 @@ T("N3: teacher-reset answers a stranger's token before any slow hashing", async 
   clock.ms += DAY;
 });
 
+T("S7 (review of #86): a teacher's daily cap of new codes, checked before the slow hash and again under her lock", async () => {
+  const c = await newClass();
+  await reg(c, "Gal", "4827");
+  const pid = await pupilId(c, "Gal");
+  const t = await teacherOf(c);
+  await sql`update private.settings set reset_teacher_day = 3`;
+  try {
+    const R = (dd = deps) => teacherReset(dd, { pupil_id: pid }, { ip: SCHOOL, token: "t:" + t });
+    eq([e(await R()), e(await R()), e(await R())], ["ok", "ok", "ok"], "three new codes in a day, the cap");
+    let hashed = 0;
+    const counting = { ...deps, get pepper() { hashed++; return pepper; } };
+    eq([e(await R(counting)), hashed], ["limit", 0], "the fourth is refused as 'limit', and nothing was hashed");
+    eq((await sql`select count(*)::int as n from private.teacher_resets where teacher = ${t}`)[0].n, 3, "her counter holds who and when only, three rows");
+    clock.ms += DAY + 1000;
+    await sql`update private.settings set reset_teacher_day = 4`;
+    const both = await Promise.all([R(), R(), R(), R(), R()]);
+    eq(both.map(e).filter((x) => x === "ok").length, 4, "a day later, five at once against a cap of four: exactly four pass (" + both.map(e) + ")");
+  } finally {
+    await sql`update private.settings set reset_teacher_day = 15`;
+  }
+  clock.ms += 2 * DAY;
+});
+
 T("S5: the caller's address comes from the platform's end of X-Forwarded-For; an unreadable one shares no bucket", async () => {
   const rq = (h: Record<string, string>) => new Request("http://x/", { headers: h });
   eq(clientIp(rq({ "x-forwarded-for": "6.6.6.6, 203.0.113.5" }), "xff-last"), "203.0.113.5", "the entry the platform appended, not the caller's");

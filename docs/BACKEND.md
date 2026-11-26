@@ -382,6 +382,7 @@ Who is asking (review S2, S3):
 | Wrong class codes, all addresses together | 2,000 an hour, then everyone waits for the next hour | so forged addresses cannot grow the database (pre-live review S3) |
 | Calls per address, any kind | 120 an hour | |
 | Registrations per address | 60 an hour (a class registering from the school's one address must fit) | |
+| New one-time codes, one teacher | 15 in 24 hours (`reset_teacher_day`), counted before the slow hash and again under her own lock; her count and cap are in `backend_health` (review of #86, S7) | each reset costs 600,000 hash rounds and signs the pupil out everywhere |
 
 The teacher has two remedies, both in `teacher-reset` (review N1, N2): **unlock a pupil** clears that name's locks
 and counters without touching the code or the pictures (for the pupil kept off the school computers by someone's

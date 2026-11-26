@@ -87,7 +87,8 @@ def fixture(db):
 PUBLIC_TABLES = ['classes', 'roster', 'teachers', 'pupils', 'items', 'levels', 'level_best', 'answers', 'points', 'pupil_totals', 'progress', 'flags', 'answer_daily']
 VIEWS = ['class_board', 'teacher_view', 'teacher_items', 'backend_health']
 PRIVATE_TABLES = ['class_codes', 'pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'auth_attempts', 'auth_buckets',
-                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions', 'maintenance_log', 'class_misses']
+                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions', 'maintenance_log', 'class_misses',
+                  'teacher_resets']
 PUPIL_KEYED = ['pupil_totals', 'progress', 'answers', 'points', 'flags', 'answer_daily', 'level_best']
 PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days']
 
@@ -401,6 +402,17 @@ def test_teacher(db):
     rows, err = db.insert(T, 'roster', dict(class_id=C1, name_key='new kid', display_name='New Kid'))
     eq('teacher 1 adds a name to her own class list', (rows and rows[0]['name_key'], err), ('new kid', None))
     rows_n("teacher 1 deletes from class 2's list: nothing happens", db.delete(T, 'roster', dict(class_id=C2)), 0)
+    # step 3 of docs/PHASE3.md: what teacher.html sends, checked here by the database itself
+    denied('teacher 1 adds a name whose key is not the one the database computes: refused', db.insert(T, 'roster', dict(class_id=C1, name_key='Dana Lee', display_name='Dana Lee')), 'violates check constraint')
+    denied('teacher 1 adds a name already on her list: refused (no double)', db.insert(T, 'roster', dict(class_id=C1, name_key='new kid', display_name='New  Kid'.replace('  ', ' '))), 'duplicate key')
+    rows, err = db.select(T, 'classes', 'id')
+    eq("teacher 1 reads the classes: hers only (the page's class list and its unlock button)", ([r['id'] for r in rows or []], err), ([C1], None))
+    rows, err = db.select(T, 'teacher_view', 'pupil_id, class_id')
+    eq('the screen gets each pupil id and class id, of her class only (the actions name them)', (bool(rows) and all(r['pupil_id'] and r['class_id'] == C1 for r in rows), err), (True, None))
+    n_pupils = db.admin(f"select count(*) from public.pupils where class_id = '{C1}'")
+    rows, err = db.delete(T, 'roster', dict(class_id=C1, name_key='new kid'))
+    eq('teacher 1 removes exactly one name from her own list, and gets it back (the page shows what was removed)', ([r['name_key'] for r in rows or []], err), (['new kid'], None))
+    eq('removing a name from the list removes no pupil', db.admin(f"select count(*) from public.pupils where class_id = '{C1}'"), n_pupils)
     denied('teacher 1 deletes a pupil of class 2', db.rpc(T, 'teacher_delete_pupil', dict(p_pupil=pid('X'))), 'not your pupil')
 
     print('-- deleting a pupil removes them from every table')
@@ -506,6 +518,25 @@ def test_teacher(db):
     db.psql('grant delete on auth.audit_log_entries to postgres', user='supabase_admin')
     eq('where the platform does not allow that purge, maintenance reports it instead of hiding it', (m2.get('audit_purged'), m2.get('ok')), (False, False))
     rows_n('the server role reads everything (RLS does not apply to it)', db.select(SERVER, 'pupils'), 10)
+
+    print('-- the teacher\'s daily cap of new codes (review of #86, S7)')
+    cap = U(0xCA9)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{cap}', '{C1}', 'Capper'); delete from private.teacher_resets; update private.settings set reset_teacher_day = 1")
+    try:
+        call = f"select private.teacher_reset('{T1}', '{cap}', '01', repeat('ee', 32), 1000, now()) ->> 'e'"
+        out = {}
+        slow = threading.Thread(target=lambda: out.setdefault('a', db.psql(f"begin; select coalesce(({call}), 'ok'); select pg_sleep(0.8); commit;")))
+        slow.start(); time.sleep(0.3)
+        out['b'] = db.psql(f"select coalesce(({call}), 'ok')"); slow.join()
+        eq('two new codes at the same moment against her last one left: the second waits for the first and is refused (her lock)',
+           [out['a'][0][0][0], out['b'][0][0][0], db.one('select count(*) from private.teacher_resets')], ['ok', 'limit', '1'])
+        h, _ = db.select(TEACHER1, 'backend_health', 'resets_day, resets_cap')
+        eq('backend_health shows her own count and cap', h, [dict(resets_day=1, resets_cap=1)])
+        h2, _ = db.select(TEACHER2, 'backend_health', 'resets_day, resets_cap')
+        eq("and not another teacher's: teacher 2 has made none", h2, [dict(resets_day=0, resets_cap=1)])
+        denied('a teacher reads nothing of the counter itself', db.as_(*TEACHER1, 'select * from private.teacher_resets'))
+    finally:
+        db.admin(f"update private.settings set reset_teacher_day = 15; delete from private.teacher_resets; delete from public.pupils where id = '{cap}'")
 
 
 def test_storage(db):
