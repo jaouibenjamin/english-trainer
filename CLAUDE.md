@@ -19,7 +19,7 @@ Read this file, `docs/PLAN.md` and `docs/LESSONS.md` before changing anything.
 
 - **Free only.** No paid plans, no credit card, never raise a cap. If a free limit is hit, stop and tell the owner.
 - **Own accounts only.** Use the owner's own GitHub, Google, Supabase and Higgsfield. Never anything of his client Amit (his paid Base44 workspace is off limits).
-- **Kids' privacy.** First name or nickname only. No email, no birth date, no photos of kids. No pupil names, codes, class codes or secrets in this public repo, ever.
+- **Kids' privacy.** First name (or nickname) and the first letter of the surname only, e.g. נועה כ. (the owner's decision of 2026-11-26); never a full surname. No email, no birth date, no photos of kids. No pupil names, codes, class codes or secrets in this public repo, ever.
 - **The teacher's material is the source of truth.** Copy her words and translations exactly. Anything we write ourselves (stories, extra sentences) uses only the unit's vocabulary and is flagged for her review.
 - **The goal is improvement, not scores.** Wrong answers never end a session; they explain, and the item comes back.
 - No known characters, brands or real people in art or voices. Voices are generated presets, never clones.
