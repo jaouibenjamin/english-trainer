@@ -97,7 +97,7 @@ The security review of #82, #83 and #86 left these for the session with the teac
 - **The access token outlives a sign-out by up to its expiry** (a JWT is not recalled, only its session). Keep the project's JWT expiry at the default hour or shorter.
 - **`app.name_key` under the project's locale:** add "İlknur" and "Élie" to the class list from the page; each must be accepted or refused, never stored twice.
 - **The project's log settings:** API and Edge Function logs must not keep request bodies (the one-time code is in a response body).
-- **`teacher-reset` with a real token, an expired token and no token:** `ok`, refused, refused. Then 16 new codes in a day with the default cap: the 16th is refused and `backend_health` shows 15 of 15.
+- **`teacher-reset` with a real token, an expired token and no token:** `ok`, refused, refused. Then 16 new codes in a day with the default cap, all on a test pupil the owner adds for this and deletes afterwards, never on a real child (each new code signs that pupil out everywhere): the 16th is refused and `backend_health` shows 15 of 15.
 
 ## Questions for the owner (and the teacher)
 
