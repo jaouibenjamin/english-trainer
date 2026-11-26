@@ -66,6 +66,7 @@ contact line the owner sets on the server (e.g. how to reach the site's manager)
 | `unreadable_day` (the server cannot tell addresses apart) | יש תקלה טכנית בזיהוי המחשבים. התרגול ממשיך. {contact} | — |
 | maintenance or backup late | הגיבוי האחרון לא הושלם. התרגול ממשיך. {contact} | — |
 | any other warning | יש תקלה טכנית. התרגול ממשיך. {contact} | — |
+| unlock-class used up (twice today) | הכניסה לכיתה נעצרה עד מחר ב-{HH:MM}. היום כבר שוחררה פעמיים, וזה המקסימום. מי שכבר מחובר ממשיך לשחק. {contact} | — (no button) |
 
 The backend engineer confirms the list of server kinds; a new kind gets a string here before it is shown.
 
