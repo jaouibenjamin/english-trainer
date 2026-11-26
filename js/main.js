@@ -95,21 +95,27 @@ function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=worldPr();
 /* do the islands fit at all (even at the smallest size) with this much kept free at the bottom? On a very short phone
    (320x568) the all-played banner and the dock together leave too little: then the banner is left out */
 function worldFits(iw0,H,mt,finH){const iw=worldIw(iw0,H,mt,finH);return iw*worldPr()+WORLD_TAG<=worldRoom(iw,H,mt,finH)}
-function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
+let AV=null;   // js/avatar.js once loaded (flag on only)
+function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{AV=m;if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
 
 /* ---------- island ---------- */
-function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');preload([BG(i.bg),BG('listen'),BG('read'),BG('bridge')]);
+function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');const next=[BG(i.bg),BG('listen'),BG('read'),BG('bridge')];if(!dsOn())preload(next);
  const got=islandStars(i);
  view.innerHTML=`<section class="scr island${extraOn()?' hasx':''}">${top(esc(i.he))}
   <p class="isub">${i.bonus?'אי בונוס: חודשים ומספרים, שני שלבים':`מילים מתוך: ${en(i.en)}`}</p>
   <div class="ihero">${spr('isl_'+i.id,'pic')}<p class="chips"><span class="chip">${star()}${num(got+' / '+i.levels.length*3)}</span>${SET.sheet===true?`<a class="chip wsl" href="worksheet.html?i=${i.id}">דף עבודה להדפסה</a>`:''}</p></div>
   ${extraRow(i)}<div class="lvlist">${i.levels.map(([t],k)=>{const L=LEVEL_INFO[t],s=starsOf(i.id,t);
    return `<button class="lvrow p${k%4}" data-a="nav" data-to="play/${i.id}/${t}"><span class="lic">${spr(L.icon)}</span><span class="lt"><b>${L.name}</b>${stars(s)}<small>${L.sub}</small></span></button>`}).join('')}</div>
-  <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus&&!got?'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`;worldIsland(i)}
-/* with the design flag, the island's levels become a path of stones (js/avatar.js islandPath): the list waits, hidden,
-   only while that loads, and comes back if it cannot; without the flag this does nothing */
-function worldIsland(i){if(!dsOn())return;const list=view.querySelector('.scr.island .lvlist');if(!list)return;list.style.visibility='hidden';const my=navId;
- import('./avatar.js').then(m=>my===navId&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{}).then(()=>{if(list.isConnected)list.style.visibility=''})}
+  <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus&&!got?'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`;worldIsland(i,next)}
+/* with the design flag, the island's levels become a path of stones (js/avatar.js islandPath) when its pictures are
+   ready; until then, or if they are not, today's list stays as it is. The levels' backgrounds are fetched ahead only
+   once that has settled, so they never come before the screen's own art. Without the flag this does nothing (island()
+   fetches them ahead at once, as before) */
+function worldIsland(i,next){if(!dsOn())return;const list=view.querySelector('.scr.island .lvlist');if(!list)return;const my=navId;   // the list stays shown until the path is ready to take its place
+ /* when the path's pictures are already in, the path is about to replace the list: hold the list back a moment so it
+    does not flash first, at most 300 ms (if the path is not drawn by then, the list shows) */
+ if(AV&&AV.pathReady()){list.style.visibility='hidden';setTimeout(()=>{if(list.isConnected)list.style.visibility=''},300)}
+ import('./avatar.js').then(m=>(AV=m,my===navId)&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{}).then(()=>preload(next))}
 
 /* ---------- play + result ---------- */
 async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type);if(!lv||!isOpen(i))return go('map');
@@ -343,13 +349,39 @@ const refresh=()=>pull().then(redraw);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
 let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='math')M.map();else if(V.name==='title')title()},150)});
 
+/* With the design flag, an old-look picture that the new look draws over (the new art is the img's background, the old
+   one is pushed out of its box or the box has no height: css/ds*.css) is not downloaded at all: it gets an empty stand-in
+   of the same size in srcset, which the browser takes instead of src. The CSS selectors that match on src keep working.
+   If the new look's style sheets are not in yet, nothing changes and the old picture loads as before. Never without the flag. */
+/* the old pictures the new look draws over, with their own size: the stand-in keeps that size (an empty SVG of the
+   same width and height), so a box sized from the picture stays as it was. A picture not listed is downloaded as before.
+   tests/weight.py checks the sizes against the files. */
+const NAT={isl_1:[560,388],isl_2:[560,461],isl_3:[560,448],isl_4:[560,394],isl_5:[560,407],isl_6:[560,422],star:[200,183],star_off:[200,183],
+ lock:[288,379],ic_gear:[200,199],crab_wave:[326,296],crab_star:[322,342],crab_happy:[340,351]};
+const SVGNS='http://www.w3.org/2000/svg';   // an XML namespace name, never fetched
+const blank=n=>NAT[n]?'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="${SVGNS}" width="${NAT[n][0]}" height="${NAT[n][1]}"/>`)+' 1x':'';
+function dsSkip(root){if(!root||!root.querySelectorAll)return;const L=root.tagName==='IMG'?[root]:root.querySelectorAll('img[src]:not([srcset])');
+ for(const im of L){if(im.hasAttribute('srcset'))continue;const m=/(^|\/)assets\/sp\/([a-z_0-9]+)\.webp$/.exec(im.getAttribute('src')||''),b=m&&blank(m[2]);if(!b)continue;
+  const cs=getComputedStyle(im);if(cs.backgroundImage.includes('url(')&&(cs.objectPosition.startsWith('-9999')||cs.height==='0px'))im.srcset=b}}
+function dsSkipOld(){dsSkip(stage);
+ /* the screens are drawn by setting #view's innerHTML: checked right there, before the browser asks for the pictures
+    (it does so a moment later); anything added elsewhere is checked when it arrives */
+ const d=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
+ Object.defineProperty(view,'innerHTML',{configurable:true,get(){return d.get.call(this)},set(v){d.set.call(this,v);dsSkip(this)}});
+ new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)if(n.nodeType===1)dsSkip(n)}).observe(stage,{childList:true,subtree:true})}
+
 /* ---------- boot ---------- */
 /* the printable worksheet (worksheet.html) is behind a switch a device gets with ?sheet=1 and loses with ?sheet=0 */
 try{const v=new URLSearchParams(location.search).get('sheet');if(v==='1'||v==='0'){SET.sheet=v==='1';saveSet()}}catch(e){}
 (async function boot(){loader();
  const pulled=pull();let late=true;   // asked for while the pictures load, so the first screen is usually drawn once, already up to date
- const fonts=document.fonts?Promise.all([document.fonts.load("700 20px 'Playpen Sans Hebrew'",'איי'),document.fonts.load("800 20px 'Playpen Sans Hebrew'",'Word')]).catch(()=>{}):0;
- await Promise.race([Promise.all([preload([BG('title'),BG('map'),BG('paper'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign'),SP('scroll')]),fonts]),sleep(6000)]);
+ /* with the design flag the screens are drawn with the new look's own art (css/ds*.css): the old look's pictures are
+    neither waited for nor fetched ahead, so a slow network spends itself on what the screen shows (each old picture
+    still loads when a screen uses it). Without the flag, exactly as before. */
+ const ds=dsOn(),F=ds?'WI Hebrew':'Playpen Sans Hebrew';
+ const fonts=document.fonts?Promise.all([document.fonts.load(`700 20px '${F}'`,'איי'),document.fonts.load(`800 20px '${ds?'WI Latin':F}'`,'Word')]).catch(()=>{}):0;
+ await Promise.race([Promise.all([preload(ds?[]:[BG('title'),BG('map'),BG('paper'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign'),SP('scroll')]),fonts]),sleep(6000)]);
  await Promise.race([pulled.then(()=>{late=false}),sleep(1200)]);
- route();if(late)pulled.then(redraw);preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
+ if(ds)dsSkipOld();
+ route();if(late)pulled.then(redraw);if(!ds)preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
 window.__game={S:()=>S,SET,measure,totalStars,go,award,push};

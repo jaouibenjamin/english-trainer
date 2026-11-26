@@ -40,9 +40,30 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .wpick__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--wi-s2)}
 .wpick__av{position:relative;aspect-ratio:1;padding:0;border:2px solid var(--wi-line);border-radius:var(--wi-r-lg);background:var(--wi-navy-800);overflow:hidden}
 .wpick__av.is-selected{border-color:var(--wi-gold);box-shadow:0 0 0 3px var(--wi-gold)}
-.wpick__av.is-locked .wpick__art{opacity:.35}
+.wpick__av.is-locked .wpick__art{opacity:.7}   /* dimmed, the whole character in view: a child sees what they are working towards */
 .wpick__art{width:100%;height:100%;object-fit:cover;display:block}
-.wpick__lock{position:absolute;inset-block-end:4px;inset-inline-end:4px;font-size:16px}
+.wpick__lock{position:absolute;inset-block-end:3px;inset-inline:3px;padding:0 2px;border-radius:var(--wi-r-pill);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-sm);font-weight:700;line-height:1.3;white-space:nowrap;text-align:center;box-shadow:0 0 0 1px var(--wi-line)}   /* "רמה N" in one short line at the bottom: the picture stays in view */
+.wpick__key{position:absolute;inset-block-start:4px;inset-inline-end:4px;width:20px;height:20px;padding:2px;border-radius:50%;background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-line);object-fit:contain}   /* the lock, in the top corner */
+/* ---- the map: a new character opened (shown once) ---- */
+.map .wnew{position:absolute;z-index:6;inset-inline:16px;bottom:calc(80px + var(--sb,0px));display:grid;grid-template-columns:72px 1fr auto;grid-template-areas:"p h h" "p t t" "b b l";column-gap:var(--wi-s3);row-gap:var(--wi-s2);padding:var(--wi-s3) var(--wi-s4);border-radius:var(--wi-r-lg);background:var(--wi-navy-800);border:2px solid var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);color:var(--wi-text);font-family:var(--wi-font-ui)}
+.map .wnew__pics{grid-area:p;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.map .wnew__pic{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--wi-gold);flex:none}
+/* several new characters: up to three small portraits side by side across the top, and "ועוד N" */
+.map .wnew.wnew--many{grid-template-columns:1fr auto;grid-template-areas:"p p" "h h" "t t" "b l"}
+.map .wnew__pics--many{flex-direction:row;flex-wrap:wrap}
+.map .wnew__pics--many .wnew__pic{width:56px;height:56px}
+.map .wnew__more{font-weight:800;color:var(--wi-gold);font-size:var(--wi-fs-sm);padding-inline-start:4px}
+.map .wnew__h{grid-area:h;margin:0;font-size:var(--wi-fs-lg);color:var(--wi-gold);line-height:1.2;align-self:end}
+.map .wnew__t{grid-area:t;margin:0;font-size:var(--wi-fs-sm);color:var(--wi-text)}
+.map .wnew button{font:inherit;cursor:pointer;min-height:var(--wi-tap);border-radius:var(--wi-r-pill);font-weight:800}
+.map .wnew__ok{grid-area:b;border:0;background:var(--wi-gold);color:var(--wi-navy-900)}
+.map .wnew__later{grid-area:l;border:1px solid var(--wi-line);background:var(--wi-navy-900);color:var(--wi-text)}
+/* the two buttons share one row (a shorter card); when the card would cover the character on the map, it moves to the
+   band under the map's header (js/avatar.js placeNew) */
+.map .wnew.wnew--top{bottom:auto}
+.map .wnew.wnew--tight .wnew__t{display:none}
+.map .wnew__later{padding-inline:var(--wi-s4)}
+.map .wnew :focus-visible{outline:3px solid var(--wi-focus);outline-offset:2px}
 .wpick__ok,.wpick__dice{min-height:var(--wi-tap);border:0;border-radius:var(--wi-r-pill);font-weight:800}
 .wpick__ok{background:var(--wi-gold);color:var(--wi-navy-900)!important}
 .wpick__ok[aria-disabled=true]{background:var(--wi-navy-700);color:var(--wi-text)!important;box-shadow:inset 0 0 0 2px var(--wi-locked)}   /* dim but solid: the text keeps its contrast */
@@ -58,6 +79,9 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .wpick :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
 /* a narrow phone: the focus button leaves room for the character's name */
 @media (max-width:379px){.map .wd__focus{max-width:40%}.map .wd__lvw{display:none}}
+/* the narrowest phones (320 px): a smaller picture, gaps and paddings, so every name (up to "Mighty Dolphin") stays whole
+   next to today's focus; every button keeps 48 px of height */
+@media (max-width:339px){.map .wd{gap:4px}.map .wd__me{gap:4px}.map .wd__pic{width:40px;height:40px}.map .wd__en{padding:0 6px}.map .wd__focus{padding:2px 6px}}
 .map .wd__me--off{flex:1 1 auto;display:flex;align-items:center;gap:6px;padding:2px 4px;min-width:0}
 /* the character on the map (js/avatar.js token): a framed portrait on the island played now, in place of the crab */
 .map.hastok .isl .here{display:none}
@@ -66,7 +90,7 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .map .wtok{position:absolute;z-index:3;width:44px;height:44px;transform:translate(-50%,-50%);border-radius:50%;border:3px solid var(--wi-gold);background:var(--wi-navy-800);box-shadow:0 0 0 2px var(--wi-navy-900),0 4px 8px rgba(0,0,0,.45);pointer-events:none}
 .map .wtok::after{content:"";position:absolute;z-index:-1;left:50%;top:calc(100% + 1px);width:78%;height:8px;transform:translateX(-50%);border-radius:50%;background:rgba(0,0,0,.4);filter:blur(1px)}
 .map .wtok__pic{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
-/* no character yet: a small "?" badge on Pitzi, in a padded 48 px tap area */
+/* no character yet: a small "?" badge by Pitzi, its tap area (48 px, or 32 where there is no room) off the island's picture */
 .map .wask{position:absolute;z-index:4;width:48px;height:48px;transform:translate(-50%,-50%);display:grid;place-items:center;padding:0;border:0;background:none;cursor:pointer;touch-action:manipulation}
 .map .wask__dot{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--wi-gold);color:var(--wi-navy-900);font:800 16px/1 var(--wi-font-ui);box-shadow:0 0 0 2px var(--wi-navy-900),0 2px 4px rgba(0,0,0,.4)}
 .map .wask:focus-visible{outline:3px solid var(--wi-focus);outline-offset:-2px;border-radius:50%}
@@ -79,7 +103,7 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .island.wpath .w-stage{overflow:visible}
 /* the label: name and sub-line on a dark plate, inside the stone's button (one target); it wraps to two lines on a
    narrow screen rather than shrink, never below 15 px (docs/DESIGN.md) */
-.w-st__name{position:absolute;inset-block-start:50%;transform:translateY(-50%);display:flex;flex-direction:column;inline-size:max-content;max-inline-size:min(150px,40cqw);padding:4px 10px;border-radius:var(--wi-r-md);background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-line);color:var(--wi-text);font:700 var(--wi-fs-sm)/1.2 var(--wi-font-ui);text-align:start;white-space:normal}
+.w-st__name{position:absolute;inset-block-start:50%;transform:translateY(-50%);display:flex;flex-direction:column;inline-size:max-content;max-inline-size:min(150px,40cqw);padding:3px 10px;border-radius:var(--wi-r-md);background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-line);color:var(--wi-text);font:700 var(--wi-fs-sm)/1.15 var(--wi-font-ui);text-align:start;white-space:normal}
 .w-st__name small{font-size:15px;font-weight:500;color:var(--wi-text-dim)}
 .w-st__name--r{left:calc(100% + 4px)}.w-st__name--l{right:calc(100% + 4px)}
 .w-st--current .w-st__name{box-shadow:0 0 0 2px var(--wi-aqua)}
@@ -90,6 +114,8 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .w-st--current .w-st__art{animation:wglow 1.8s ease-in-out infinite}
 html.calm .w-st--current .w-st__art{animation:none;filter:drop-shadow(0 0 6px rgba(255,210,63,.7))}
 @media (prefers-reduced-motion:reduce){.w-st--current .w-st__art{animation:none;filter:drop-shadow(0 0 6px rgba(255,210,63,.7))}}
+/* Pitzi's hint from the list screen, one line under the path */
+.island.wpath .w-hint{margin:var(--wi-s2) auto 0;max-inline-size:34ch;padding:var(--wi-s2) var(--wi-s3);border-radius:var(--wi-r-md);background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-line);color:var(--wi-text);font:600 var(--wi-fs-sm)/1.3 var(--wi-font-ui);text-align:center}
 /* the dotted line between the stones: gold up to the next stone, dim after it */
 .w-line{position:absolute;inset:0;inline-size:100%;block-size:100%;pointer-events:none;overflow:visible}
 .w-line polyline{fill:none;stroke-width:4;stroke-linecap:round;stroke-dasharray:0 10;vector-effect:non-scaling-stroke}

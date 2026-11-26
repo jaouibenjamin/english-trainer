@@ -625,9 +625,10 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
    that pupil's answers since their last copy reach the Sheet but are not counted on the server (the device belongs
    to the other pupil now); they are counted again from the next copy after that pupil signs in. A sign-in paused for
    the address ('locked') is tried again after its wait, not the next day.
-   One test device first (`docs/LIVE_STAGE.md`): a `trial` key in `window.BACKEND`, in any spelling or case and with
-   any value, keeps every device on the Sheet except one that opened the game with `?dual=1`; `?dual=0` turns that
-   device off again and ends its session. Removing the key turns the class on.
+   One test device first (`docs/LIVE_STAGE.md`): with a project in `window.BACKEND`, the default is a trial: every
+   device stays on the Sheet except one that opened the game with `?dual=1`; `?dual=0` turns that device off again and
+   ends its session. The class is turned on only by `everyone: true`, that exact key with that exact value; a typo, a
+   nested key or any other value keeps the class off (review of #73, K2b).
    **Known limit (no Web Locks: Safari before 15.4, about 2022):** two tabs of the same pupil may copy at the same
    time. Nothing crosses between pupils (the guard does not need the locks), and a base never goes down, but answers
    can be counted twice, and not only a few: one test run in three counted 11 for 6 answers (review of #73). Current Safari, Chrome, Edge and Firefox
