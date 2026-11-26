@@ -16,7 +16,9 @@ the device, the three cases of docs/PHASE4.md A and the rest of step 6:
   - a reopened game reads the record with the session (no sign-in), and the board comes from Supabase.
   - register and recover (by the pictures, or the teacher's one-time code) through enter(), the seam with step 5; a
     lock's wait, scope and help reach the screen; a recovery signs the pupil's other device out.
-The sign-in screens themselves are step 5's; the stand-in is tests/sb_standin.py, shared with step 5's suite. The Content-Security-
+  - the whole flow in the game: the sign-in screens of step 5 (js/signin.js) on the real page, register and sign in,
+    through enter(), the adapter and the stand-in, to the game signed in.
+The screens' own details are tests/signin.py's; the stand-in is tests/sb_standin.py, shared with it. The Content-Security-
 Policy is bypassed here only, because the stand-in answers on the project's address. Names and codes are made up."""
 import asyncio, json, os, re, sys, urllib.parse
 from playwright.async_api import async_playwright
@@ -52,8 +54,9 @@ storage = lambda pg: pg.evaluate("JSON.stringify([Object.entries(localStorage).f
 
 async def no_code(pg, prj, label):
     st = await storage(pg)
-    hits = [x for x in CODES if re.search(r'(?<![0-9])' + x + r'(?![0-9])', st)]   # whole numbers: a timestamp may hold the digits
-    check(f'{label}: no code in any storage of the device', not hits, [hits, st[:300]])
+    # whole values only: a timestamp, or a segment of a random uuid (the session id, a batch id), may hold the digits
+    hits = [st[max(0, m.start() - 80):m.end() + 20] for x in CODES for m in re.finditer(r'(?<![0-9a-f-])' + x + r'(?![0-9a-f-])', st)]
+    check(f'{label}: no code in any storage of the device', not hits, hits)
     leaks = [l['path'] for l in prj.log if any(x in l['body'] + l['query'] for x in CODES) and l['path'] != '/functions/v1/pupil-login']
     check(f'{label}: the code went to pupil-login only', not leaks, leaks)
 
@@ -250,9 +253,45 @@ async def main():
             r = await enter(pg, 'EN-0000', 'Testa', '8462')
             check("locked: the screen gets the wait, whom it is for, and who can end it", r == {'ok': False, 'e': 'locked', 'wait': 900, 'by': 'address', 'help': 'teacher'}, r)
             st = await storage(pg) + await storage(pg2)
-            hits = [(x, st[max(0, st.find(x) - 60):st.find(x) + 10]) for x in ('4826', '7395', '8462', '4827', '482913') if re.search(r'(?<![0-9])' + x + r'(?![0-9])', st)]
+            hits = [(x, st[max(0, st.find(x) - 60):st.find(x) + 10]) for x in ('4826', '7395', '8462', '4827', '482913') if re.search(r'(?<![0-9a-f-])' + x + r'(?![0-9a-f-])', st)]
             check('register and recover: no code, old or new, in any storage of either device', not hits, hits)
             await c.close(); await c2.close()
+            # 7. the whole flow in the game: the sign-in screens (js/signin.js) on the real page, enter(), the adapter, the stand-in
+            prj = Project()
+            c, pg, errs = await device(b, prj)
+            await pg.goto(PAGE + '#login'); await pg.wait_for_selector('.si[data-scr="entry"]')
+            check('in the game, signed out: the sign-in screens of step 5', await pg.is_visible('.si[data-scr="entry"]'))
+            tap = lambda sel: pg.locator(sel).first.click()
+            async def main_btn():
+                await tap('.si-bar .wi-btn--block')
+                await pg.wait_for_function("!document.querySelector('.si-bar .wi-btn--block')||!document.querySelector('.si-bar .wi-btn--block').textContent.includes('רגע')", timeout=8000)
+            async def keys(d):
+                for k in d: await tap(f'.si-key[data-k="{k}"]')
+            await tap('[data-si="start"][data-f="reg"]')
+            await pg.fill('#si-c', 'EN-0000'); await pg.fill('#si-n', 'Newbie'); await main_btn()
+            await keys('4826'); await keys('4826'); await main_btn()
+            for n in (2, 9): await tap(f'.si-tile[data-no="{n}"]')
+            await main_btn(); await main_btn()
+            for n in (2, 9): await tap(f'.si-tile[data-no="{n}"]')
+            await main_btn()
+            await pg.wait_for_selector('.si[data-scr="done"]', timeout=8000)
+            reg = [json.loads(l['body']) for l in prj.log if l['path'] == '/functions/v1/pupil-register']
+            check('register through the screens: one request to pupil-register, with the pictures tapped, in order', reg == [{'class_code': 'EN-0000', 'name': 'Newbie', 'code': '4826', 'pictures': [2, 9]}], reg)
+            await main_btn()
+            await pg.wait_for_selector('.scr.title, .scr.map', timeout=8000)
+            got = await js(pg, "[m.S.u,!!(m.S.who&&m.S.who.p)]")
+            check('then the game, signed in as the new pupil (no code kept)', got == [{'c': 'EN-0000', 'n': 'Newbie'}, True], got)
+            await js(pg, "m.logout()"); await pg.wait_for_timeout(300)
+            await pg.goto(PAGE + '#login'); await pg.wait_for_selector('.si[data-scr="entry"]')
+            await tap('[data-si="start"][data-f="in"]')
+            await pg.fill('#si-c', 'EN-0000'); await pg.fill('#si-n', 'Testa'); await keys('1111'); await main_btn()
+            check('a wrong code in the game: the screen says so, nothing signed in', 'לא נכונים' in (await pg.inner_text('.si')) and await js(pg, "m.S.u") is None)
+            await keys('4827'); await main_btn()
+            await pg.wait_for_selector('.scr.title, .scr.map', timeout=8000)
+            check('sign in through the screens: the game, signed in as Testa', await js(pg, "m.S.u") == {'c': 'EN-0000', 'n': 'Testa'})
+            await no_code(pg, prj, 'the whole flow in the game')
+            check('the whole flow in the game: no page error', not errs, errs[:3])
+            await c.close()
             await b.close()
     finally:
         for p in procs: p.terminate()
