@@ -45,6 +45,7 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 /* the waist-up set (#108) at tile size: the designer's crop box (x 14% to 86%, y 0 to 72%, docs/AVATAR_CHARACTER.md), so the
    face reads on a 66 px tile (320 wide); the animation plays in the same <img>, so it keeps the same box and nothing jumps */
 .wpick__av .wpick__art{transform:scale(1.389);transform-origin:50% 0}
+.wpick__av .wpick__art--thumb{transform:none}   /* the thumbnail is already the crop box (tools/avthumb.py) */
 /* the round portraits elsewhere (the dock, the "new character" notice, the token, the walker) carry their own border, so
    they take the same box with object-view-box where the browser has it; elsewhere the whole figure shows, as before */
 .map .wd__pic,.map .wnew__pic,.map .wtok__pic,.w-walker__pic{object-view-box:inset(0% 14% 28% 14%)}
