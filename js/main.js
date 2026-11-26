@@ -3,7 +3,7 @@ import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
 import {S,SET,saveSet,save,API,ERR,api,cred,auth,takeNewPin,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
 import {initHelp,helpKnown,setHelp,clearNotes} from './help.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
-import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
+import {$,view,stage,SP,BG,preload,loaded,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 import * as sling from './sling.js';
 import * as listen from './listen.js';
 import * as read from './read.js';
@@ -383,5 +383,17 @@ try{const v=new URLSearchParams(location.search).get('sheet');if(v==='1'||v==='0
  await Promise.race([Promise.all([preload(ds?[]:[BG('title'),BG('map'),BG('paper'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign'),SP('scroll')]),fonts]),sleep(6000)]);
  await Promise.race([pulled.then(()=>{late=false}),sleep(1200)]);
  if(ds)dsSkipOld();
- route();if(late)pulled.then(redraw);if(!ds)preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
+ route();if(late)pulled.then(redraw);if(!ds)warm()})();
+/* The levels' sprites (CORE) and the six island pictures, fetched ahead: only once the first screen's own pictures have
+   arrived (the ones asked for so far, the <img>s it shows and the pictures its style draws: backgrounds and frames), so
+   they no longer compete with them on a slow network; at the latest after 8 s. A level still waits for its background
+   and CORE before it starts (play()), as before. */
+function shownIn(){try{const got=new Set(performance.getEntriesByType('resource').filter(e=>e.responseEnd>0).map(e=>e.name)),W=innerWidth,H=innerHeight;
+ const urls=v=>[...String(v||'').matchAll(/url\("?([^")]+)"?\)/g)].map(m=>new URL(m[1],location.href).href).filter(u=>!u.startsWith('data:'));
+ for(const e of stage.querySelectorAll('*')){const r=e.getBoundingClientRect();if(!r.width||!r.height||r.bottom<=0||r.right<=0||r.top>=H||r.left>=W)continue;
+  if(e.tagName==='IMG'&&!e.complete)return false;const cs=getComputedStyle(e);
+  for(const u of [...urls(cs.backgroundImage),...urls(cs.borderImageSource)])if(!got.has(u))return false}
+ return true}catch(e){return true}}
+function warm(){const t0=Date.now(),go=()=>preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))]);
+ loaded().then(function tick(){if(shownIn()||Date.now()-t0>8000)go();else setTimeout(tick,250)})}
 window.__game={S:()=>S,SET,measure,totalStars,go,award,push};

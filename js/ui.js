@@ -12,6 +12,7 @@ export const BGW=752,BGH=1344,BRIDGE_H=1800;   // the bridge art is taller: its 
 const cache=new Map();
 export function img(src){let p=cache.get(src);if(!p){p=new Promise(res=>{const i=new Image();i.decoding='async';i.onload=()=>res(i);i.onerror=()=>res(null);i.src=src});cache.set(src,p)}return p}
 export const preload=list=>Promise.all(list.map(img));
+export const loaded=()=>Promise.all([...cache.values()]);   // every picture asked for so far has arrived (or failed)
 export const CORE=['pill','pill_green','pill_coral','pill_blue','pill_cream','sign','label','ribbon','scroll','star','star_off','lock','crab_wave','crab_happy','crab_oops','crab_walk','crab_listen','crab_star','bubble_0','bubble_1','bubble_2','bubble_3','plank_0','plank_1','plank_2','plank_3','plank_4','lamp','trophy','chest','fork','conch','bottle','ic_gear','ic_note','ic_speaker','ic_book','ic_bridge','ic_check','ic_x','ic_arrow','ic_door','ic_signpost','compass'].map(SP);
 
 /* ---------- background layers (cross-fade) ---------- */
