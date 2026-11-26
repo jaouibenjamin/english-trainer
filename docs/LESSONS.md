@@ -95,3 +95,18 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 - **What happened:** the teacher's page checked the six-digit one-time code with `/^[0-9]{6}$/.test(code)`. After the dialog was closed, after sign-out and after a return from the back-forward cache, `RegExp.$_` and `RegExp.lastMatch` still held the six digits, readable from the console by the next person at the computer. A heap snapshot showed this as the only thing keeping the code in memory (`RegExpMatchInfo`, held by the page's global context).
 - **Rule:** never run a regexp (`test`, `match`, `replace`, `split` with a regexp) on a secret: a code, a token, a PIN. Check it with plain code instead (length and character codes). Clearing the field you read it from is not enough.
 - **How to test it:** after every path that should forget the secret, read `RegExp.$_`, `RegExp.lastMatch` and `RegExp.input`, and take a heap snapshot after a garbage collection and search its strings for the secret (`tests/teacher.py`, `traces()`).
+
+## 18. A new named import between two files is a blank page for a class mid-update (review of #92, B2)
+
+- **What happened:** #92 added `export const loaded` to `js/ui.js` and imported it in `js/main.js`. GitHub Pages and
+  the browser cache each file for some minutes, so for a while a pupil can get the new `main.js` with the old
+  `ui.js`. An ES module that imports a name the other file does not export fails at load: the whole game stops, a blank
+  page, while the class is using it.
+- **Rule:** never add a named import of an export that is new since the last ship, across two files that can be cached
+  apart. Keep the new code in the file that uses it, or import the module as a namespace (`import * as UI`) and fall
+  back when the name is missing: a function behind `typeof NS.f==='function'`, a table as `NS.t??default` (`??`, not
+  `||`, so a falsy export is kept). The same goes for a renamed or removed export.
+- **How to test it:** `tests/cache_mix.py` (#104, #105) lists every export added since the last ship and fails on a
+  named import of one or an unguarded read; then it serves each changed file in its last-shipped version while every
+  other file is the branch's, and checks the game still starts with no page error. An early copy of it caught #92's
+  first version ("does not provide an export named 'loaded'").

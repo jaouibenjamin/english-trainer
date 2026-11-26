@@ -31,9 +31,10 @@ USABLE = """(ready)=>{try{if(!ready())return false}catch(e){return false}
  if(document.fonts&&document.fonts.status!=='loaded')return false;
  const done=new Set(performance.getEntriesByType('resource').filter(e=>e.responseEnd>0).map(e=>e.name)),W=innerWidth,H=innerHeight;
  const urls=v=>[...String(v||'').matchAll(/url\\("?([^")]+)"?\\)/g)].map(m=>new URL(m[1],location.href).href).filter(u=>!u.startsWith('data:'));
- for(const e of document.querySelectorAll('body *')){const r=e.getBoundingClientRect();if(!r.width||!r.height||r.bottom<=0||r.right<=0||r.top>=H||r.left>=W)continue;
+ for(const e of document.querySelectorAll('body *')){const r=e.getBoundingClientRect();if(r.bottom<0||r.right<0||r.top>H||r.left>W)continue;
   const cs=getComputedStyle(e);if(cs.visibility==='hidden'||cs.display==='none')continue;
-  if(e.tagName==='IMG'&&!(e.complete&&e.naturalWidth))return false;
+  if(e.tagName==='IMG'&&!(e.complete&&e.naturalWidth))return false;   // a picture not loaded yet has no height: it counts all the same
+  if(!r.width||!r.height)continue;
   for(const u of [...urls(cs.backgroundImage),...urls(cs.borderImageSource)])if(!done.has(u))return false}
  return true}"""
 

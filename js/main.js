@@ -132,7 +132,9 @@ function worldIsland(i,next){if(!dsOn())return;const list=view.querySelector('.s
 
 /* ---------- play + result ---------- */
 async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type);if(!lv||!isOpen(i))return go('map');
- const my=navId;loader();const bg=LEVEL_INFO[type].bg||i.bg;await preload([BG(bg),...CORE]);if(my!==navId)return;
+ const my=navId;loader();const bg=LEVEL_INFO[type].bg||i.bg;
+ {const hi=new Image();hi.fetchPriority='high';hi.src=BG(bg)}   // the level cannot start without its background: ahead of anything fetched for later
+ await preload([BG(bg),...CORE]);if(my!==navId)return;
  setBg(bg,BGFIT[type]);hudReset();
  const l=await LEVELS[type].start(view,{island:i,type,part:lv[1]},{done:r=>result(i,type,r)});
  if(my!==navId){l.destroy();return}level=l}
@@ -391,5 +393,10 @@ try{const v=new URLSearchParams(location.search).get('sheet');if(v==='1'||v==='0
  await Promise.race([Promise.all([preload(ds?[]:[BG('title'),BG('map'),BG('paper'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign'),SP('scroll')]),fonts]),sleep(6000)]);
  await Promise.race([pulled.then(()=>{late=false}),sleep(1200)]);
  if(ds)dsSkipOld();
- route();if(late)pulled.then(redraw);if(!ds)preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
+ route();if(late)pulled.then(redraw);if(!ds)preload(CORE).then(warmIslands)})();
+/* The live look's warm-up: the levels' sprites (CORE) first, the six island pictures after them. Those are for the map
+   only, so while a level is open they wait for the child to leave it: they never compete with a level's own sprites
+   and voice (tests/warmup.py). */
+function warmIslands(){if(/^(play|extra|mplay|mockrun|mockprac)$/.test(V.name))return addEventListener('hashchange',warmIslands,{once:true});
+ preload(ISLANDS.map(i=>SP('isl_'+i.id)))}
 window.__game={S:()=>S,SET,measure,totalStars,go,award,push};
