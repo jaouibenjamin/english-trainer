@@ -308,6 +308,14 @@ def fresh():
         r9, _ = run(srv, fake, extra=['--add-teacher', tid, '--class', 'ה׳2'])
         t = db.psql(f"select c.name from public.teachers t join public.classes c on c.id = t.class_id where t.user_id = '{tid}'", user='supabase_admin')[0]
         check('add-teacher: by user id, the home teacher of that class', r9.returncode == 0 and t == [['ה׳2']], (r9.stdout[-400:], t))
+        r9b, _ = run(srv, fake, extra=['--add-teacher', tid, '--class', 'ה׳2'])
+        check('add-teacher again: "already", nothing changed', r9b.returncode == 0 and 'already the teacher' in r9b.stdout and 'nothing changed' in r9b.stdout)
+        check('add-class and add-teacher say what they are about to do before doing it',
+              'about to make ה׳2 in grade ה׳' in out7 and 'about to add the user' in r9.stdout)
+        nreq0 = len(fake.requests)
+        r13, _ = run(srv, fake, extra=['--add-class', 'trial', '--grade', 'ה׳'])
+        check('add-class named like the trial: refused, nothing changed', r13.returncode == 1 and tail_ok(r13.stdout + r13.stderr)
+              and db.psql("select count(*) from public.classes where lower(name) = 'trial'", user='supabase_admin')[0] == [['1']], r13.stdout[-300:])
         r10, _ = run(srv, fake, extra=['--add-teacher', tid, '--class', 'ה׳9'])
         check('add-teacher for a class that does not exist: stops, says what to do, nothing changed',
               r10.returncode == 1 and tail_ok(r10.stdout + r10.stderr) and 'add-class' in r10.stdout, r10.stdout[-400:])

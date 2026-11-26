@@ -415,6 +415,7 @@ T("limits per address AND class: one school address registers a whole grade, eac
      "the third registration for one class from one address in an hour waits");
   eq([e(await reg(b, "Ba", "4827", [3, 11], ip)), e(await reg(b, "Bb", "4827", [3, 11], ip))], ["ok", "ok"], "another class from the same address is not held back");
   eq(e(await reg(a, "Ad", "4827", [3, 11], freshIp())), "ok", "the same class from another address is not held back");
+  eq(e(await reg(a, "Ae", "4827", [3, 11], ip)), "locked", "another class's allowance used meanwhile does not lend the first class any");
   await settings({ register_ip_class_hour: 60, ip_class_hour: 120 });
 });
 

@@ -879,9 +879,12 @@ def test_grades(db):
     eq('a removed pupil: their hidden class is kind limbo in the same grade, and they leave the grade board',
        [err, db.admin(f"select c.kind, c.grade_id = (select grade_id from public.classes where id = '{b}') from public.pupils p join public.classes c on c.id = p.class_id where p.id = '{p_uri}'"),
         sorted(r['display_name'] for r in board(('authenticated', u(1)))[0])], [None, [['limbo', 't']], ['נועה כ.', 'נועה כה.']])
-    eq('teacher_add: by user id and class name; an unknown class or user is refused',
-       [db.one(f"select private.teacher_add('{u(8)}', 'ה׳1')"), db.one(f"select private.teacher_add('{u(8)}', 'nope')"),
-        db.one("select private.teacher_add('00000000-0000-4000-9000-999999999999', 'ה׳1')")], ['ok', 'class', 'user'])
+    eq('teacher_add: by user id and class name; again is "already"; an unknown class or user is refused',
+       [db.one(f"select private.teacher_add('{u(8)}', 'ה׳1')"), db.one(f"select private.teacher_add('{u(8)}', 'ה׳1')"),
+        db.one(f"select private.teacher_add('{u(8)}', 'nope')"),
+        db.one("select private.teacher_add('00000000-0000-4000-9000-999999999999', 'ה׳1')")], ['ok', 'already', 'class', 'user'])
+    eq('the grade board crosses class lines with these columns only: name (with the letter), class, points, me; no ids',
+       sorted(board(('authenticated', u(1)))[0][0].keys()), ['class', 'display_name', 'me', 'points'])
     eq('the new tables are not reachable through the API', [db.as_('authenticated', u(1), f'select count(*) from private.{x}')[1] is not None for x in ('schools', 'grades', 'pupil_carry')], [True] * 3)
     # the carry: old daily rows and a finished school year are folded, totals unchanged
     p_noa = db.one(f"select id from public.pupils where class_id = '{a}' and display_name = 'נועה כ.'")

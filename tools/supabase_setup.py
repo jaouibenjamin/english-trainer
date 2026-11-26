@@ -417,11 +417,14 @@ class Setup:
     # ---------- add-class, add-teacher: the owner's steps for more classes (docs/GRADES_V1.md) ----------
     def add_class(self, name, grade):
         self.say(f'add a class: {name} in grade {grade}')
+        if name.strip().casefold() == TRIAL.casefold():
+            raise Stop(f'"{name}" is the trial class\'s name. Next: give the real class its own name (e.g. ה׳2)')
         if self.one(f"select count(*) as n from public.classes where name = {lit(name)} and kind = 'class'"):
             self.say(f'  {name} already exists: nothing to do (its code was put in the Vault as wi_class_code_{name} when it was made)')
             return
         if not self.vault():
             raise Stop('the Vault is not available, so the new class\'s code could not be kept. Next: tell the lead')
+        self.say(f'  about to make {name} in grade {grade}; its code goes into the Vault as wi_class_code_{name}')
         code, _ = self.admin_class({'action': 'create', 'name': name, 'grade': grade})
         self.change(f'class {name} made in grade {grade}')
         self.store_code(code, 'made', f'wi_class_code_{name}', name)
@@ -429,11 +432,15 @@ class Setup:
 
     def add_teacher(self, user_id, class_name):
         self.say(f'add the home teacher of {class_name}')
+        self.say(f'  about to add the user {user_id} as the home teacher of {class_name} (if she is not already)')
         r = self.one(f"select private.teacher_add('{user_id}', {lit(class_name)}) as r")
         if r == 'class':
             raise Stop(f'there is no class named {class_name}. Next: check the name, or make it first with mode add-class')
         if r == 'user':
             raise Stop('there is no user with that id. Next: Supabase → Authentication → Add user (her address), then copy its user id')
+        if r == 'already':
+            self.say(f'  she is already the teacher of {class_name}: nothing to do')
+            return
         if r != 'ok':
             raise Stop(f'teacher_add answered {r!r}')
         self.change(f'the teacher of {class_name} added (by user id)')

@@ -91,7 +91,8 @@ begin
   select id into v_class from public.classes where name = p_class_name and kind = 'class';
   if v_class is null then return 'class'; end if;
   if not exists (select 1 from auth.users where id = p_user) then return 'user'; end if;
-  insert into public.teachers (user_id, class_id) values (p_user, v_class) on conflict do nothing;
+  if exists (select 1 from public.teachers where user_id = p_user and class_id = v_class) then return 'already'; end if;
+  insert into public.teachers (user_id, class_id) values (p_user, v_class);
   return 'ok';
 end $$;
 
