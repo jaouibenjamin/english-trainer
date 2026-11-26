@@ -5,7 +5,7 @@ built or switched on. The flows are `docs/BACKEND.md` section 3 (A, B, E, F); th
 `docs/PHASE3.md` step 5. **These screens change how children sign in: they need the owner's explicit yes (and the
 teacher's) before they are ever switched on.** Every string a child sees is listed below for that approval.
 
-Wireframes: `docs/mock/signin.html`, a static page in the new look, not linked from the game, not wired to anything,
+Wireframes: `docs/mock/signin.html` (the identity row and the "who is playing" pill at 390, 360 and 320 included), a static page in the new look, not linked from the game, not wired to anything,
 no script, no requests. It is responsive: each screen is shown at 390 x 844, and the picture screens also at
 360 x 740 and 320 x 568, so the smallest phones can be judged. The picture tiles there are labelled placeholders.
 
@@ -27,6 +27,37 @@ One real `<input inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete
 offer to save it), shown as four boxes with dots, LTR, with a "הצגה" toggle, **and** a big on-screen keypad of 48 px
 keys (1 to 9, 0, delete) under it for a child who cannot find the digits on a laptop keyboard. Both feed the same
 field. Nothing is kept after the screen closes.
+
+**Placement:** on the register flow it is its own step (A2), the keypad right under the four boxes. On the sign-in
+screen (B) it sits directly under the name row, with "הצגה" on the same line. The on-screen keypad shows only on a
+fine pointer (a laptop, `@media (pointer:fine)`); on a phone the system's number keyboard does the job, so two
+keypads never stack and the bar with "כניסה" stays above the keyboard.
+
+### Identity: first name and one letter (the owner's decision, 2026-11-26)
+
+A pupil is **a first name plus the first letter of the surname**, shown as "נועה כ." (letter, then a full stop).
+
+- **Fields (A1, B, E1):** one row, the first name (wide) and the letter (a 1-character box, 88 px, label "אות
+  משפחה", `aria-label="האות הראשונה של שם המשפחה"`). Under them one hint: "השם הפרטי והאות הראשונה של שם המשפחה, כמו
+  ברשימה של המורה." In A1 a live preview: "כך יופיע במשחק: נועה כ.".
+- **Input rules:** `maxlength=1`, one letter only, no full stop typed (the game adds it). A Hebrew final letter is
+  stored as its plain form (ך ם ן ף ץ become כ מ נ פ צ); a Latin letter is stored upper case. The letter takes the
+  name's script (Hebrew name, Hebrew letter); if not, the hint turns into "האות צריכה להיות באותה שפה של השם."
+- **Not on the list:** "השם הזה לא ברשימת הכיתה. בדקו את השם ואת האות, או בקשו מהמורה." (replaces the A1 message.)
+  Two pupils with the same name and letter: the teacher adds a digit to the letter on her list ("כ2"), the only case
+  where the box takes two characters; this replaces the old "{שם} ב" rule.
+- **Display:** always `<bdi>` around the whole name (a Latin name stays LTR inside Hebrew text): first name, a
+  no-break space, the letter and the full stop. When space is short, **only the first name is cut** with "…"; the
+  letter is never cut ("Alexandri… K."). The full name is the `aria-label`.
+- **Where it shows:** the "who is playing" chip (title and map), the settings account panel, the class board
+  ("נועה כ."), the grade board ("נועה כ." and a separate class tag "ה׳2", never one string). Nowhere a surname.
+
+### Who is playing (title and map)
+
+A pill at the top of the title screen and in the map header: the avatar (36 px), the name as above, a dot, and a
+button **"זה לא אני · יציאה"** (48 px tall target). At 320 px the first name gives way first (see Display); the
+button never shrinks. The button asks the confirm of "Shared device" below.
+
 
 ### The picture screen (choose, recall)
 
@@ -94,10 +125,11 @@ The tick box keeps the session for this tab only (it ends when the tab closes). 
 |---|---|---|
 | A1 1/5 | Heading | מי אתם? |
 | | Label, hint | קוד הכיתה · 8 תווים, אותיות ומספרים. הוא על הלוח. |
-| | Label, hint | השם הפרטי שלכם · כמו שכתוב ברשימה של המורה |
+| | Labels, hint | השם הפרטי · אות משפחה · השם הפרטי והאות הראשונה של שם המשפחה, כמו ברשימה של המורה. |
+| | Preview | כך יופיע במשחק: {שם} {אות}. |
 | | Button | המשך |
 | | Error: class code | קוד הכיתה לא נכון. בדקו שוב מול הלוח. |
-| | Error: name not on the list | השם הזה לא ברשימת הכיתה. בקשו מהמורה להוסיף אותו. |
+| | Error: name not on the list | השם הזה לא ברשימת הכיתה. בדקו את השם ואת האות, או בקשו מהמורה. |
 | | Error: name already taken | מישהו כבר נרשם בשם הזה. אם זה אתם, הקישו "כבר נרשמתי". אם יש בכיתה שני ילדים בשם הזה, בקשו מהמורה. |
 | A2 2/5 | Heading | בוחרים קוד סודי |
 | | Text | 4 ספרות שרק אתם יודעים. לא הקוד של הטלפון! |
@@ -128,16 +160,14 @@ The tick box keeps the session for this tab only (it ends when the tab closes). 
 A4 and A5 are client-side only (nothing extra is sent). A5 comes **after** the code (A2) and the story (A4) so it is
 real recall, not copying. **After this the pair is never shown again**, anywhere.
 
-**Two pupils with the same first name:** as in the live game, the teacher adds one letter to the second name on her
-list (the first name, a space and a letter, e.g. "{שם} ב"), and the child types it that way. The A1 hint "כמו שכתוב ברשימה של המורה" and the taken-name message
-both point there.
+**Two pupils with the same first name:** the surname letter tells them apart (section 1, Identity); with the same letter too, the teacher adds a digit ("כ2").
 
 ### B. Sign in
 
 | Where | Text |
 |---|---|
 | Heading | נכנסים |
-| Labels | קוד הכיתה · השם הפרטי שלכם · הקוד הסודי שלי (4 ספרות) |
+| Labels | קוד הכיתה · השם הפרטי · אות משפחה · הקוד הסודי שלי (4 ספרות) |
 | Button | כניסה |
 | Error: name or code (the same for both, BACKEND D1) | השם או הקוד לא נכונים. נסו שוב. |
 | Link | שכחתי את הקוד |
@@ -210,7 +240,7 @@ The picture counts for a name (3 tries) are the E2 messages above.
 
 | Where | Text |
 |---|---|
-| Next to the greeting on the map | זה לא אני · החלפת משתמש |
+| The "who is playing" pill, title and map | {avatar} {name} · זה לא אני · יציאה |
 | Settings button | יציאה מהמכשיר הזה |
 | Confirm | לצאת? ההתקדמות נשמרת. בפעם הבאה תצטרכו את השם ואת הקוד. |
 | Buttons | כן, לצאת · נשארים |
@@ -223,3 +253,21 @@ The picture counts for a name (3 tries) are the E2 messages above.
 1. The 20 pictures and 22 clips under cap A (22.75 quoted): go?
 2. The tick box "מחשב משותף: לא לזכור אותי": off by default (as written) or on by default at school?
 3. The story step (A4): keep it? It adds about 15 seconds once and is what makes the pair stick after two weeks.
+
+## 5. Boards (class and grade)
+
+Mock: `docs/mock/boards.html` (390, 360, 320). One screen, two tabs "הכיתה" / "השכבה". A row: rank, avatar, the
+name (first name and letter, as above), on the grade board a class tag ("ה׳2", outlined aqua, its own element), the
+points (LTR, gold). The pupil's own row has a gold outline. Under the list: "נקודות השבוע. מתחילים מחדש בכל יום
+ראשון." Up to 10 rows; if the pupil is not in them, their row is added under a thin line with its rank. No surname,
+no code, nothing else about another child.
+
+## 6. A trial device (`?new=1`)
+
+Mock: `docs/mock/trial.html`. Today the question is a plain paper box; it becomes a screen of the game: Pitzi waving,
+the heading **"רגע, זה מכשיר ניסיון"**, the text "כאן בודקים את המערכת החדשה של המשחק. הגעתם לכאן בטעות? אין
+בעיה: חוזרים למשחק הרגיל, וכל מה שעשיתם בו נשמר." The **big gold button is the safe one, "חזרה למשחק הרגיל"**, and
+it has the focus; "להמשיך לניסיון" is the quiet button under it (a child who arrived by mistake only has to press
+the obvious button). Plural "אתם", no "שלך". On the sign-in screens of a trial device: a small dashed aqua tag "מצב
+ניסיון" above the title, and "חזרה למשחק הרגיל" as a quiet 48 px button in the bottom bar (it replaces the
+underlined link "מצב ניסיון · חזרה למשחק הרגיל").
