@@ -13,7 +13,8 @@
      given a different name silently.
    - sl: the highest level whose new character the map has already announced ("דמות חדשה נפתחה!" shows once).
    - a pupil keeps a character chosen earlier even if it would be locked at their level now: nothing is taken away.
-   - energy: only goes up. It is worked out from what the pupil has learned (stars, words known, stories read) and kept
+   - energy: only goes up. It is worked out from what the pupil has learned (English stars, words known, stories read,
+     Fraction Bay stars) and kept
      as the highest value seen, so a word that is forgotten again never takes energy away.
    DOM is built with createElement and textContent only. */
 import {S,API,totalStars,wordsKnown,isOpen,starsOf} from './state.js';
@@ -21,22 +22,23 @@ import {ISLANDS,WORDS,MAX_STARS,TEXTS,LEVEL_INFO} from './data.js';
 import {stars as starRow} from './ui.js';
 import {pathPoints,stone} from './worldpath.js';
 import {ART} from './world_art.js';
-import {AVATARS,NAME_A,NAME_B,NAME_V} from './world_data.js';
+import {AVATARS,NAME_A,NAME_B,NAME_V,ENERGY,SOON} from './world_data.js';
+import {M_ISLANDS,M_MAX} from './mdata.js';
 import {playAv,canMove} from './avanim.js';
 
 const KEY='wi_world';
-/* energy: what each thing learned is worth, and the level thresholds (a rule of ours, for the owner and designer to tune).
-   Level n runs from LEVELS[n-1] to LEVELS[n]; past the list every level is 250 more.
-   The most a pupil can earn today is 980 (66 stars, 59 words, 5 stories), so the 13 levels that open the 12 characters
-   (js/world_data.js) all fit inside it: the last at 820. Every threshold is at or below the earlier ones
-   (0,120,220,340,480,640,820,1020), so a level shown on a device never goes down. */
-const WORTH={star:10,word:5,story:5};
-export const LEVELS=[0,40,90,150,220,300,380,460,540,620,700,760,820];
-/* The most energy a pupil can earn with today's content: every star, every word of the unit known, every story read
-   (10 x 66 + 5 x 59 + 5 x 5 = 980). REVISIT THE LADDER when content adds energy (new islands, a new unit, Fraction Bay
-   if it is ever counted): the last character must stay reachable, and should not come too early either.
-   tests/world.py fails if the level that opens the last character is above this. */
-export const MAX_ENERGY=WORTH.star*MAX_STARS+WORTH.word*WORDS.filter(w=>w.p<6).length+WORTH.story*TEXTS.length;
+/* energy: what each thing learned is worth and the level thresholds, in one table (js/world_data.js ENERGY). Every
+   threshold is at or below the earlier ones (0,120,220,340,480,640,820,1020), and levels 1 to 13 never moved, so a
+   level shown on a device never goes down. */
+const WORTH=ENERGY.worth;
+export const LEVELS=ENERGY.levels;
+/* The most energy a pupil can earn with today's content: every English star, every word of the unit known, every
+   story read, every Fraction Bay star (10 x 66 + 5 x 59 + 5 x 5 + 20 x 33 = 1640). REVISIT THE LADDER when content adds
+   energy: the last character must stay reachable, and should not come too early either. tests/world.py fails if the
+   level that opens the last character (or the last "soon" level) is above this, or within reach of English alone. */
+export const MAX_ENERGY=WORTH.star*MAX_STARS+WORTH.word*WORDS.filter(w=>w.p<6).length+WORTH.story*TEXTS.length+WORTH.mstar*M_MAX;
+/* Fraction Bay's stars: the best stars per level, from the math record the game already keeps (S.m.st) */
+const mathStars=()=>{const st=(S.m&&S.m.st)||{};let n=0;for(const i of M_ISLANDS)for(const t of i.levels)n+=Math.min(3,Math.max(0,+st[i.id+'-'+t]||0));return Math.min(M_MAX,n)};
 const FOCUS_MAX=5;
 const EN_MAX=100000;   // a stored energy above this is read as this (a damaged or edited record must not freeze the map)
 
@@ -64,11 +66,11 @@ const clean=r=>{const o={av:r.av,nm:r.nm,en:r.en};if(r.nm)o.nv=NAME_V;if(r.sl)o.
 function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=clean(rec);localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
 
 /* ---------- energy: only goes up ---------- */
-export const earned=()=>WORTH.star*totalStars()+WORTH.word*wordsKnown()+WORTH.story*Object.values(S.read||{}).filter(v=>v>0).length;
+export const earned=()=>WORTH.star*totalStars()+WORTH.word*wordsKnown()+WORTH.story*Object.values(S.read||{}).filter(v=>v>0).length+WORTH.mstar*mathStars();
 const LAST=LEVELS[LEVELS.length-1];
-const step=n=>n<LEVELS.length?LEVELS[n]:LAST+250*(n-LEVELS.length+1);
+const step=n=>n<LEVELS.length?LEVELS[n]:LAST+ENERGY.after*(n-LEVELS.length+1);
 /* the level, worked out (not counted up one by one): inside the list by search, past it by division */
-const levelOf=pts=>pts>=LAST?LEVELS.length+Math.floor((pts-LAST)/250):LEVELS.findIndex(t=>t>pts);
+const levelOf=pts=>pts>=LAST?LEVELS.length+Math.floor((pts-LAST)/ENERGY.after):LEVELS.findIndex(t=>t>pts);
 function energyOf(id){const r=mine(id),pts=Math.min(EN_MAX,Math.max(r.en,earned()));
  if(pts!==r.en)keep(id,{...r,en:pts});
  const level=levelOf(pts);
@@ -341,6 +343,10 @@ export async function picker(view,go,live=()=>true){
     const k=el('img','wpick__key');k.src=ART['ui/lock'];k.alt='';k.decoding='async';b.append(k,el('span','wpick__lock','רמה '+a.open))}   // a small lock in the top corner and "רמה N" in one short line at the bottom: the picture stays in view
    else{b.setAttribute('aria-label',a.he);b.setAttribute('aria-pressed',sel?'true':'false')}
    grid.appendChild(b)}
+  /* the characters still being drawn: a plain tile, "בקרוב" and its level; no picture (nothing broken), opens nothing */
+  for(const n of SOON){if(AVATARS.some(a=>a.open===n))continue;
+   const t=el('div','wpick__soon-tile');t.setAttribute('role','img');t.setAttribute('aria-label','דמות חדשה בקרוב, ברמה '+n);
+   t.append(el('span','wpick__soon','בקרוב'),el('span','wpick__lock','רמה '+n));grid.appendChild(t)}
   body.append(grid,note);
   const why=el('p','wpick__why',pick?'':'קודם בוחרים דמות.');
   const nx=btn('wpick__ok','הלאה: בוחרים שם',()=>{if(!pick){why.textContent='קודם בוחרים דמות.';return}name()});

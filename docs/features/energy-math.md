@@ -1,8 +1,9 @@
-# Energy from Fraction Bay, and the ladder past level 13 (proposal, no code yet)
+# Energy from Fraction Bay, and the ladder past level 13 (option A, built behind the flag)
 
 The owner's decisions (2026-11-25): Fraction Bay gives energy too, with the same rule (energy only ever goes up), and
 the unlock ladder grows past level 13 for ten new characters the designer is making. English plus math should reach
-about 23 levels. This page is the proposal; the code follows once the owner and the lead pick an option.
+about 23 levels. The lead chose option A on 2026-11-26 (reversible; the owner is told in the morning summary). It is built behind the
+flag, with every number in one table (js/world_data.js ENERGY), so a switch to B is a change to that table only.
 
 ## What exists today
 - Energy (js/avatar.js): 10 per English star, 5 per word known, 5 per story read. The most: 66 stars, 59 words,

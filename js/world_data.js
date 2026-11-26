@@ -15,6 +15,21 @@ export const AVATARS=[
  {id:'parrot',he:'תוכי',open:6},{id:'robot-box',he:'רובוט',open:7},{id:'diver',he:'צוללן',open:8},{id:'penguin',he:'פינגווין',open:9},
  {id:'shark',he:'כריש',open:10},{id:'octopus',he:'תמנון',open:11},{id:'robot-bell',he:'רובוט ירוק',open:12},{id:'pilot',he:'דמות עם קסדה',open:13}];
 
+/* Energy, in one table (the new world, behind the flag): what each thing learned is worth, and the level thresholds.
+   Option A of docs/features/energy-math.md, chosen 2026-11-26 (switching to B is a change to this table only):
+   10 per English star, 5 per word known, 5 per story read, 20 per Fraction Bay star (best stars per level, so energy
+   is always worked out from the progress already saved, never a second counter). Level n runs from levels[n-1] to
+   levels[n]; past the table, one level per `after`. Levels 1 to 13 are where they always were, so no pupil's level
+   ever goes down; 14 to 23 were added for the ten characters the designer is making (SOON until their art lands).
+   The most a pupil can earn: 980 in English + 660 in math = 1640; the last level, 1480, is 90% of it. */
+export const ENERGY={
+ worth:{star:10,word:5,story:5,mstar:20},
+ levels:[0,40,90,150,220,300,380,460,540,620,700,760,820, 890,950,1020,1080,1150,1220,1280,1350,1410,1480],
+ after:250};
+/* The levels whose character is still being drawn: shown in the picker as "בקרוב" (no picture, opens nothing) until
+   the art lands and the character joins AVATARS with that `open`. */
+export const SOON=[14,15,16,17,18,19,20,21,22,23];
+
 /* The two word lists of the name builder (no free text): a describing word and an animal, picked with arrows or the
    surprise button and stored as two indexes. None of these words is in the teacher's Unit 1 list: they are all ours,
    with our Hebrew (the describing words in both genders), and FLAGGED FOR THE TEACHER'S REVIEW before any pupil sees them

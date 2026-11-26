@@ -20,7 +20,12 @@ from play import check, new_page, fails
 CLASS = 'EN-1234'      # the mock backend's own test class
 STARTERS = ['girl-curls', 'boy-cap', 'girl-braids', 'boy-curls', 'girl-glasses', 'boy-blond', 'girl-ponytail', 'boy-scarf']   # the human kids: always open
 LADDER = ['fox', 'cat', 'turtle', 'owl', 'parrot', 'robot-box', 'diver', 'penguin', 'shark', 'octopus', 'robot-bell', 'pilot']   # levels 2 to 13
-LEVELS = [0, 40, 90, 150, 220, 300, 380, 460, 540, 620, 700, 760, 820]   # js/avatar.js
+LEVELS = [0, 40, 90, 150, 220, 300, 380, 460, 540, 620, 700, 760, 820, 890, 950, 1020, 1080, 1150, 1220, 1280, 1350, 1410, 1480]   # js/world_data.js ENERGY
+OLD_LEVELS = LEVELS[:13]   # the ladder before Fraction Bay counted (13 levels, then one per 250)
+
+
+def old_level(pts):
+    return 13 + (pts - 820) // 250 if pts >= 820 else next(k for k, t in enumerate(OLD_LEVELS) if t > pts)
 POST = "async ([api,d])=>(await fetch(api,{method:'POST',body:JSON.stringify(d)})).json()"
 WORLD_FILES = ('js/avatar.js', 'css/avatar.css', 'js/world_data.js', 'js/world_art.js', 'js/avanim.js')
 LS = "Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)]))"
@@ -200,7 +205,7 @@ async def damaged(b, errs):
         await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd', timeout=5000); await pg.wait_for_timeout(200)
         W = await pg.evaluate('window.__world')
         if name == 'huge energy':
-            check(f'damaged wi_world ({name}): the map opens, energy read as the cap 100000, level worked out (409)', W['energy']['points'] == 100000 and W['energy']['level'] == 409 and W['avatar'] == 'fox', W['energy'])
+            check(f'damaged wi_world ({name}): the map opens, energy read as the cap 100000, level worked out (417: 23 + (100000 - 1480) // 250)', W['energy']['points'] == 100000 and W['energy']['level'] == 23 + (100000 - 1480) // 250 and W['avatar'] == 'fox', W['energy'])
         else:
             check(f'damaged wi_world ({name}): the map opens with no character, energy from what was learned', W['avatar'] is None and W['name'] is None and W['energy']['points'] == 120 and not await pg.evaluate('window.__pwned||false'), W)
         await c.close()
@@ -351,14 +356,67 @@ async def ladder(b, errs):
 
 
 async def reachable(b, errs):
-    """the ladder fits what a pupil can earn: the level that opens the last character is reachable with today's content
-    (js/avatar.js MAX_ENERGY; when content adds energy, the ladder is to be revisited)"""
+    """the ladder fits what a pupil can earn: the level that opens the last character (and the last "soon" level) is
+    reachable with today's content, and needs both subjects (above what English alone gives); levels 1 to 13 never moved"""
     c, pg, reqs = await page(b, 390, 844, errs)
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
-    R = await pg.evaluate("async()=>{const A=await import('./js/avatar.js'),D=await import('./js/world_data.js');const top=Math.max(...D.AVATARS.map(a=>a.open));return {max:A.MAX_ENERGY,levels:A.LEVELS,top,need:A.LEVELS[top-1]}}")
-    check(f'the last character (level {R["top"]}) opens at {R["need"]} energy, within the {R["max"]} a pupil can earn today', R['top'] <= len(R['levels']) and R['need'] is not None and R['need'] <= R['max'], R)
-    check('the ladder in the test is the one in js/avatar.js', R['levels'] == LEVELS, R['levels'])
+    R = await pg.evaluate("""async()=>{const A=await import('./js/avatar.js'),D=await import('./js/world_data.js');const top=Math.max(...D.AVATARS.map(a=>a.open),...D.SOON);
+      const lv=p=>p>=A.LEVELS[A.LEVELS.length-1]?A.LEVELS.length+Math.floor((p-A.LEVELS[A.LEVELS.length-1])/D.ENERGY.after):A.LEVELS.findIndex(t=>t>p);
+      return {max:A.MAX_ENERGY,levels:A.LEVELS,top,need:A.LEVELS[top-1],english:980,lvMax:lv(A.MAX_ENERGY),lvEn:lv(980),worth:D.ENERGY.worth}}""")
+    check(f'the last level ({R["top"]}) opens at {R["need"]} energy, within the {R["max"]} a pupil can earn (level {R["lvMax"]} at the most)', R['top'] <= len(R['levels']) and R['need'] is not None and R['need'] <= R['max'] and R['lvMax'] >= R['top'], R)
+    check(f'the last level needs both subjects: English alone (980) reaches level {R["lvEn"]}, below {R["top"]}', R['lvEn'] < R['top'] and R['need'] > R['english'], R)
+    check('the ladder in the test is the one in js/world_data.js, and levels 1 to 13 never moved', R['levels'] == LEVELS and R['levels'][:13] == OLD_LEVELS and R['max'] == 1640 and R['worth'] == {'star': 10, 'word': 5, 'story': 5, 'mstar': 20}, R)
     await c.close()
+
+
+async def energy_migration(b, errs):
+    """the new ladder never takes anything back: from every stored energy (each old threshold, one below it, the
+    English maximum 980, far past the ladder) the level is at least what it was; energy is worked out from saved stars
+    (math stars add 20 each), the stored number only ever goes up"""
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+    pts = sorted({0, 1, 980, 1069, 1070, 1319, 1320, 5000} | set(OLD_LEVELS) | {max(0, t - 1) for t in OLD_LEVELS})
+    bad = []
+    for en in pts:
+        await set_world(pg, {'av': 'fox', 'nm': [0, 0], 'nv': 2, 'en': en, 'sl': max(1, old_level(en))})
+        await goto_hash(pg, 'map', '.map .wd')
+        E = await pg.evaluate('window.__world.energy')
+        stored = json.loads(await pg.evaluate("localStorage.getItem('wi_world')"))['p']['local']['en']
+        if E['level'] < old_level(en) or E['points'] < en or stored < en: bad.append((en, old_level(en), E['level'], E['points'], stored))
+    check(f'from every stored energy ({len(pts)} cases, the English maximum 980 among them) the level never goes down and the energy is kept', not bad, bad)
+    await set_world(pg, {'av': 'fox', 'nm': [0, 0], 'nv': 2, 'en': 980, 'sl': 13})
+    await goto_hash(pg, 'map', '.map .wd')
+    E = await pg.evaluate('window.__world.energy')
+    check('a pupil at the English maximum (980, level 13 before) is now at level 15', E['level'] == 15 and E['points'] == 980, E)
+    await c.close()
+    # math stars count, from the saved record (S.m.st): 2 stars = 40 = level 2; nothing new is stored but the energy
+    c, pg, reqs = await page(b, 390, 844, errs, {'m': {'st': {'1-pizza': 2}, 'plays': 1}})
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+    E = await pg.evaluate('window.__world.energy')
+    rec = json.loads(await pg.evaluate("localStorage.getItem('wi_world')"))['p']['local']
+    check('Fraction Bay stars give energy (2 stars = 40 = level 2), worked out from the saved math record', E['points'] == 40 and E['level'] == 2 and rec.get('en') == 40 and set(rec) <= {'av', 'nm', 'nv', 'en', 'sl', 'at'}, (E, rec))
+    await c.close()
+
+
+async def soon_tiles(b, errs):
+    """levels 14 to 23 open nothing until the designer's characters exist: the picker shows them as "בקרוב" tiles with
+    their level, no picture (nothing broken), not buttons, named for a screen reader"""
+    for w, h in ((390, 844), (320, 568), (1366, 768)):
+        c, pg, reqs = await page(b, w, h, errs)
+        await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid')
+        T = await pg.evaluate("""[...document.querySelectorAll('.wpick__soon-tile')].map(t=>{const r=t.getBoundingClientRect();return {tag:t.tagName,img:t.querySelectorAll('img').length,txt:t.textContent,
+          label:t.getAttribute('aria-label'),tab:t.tabIndex,w:r.width,h:r.height}})""")
+        ok = len(T) == 10 and all(t['tag'] != 'BUTTON' and t['img'] == 0 and t['txt'] == f'בקרוברמה {n}' and t['label'] == f'דמות חדשה בקרוב, ברמה {n}' and t['tab'] < 0 and t['w'] >= 44 for t, n in zip(T, range(14, 24)))
+        check(f'[{w}x{h}] ten "בקרוב" tiles for levels 14 to 23: no picture, not buttons, named', ok, T[:2])
+        G = await pg.evaluate("(()=>{const a=document.querySelector('.wpick__av').getBoundingClientRect(),t=document.querySelector('.wpick__soon-tile').getBoundingClientRect();return {av:[Math.round(a.width),Math.round(a.height)],soon:[Math.round(t.width),Math.round(t.height)],sx:document.documentElement.scrollWidth,W:innerWidth}})()")
+        check(f'[{w}x{h}] the "בקרוב" tiles are the size of the character tiles, and nothing scrolls sideways', G['soon'] == G['av'] and G['sx'] <= G['W'], G)
+        O = await pg.evaluate("[...new Set([...document.querySelectorAll('.wpick__av')].map(b=>(b.classList.contains('is-locked')?'locked ':'open ')+getComputedStyle(b.querySelector('.wpick__art')).opacity))]")
+        check(f'[{w}x{h}] open characters are drawn in full, only locked ones dimmed', sorted(O) == ['locked 0.7', 'open 1'], O)
+        a = await pg.evaluate(AUDIT.replace(".wd *,.wd__note,.wpick *", ".wpick__soon-tile *"))
+        check(f'[{w}x{h}] the "בקרוב" tiles\' words at least 4.5:1', not a['bad'], a['bad'])
+        if w == 390:
+            await pg.evaluate("document.querySelector('.wpick__soon-tile').scrollIntoView()"); await P.shot(pg, 'world-soon-390x844')
+        await c.close()
 
 
 async def kept(b, errs):
@@ -932,6 +990,8 @@ async def main():
             await ladder(b, errs)
             await notice_clear(b, errs)
             await reachable(b, errs)
+            await energy_migration(b, errs)
+            await soon_tiles(b, errs)
             await kept(b, errs)
             await old_names(b, errs)
             await names(b, errs)
