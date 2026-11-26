@@ -1,6 +1,6 @@
 /* The pupil's sign-in screens for 'supabase' mode (docs/SIGNIN.md, docs/BACKEND.md section 3, PHASE3 step 5).
-   Shown only when js/api.js runs in 'supabase' mode, which config.js cannot reach by accident (it needs `unfinished: true`
-   and, until `everyone: true`, a ?dual=1 device). With today's config nothing here is loaded.
+   Shown only when js/api.js runs in 'supabase' mode, which config.js cannot reach by accident (a project, the exact
+   mode, and a ?new=1 device until `everyone: true`). With today's config nothing here is loaded.
 
    Flows: Entry, A register (5 steps), B sign in, E "I forgot my code" (the pictures or the teacher's one-time code,
    then a new code and new pictures, one request), and the waits the server answers with (by / help / wait). There is no
