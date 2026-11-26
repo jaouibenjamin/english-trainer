@@ -90,9 +90,9 @@ function card(t,{small=false}={}){const tot=t.total,p=P100(tot[0]/tot[1]);
    The exam: one try per question. No right answer is shown until the end.
    ====================================================================== */
 export async function run(ctx){setBg('paper','center');await preload(['assets/x/pics.webp',SP('crab_walk'),SP('crab_happy'),SP('crab_oops')]);if(!ctx.live())return;
- const x=XS(),items=paper(new Set(x.seen),!x.tries.length),n=items.length,ans=[];let i=0,alive=true,armed=false;
+ const x=XS(),items=paper(new Set(x.seen),!x.tries.length),n=items.length,ans=[];let i=0,shown=0,alive=true,armed=false;
  window.__lv={kind:'mock',items,i:()=>i,ans};
- view.innerHTML=`<section class="scr mockrun"><div class="xtop"><button class="rb t1 xquit" data-a="mockquit" aria-label="יציאה">${ico('x')}</button>
+ view.innerHTML=`<section class="scr mockrun"><div class="xtop"><button class="rb t1 xquit" data-a="mockquit" aria-label="יציאה">${ico('close')}</button>
   <div class="xtrail" dir="rtl">${XORDER.map((k,j)=>`<span class="xs" data-k="${k}"><b>${XSKILL[k].icon}</b><small>${XSKILL[k].he}</small></span>`).join('<i class="xline"></i>')}${spr('crab_walk','xwalker')}</div>
   <p class="xcount" id="xc"></p></div><div class="xbody" id="xb"></div></section>`;
  const xb=document.getElementById('xb'),xc=document.getElementById('xc'),walker=view.querySelector('.xwalker');
@@ -105,7 +105,7 @@ export async function run(ctx){setBg('paper','center');await preload(['assets/x/
  async function step(){if(!alive)return;
   if(i>=n){alive=false;return finish()}
   const it=items[i];if(i===0||items[i-1].skill!==it.skill)await station(it.skill);if(!alive)return;
-  xc.innerHTML=`שאלה ${num(i+1)} מתוך ${num(n)}`;xb.innerHTML=question(it,'exam');focusInput();
+  xc.innerHTML=`שאלה ${num(i+1)} מתוך ${num(n)}`;xb.innerHTML=question(it,'exam');shown=i+1;focusInput();
   const res=await answer(it,'exam',ctx);if(!alive)return;ans.push({k:it.k,skill:it.skill,ok:res.ok,v:res.v});
   await sleep(res.ok?650:900);i++;step()}
  async function finish(){const sc={};for(const k of XORDER){const a=ans.filter(r=>r.skill===k);sc[k]=[a.filter(r=>r.ok).length,a.length]}
@@ -113,7 +113,11 @@ export async function run(ctx){setBg('paper','center');await preload(['assets/x/
   x.tries.push(t);x.seen=[...new Set([...x.seen,...items.map(it=>it.k)])].slice(-400);if(x.tries.length>20)x.tries=x.tries.slice(-20);
   award(right*5);save();delete window.__lv;report(t,items,ctx)}
  ctx.setLevel({destroy(){alive=false;waiter=null;pending=null;delete window.__lv},
-  quit(el){if(!armed){armed=true;toast('לצאת? המבחן לא יישמר.<br>לחצו שוב על ✕ כדי לצאת',2600);setTimeout(()=>armed=false,2600);return false}return true}});
+  quit(el){if(!armed){armed=true;toast('לצאת? המבחן לא יישמר.<br>לחצו שוב על ✕ כדי לצאת',2600);setTimeout(()=>armed=false,2600);return false}
+   /* a confirmed quit is not a try and has no score, but the questions already shown count as seen, so the next paper
+      draws fresh ones first and quitting is no way around "one try each" */
+   if(alive&&shown){x.seen=[...new Set([...x.seen,...items.slice(0,shown).map(it=>it.k)])].slice(-400);save()}
+   return true}});
  step()}
 
 /* the report: the check-in card, the plan, and the mistakes with the right answers */
@@ -163,7 +167,10 @@ export async function prac(k,ctx){if(!XSKILL[k])return ctx.go('mock');setBg('pap
    ${btn('nav','לעמוד מבחן הדמו','cream sm','data-to="mock"')}</div></section>`;
  confetti(undefined,undefined,40);SND.win();setTimeout(()=>say('pracDone'),700)}
 
-const fmt=l=>esc(l).replace(/([A-Za-z][A-Za-z' .,?!\/…()·→]*[A-Za-z.?!)])/g,m=>`<bdi dir="ltr" class="en">${m}</bdi>`);
+/* split first, then escape each piece. An English run starts at a letter or digit and goes on until Hebrew or a bracket,
+   the same rule as mixed() in js/run.js: an apostrophe and a number stay inside ("aren't", "I'm 12 years old."), and
+   brackets stay outside, so the Hebrew line mirrors them ("(Maya, Israel, June)"). Only a run with a letter is English. */
+const fmt=l=>String(l).split(/([A-Za-z0-9](?:[^\u0590-\u05FF()]*[A-Za-z0-9.?!'\u2019\u2026])?)/).map((p,i)=>i%2&&/[A-Za-z]/.test(p)?`<bdi dir="ltr" class="en">${esc(p)}</bdi>`:esc(p)).join('');
 
 /* ---------- one question on the screen ---------- */
 const NUMW=WORDS.filter(w=>w.p===7).map(w=>w.en.toLowerCase());
@@ -222,7 +229,7 @@ function mark(ok){const q=view.querySelector('.xq.label');if(q){q.classList.remo
 function wrongWhy(it,v){if(it.skill==='grammar'&&it.k.startsWith('be:'))return'בדקו מי הנושא: I, דבר אחד, או כמה?';if(it.type==='who')return'בדקו כל פרט: גיל, חודש ותחביב';if(it.type==='read')return'חפשו בקטע מילה מהשאלה';return''}
 /* practice feedback under the question */
 function feedback(ok,it,why,reveal){const fb=document.getElementById('xfb');if(!fb)return;
- if(ok){fb.className='xfb ok';fb.innerHTML=`<b>נכון!</b> ${fmt(it.tip||'')}`;return}
+ if(ok){fb.className='xfb ok';fb.innerHTML=`<b>נכון!</b> <span>${fmt(it.tip||'')}</span>`;return}   // one line of text in the column, not one line per piece
  if(!reveal){fb.className='xfb bad';fb.innerHTML=`<b>עוד ניסיון:</b> ${esc(why||'נסו שוב')}`;return}
  fb.className='xfb sol';fb.innerHTML=`<b>התשובה:</b> ${en(it.a)}<span>${fmt(it.tip||'')}</span>${btn('mocknext',`הבא ${ico('next')}`,'green sm')}`;
  if(it.type==='read'){const p=view.querySelector(`.xtext p[data-l="${it.line}"]`);if(p){p.classList.add('ev');view.querySelector('.xtext').open=true}}}

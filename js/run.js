@@ -16,11 +16,13 @@ if(SET.calm)document.documentElement.classList.add('calm');
    Content-Security-Policy allows no inline handlers). Load errors do not bubble, so it listens in the capture phase. */
 menu.addEventListener('error',e=>{const i=e.target;if(i&&i.dataset&&i.dataset.fb&&i.getAttribute('src')!==i.dataset.fb)i.src=i.dataset.fb},true);
 /* the new look ("Arcade Lagoon"), behind the same switch as js/dsflag.js: ?ds=1 turns it on for this device, ?ds=0 off.
-   Off: nothing is added, written or requested. On: the class "ds" on <html> and two stylesheets (css/run-ds.css), styling only. */
+   Off: nothing is added, written or requested. On: the class "ds" on <html> and two stylesheets (css/run-ds.css), styling only.
+   The menu stays hidden until both have loaded (or failed, or 4 s passed), so the old look never flashes on slow wifi. */
 (()=>{let q=null,on=false;try{q=new URLSearchParams(location.search).get('ds')}catch(e){}
  try{if(q==='1')localStorage.setItem('wi_ds','1');else if(q==='0')localStorage.removeItem('wi_ds');on=localStorage.getItem('wi_ds')==='1'}catch(e){on=q==='1'}
  if(!on)return;document.documentElement.classList.add('ds');
- for(const h of['css/ds.css','css/run-ds.css']){const l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l)}})();
+ let left=2;const show=()=>{left=0;menu.style.visibility=''};menu.style.visibility='hidden';setTimeout(show,4000);
+ for(const h of['css/ds.css','css/run-ds.css']){const l=document.createElement('link');l.rel='stylesheet';l.href=h;l.onload=l.onerror=()=>{if(--left===0)show()};document.head.appendChild(l)}})();
 /* two looks: anime cel-shading (default) and low-poly (?style=lowpoly) */
 /* the runner models and their menu pictures are ours, served next to the game (relative URLs; sources: assets/sources.tsv) */
 const M3D='assets/3d/',HPIC='assets/x/';
@@ -217,17 +219,20 @@ function showQ(it,q){
  let h=`<div class="qrow">${pic}<div class="qtx">${tx}</div></div>`+laneChips(q);
  banner.className='banner';banner.innerHTML=h;banner.hidden=false}
 let shownLane=-1;function syncChips(){if(!G||!G.gate||G.lane===shownLane)return;shownLane=G.lane;banner.querySelectorAll('.ln').forEach((e,i)=>e.classList.toggle('cur',i===G.lane))}
+/* a line that mixes Hebrew and English (the explanation under an answer): each English stretch is its own left-to-right run,
+   so its full stop and question mark stay at its end ("I study English at school." and not ".I study English at school") */
+const mixed=t=>String(t).split(/([A-Za-z0-9](?:[^\u0590-\u05FF()]*[A-Za-z0-9.?!'\u2019\u2026])?)/).map((p,i)=>i%2&&/[A-Za-z]/.test(p)?`<bdi dir="ltr">${esc(p)}</bdi>`:esc(p)).join('');
 function judge(){const q=G.gate,lane=G.lane,pick=q.lanes[lane],ok=pick===q.it.a,ci=q.lanes.indexOf(q.it.a);G.asked++;
  if(ok){G.right++;const p=q.e.again?PTS_LATER:PTS_FIRST;if(!q.e.again)G.firstRight++;
   const r=R(),room=Math.max(0,DAY_CAP-r.dpts),got=Math.min(p,room);if(got){r.dpts+=got;G.pts+=got;award(got)}else saveLocal();
   markBoard(q,lane,'ok');burst(LANE[lane],1.6,0);flash(got?`נכון! +${got}`:'נכון!','ok');SND.star(Math.min(2,G.right%3));
-  banner.className='banner ok';banner.innerHTML=`<p class="q">נכון! ${esc(q.it.tip||'')}</p>`;
+  banner.className='banner ok';banner.innerHTML=`<p class="q">נכון! ${mixed(q.it.tip||'')}</p>`;
   if(q.e.again)R().miss=R().miss.filter(k=>k!==q.it.k);G.speed=Math.min(13.2,G.speed+.32)}
  else{markBoard(q,lane,pick==null?'':'bad');markBoard(q,ci,'ok');flash(pick==null?'צריך לבחור שלט':'כמעט!','bad');SND.bad();G.stun=.9;
   if(!G.missed.some(m=>m.k===q.it.k))G.missed.push({k:q.it.k,q:q.it.q,sent:q.it.sent||q.it.big||'',pic:q.it.pic||'',a:q.it.a,tip:q.it.tip||''});
   const r=R();if(!r.miss.includes(q.it.k))r.miss=[...r.miss,q.it.k].slice(-40);
   if(!q.e.again){G.queue.splice(Math.min(3,G.queue.length),0,{it:q.it,again:true});G.total++}
-  banner.className='banner bad';banner.innerHTML=`<p class="q">התשובה הנכונה:</p><p class="ans"><b>${esc(q.it.a)}</b></p><p class="ans">${esc(q.it.tip||'')}</p><p class="hint">השאלה הזאת תחזור עוד מעט</p>`}
+  banner.className='banner bad';banner.innerHTML=`<p class="q">התשובה הנכונה:</p><p class="ans"><b>${esc(q.it.a)}</b></p><p class="ans">${mixed(q.it.tip||'')}</p><p class="hint">השאלה הזאת תחזור עוד מעט</p>`}
  G.fb=ok?1.8:3.4;G.gate=null;G.dash=false;dashBtn.hidden=true;updHud()}
 function hit(o){if(G.inv>0||window.__runNoHit)return;G.hearts--;G.inv=1.6;shakeT=.35;SND.bad();const h=$('#hearts');h.classList.remove('hit');void h.offsetWidth;h.classList.add('hit');
  o.userData.fly=new THREE.Vector3((Math.random()-.5)*4,5,-6);updHud();if(G.hearts<=0)end(false)}
@@ -343,7 +348,7 @@ menu.addEventListener('click',e=>{const pb=e.target.closest('[data-pace]');if(pb
  const b=e.target.closest('[data-go]');if(!b)return;SND.tap();if(b.dataset.go==='run')begin();else if(b.dataset.go==='resume')setPause(false)});
 
 /* test hooks */
-window.__run={G:()=>G,act,begin,lanes:()=>G&&G.gate?G.gate.lanes:null,answer:()=>G&&G.gate?G.gate.it.a:null,
+window.__run={G:()=>G,act,begin,mixed,lanes:()=>G&&G.gate?G.gate.lanes:null,answer:()=>G&&G.gate?G.gate.it.a:null,
  goLane:i=>{if(G)G.lane=i},noHit:v=>{window.__runNoHit=v},runner:()=>({hero:!!hero&&hero.root.visible,crab:crab.root.visible,clip:hero&&hero.act?hero.act.getClip().name:''})};
 /* fonts first, so the signs are drawn in the game's own hand */
 Promise.race([Promise.all([document.fonts.load('800 40px "Playpen Sans Hebrew"','אבג'),document.fonts.load('800 40px "Playpen Sans Hebrew"','Abc')]),new Promise(r=>setTimeout(r,2500))])

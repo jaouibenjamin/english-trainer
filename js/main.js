@@ -26,10 +26,14 @@ const pts=n=>num((+n||0).toLocaleString('en-US'));
 const nst=n=>`<span class="nb">${num(n)}${star()}</span>`;   // a number and its star never part at a line break
 
 /* ---------- title ---------- */
+/* The platform's name (owner's decision 25.11.2026, docs/PLAN.md). Shown only with the design flag (?ds=1) for now:
+   the live class keeps "איי המילים" until the new look goes live. "איי המילים" stays the name of the English world
+   (the English button, the card, the worksheet, Beach Run). */
+const BRAND='ניצני אופק';
 function title(){setBg('title','bottom');
  const d=Math.ceil((new Date(2026,10,25)-new Date())/864e5),md=M.daysToExam(),m=bgMap('bottom');
  view.innerHTML=`<section class="scr title">
-  <div class="logo"><h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p></div>
+  <div class="logo">${dsOn()?`<h1>${BRAND}</h1><p>אנגלית, חשבון ועוד: כל יום קצת</p>`:`<h1>איי המילים</h1><p class="en" dir="ltr">Word Islands · All About Me</p>`}</div>
   <div class="tgo subj"><p class="label pick">במה מתאמנים היום?</p>
    <button class="btn green xl sb" data-a="nav" data-to="map"><span><b>אנגלית</b><small>איי המילים${d>0&&d<60?` · מבחן בעוד ${num(d)} ימים`:''}</small></span></button>
    <button class="btn coral sb xm" data-a="nav" data-to="mock"><span><b>מבחן דמו באנגלית</b><small>${XS_last()}</small></span></button>
@@ -43,8 +47,11 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
  /* islands zigzag in two columns, so neighbours in a column are two rows apart; the lowest island and its label end 14px above the bottom */
  /* every level of every island has been played: a banner along the beach. "Finished" is said only at full stars;
     until then it says how many stars are missing, and every island that still has stars to collect is ringed */
- const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),finH=(played?84:0)+(dsOn()?WORLD_DOCK:0);   // with the design flag, room for the new world's dock (js/avatar.js)
- const iw=Math.min(W*.37,150,H*.19),cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
+ const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),iw0=Math.min(W*.37,150,(H-(dsOn()?WORLD_DOCK:0))*.19);   // with the design flag, sized from the height left after the dock
+ /* the banner shows when every level was played; with the design flag only if the islands still fit with it and the dock (worldFits) */
+ const fin=played&&(!dsOn()||worldFits(iw0,H,mt,84+WORLD_DOCK)),finH=(fin?84:0)+(dsOn()?WORLD_DOCK:0);   // with the design flag, room for the new world's dock (js/avatar.js)
+ const iw=worldIw(iw0,H,mt,finH),
+  cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
  /* the crab waits on the newest island that is open and still has stars to collect */
  const curI=ISLANDS.filter(i=>isOpen(i)&&islandStars(i)<i.levels.length*3).sort((a,b)=>b.id-a.id)[0]||null;
 
@@ -57,31 +64,58 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
   <header class="maphead${API&&S.u?' cls':''}"><button class="mb" data-a="nav" data-to="settings"><span class="rb t1">${spr('ic_gear','rbi')}</span><small>הגדרות</small></button>
    <div class="sign total"><b>${star()}<span>${num(tot+' / '+MAX_STARS)}</span></b></div>
    <span class="tr">${API&&S.u?`<button class="mb" data-a="nav" data-to="board"><span class="rb t3">${spr('trophy','rbi')}</span><small>טבלה</small></button>`:''}<button class="mb" data-a="nav" data-to="collection"><span class="rb t2">${spr('chest','rbi')}</span><small>האוסף</small></button></span></header>
-  ${played?`<div class="fin label${all?' all':''}" role="status">${spr(all?'crab_star':'crab_wave','fc bob')}<p>${all?`<b>כל הכבוד! סיימתם את כל האיים</b><small>כל ${num(MAX_STARS)} הכוכבים שלכם. אפשר לשחק שוב בכל שלב${API&&S.u?' ולצבור נקודות':''}</small>`
+  ${fin?`<div class="fin label${all?' all':''}" role="status">${spr(all?'crab_star':'crab_wave','fc bob')}<p>${all?`<b>כל הכבוד! סיימתם את כל האיים</b><small>כל ${num(MAX_STARS)} הכוכבים שלכם. אפשר לשחק שוב בכל שלב${API&&S.u?' ולצבור נקודות':''}</small>`
    :`<b>עברתם בכל האיים!</b><small><span class="nb">${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`}</span> <span class="nb">באיים שבמסגרת הצהובה</span></small>`}</p>${all?spr('trophy','ft'):`<span class="fs">${star()}<i>${num(tot+'/'+MAX_STARS)}</i></span>`}</div>`:''}
   <button class="subjpill" data-a="nav" data-to="">${ico('back')}<span>מקצועות</span></button>
   ${deco('boat',24,0,58)}${deco('whale',76,1,46)}
   ${played?'':`<img class="compass" src="${SP('compass')}" alt="" style="top:${Math.min(H-80,m.oy+1215*m.s-36).toFixed(1)}px">`}
   <svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="${path}"/></svg>
   ${place.map(({i,x,y})=>{const o=isOpen(i),st=islandStars(i),mx=i.levels.length*3,cur=i===curI,todo=played&&o&&st<mx;
-   return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}${cur?' cur':''}${todo?' todo':''}${x<50?' lc':''}" style="left:${x}%;top:${y.toFixed(1)}px" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}">
+   return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}${cur?' cur':''}${todo?' todo':''}${x<50?' lc':''}" style="left:${x}%;top:${y.toFixed(1)}px" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}${cur&&dsOn()?(tot?', ממשיכים כאן':', מתחילים כאן'):''}">
     <span class="pw">${spr('isl_'+i.id,'pic')}${o?'':spr('lock','lk')}${cur?`<span class="here">${spr('crab_wave','bc')}</span>`:''}</span>
     <span class="tag">${cur?`<em class="hb">${tot?'ממשיכים כאן':'מתחילים כאן'}</em>`:''}<b>${esc(i.he)}</b>${i.bonus?`<small class="bn">אי בונוס · שני שלבים</small>`:''}<small>${o?`${star()}${num(st+'/'+mx)}${st===mx?spr('ic_check','ck'):''}`:`נפתח ב־${num(i.need)}${star()}`}</small></span></button>`}).join('')}
- </section>`;worldMap()}
+ </section>`;worldMap();
+ /* with the design flag, a very short screen leaves the all-played banner out (worldFits): say its line once per visit */
+ if(played&&!fin&&!finSaid){finSaid=true;toast(all?'כל הכבוד! סיימתם את כל האיים':`עברתם בכל האיים! ${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`} באיים שבמסגרת הצהובה`,3200)}}
+let finSaid=false;   // the all-played line was said as a toast in this visit (a logout resets it, for the next pupil on this tab)
 /* the new world behind the design flag (?ds=1): js/avatar.js is fetched only on such a device; without the flag this does nothing */
 const dsOn=()=>document.documentElement.classList.contains('ds');
 const WORLD_DOCK=76;   // px kept free at the bottom of the map for the dock of js/avatar.js (css/avatar.css .wd)
-function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
+/* The islands' size with the design flag. Its island pictures are 7:6 (4:3 when the viewport is at most 700px high)
+   and its labels a little taller, so an island and its label need more height than the game's own layout gives them.
+   Islands in one column are two rows apart: worldIw shrinks them until a picture and its label fit in that space.
+   - THESE NUMBERS COPY css/ds-game.css (img.pic[src*="/isl_"] aspect-ratio 7/6, and 4/3 under @media (max-height:700px)):
+     change them together. The media test below is the same viewport test as the CSS.
+   - WORLD_TAG is the tallest label (the bonus island's three lines, 74px); 56px is the smallest island (320x568).
+   - Without the flag the size is returned unchanged. */
+const WORLD_TAG=74,worldPr=()=>matchMedia('(max-height:700px)').matches?.75:6/7,worldRoom=(w,H,mt,finH)=>2*(H-mt-(w*.76+48)-14-finH)/5;
+function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=worldPr();
+ while(iw>56&&iw*pr+WORLD_TAG>worldRoom(iw,H,mt,finH))iw-=2;
+ return iw}
+/* do the islands fit at all (even at the smallest size) with this much kept free at the bottom? On a very short phone
+   (320x568) the all-played banner and the dock together leave too little: then the banner is left out */
+function worldFits(iw0,H,mt,finH){const iw=worldIw(iw0,H,mt,finH);return iw*worldPr()+WORLD_TAG<=worldRoom(iw,H,mt,finH)}
+let AV=null;   // js/avatar.js once loaded (flag on only)
+function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{AV=m;if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
 
 /* ---------- island ---------- */
-function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');preload([BG(i.bg),BG('listen'),BG('read'),BG('bridge')]);
+function island(id){const i=isl(id);if(!i||!isOpen(i))return go('map');setBg('paper','center');const next=[BG(i.bg),BG('listen'),BG('read'),BG('bridge')];if(!dsOn())preload(next);
  const got=islandStars(i);
  view.innerHTML=`<section class="scr island${extraOn()?' hasx':''}">${top(esc(i.he))}
   <p class="isub">${i.bonus?'אי בונוס: חודשים ומספרים, שני שלבים':`מילים מתוך: ${en(i.en)}`}</p>
   <div class="ihero">${spr('isl_'+i.id,'pic')}<p class="chips"><span class="chip">${star()}${num(got+' / '+i.levels.length*3)}</span>${SET.sheet===true?`<a class="chip wsl" href="worksheet.html?i=${i.id}">דף עבודה להדפסה</a>`:''}</p></div>
   ${extraRow(i)}<div class="lvlist">${i.levels.map(([t],k)=>{const L=LEVEL_INFO[t],s=starsOf(i.id,t);
    return `<button class="lvrow p${k%4}" data-a="nav" data-to="play/${i.id}/${t}"><span class="lic">${spr(L.icon)}</span><span class="lt"><b>${L.name}</b>${stars(s)}<small>${L.sub}</small></span></button>`}).join('')}</div>
-  <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus&&!got?'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`}
+  <div class="guide">${spr('crab_wave','bob')}<p class="label">${i.bonus&&!got?'כאן יש שני שלבים: חודשים בקלע, מספרים בהאזנה':got?'אפשר לחזור לכל שלב ולאסוף עוד כוכבים':'בחרו שלב. יש ארבעה, כמו חלקי המבחן'}</p></div></section>`;worldIsland(i,next)}
+/* with the design flag, the island's levels become a path of stones (js/avatar.js islandPath) when its pictures are
+   ready; until then, or if they are not, today's list stays as it is. The levels' backgrounds are fetched ahead only
+   once that has settled, so they never come before the screen's own art. Without the flag this does nothing (island()
+   fetches them ahead at once, as before) */
+function worldIsland(i,next){if(!dsOn())return;const list=view.querySelector('.scr.island .lvlist');if(!list)return;const my=navId;   // the list stays shown until the path is ready to take its place
+ /* when the path's pictures are already in, the path is about to replace the list: hold the list back a moment so it
+    does not flash first, at most 300 ms (if the path is not drawn by then, the list shows) */
+ if(AV&&AV.pathReady()){list.style.visibility='hidden';setTimeout(()=>{if(list.isConnected)list.style.visibility=''},300)}
+ import('./avatar.js').then(m=>(AV=m,my===navId)&&V.name==='island'?m.islandPath(view,i,go,()=>my===navId&&V.name==='island'):null).catch(()=>{}).then(()=>preload(next))}
 
 /* ---------- play + result ---------- */
 async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type);if(!lv||!isOpen(i))return go('map');
@@ -126,6 +160,13 @@ function collection(){setBg('paper','center');const tot=totalStars(),nxt=BALLS.f
    return `<button class="ball${ok?'':' locked'}${sel?' sel':''}" data-a="${ok?'ball':'locked'}" data-i="${k}" data-need="${b.need}" aria-pressed="${sel}"><span class="bw">${spr('ball_'+k,'bi')}${ok?'':spr('lock','lk')}${sel?spr('ic_check','sl'):''}</span><b>${b.name}</b><small>${ok?(sel?'בקלע עכשיו':'לחצו כדי לבחור'):`${num(b.need)}${star()}`}</small></button>`}).join('')}</div></section>`}
 
 /* ---------- settings + help ---------- */
+/* what the pages' security policy blocked on this device in the last 14 days (js/csplog.js keeps the last 10: directive, origin, day).
+   Nothing shows while the list is empty, which is the usual case. Read here, never sent anywhere. */
+function cspLine(){let l=[];try{l=JSON.parse(localStorage.getItem('wi_csp')||'[]')}catch(e){}
+ const since=Math.floor(Date.now()/864e5)-14;   // only the last 14 days: after a fix the line goes away by itself
+ l=Array.isArray(l)?l.filter(x=>x&&typeof x==='object'&&typeof x.d==='string'&&typeof x.o==='string'&&typeof x.t==='number'&&x.t>=since):[];
+ if(!l.length)return'';const n={};for(const x of l){const k=x.d.slice(0,40)+' '+x.o.slice(0,120);n[k]=(n[k]||0)+1}
+ return`<p class="credit csp">חסימות אבטחה אחרונות: <bdi dir="ltr">${Object.entries(n).map(([k,c])=>esc(k)+(c>1?' ×'+c:'')).join(' · ')}</bdi></p>`}
 function settings(){setBg('paper','center');
  const tog=(k,label,icon)=>`<button class="setrow" data-a="toggle" data-k="${k}" role="switch" aria-checked="${SET[k]}">${spr(icon,'si')}<span class="sl">${label}</span><i class="sw${SET[k]?' on':''}"><em>${SET[k]?ico('check'):''}</em><b>${SET[k]?'פועל':'כבוי'}</b></i></button>`;
  const lnk=(inner,icon,t,d)=>`<${inner} class="setrow link">${spr(icon,'si')}<span class="sl">${t}<small>${d}</small></span>${ico('next','go')}</${inner.split(' ')[0]}>`;
@@ -136,7 +177,7 @@ function settings(){setBg('paper','center');
   <div class="panel label">${lnk('button data-a="nav" data-to="help"','ic_buoy','איך משחקים?','הסבר קצר על ארבעת השלבים')}
    ${lnk('a href="trainer.html"','ic_book','תרגול קלאסי','כרטיסיות וחידונים, בלי משחק')}${cardOn()?lnk('button data-a="nav" data-to="card"','trophy','הכרטיס שלי','להראות או לשמור כתמונה'):''}</div>
   <div class="panel label"><div class="prog"><p>${star()}<b>${num(totalStars()+' / '+MAX_STARS)}</b><small>כוכבים</small></p><p>${spr('ic_book','pi')}<b>${num(wordsKnown()+' / 59')}</b><small>מילים שנלמדו</small></p><p>${spr('bottle','pi')}<b>${num(Object.values(S.read).filter(v=>v>0).length+' / 5')}</b><small>סיפורים שנקראו</small></p></div>
-   <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p></div>
+   <p class="credit">המילים והפירושים לפי רשימת המורה ליחידה ${num(1)}</p>${cspLine()}</div>
   ${API&&S.u?`<div class="panel label acct"><p>${esc(S.u.n)}<small>${pts(S.pts)} נקודות<br><span class="aw">${num(wordsKnown())} מילים שנלמדו<br></span>${syncLine()}</small></p>${btn('logout',spr('ic_door','bi')+' התנתקות','coral sm')}</div>`:''}
   </div>
   ${API&&S.u?'':`<div class="guide">${spr('crab_listen','bob')}<p class="label">ההתקדמות נשמרת במכשיר הזה</p></div>`}</section>`}   // signed in, the account panel takes the note's place
@@ -156,7 +197,7 @@ function login(){setBg('paper','center');
  const tab=(m,t)=>`<button type="button" role="tab" aria-selected="${(m==='register')===reg}" data-a="lmode" data-m="${m}">${t}</button>`;
  const sw=V.sw?`<button type="button" class="swl" data-a="lmode" data-m="${V.sw}">${V.sw==='register'?'זאת הפעם הראשונה שלי':'כבר נרשמתי'} ${ico('next')}</button>`:'';
  const fg=`<button type="button" class="swl" data-a="forgot">שכחתי את הקוד ${ico('next')}</button>`,pinErr=V.err===ERR.pin||V.err===ERR.locked;
- view.innerHTML=`<section class="scr login"><div class="logo sm"><h1>איי המילים</h1></div>
+ view.innerHTML=`<section class="scr login"><div class="logo sm"><h1>${dsOn()?BRAND:'איי המילים'}</h1></div>
   <div class="lwrap">${spr('crab_wave','lcrab')}
   <form class="scrollp lcard" id="lf" autocomplete="off"><h3>כניסה לכיתה</h3>
    <div class="seg" role="tablist" aria-label="כניסה או הרשמה">${tab('login','כבר נרשמתי')}${tab('register','פעם ראשונה שלי')}</div>
@@ -267,7 +308,7 @@ const A={
   else{el.disabled=false;delete el.dataset.arm;el.textContent='איפוס קוד';toast(esc(ERR[r.e]||ERR.net),3500)}},
  relogin(){SND.tap();const o=relogin();if(!o)return go('login');
   V={name:'login',m:'login',c:o.c,n:o.n,p:'',err:(RELOG_MSG[o.e]||RELOG_MSG.nouser)+'\nההתקדמות מהמכשיר הזה שמורה, והיא תעבור לחשבון כשתתחברו.'};login();syncBar()},
- async logout(){if(await logout()){clearNotes();go('login')}else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
+ async logout(){if(await logout()){clearNotes();finSaid=false;go('login')}else toast('אין חיבור כרגע, וההתקדמות עוד לא נשמרה.<br>נסו להתנתק שוב בעוד רגע',3600)},
  async tlogin(){const c=$('#tc').value.trim(),t=$('#tt').value.trim();V={name:'teacher',c,busy:1};teacher();let r;try{r=await api('teacher',{c,t})}catch(e){r={e:'net'}}
   if(V.name!=='teacher')return;V=r.ok?{name:'teacher',data:r,c,t}:{name:'teacher',c,err:ERR[r.e]||ERR.net};teacher()}};   // the teacher code is kept on this screen only, for resetting a pupil's code
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a]){A[el.dataset.a](el.dataset,el,e)}});
@@ -279,7 +320,8 @@ document.addEventListener('contextmenu',e=>{if(!e.target.closest('input'))e.prev
 document.addEventListener('touchmove',e=>{if(e.target.closest('.lv canvas'))e.preventDefault()},{passive:false});
 
 /* ---------- router ---------- */
-function route(){navId++;document.getElementById('toast').classList.remove('on');if(level){level.destroy();level=null}clearFx();hush();
+function route(){navId++;if(stage.classList.contains('wdock'))stage.classList.remove('wdock');   // the new world's dock class (js/avatar.js), only when it is there: without the flag #stage is not touched
+ document.getElementById('toast').classList.remove('on');if(level){level.destroy();level=null}clearFx();hush();
  let h=location.hash.slice(1),[n,a,b]=h.split('/');
  if(API&&!S.u&&n!=='teacher')n='login';
  if(!API&&(n==='login'||n==='board'))n='map';
@@ -307,13 +349,39 @@ const refresh=()=>pull().then(redraw);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
 let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='math')M.map();else if(V.name==='title')title()},150)});
 
+/* With the design flag, an old-look picture that the new look draws over (the new art is the img's background, the old
+   one is pushed out of its box or the box has no height: css/ds*.css) is not downloaded at all: it gets an empty stand-in
+   of the same size in srcset, which the browser takes instead of src. The CSS selectors that match on src keep working.
+   If the new look's style sheets are not in yet, nothing changes and the old picture loads as before. Never without the flag. */
+/* the old pictures the new look draws over, with their own size: the stand-in keeps that size (an empty SVG of the
+   same width and height), so a box sized from the picture stays as it was. A picture not listed is downloaded as before.
+   tests/weight.py checks the sizes against the files. */
+const NAT={isl_1:[560,388],isl_2:[560,461],isl_3:[560,448],isl_4:[560,394],isl_5:[560,407],isl_6:[560,422],star:[200,183],star_off:[200,183],
+ lock:[288,379],ic_gear:[200,199],crab_wave:[326,296],crab_star:[322,342],crab_happy:[340,351]};
+const SVGNS='http://www.w3.org/2000/svg';   // an XML namespace name, never fetched
+const blank=n=>NAT[n]?'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="${SVGNS}" width="${NAT[n][0]}" height="${NAT[n][1]}"/>`)+' 1x':'';
+function dsSkip(root){if(!root||!root.querySelectorAll)return;const L=root.tagName==='IMG'?[root]:root.querySelectorAll('img[src]:not([srcset])');
+ for(const im of L){if(im.hasAttribute('srcset'))continue;const m=/(^|\/)assets\/sp\/([a-z_0-9]+)\.webp$/.exec(im.getAttribute('src')||''),b=m&&blank(m[2]);if(!b)continue;
+  const cs=getComputedStyle(im);if(cs.backgroundImage.includes('url(')&&(cs.objectPosition.startsWith('-9999')||cs.height==='0px'))im.srcset=b}}
+function dsSkipOld(){dsSkip(stage);
+ /* the screens are drawn by setting #view's innerHTML: checked right there, before the browser asks for the pictures
+    (it does so a moment later); anything added elsewhere is checked when it arrives */
+ const d=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
+ Object.defineProperty(view,'innerHTML',{configurable:true,get(){return d.get.call(this)},set(v){d.set.call(this,v);dsSkip(this)}});
+ new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)if(n.nodeType===1)dsSkip(n)}).observe(stage,{childList:true,subtree:true})}
+
 /* ---------- boot ---------- */
 /* the printable worksheet (worksheet.html) is behind a switch a device gets with ?sheet=1 and loses with ?sheet=0 */
 try{const v=new URLSearchParams(location.search).get('sheet');if(v==='1'||v==='0'){SET.sheet=v==='1';saveSet()}}catch(e){}
 (async function boot(){loader();
  const pulled=pull();let late=true;   // asked for while the pictures load, so the first screen is usually drawn once, already up to date
- const fonts=document.fonts?Promise.all([document.fonts.load("700 20px 'Playpen Sans Hebrew'",'איי'),document.fonts.load("800 20px 'Playpen Sans Hebrew'",'Word')]).catch(()=>{}):0;
- await Promise.race([Promise.all([preload([BG('title'),BG('map'),BG('paper'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign'),SP('scroll')]),fonts]),sleep(6000)]);
+ /* with the design flag the screens are drawn with the new look's own art (css/ds*.css): the old look's pictures are
+    neither waited for nor fetched ahead, so a slow network spends itself on what the screen shows (each old picture
+    still loads when a screen uses it). Without the flag, exactly as before. */
+ const ds=dsOn(),F=ds?'WI Hebrew':'Playpen Sans Hebrew';
+ const fonts=document.fonts?Promise.all([document.fonts.load(`700 20px '${F}'`,'איי'),document.fonts.load(`800 20px '${ds?'WI Latin':F}'`,'Word')]).catch(()=>{}):0;
+ await Promise.race([Promise.all([preload(ds?[]:[BG('title'),BG('map'),BG('paper'),SP('crab_wave'),SP('pill_green'),SP('label'),SP('sign'),SP('scroll')]),fonts]),sleep(6000)]);
  await Promise.race([pulled.then(()=>{late=false}),sleep(1200)]);
- route();if(late)pulled.then(redraw);preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
+ if(ds)dsSkipOld();
+ route();if(late)pulled.then(redraw);if(!ds)preload([...CORE,...ISLANDS.map(i=>SP('isl_'+i.id))])})();
 window.__game={S:()=>S,SET,measure,totalStars,go,award,push};

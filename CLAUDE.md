@@ -1,4 +1,4 @@
-# CLAUDE.md: Word Islands (איי המילים)
+# CLAUDE.md: ניצני אופק (the platform), with Word Islands (איי המילים) as its English world
 
 Practice games for one 5th-grade class (ה׳1). English (Fantastic 5, Unit 1 "All About Me") and math (fractions).
 Built by a parent for his daughter's class, free, no profit. It may later grow to other classes in the grade.

@@ -196,8 +196,8 @@ async def pairs(b, w, h, errs, signed=False, api=None):
     note = await pg.inner_text('#prx'); up = await pg.locator('.prk.up').count()
     en_b = next(x['text'] for x in en_ if x['k'] == bb['k'])
     check(f'[{tag}] a wrong pair stays open for a moment and explains both cards with their own pairs', up == 2 and a['text'] in note and words[a['text']].split(',')[0] in note and en_b in note and bb['text'] in note, note)
+    await pg.click(f'.prk[data-i="{a["i"]}"]')      # a tap while it is shown changes nothing (before the screenshot: under load the shot can outlast the window)
     await P.shot(pg, f'extra-{tag}-wrong')
-    await pg.click(f'.prk[data-i="{a["i"]}"]')      # a tap while it is shown changes nothing
     await pg.wait_for_function("document.querySelectorAll('.prk.up').length===0", timeout=4000)
     R = await pg.evaluate(PAIRS)
     check(f'[{tag}] then both turn back; nothing is found and nothing ended', not R['g']['found'] and not R['g']['open'] and not R['g']['lock'] and R['g']['misses'] == 1 and not R['ended'], R['g'])

@@ -92,9 +92,9 @@ Mission names and "5 words" are placeholders. Plural address is used so it works
 Flag mechanism: `?ds=1` or a `localStorage` key `wi_ds`, adding `class="wi-root"` and loading `css/ds.css`. Teacher turns the class on later by config. Ship one screen at a time, test with `tests/*.py` in both modes.
 1. **Title / login** (low risk, first impression, no learning state). Needs the character picker. *Built behind the flag: see "Rollout step 1" below.*
 2. **Island map** (world map + island path, with energy and today's focus). The new structure; needs the engineer for energy rules and the weak-item recommender. *First the skin: the existing English map and level list behind the flag, see "Rollout step 2" below.*
-3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered.
-4. **Fraction Bay** (math). Same shell; island of the world map.
-5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep.
+3. **Level screens** (English games). Dark shell, answers keep high contrast; the road and question are never covered. *Built behind the flag: see "Rollout step 3" below.*
+4. **Fraction Bay** (math). Same shell; island of the world map. *Built behind the flag: see "Rollout step 4" below.*
+5. **Mock exam**. Paper card inside the dark shell. Last among learner screens because calm matters and the class uses it for real prep. *A light touch behind the flag: see "Rollout step 5" below.*
 6. **Beach Run HUD**. Chips and bar over the WebGL canvas; check phone performance (no blur).
 7. **Teacher screen**. Dark or paper; it is data-heavy. Last, lowest kid impact.
 
@@ -177,6 +177,34 @@ Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=map|island]`. No 
 - The map sea now carries quiet details near the edges (whale, two lantern boats, lighthouse, jellyfish); the old boat and whale sprites are hidden. The route is round aqua dots, drawn as a stroke, no blur.
 - Painted frames as `border-image` (9-slice), text stays live on top: panel (login card, settings panels, the all-played banner; in `world.html` the cards and the focus banner), gold button (the login button; the primary buttons of `world.html`), HUD pill (the star count, the island chip; the HUD chips of `world.html`). Disabled and secondary buttons keep their flat look, so "not yet" still reads differently.
 
+## Rollout step 3: the English level screens and the result card, behind the same flag
+Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=play|result]`. No script, markup, route, saving or request changes. Default off.
+- The painted scenes stay (the slingshot, the beach and the bridge cliffs are part of each picture, and the levels place things on them) under a night tint: a blue layer in multiply over the picture, no blur.
+- The game pieces (balloons, bubbles, the story scroll, bottle notes, planks) keep their painted backing and dark ink, so the answers keep their contrast.
+- HUD: glass buttons with name plates, the level's stars in a gold-edged chip with the new star, progress dots navy (to do), aqua (done) and gold (now).
+- The hanging wooden sign is the painted panel frame with white text, in the same box, so every level places things exactly as before.
+- Tips, rules and feedback lines are dark plates; right is green, a slip coral, the gap on the bridge gold. The score caption over the balloons has a dark keyline.
+- Buttons: the main one gold, the others navy with an aqua edge (the "listen again" button too).
+- Result card: the painted panel, the heading on a gold-edged plate, the new star and the new Pitzi (star, happy, wave), review words on gold with dark text. The result card is shared with Fraction Bay.
+- Checked: flag on, `tests/play.py --quick` 170 pass with every level played to its result; screenshots of every state (aim, miss, wrong bubble, star lost, hint, story, gloss, wrong bottle, bridge build, snap, to-be, every result) at 390x844 and 360x740, and the four levels at 1366x768. Flag off: `ds-game.css` is not loaded, so nothing changes.
+- Not in this step: the extra games (`?games=1`), Fraction Bay, the mock exam.
+
+### The extra games (`?games=1`) in the new look
+Under `html.ds #stage[data-scr=extra]`. The light cards (true or not, pairs, letters) are dark cards with white text; right is a green edge, wrong a coral edge, and the game's own words and marks stay, so colour is never the only sign. Face-down pairs show an aqua "?". The explain block, the pairs list and the end screen sit on dark cards; the counters and one-line notes on plates. Backdrop: the English island picture, dimmed. Checked: `tests/extra.py` 253 pass with the flag on, screenshots of card, explain, wrong, board and end for all three games at 390x844, 360x640 and 1366x768.
+
+## Rollout step 4: Fraction Bay behind the same flag
+Skin only, in `css/ds-game.css` under `html.ds #stage[data-scr=math|misland|mplay]`. No script, markup, route, saving or request changes. Default off.
+- The maths screens reuse the English classes (`.map`, `.island`, `.lv`, `.result`), so the rules of steps 2 and 3 reach them; this step adds the screen-level rules for the three maths screens and the maths pieces.
+- Bay map: the sea with details, the new island pictures (the bay uses the same six pictures as the English map, locked versions included), the bay's name on a plate under the star chip.
+- Island screen: the maths backdrop (`bg/math`), dimmed, under the level rows of step 2.
+- Levels: the same night tint and HUD as the English levels. Keypad keys navy with white digits, the check key gold; choice cards navy with a green or coral edge for right and wrong; the pizza footer notes on plates. The worksheet paper and the pizza task note stay light, like the mock exam: they are written work.
+- The level rules of step 3 are scoped to `#stage[data-scr=play|mplay]`, so the maths levels get all of them (with #44 alone they reach only the English levels). The slingshot's caption keeps its paper label with dark ink, as in step 3.
+- Checked: flag on, `tests/math.py --quick` 21 pass, screenshots of every state (map, island, pizza ask, build, cut, eat, merge, wholes, count; sling aim and miss; sheet question, form, solution; every result) at 390x844, 360x740 and 1366x768. Flag off: `ds-game.css` is not loaded.
+
+## Rollout step 5: the mock exam, a light touch, behind the same flag
+Under `html.ds #stage[data-scr=mock|mockrun|mockprac]`. The exam stays on paper and keeps its calm: the question cards, answers, stations trail, report bars and their colours are today's. Only the shell matches the other screens: the dark surround on wide screens, the heading on a navy plate, the round back and quit buttons, the gold main button (no pulse), the navy toast, the paper focus ring (`--wi-focus-paper`), the fonts.
+- The exam's quit button: its icon was missing (`ico('x')`, not in the set) and is fixed in #60 (`ico('close')`). With the flag on it is a navy disc with a white X, drawn as a background on a square 48 px hit box (Chrome does not hit-test rounded-off corners, so a `border-radius` would let corner taps fall through to the trail); the stations trail's inline padding is 60 px, which leaves a real gap of 12 to 17 px between the X and the writing-station circle.
+- Checked: flag on, `tests/mock.py --quick` 12 pass, screenshots of every state (intro, the four stations, each question type, report, practice, hub) at 390x844, and the hub and a question at 1366x768.
 
 ## Rollout step 6: Beach Run HUD and menus, behind the same flag
 Files: `css/run-ds.css` (the skin), a seven-line block at the top of `js/run.js` (the same switch as `js/dsflag.js`: `?ds=1` on and remembered in `localStorage.wi_ds`, `?ds=0` off). `run.html` is unchanged, so with the flag off the page makes exactly the same requests as before and stores nothing new. Default off.
@@ -187,6 +215,7 @@ Files: `css/run-ds.css` (the skin), a seven-line block at the top of `js/run.js`
 - Touch pad and "יודע/ת!": solid navy and azure, no blur (the old pad used `backdrop-filter`), 48px or more.
 - Start, pause and end menus: the painted panel frame, the painted gold button for the one main action, "חזרה למשחק" as an azure secondary button (48px), pace choice with an aqua ring, scores in gold.
 - Checked: `tests/run.py` plays the whole run with the flag on at 390x844 (and 1366x768 in the full form): same scoring checks, every visible button and link 48px or more on the start menu, the HUD, the question card and the end menu; with the flag off it checks no class, nothing stored and only `css/run.css` requested. Computed styles of the start menu with the flag off match `game` at both sizes.
+- Follow-up (review of #42): every text in the runner's new look is 16px or more (lanes, question line, hint, the "how to play" tiles, pace); "נכון!" / "כמעט!" sit on a navy plate with an edge in their colour (never bare on the 3D picture); with reduced motion the card does not slide and those two only fade; the menu stays hidden until both stylesheets are in (or failed, or 4 s), so the old look never flashes; a menu taller than a small phone starts at the top and scrolls (the picture above the card stays whole). At 360x740 the question card ends at 197px or higher, as in today's look (195).
 - Known seams: the signs on the gate are drawn in the 3D scene in today's hand font and colours; the copy "נגמרו הלבבות" is unchanged (copy is the designer's).
 
 ## Rollout step 7: the teacher screen, behind the same flag
@@ -200,3 +229,55 @@ Files: `css/ds-teacher.css` (the skin), one more entry in the stylesheet list of
 - Toasts on this screen ("the code was reset", an error) are the same dark card with a gold edge as on the other new-look screens. A pupil name with no space (up to 20 letters) wraps inside its card.
 - Not behind the flag (teacher view only): after a confirmed reset, the 4 s disarm timer no longer writes "איפוס קוד" back over "הקוד אופס", and a tap on a disabled reset button does nothing; a pupil's name sits in a `<bdi>` (an English name keeps the card's right alignment) and may wrap, so a 20-letter name with no space stays inside its card in today's look too.
 - Checked (`tests/teacher_mock.py`, mock backend, 390x844 and 1366x768): toasts after a reset that worked and one that failed are 4.5:1 or more in both looks; with the flag on, the same cards and rows as without it, no card wider than its box, every button and field 48px or more, every text 4.5:1 or more against its own backing, the first tap on "reset code" sends nothing; `?ds=0` takes the look away.
+
+## Character animations (behind the flag)
+One 2 s animated WebP per character (`assets/al/avanim/`, 192 px, under 150 KB, batch i in `docs/ART_LEDGER.md`), played once by `js/avanim.js` when a character is tapped or chosen, and on hover where there is a mouse. The still portrait shows the rest of the time; the animation ends on it (the penguin and fox retakes play forward and back, the others fade their last frames back to the first). The owl has no file: two takes changed its expression, so its still portrait does one 0.9 s CSS tilt-and-bounce (`.wi-av__art--bob` in `css/ds.css`), off with reduced motion and calm mode.
+- The file is requested only at that moment, never preloaded. With `prefers-reduced-motion` or calm mode nothing moves and nothing is requested.
+- Wired in `world.html`'s picker (`js/world.js`). For the live game's picker (`js/avatar.js`, behind `?ds=1`): `import {playAv} from './avanim.js'` and call `playAv(img, id)` with the character's `<img>` when it is chosen.
+- Checked by `tests/avanim.py`: every character has one, each is an animated WebP under 150 KB listed with its sha256; nothing is requested before a tap; a tap requests that one file and the portrait comes back; nothing with reduced motion or calm mode; nothing without the flag.
+
+
+## Spec: the character on the map and the island as a path (behind the flag; for the client engineer)
+
+The owner expects his character to stand on the map and walk, as in the concept frames and `world.html`. Today the real
+game shows Pitzi on the current island and the island as a list of level rows. Everything below is under `html.ds` and
+changes nothing with the flag off. No new art: the stones, the island pictures and the portraits are all in `assets/al`.
+
+**The token (0 credits).** The chosen character is a framed portrait token, not a full-body figure: `av/<id>` in a
+circle, 44 px on the map and 52 px on the island, a 3 px gold ring (`--wi-gold`), a 2 px navy outer edge and a soft drop
+shadow, with a small dark oval "shadow" on the ground under it. Without a chosen character, Pitzi (`pitzi/wave`) stands in
+its place, as today. A full-body figure per character would cost 20 images (about 10 to 25 credits) and would have to
+match the portraits; the token reads as "me" at once and stays consistent, so it is the default.
+
+**On the map.**
+- The token stands on the current island (the one with "ממשיכים כאן" / "מתחילים כאן"), at the island's lower edge,
+  beside that tag and never covering it. It is decoration: `aria-hidden`, no tap target of its own; the island stays the
+  48 px button it is today.
+- When a new island opened since the last visit (the island the character last stood on is `at`, kept per pupil in
+  the device's `wi_world` record; an island not open counts as none),
+  the token hops once from the old island to the new one along the dotted line: an arc, 900 ms, ease-in-out, a squash on
+  landing. It plays once, only on that visit. Any tap or key skips to the end and does what the tap would have done. With
+  reduced motion or calm mode there is no hop: the token is simply on the new island.
+- Nothing else moves on the map (no idle bobbing).
+
+**The island as a path.**
+- The level rows become stones along a winding path drawn over the island's backdrop, in order, bottom to top. Use the
+  same percentage positions as `world.html` (`PATHS` in `js/worldpath.js`, shared by both); an island with more levels than positions
+  scrolls vertically, the path continuing.
+- Each stone: done = `ui/stone-done` with its stars (`ui/star`, as today); next = `ui/stone-current` with a soft gold
+  glow pulse (none with reduced motion); locked = `ui/stone-locked`, dimmed, with the lock. A dotted line joins the stones
+  (lit gold up to the next stone, dim after it).
+- Beside each stone, its label on a dark plate: the level's name and sub-line exactly as today (the teacher's words
+  unchanged, English runs LTR). Stone and label together are one button, at least 48 x 48 px; locked ones keep today's
+  explanation when tapped.
+- The token stands on the next stone. Tapping a stone: the token walks to it (a straight glide, ease-out, at most
+  500 ms, the screen never waits for it longer than 600 ms), then the level opens. A second tap during the walk is never
+  blocked: it ends the walk at once and goes. Reduced motion or calm mode: no walk, the level opens at once.
+- Sizes: 390 x 844 first, then 360 x 740 (stones 56 px, labels wrap to two lines rather than shrink below 15 px) and
+  1366 x 768 (the portrait board centred, as today). Contrast: labels 4.5:1 on their plates, stones 3:1 against the
+  backdrop.
+
+**Checks for the suite.** Flag off: the island screen and the map are byte-identical to today. Flag on: one token, on
+the current island; the hop runs once and not on the next visit; every stone is a button of 48 px or more in level
+order with today's labels; a tap opens the level within 600 ms; two quick taps open it once; reduced motion and calm
+mode: no hop, no walk, no pulse.

@@ -51,6 +51,8 @@ html.ds .title .who{background:var(--wi-navy-900);border:1px solid var(--wi-line
         the new one is drawn as its background (no change to markup or script) ---- */
 html.ds .title .tcrab,html.ds .login .lcrab,html.ds .settings .guide img{box-sizing:border-box;block-size:0;padding-block-start:var(--pz);inline-size:var(--pz);background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat;overflow:hidden}
 html.ds .title .tcrab{--pz:118px;margin:-108px 0 0 -59px}
+/* a short screen (320x568): the crab would sit on the last subject button; it is only a decoration, so it goes */
+@media (max-height:600px){html.ds .title .tcrab{display:none}}
 html.ds .login .lcrab{--pz:78px;top:-60px;inset-inline-start:8px}
 html.ds .settings .guide img{--pz:84px;background-image:url(../assets/al/pitzi/listen.hf_20261124_210014_1f234b5a-9ec8-4fcc-b2e2-772bb152ee73.webp)}
 
@@ -196,6 +198,7 @@ html.ds #stage:is([data-scr=map],[data-scr=island]) img[src$="/isl_6.webp"]{back
 html.ds #stage[data-scr=map] .isl.locked img[src$="/isl_6.webp"]{background-image:url(../assets/al/map/isl-6-locked.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp)}
 /* the island pictures: the old <img> keeps its place; its picture moves out of the box and the new one is drawn in it.
    The new islands are taller (trees), so the box gets a little more height, anchored at the bottom */
+/* the 7:6 below and the 4:3 under 700px are copied in js/main.js worldIw() (the map's island size with the dock): change both */
 html.ds #stage:is([data-scr=map],[data-scr=island]) img.pic[src*="/isl_"]{object-position:-9999px 0;background-position:center bottom;background-size:contain;background-repeat:no-repeat;aspect-ratio:7/6;height:auto}
 html.ds .map .isl.locked .pic{filter:none}
 html.ds .map .isl.cur .pic{filter:none}
@@ -220,3 +223,186 @@ html.ds .settings .panel.label{border-width:14px;border-image-width:14px}
    go down to 44 px like the game's look, so the sign-out button stays on the screen with room to spare
    (tests/settings_fit.py) */
 @media (max-height:700px){html.ds .settings.more.signed .panel.label{border-width:9px;border-image-width:9px}html.ds .settings.more.signed .setrow{min-height:44px}html.ds .settings.more.signed,html.ds .settings.more.signed .fill{gap:8px}}
+
+/* ======== Rollout step 3: the level screens (#play/N/type: sling, listen, read, bridge) and the result card ========
+   The painted scenes stay (the slingshot, the bubbles' beach and the bridge cliffs are part of each picture and the
+   levels place things on them), under a night tint. The game pieces (balloons, bubbles, the scroll, bottle notes,
+   planks) keep their own painted backing and dark ink. Only the chrome around them changes: HUD, sign, tips,
+   feedback lines, buttons and the result card. The result card is shared with Fraction Bay. */
+html.ds #stage:is([data-scr=play],[data-scr=result]){background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage:is([data-scr=play],[data-scr=result]) #bg::after{content:"";position:absolute;inset:0;background:#2a4a8c;mix-blend-mode:multiply;opacity:.58;pointer-events:none}
+/* the sling level draws its aiming dots (#4F4A50) on the sky: no evening tint there, so they read as they do today
+   (measured median 2.7:1 untinted, 2.2:1 at .2) */
+html.ds #stage:is([data-scr=play],[data-scr=mplay]):has(.lv.sling) #bg::after{opacity:0}
+html.ds:has(#stage[data-scr=play]),html.ds:has(#stage[data-scr=result]),html.ds:has(#stage[data-scr=play]) body,html.ds:has(#stage[data-scr=result]) body{background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=play]) #backdrop,html.ds:has(#stage[data-scr=result]) #backdrop{display:none}
+html.ds #stage:is([data-scr=play],[data-scr=result]) :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+html.ds #stage:is([data-scr=play],[data-scr=result]) .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);font-family:var(--wi-font-ui)}
+
+/* HUD: glass buttons with plates, the level's stars, progress dots */
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud .rb .ico{stroke:var(--wi-text)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud .mb small,html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hst small{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);margin-top:2px;padding:0 var(--wi-s2);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hst .stars{background:var(--wi-navy-900);border:2px solid var(--wi-gold);border-radius:var(--wi-r-pill);padding:0 var(--wi-s2);height:40px;margin-top:5px}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud img.st[src$="/star.webp"],html.ds .result img[src$="/star.webp"]{object-position:-9999px 0;background:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp) center/contain no-repeat}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .hud img.st[src$="/star_off.webp"],html.ds .result img[src$="/star_off.webp"]{object-position:-9999px 0;background:url(../assets/al/ui/star.hf_20261124_204752_16b19e69-f69a-402a-afa5-c5d057da9e7b.webp) center/contain no-repeat;opacity:.5;filter:grayscale(1)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips i{border:2px solid var(--wi-text-dim);border-radius:50%;background:var(--wi-navy-900)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips i.d{background:var(--wi-aqua);border-color:var(--wi-aqua)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips i.c{background:var(--wi-gold);border-color:var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips .pb{background:var(--wi-navy-900)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .pips .pb.c{background:var(--wi-gold);box-shadow:0 0 0 2px var(--wi-scrim)}
+
+/* the hanging wooden sign becomes a dark panel; same box, so every level places things exactly as before */
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt{background:none;border:18px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 18px / 2px round;padding:14px 5% var(--wi-s2);aspect-ratio:auto;margin-top:14px;color:var(--wi-text);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt small{color:var(--wi-text-dim)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt b{color:var(--wi-text)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt .en,html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .sign.prompt b.en,html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv #lw{font-family:var(--wi-font-en)}
+
+/* one-line notes, rules and feedback: dark plates; right is green, a slip is coral, both on the dark */
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv :is(.tip,.rule,.fb,.ctip){background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv :is(.tip,.fb).on{border-color:var(--wi-gold)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv :is(.tip,.rule,.fb).good{background:var(--wi-navy-900);color:var(--wi-good);border-color:var(--wi-good)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .rule.bad{color:var(--wi-fix);border-color:var(--wi-fix)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .cap:not(.label){color:var(--wi-text);-webkit-text-stroke:5px var(--wi-scrim);paint-order:stroke fill}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .cap:not(.label).bad{color:var(--wi-fix)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .cap.label{color:var(--wi-ink);-webkit-text-stroke:0;font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .cap.label.bad{color:var(--wi-fix-ink)}
+/* the bridge's empty slots read on the tinted sea */
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .slot:not(.f){border-color:var(--wi-text-dim);background:rgba(11,30,63,.55)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .slot.gap{border-color:var(--wi-gold)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .slot.gap i{color:var(--wi-gold)}
+
+/* buttons in a level: the main one gold, the others navy with an aqua edge */
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .btn.green,html.ds .result .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),var(--wi-e2);padding:0 var(--wi-s5);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv.read>.row .btn{padding:0 6px}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv.read>.row .btn.hslow{flex:0 0 56px}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .btn.cream,html.ds .result .btn.cream{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e1);padding:0 var(--wi-s4);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .btn .ico,html.ds .result .btn .ico{stroke:currentColor}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .spk{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua);padding:0 var(--wi-s4);min-block-size:var(--wi-tap);font-family:var(--wi-font-ui)}
+html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .spk .eqz i{background:var(--wi-aqua)}
+html.ds .result .btn.sm{min-block-size:var(--wi-tap)}
+
+/* the result card: a dark panel; the review words and the next-island note keep a light backing with dark text */
+html.ds .result{background:none}
+html.ds .result .card{background:none;border:22px solid transparent;border-image:url(../assets/al/ui/panel.hf_20261125_075118_18d17d0b-a2d1-4c77-a6fa-d9e5c3368dca.webp) 44 fill / 22px / 4px round;color:var(--wi-text);font-family:var(--wi-font-ui);padding-block:var(--wi-s4) var(--wi-s4);padding-inline:var(--wi-s4)}
+html.ds .result .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-gold);border-radius:var(--wi-r-pill);inline-size:auto;block-size:auto;padding:var(--wi-s1) var(--wi-s5);color:var(--wi-gold);font-size:var(--wi-fs-xl)}
+html.ds .result .ribbon span{padding:0}
+html.ds .result :is(.line,.gain){color:var(--wi-text)}
+html.ds .result .note,html.ds .result .review small{color:var(--wi-text-dim)}
+html.ds .result .rv{background:var(--wi-gold);color:var(--wi-navy-900)}
+html.ds .result .unlock{color:var(--wi-navy-900)}
+html.ds .result .rcrab[src$="/crab_star.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/star.hf_20261124_204534_0bba02d5-095c-4463-82a0-a38d364fea44.webp) center/contain no-repeat}
+html.ds .result .rcrab[src$="/crab_happy.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
+html.ds .result .rcrab[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp) center/contain no-repeat}
+/* ======== The extra games (?games=1: true or not, pairs, letters) in the new look ========
+   Same rules: styling only, under html.ds #stage[data-scr=extra]. The light cards become dark cards with white text;
+   right is a green edge, wrong a coral edge, never colour alone (the game's own words and marks stay). */
+html.ds #stage[data-scr=extra]{--ink:#FFFFFF;--ink2:var(--wi-text-dim);--good:var(--wi-good);--bad:var(--wi-fix);background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage[data-scr=extra] #bg .bgl{background-image:url(../assets/al/bg/english.hf_20261124_204750_bfb9c336-44b5-4c94-bda9-e8cea4054138.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900);opacity:.3}
+html.ds #stage[data-scr=extra] #bg .bgl:not(.on){opacity:0}
+html.ds:has(#stage[data-scr=extra]),html.ds:has(#stage[data-scr=extra]) body{background:var(--wi-scrim)}
+html.ds:has(#stage[data-scr=extra]) #backdrop{display:none}
+html.ds #stage[data-scr=extra] :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+html.ds #stage[data-scr=extra] .en,html.ds #stage[data-scr=extra] :is(.tfw,.prt,.scl,.scw i){font-family:var(--wi-font-en)}
+html.ds #stage[data-scr=extra] .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2)}
+html.ds #stage[data-scr=extra] .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds #stage[data-scr=extra] .rb .ico{stroke:var(--wi-text)}
+html.ds #stage[data-scr=extra] .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds #stage[data-scr=extra] .ribbon span{padding:0}
+html.ds #stage[data-scr=extra] :is(.tfc:not(:empty),.prc:not(:empty),.tfn,.tft:not(:empty),.tfm,.scm:not(:empty)){background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s3);color:var(--wi-text)}
+/* cards */
+html.ds #stage[data-scr=extra] .tfk{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:var(--wi-r-xl);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);color:var(--wi-text)}
+html.ds #stage[data-scr=extra] .tfk:is(.to-y,.ok){background:var(--wi-navy-800);border-color:var(--wi-good)}
+html.ds #stage[data-scr=extra] .tfk:is(.to-n,.no){background:var(--wi-navy-800);border-color:var(--wi-fix)}
+html.ds #stage[data-scr=extra] .tfh{color:var(--wi-aqua)}
+html.ds #stage[data-scr=extra] :is(.tfy,.tfx){background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-good);border-radius:var(--wi-r-lg);box-shadow:var(--wi-e2)}
+html.ds #stage[data-scr=extra] .tfx{border-color:var(--wi-fix)}
+html.ds #stage[data-scr=extra] .prk{background:var(--wi-navy-700);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-lg);box-shadow:var(--wi-e2)}
+html.ds #stage[data-scr=extra] .prk .prf{color:var(--wi-aqua)}
+html.ds #stage[data-scr=extra] .prk.up{background:var(--wi-navy-800);border-color:var(--wi-aqua)}
+html.ds #stage[data-scr=extra] .prk.ok{background:var(--wi-navy-800);border-color:var(--wi-good);box-shadow:0 0 0 2px var(--wi-good)}
+html.ds #stage[data-scr=extra] .prk.no{background:var(--wi-navy-800);border-color:var(--wi-fix)}
+html.ds #stage[data-scr=extra] .scl{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-md);box-shadow:var(--wi-e2)}
+html.ds #stage[data-scr=extra] .scl.glow{background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:0 0 0 3px var(--wi-scrim)}
+html.ds #stage[data-scr=extra] .scw i{border-bottom-color:var(--wi-text)}
+html.ds #stage[data-scr=extra] .tfrev span{color:var(--wi-text)}
+/* the green "found it" line (e.g. Israel = ישראל) sat bare on the painted picture: a dark plate under it */
+html.ds #stage[data-scr=extra] .tfr.ok{align-self:center;inline-size:fit-content;max-inline-size:100%;margin-inline:auto;padding:4px 14px;background:rgba(6,15,38,.82);border-radius:var(--wi-r-md);color:var(--wi-good)}
+html.ds #stage[data-scr=extra] .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),var(--wi-e2);padding:0 var(--wi-s5)}
+html.ds #stage[data-scr=extra] .btn:not(.green){border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-navy-800);color:var(--wi-text);box-shadow:inset 0 0 0 2px var(--wi-aqua),var(--wi-e1);padding:0 var(--wi-s4)}
+html.ds #stage[data-scr=extra] .btn .ico{stroke:currentColor}
+html.ds #stage[data-scr=extra] :is(.tfend,.tfe:not(:empty),.prx:not(:empty)){background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:var(--wi-r-xl);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);padding:var(--wi-s3) var(--wi-s4)}
+html.ds #stage[data-scr=extra] .tfe .tfm{border:0;padding:0;background:none}
+html.ds #stage[data-scr=extra] .tfend img[src$="/crab_happy.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_star.webp"],html.ds #stage[data-scr=extra] .tfend img[src$="/crab_wave.webp"]{object-position:-9999px 0;background:url(../assets/al/pitzi/happy.hf_20261124_204533_ee012db4-af11-4b9d-8a51-33affdfa40f3.webp) center/contain no-repeat}
+@media (prefers-reduced-motion:reduce){html.ds #stage:is([data-scr=play],[data-scr=mplay]) .lv .btn,html.ds .result .btn{transition:none}}
+
+/* ======== Fraction Bay (#math, #misland/N, #mplay/N/type) in the new look ========
+   The maths screens reuse the English classes (.map, .island, .lv, .result), so most rules above reach them. Here:
+   the screen-level rules for the three maths screens, the island pictures, and the maths pieces (keypad, answer
+   slots, choice cards, the pizza footer). The worksheet paper (.paper) and the pizza task note stay light, like the
+   mock exam: they are written work. */
+html.ds #stage:is([data-scr=math],[data-scr=misland]){--ink:#FFFFFF;--ink2:var(--wi-text-dim);--paper:var(--wi-navy-900);--butter:var(--wi-gold);background:var(--wi-navy-900);color:var(--wi-text);font-family:var(--wi-font-ui);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage[data-scr=mplay]{background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage[data-scr=math] #bg .bgl{background-image:url(../assets/al/bg/sea-details.hf_20261125_075052_17486f52-96ee-4372-9033-9dd45cfa5736.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900)}
+html.ds #stage[data-scr=misland] #bg .bgl{background-image:url(../assets/al/bg/math.hf_20261124_204751_6e57a9de-39a3-4daf-9575-b6c82d806521.webp)!important;background-size:cover;background-position:center;background-color:var(--wi-navy-900);opacity:.3}
+html.ds #stage[data-scr=misland] #bg .bgl:not(.on){opacity:0}
+html.ds #stage[data-scr=mplay] #bg::after{content:"";position:absolute;inset:0;background:#2a4a8c;mix-blend-mode:multiply;opacity:.58;pointer-events:none}
+html.ds:has(#stage:is([data-scr=math],[data-scr=misland],[data-scr=mplay])),html.ds:has(#stage:is([data-scr=math],[data-scr=misland],[data-scr=mplay])) body{background:var(--wi-scrim)}
+html.ds:has(#stage:is([data-scr=math],[data-scr=misland],[data-scr=mplay])) #backdrop{display:none}
+html.ds #stage:is([data-scr=math],[data-scr=misland],[data-scr=mplay]) :focus-visible{outline:3px solid var(--wi-focus);outline-offset:3px}
+html.ds #stage:is([data-scr=math],[data-scr=misland],[data-scr=mplay]) .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:0 0 0 2px var(--wi-scrim),var(--wi-e2);font-family:var(--wi-font-ui)}
+html.ds #stage[data-scr=math] .deco{display:none}
+html.ds #stage:is([data-scr=math],[data-scr=misland]) img[src$="/isl_1.webp"]{background-image:url(../assets/al/map/isl-1.hf_20261125_075120_f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5.webp)}
+html.ds #stage[data-scr=math] .isl.locked img[src$="/isl_1.webp"]{background-image:url(../assets/al/map/isl-1-locked.hf_20261125_075120_f1f77e6e-b4a9-4f6c-9eb3-53faf1fb46d5.webp)}
+html.ds #stage:is([data-scr=math],[data-scr=misland]) img[src$="/isl_2.webp"]{background-image:url(../assets/al/map/isl-2.hf_20261125_075122_015dc5a7-8cf0-4957-9a08-a0b036734301.webp)}
+html.ds #stage[data-scr=math] .isl.locked img[src$="/isl_2.webp"]{background-image:url(../assets/al/map/isl-2-locked.hf_20261125_075122_015dc5a7-8cf0-4957-9a08-a0b036734301.webp)}
+html.ds #stage:is([data-scr=math],[data-scr=misland]) img[src$="/isl_3.webp"]{background-image:url(../assets/al/map/isl-3.hf_20261125_075120_b74f0f8d-8612-409a-9938-2d53629d4086.webp)}
+html.ds #stage[data-scr=math] .isl.locked img[src$="/isl_3.webp"]{background-image:url(../assets/al/map/isl-3-locked.hf_20261125_075120_b74f0f8d-8612-409a-9938-2d53629d4086.webp)}
+html.ds #stage:is([data-scr=math],[data-scr=misland]) img[src$="/isl_4.webp"]{background-image:url(../assets/al/map/isl-4.hf_20261125_075118_2c5654f8-c012-4de6-ab90-f80dd20c6f40.webp)}
+html.ds #stage[data-scr=math] .isl.locked img[src$="/isl_4.webp"]{background-image:url(../assets/al/map/isl-4-locked.hf_20261125_075118_2c5654f8-c012-4de6-ab90-f80dd20c6f40.webp)}
+html.ds #stage:is([data-scr=math],[data-scr=misland]) img[src$="/isl_5.webp"]{background-image:url(../assets/al/map/isl-5.hf_20261125_075121_4417a597-d43d-4c75-afbc-86525a35ac92.webp)}
+html.ds #stage[data-scr=math] .isl.locked img[src$="/isl_5.webp"]{background-image:url(../assets/al/map/isl-5-locked.hf_20261125_075121_4417a597-d43d-4c75-afbc-86525a35ac92.webp)}
+html.ds #stage:is([data-scr=math],[data-scr=misland]) img[src$="/isl_6.webp"]{background-image:url(../assets/al/map/isl-6.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp)}
+html.ds #stage[data-scr=math] .isl.locked img[src$="/isl_6.webp"]{background-image:url(../assets/al/map/isl-6-locked.hf_20261125_075119_742bbc3a-52ff-4652-a1c9-b43679ba2e26.webp)}
+html.ds #stage:is([data-scr=math],[data-scr=misland]) img.pic[src*="/isl_"]{object-position:-9999px 0;background-position:center bottom;background-size:contain;background-repeat:no-repeat;aspect-ratio:7/6;height:auto}
+@media (max-height:700px){html.ds #stage:is([data-scr=math],[data-scr=misland]) img.pic[src*="/isl_"]{aspect-ratio:4/3}}
+html.ds .mmap .mtitle{border:1px solid var(--wi-line);border-image:none;border-radius:var(--wi-r-lg);background:var(--wi-navy-900);padding:var(--wi-s1) var(--wi-s4);color:var(--wi-text);box-shadow:var(--wi-e1)}
+html.ds .mmap .mtitle small{color:var(--wi-text-dim)}
+html.ds .mmap .mb .rb.t1{background:var(--wi-navy-800)}
+
+/* maths pieces in a level */
+html.ds .mlv .key{min-height:48px;background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-md);box-shadow:var(--wi-e2);font-family:var(--wi-font-en)}
+html.ds .mlv .key .ico{stroke:var(--wi-text)}
+html.ds .mlv .key.kok{background:var(--wi-gold);color:var(--wi-navy-900);border-color:var(--wi-gold-press);font-family:var(--wi-font-ui)}
+html.ds .mlv .key:active{background:var(--wi-navy-700)}
+html.ds .mlv .mch .mc{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-line);border-radius:var(--wi-r-lg);box-shadow:var(--wi-e2)}
+html.ds .mlv .mch .mc.mbad{background:var(--wi-navy-800);border-color:var(--wi-fix);opacity:.75}
+html.ds .mlv .mch .mc.mgood{background:var(--wi-navy-800);border-color:var(--wi-good);box-shadow:0 0 0 2px var(--wi-good)}
+html.ds .mlv .mch .mc.mglow{box-shadow:0 0 0 4px var(--wi-gold),var(--wi-e2)}
+html.ds .mlv .pfoot .mq{background:var(--wi-navy-900);color:var(--wi-text);border:1px solid var(--wi-line);border-radius:var(--wi-r-lg)}
+html.ds .mlv .pfoot .pc{background:var(--wi-gold);color:var(--wi-navy-900)}
+html.ds .mlv .pfoot .okq{color:var(--wi-good)}
+html.ds .mlv .pplus{color:var(--wi-text);-webkit-text-stroke:4px var(--wi-scrim);paint-order:stroke fill}
+html.ds .mmap .mtitle{top:calc(80px + var(--st))}
+html.ds .mlv .aslot{min-width:var(--wi-tap);height:var(--wi-tap)}
+
+/* ======== Rollout step 5: the mock exam, a light touch (#mock, #mockrun, #mockprac) ========
+   The exam stays on paper and keeps its calm: the question cards, answers, stations trail, report bars and colours
+   are today's. Only the shell matches the other screens: the dark surround on wide screens, the heading on a navy
+   plate, the round back and quit buttons, the gold main button, the navy toast, the paper focus ring, the fonts. */
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]){font-family:var(--wi-font-ui);box-shadow:0 0 0 1px var(--wi-navy-700)}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .en{font-family:var(--wi-font-en)}
+html.ds:has(#stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac])),html.ds:has(#stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac])) body{background:var(--wi-scrim)}
+html.ds:has(#stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac])) #backdrop{display:none}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) :focus-visible{outline:3px solid var(--wi-focus-paper);outline-offset:3px}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .ribbon{background:var(--wi-navy-900);border:1px solid var(--wi-line);border-radius:var(--wi-r-pill);padding:var(--wi-s1) var(--wi-s5);inline-size:auto;block-size:auto;color:var(--wi-text);font-size:var(--wi-fs-xl)}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .ribbon span{padding:0}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .rb{background:var(--wi-navy-800);border:2px solid var(--wi-line);border-radius:50%;box-shadow:var(--wi-e1)}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .rb .ico{stroke:var(--wi-text)}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .btn.green{border:0;border-image:none;border-radius:var(--wi-r-pill);background:var(--wi-gold);color:var(--wi-navy-900);box-shadow:inset 0 -4px 0 var(--wi-gold-press),0 3px 0 rgba(27,42,65,.35);padding:0 var(--wi-s5);animation:none}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .btn.green .ico{stroke:currentColor}
+html.ds #stage:is([data-scr=mock],[data-scr=mockrun],[data-scr=mockprac]) .toastin{background:var(--wi-navy-800);color:var(--wi-text);border:2px solid var(--wi-gold);border-radius:var(--wi-r-lg);box-shadow:var(--wi-e2)}
+/* the exam's quit button (its icon fixed in #60): a navy disc with a white X, and air between it and the first station */
+html.ds #stage[data-scr=mockrun] .xquit{border-radius:0;border:0;box-shadow:none;background:radial-gradient(closest-side,var(--wi-navy-800) calc(100% - 3px),var(--wi-line) calc(100% - 2px),transparent 100%);color:#fff;min-inline-size:var(--wi-tap);min-block-size:var(--wi-tap)}   /* a square hit box (corner taps must land), the disc drawn as a background */
+html.ds #stage[data-scr=mockrun] .xquit .ico{stroke:currentColor}
+html.ds #stage[data-scr=mockrun] .xtrail{padding-inline:60px}
