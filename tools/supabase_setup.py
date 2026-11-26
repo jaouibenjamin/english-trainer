@@ -339,8 +339,10 @@ class Setup:
                                    f'(a new code, put in the Vault as {VAULT_NAME})')
         else:
             if not self.vault():
+                self.say(f'  the Vault is not there (no vault.create_secret): {TRIAL} is NOT made here, so its code cannot be lost')
                 self.manual.append('the Vault is not available: make the trial class by hand (docs/owner/DAY0.md step 7)')
                 return
+            self.say(f'  {TRIAL} does not exist yet: making it through admin-class, its code going to the Vault')
             code, cid = self.admin_class({'action': 'create', 'name': TRIAL, 'grade': '5'})
             self.change(f'class {TRIAL} made')                # recorded before the Vault, so a stop after it says so
             self.store_code(code, 'made')
@@ -355,7 +357,10 @@ class Setup:
             self.say(f'  roster of {TRIAL} already {", ".join(TRIAL_PUPILS)}')
 
     def vault(self):
-        return self.one("select to_regprocedure('vault.create_secret(text,text,text)') is not null as e")
+        # by name, not by an exact signature: the hosted create_secret has more parameters, with defaults
+        # (new_secret, new_name, new_description, new_key_id), so to_regprocedure('...(text,text,text)') found nothing
+        return self.one("select exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace "
+                        "where n.nspname = 'vault' and p.proname = 'create_secret') as e")
 
     def admin_class(self, body):
         """Calls the project's admin-class with a server key (the legacy service_role key first, then the secret key);
@@ -384,10 +389,12 @@ class Setup:
         return code, cid
 
     def store_code(self, code, how):
-        try:
-            self.sql(f"delete from vault.secrets where name = '{VAULT_NAME}'")
-            self.sql(f"select vault.create_secret('{code}', '{VAULT_NAME}', "
-                     f"'The trial class code (docs/owner/DAY0.md): copy it into the password manager, then delete this secret')")
+        note = 'The trial class code (docs/owner/DAY0.md): copy it into the password manager, then delete this secret'
+        try:                                            # named arguments: the hosted functions have more, with defaults
+            if self.one(f"select count(*) as n from vault.secrets where name = '{VAULT_NAME}'"):
+                self.sql(f"select vault.update_secret(id, new_secret => '{code}') from vault.secrets where name = '{VAULT_NAME}'")
+            else:
+                self.sql(f"select vault.create_secret(new_secret => '{code}', new_name => '{VAULT_NAME}', new_description => '{note}')")
         except Stop:
             raise Stop(f'the {TRIAL} class code was {how} but could not be put in the Vault, so it is lost: '
                        'run this workflow again with mode rotate-trial for a new one')

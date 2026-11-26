@@ -37,8 +37,14 @@ def check(label, ok, detail=''):
 VAULT = """
 create schema if not exists vault;
 create table if not exists vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, secret text, description text);
-create or replace function vault.create_secret(s text, n text, d text) returns uuid language sql as
-  $$ insert into vault.secrets (secret, name, description) values (s, n, d) returning id $$;
+-- the hosted signatures (supabase_vault): more parameters than the three we pass, with defaults
+create or replace function vault.create_secret(new_secret text, new_name text default null, new_description text default '',
+                                               new_key_id uuid default null) returns uuid language sql as
+  $$ insert into vault.secrets (secret, name, description) values (new_secret, new_name, new_description) returning id $$;
+create or replace function vault.update_secret(secret_id uuid, new_secret text default null, new_name text default null,
+                                               new_description text default null, new_key_id uuid default null) returns void language sql as
+  $$ update vault.secrets set secret = coalesce(new_secret, secret), name = coalesce(new_name, name),
+       description = coalesce(new_description, description) where id = secret_id $$;
 """
 
 
@@ -69,7 +75,7 @@ class Fake:
         return int(self.db.psql("select count(*) from pg_tables where schemaname = 'public'", user='supabase_admin')[0][0][0])
 
     def sql(self, q):
-        if self.vault_broken and 'select vault.create_secret(' in q:
+        if self.vault_broken and ('vault.create_secret(' in q or 'vault.update_secret(' in q):
             return 400, {'message': 'ERROR: the stand-in Vault is broken on purpose'}
         rows, err = self.db.psql(q, user='supabase_admin')
         if err and 'ERROR' in err:
@@ -176,7 +182,7 @@ def serve(fake):
 def project(**kw):
     os.environ['WI_MIGRATIONS'] = tempfile.mkdtemp(prefix='wi-nomig-')       # an empty project: the stub only
     db = pg.start()
-    rows, err = db.psql(VAULT, user='supabase_admin')
+    rows, err = db.psql(VAULT, user='supabase_admin') if not kw.get('no_vault') else ([], None)
     if err and 'ERROR' in err:
         db.stop(); raise RuntimeError(err)
     fake = Fake(db, **kw)
@@ -250,7 +256,8 @@ def fresh():
                     "(select count(*) from private.class_codes k where k.class_id = c.id) from public.classes c", user='supabase_admin')[0]
         check('the class Trial, with its code lookup and the roster Test, Tester', t == [['Trial', 'Test,Tester', '1']], t)
         vs = db.psql("select secret from vault.secrets where name = 'wi_trial_class_code'", user='supabase_admin')[0]
-        check('the class code is in the Vault, and it is the one admin-class made', vs == [[fake.codes[0]]] if fake.codes else False, vs)
+        check('step 6 says what it decided', 'making it through admin-class' in out)
+        check('the class code is in the Vault (found by name, called with named arguments, as the hosted Vault needs), and it is the one admin-class made', vs == [[fake.codes[0]]] if fake.codes else False, vs)
         bad = leaks(out, secrets_of(fake))
         check('no secret in the log, as it is, URL-encoded or JSON-encoded: token, database password (echoed by the CLI in all three forms), '
               'server keys, pepper, class code only on ::add-mask:: lines',
@@ -314,6 +321,20 @@ def refused(label, kw=None, prep=None, confirm='setup trial', ref=REF, silent=Fa
         srv.shutdown(); db.stop()
 
 
+def novault():
+    db, fake, srv = project(no_vault=True)
+    fake.token, fake.dbpw = made_up()
+    try:
+        r, _ = run(srv, fake)
+        out = r.stdout + r.stderr
+        six = out[out.find('6. the trial class'):out.find('7. live_check')]
+        n = db.psql('select count(*) from public.classes', user='supabase_admin')[0][0][0]
+        check('no Vault at all: step 6 says what it decided, makes no class (its code would be lost), the list says to make it by hand',
+              r.returncode == 0 and 'the Vault is not there' in six and n == '0' and 'make the trial class by hand' in out, (six, n))
+    finally:
+        srv.shutdown(); db.stop()
+
+
 def fallback():
     db, fake, srv = project(legacy_refused=True, reject={'mfa_web_authn_enroll_enabled'})
     fake.token, fake.dbpw = made_up()
@@ -371,6 +392,7 @@ def main():
     refused('no project ref yet (supabase/project_ref not set, or not a ref)', ref='notaref', silent=True)
     refused('an unexpected answer (an unexpected stop, like a timeout)', {'garbage': True})
     fallback()
+    novault()
     print('\nALL PASSED' if not fails else f'\n{len(fails)} FAILED')
     sys.exit(1 if fails else 0)
 

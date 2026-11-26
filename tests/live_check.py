@@ -295,7 +295,10 @@ def stage1(api):
     rep('a sign-up with the public key is refused because sign-up is off (signup_disabled)', off, detail)
     s, root = api.call('GET', '/rest/v1/')
     paths = sorted((root or {}).get('paths', {}).keys()) if isinstance(root, dict) else []
-    print(f"       REST root: HTTP {s}; {len(paths)} paths exposed{' (empty project: migrations not deployed yet)' if len(paths) <= 1 else ''}")
+    if s in (401, 403):     # the schema list is not readable with the public key: expected, whether or not tables exist
+        print(f"       REST root: HTTP {s}, the schema list is not public (expected)")
+    else:
+        print(f"       REST root: HTTP {s}; {len(paths)} paths exposed{' (empty project: migrations not deployed yet)' if s == 200 and len(paths) <= 1 else ''}")
     s, g = api.call('POST', '/graphql/v1', {'query': '{ __typename }'})
     rep('GraphQL is off or exposes nothing (checklist step 10)', not (200 <= s < 300) or 'errors' in (g or {}) or not (g or {}).get('data'), s)
     print(f"\nstage 1: {sum(out)} passed, {len(out) - sum(out)} failed")
