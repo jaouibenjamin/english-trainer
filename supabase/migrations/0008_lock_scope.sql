@@ -1,7 +1,12 @@
--- Every "locked" answer of a sign-in, a recovery or a registration says whom it is for (the designer's sign-in spec,
--- docs/SIGNIN.md): the child sees "only your name, for N minutes" or "everyone at school is paused until HH:MM, the
--- teacher can lift it", not one message for both. No limit changes. A new migration, not an edit of 0004
--- (docs/LESSONS.md entry 15): auth_begin as in 0004, with `by` added to each {s: 'locked'}:
+-- Every "locked" answer of a sign-in, a recovery or a registration says whom it is for and who can end it (the
+-- design review of the pupil sign-in screens, PR #84; the answers are listed in docs/BACKEND.md section 4): the child
+-- sees "only your name, for N minutes" or "everyone at school waits until HH:MM", and the screen offers "ask the
+-- teacher" only when she can help. No limit changes. A new migration, not an edit of 0004 (docs/LESSONS.md entry 15):
+-- auth_begin as in 0004, with `by` and `help` added to each {s: 'locked'}.
+-- help: 'teacher'  her unlock (a name), her class lift (the class, or the class from one address) or a new code ends it
+--       'wait'     only time ends it: calls, wrong class codes and registrations per address per hour, every class this
+--                  hour, the copy phase. The screen must not promise the teacher can lift these.
+-- by:
 --   name      this name (from this address or device for an unknown device, or the name's daily ceiling; the
 --             pictures or the one-time code of this name: wait -1 means ask the teacher)
 --   device    this pupil's own known device: only its own wrong codes count
@@ -32,16 +37,16 @@ begin
   -- the address: any calls, then wrong class codes (counted per hour, review S3)
   select count(*), min(at) into n_ip, v_oldest from private.auth_attempts where ip_bucket in (p_ip, p_ip_prev) and at > p_now - interval '1 hour';
   n_ip := n_ip + coalesce((select n from private.class_misses where bucket = p_ip and hour = v_hour), 0);
-  if n_ip >= s.ip_hour then return jsonb_build_object('s', 'locked', 'by', 'address', 'wait', private.wait_s(coalesce(v_oldest, v_hour) + interval '1 hour', p_now)); end if;
+  if n_ip >= s.ip_hour then return jsonb_build_object('s', 'locked', 'by', 'address', 'help', 'wait', 'wait', private.wait_s(coalesce(v_oldest, v_hour) + interval '1 hour', p_now)); end if;
   if coalesce((select n from private.class_misses where bucket = p_ip and hour = v_hour), 0) >= s.class_ip_hour then
-    return jsonb_build_object('s', 'locked', 'by', 'address', 'wait', private.wait_s(v_hour + interval '1 hour', p_now));
+    return jsonb_build_object('s', 'locked', 'by', 'address', 'help', 'wait', 'wait', private.wait_s(v_hour + interval '1 hour', p_now));
   end if;
 
   select class_id into v_class from private.class_codes where code_lookup = decode(p_class_lookup, 'hex');
   if v_class is null then
     perform pg_advisory_xact_lock(hashtextextended('class-misses', 42));
     if (select coalesce(sum(n), 0) from private.class_misses where hour = v_hour and bucket <> 'unreadable') >= s.class_miss_hour then
-      return jsonb_build_object('s', 'locked', 'by', 'everyone', 'wait', private.wait_s(v_hour + interval '1 hour', p_now));      -- everyone, this hour
+      return jsonb_build_object('s', 'locked', 'by', 'everyone', 'help', 'wait', 'wait', private.wait_s(v_hour + interval '1 hour', p_now));      -- everyone, this hour
     end if;
     insert into private.class_misses (bucket, hour, n) values (p_ip, v_hour, 1)
       on conflict (bucket, hour) do update set n = private.class_misses.n + 1;
@@ -50,12 +55,12 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('kind/' || v_class::text || '/' || p_kind, 42));
 
   -- while the copy phase runs, this side only receives copies: no registration, no recovery
-  if s.shadow_mode and p_kind <> 'code' then return jsonb_build_object('s', 'locked', 'by', 'system', 'wait', -1); end if;
+  if s.shadow_mode and p_kind <> 'code' then return jsonb_build_object('s', 'locked', 'by', 'system', 'help', 'wait', 'wait', -1); end if;
 
   if p_kind = 'register' then
     select count(*), min(at) into n_ip, v_oldest from private.auth_attempts
      where ip_bucket in (p_ip, p_ip_prev) and kind = 'register' and at > p_now - interval '1 hour';
-    if n_ip >= s.register_ip_hour then return jsonb_build_object('s', 'locked', 'by', 'address', 'wait', private.wait_s(v_oldest + interval '1 hour', p_now)); end if;
+    if n_ip >= s.register_ip_hour then return jsonb_build_object('s', 'locked', 'by', 'address', 'help', 'wait', 'wait', private.wait_s(v_oldest + interval '1 hour', p_now)); end if;
     insert into private.auth_attempts (at, class_id, name_key, kind, dev_bucket, ip_bucket, outcome)
       values (p_now, v_class, v_key, 'register', p_dev, p_ip, 'ok');
     return jsonb_build_object('s', 'go', 'class', v_class, 'iter_default', s.kdf_iter, 'pic_count', s.pic_count, 'pic_choices', s.pic_choices);
@@ -74,7 +79,7 @@ begin
     select max(locked_until) into v_until from private.auth_buckets
      where class_id = v_class and name_key = v_key and kind = 'code' and locked_until > p_now
        and (case when v_known then bucket = 'd:' || p_dev else bucket in ('i:' || p_ip, 'i:' || p_ip_prev) end);
-    if v_until is not null then return jsonb_build_object('s', 'locked', 'by', case when v_known then 'device' else 'name' end, 'wait', private.wait_s(v_until, p_now)); end if;
+    if v_until is not null then return jsonb_build_object('s', 'locked', 'by', case when v_known then 'device' else 'name' end, 'help', 'teacher', 'wait', private.wait_s(v_until, p_now)); end if;
     -- wrong (or unfinished) codes of the last 24 hours: this name; this address on this name; this device
     select count(*), count(*) filter (where not trusted and not lifted), count(*) filter (where trusted and dev_bucket = p_dev and not lifted),
            count(*) filter (where not trusted and not lifted and ip_bucket in (p_ip, p_ip_prev)), min(at)
@@ -85,15 +90,15 @@ begin
     -- can never use up its reserve; strangers stop at the name's daily ceiling, whatever was lifted
     if (v_known and n_dev >= s.code_bucket_day)
        or (not v_known and (n_all >= s.code_ceiling_day or n_str >= private.name_allow(v_class, v_key, p_now) or n_ip >= s.code_bucket_day)) then
-      return jsonb_build_object('s', 'locked', 'by', case when v_known then 'device' else 'name' end, 'wait', private.wait_s(v_oldest + day, p_now));
+      return jsonb_build_object('s', 'locked', 'by', case when v_known then 'device' else 'name' end, 'help', 'teacher', 'wait', private.wait_s(v_oldest + day, p_now));
     end if;
     if not v_known then
       -- strangers, across the names of the class: one address, and everybody together (the class brake)
       select count(*) filter (where ip_bucket in (p_ip, p_ip_prev)), count(*), min(at) filter (where ip_bucket in (p_ip, p_ip_prev)), min(at)
         into n_ipc, n_cls, v_oldest, v_old2
         from private.auth_attempts where class_id = v_class and kind = 'code' and outcome <> 'ok' and not trusted and not lifted and at > p_now - day;
-      if n_ipc >= s.code_ip_class_day then return jsonb_build_object('s', 'locked', 'by', 'address', 'wait', private.wait_s(v_oldest + day, p_now)); end if;
-      if n_cls >= private.class_allow(v_class, p_now) then return jsonb_build_object('s', 'locked', 'by', 'class', 'wait', private.wait_s(v_old2 + day, p_now)); end if;
+      if n_ipc >= s.code_ip_class_day then return jsonb_build_object('s', 'locked', 'by', 'address', 'help', 'teacher', 'wait', private.wait_s(v_oldest + day, p_now)); end if;
+      if n_cls >= private.class_allow(v_class, p_now) then return jsonb_build_object('s', 'locked', 'by', 'class', 'help', 'teacher', 'wait', private.wait_s(v_old2 + day, p_now)); end if;
     end if;
     if sec.code_hash is not null then
       v_salt := sec.code_salt; v_iter := sec.code_iter; v_algo := sec.code_algo; v_legacy := sec.legacy_salt;
@@ -104,8 +109,8 @@ begin
     select count(*) filter (where ip_bucket in (p_ip, p_ip_prev)), count(*), min(at) filter (where ip_bucket in (p_ip, p_ip_prev)), min(at)
       into n_ipc, n_cls, v_oldest, v_old2
       from private.auth_attempts where class_id = v_class and kind = 'picture' and outcome <> 'ok' and not lifted and at > p_now - day;
-    if n_ipc >= s.pic_ip_day then return jsonb_build_object('s', 'locked', 'by', 'address', 'wait', private.wait_s(v_oldest + day, p_now)); end if;
-    if n_cls >= s.pic_class_day then return jsonb_build_object('s', 'locked', 'by', 'class', 'wait', private.wait_s(v_old2 + day, p_now)); end if;
+    if n_ipc >= s.pic_ip_day then return jsonb_build_object('s', 'locked', 'by', 'address', 'help', 'teacher', 'wait', private.wait_s(v_oldest + day, p_now)); end if;
+    if n_cls >= s.pic_class_day then return jsonb_build_object('s', 'locked', 'by', 'class', 'help', 'teacher', 'wait', private.wait_s(v_old2 + day, p_now)); end if;
     insert into private.auth_buckets (class_id, name_key, kind, bucket) values (v_class, v_key, 'picture', '*') on conflict do nothing;
     select * into b from private.auth_buckets where class_id = v_class and name_key = v_key and kind = 'picture' and bucket = '*' for update;
     -- closed after the tries are used; closed while a teacher reset waits; once in 30 days
@@ -113,7 +118,7 @@ begin
        or exists (select 1 from private.reset_codes r where r.pupil_id = v_pupil and r.expires_at > p_now)
        or sec.code_hash is null and v_pupil is not null
        or sec.pic_recovered_at > p_now - make_interval(days => s.pic_again_days) then
-      return jsonb_build_object('s', 'locked', 'by', 'name', 'wait', -1);
+      return jsonb_build_object('s', 'locked', 'by', 'name', 'help', 'teacher', 'wait', -1);
     end if;
     update private.auth_buckets set fails = fails + 1, last_fail_at = p_now
      where class_id = v_class and name_key = v_key and kind = 'picture' and bucket = '*';
@@ -126,11 +131,11 @@ begin
     end if;
     select count(*), min(at) into n_ip, v_oldest from private.auth_attempts
      where class_id = v_class and name_key = v_key and kind = 'otc' and outcome <> 'ok' and ip_bucket in (p_ip, p_ip_prev) and at > p_now - day;
-    if n_ip >= s.otc_ip_tries then return jsonb_build_object('s', 'locked', 'by', 'name', 'wait', private.wait_s(v_oldest + day, p_now)); end if;
+    if n_ip >= s.otc_ip_tries then return jsonb_build_object('s', 'locked', 'by', 'name', 'help', 'teacher', 'wait', private.wait_s(v_oldest + day, p_now)); end if;
     if rc.pupil_id is not null and rc.fails >= s.otc_tries then      -- used up (also by tries running in parallel, N1)
       delete from private.reset_codes where pupil_id = v_pupil;
       perform private.lock_event(v_class, v_key, 'otc', p_now, null);
-      return jsonb_build_object('s', 'locked', 'by', 'name', 'wait', -1);
+      return jsonb_build_object('s', 'locked', 'by', 'name', 'help', 'teacher', 'wait', -1);
     end if;
     if rc.pupil_id is not null then
       update private.reset_codes set fails = fails + 1 where pupil_id = v_pupil;

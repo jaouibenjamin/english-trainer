@@ -414,7 +414,9 @@ What this gives, and what it does not:
 Answers of the functions: `ok`, `class`, `pin` (name or code not right; also "no such pupil" and "code was reset"),
 `locked` (with seconds to wait, or -1 for "ask the teacher", and `by`, whom it is for: `name` this name only,
 `device` the pupil's own known device, `address` everyone at this network, `class` the whole class, `everyone` every
-class this hour, `system` the copy phase; `0008_lock_scope.sql`), `setup` (old code right, now choose the new code and
+class this hour, `system` the copy phase; and `help`: `teacher` when her unlock, her class lift or a new code ends
+it, `wait` when only time does (calls, wrong class codes and registrations per network per hour, every class this
+hour, the copy phase), so a screen never promises a lift that cannot happen; `0008_lock_scope.sql`), `setup` (old code right, now choose the new code and
 pictures), `weak` (code on the deny-list), `picture`, `otc`, `taken`, `roster`, `full`, `input`, `forbidden`, and for
 the teacher `limit` (a third unlock of a name, or a third brake lift, in a day). `teacher-reset` checks that the pupil
 is hers before any slow hashing, so a stranger's token makes it do no work (pre-live review N3).

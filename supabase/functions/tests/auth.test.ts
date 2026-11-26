@@ -659,28 +659,66 @@ T("S7 (review of #86): a teacher's daily cap of new codes, checked before the sl
   clock.ms += 2 * DAY;
 });
 
-T("lock scope (0008): every 'locked' answer says whom it is for: the name, the device, the address, the class", async () => {
+T("lock scope (0008): every 'locked' answer says whom it is for and whether the teacher can end it", async () => {
   const c = await newClass();
   const names = Array.from({ length: 12 }, (_, i) => "Sco" + "abcdefghijkl"[i]);
   const mine = await reg(c, names[11], "4827");                       // the pupil's own phone, a known device
   for (const n of names.slice(0, 11)) await reg(c, n, "4827", [3, 11], freshIp());
   clock.ms += 2 * HOUR;
-  const by = (r: Reply) => (r.ok ? "ok" : `${r.e}/${(r as { by?: string }).by ?? "-"}`);
+  const by = (r: Reply) => (r.ok ? "ok" : `${r.e}/${(r as { by?: string }).by ?? "-"}/${(r as { help?: string }).help ?? "-"}`);
   const school = freshIp();
   for (let i = 0; i < 5; i++) await log(c, names[0], "9053", { ip: school });
-  eq([by(await log(c, names[0], "4827", { ip: school })), by(await log(c, names[1], "4827", { ip: school }))], ["locked/name", "ok"],
-    "5 wrong codes on one name from the school: that name waits, 'name'; a classmate at the same address signs in");
+  eq([by(await log(c, names[0], "4827", { ip: school })), by(await log(c, names[1], "4827", { ip: school }))], ["locked/name/teacher", "ok"],
+    "5 wrong codes on one name from the school: that name waits (her unlock ends it); a classmate at the same address signs in");
   for (let i = 0; i < 10; i++) await log(c, names[11], "9053", { device_token: tok(mine) });
-  eq(by(await log(c, names[11], "4827", { device_token: tok(mine) })), "locked/device", "10 wrong on her own known phone: 'device'");
+  eq(by(await log(c, names[11], "4827", { device_token: tok(mine) })), "locked/device/teacher", "10 wrong on her own known phone: 'device'");
   const net = freshIp();
   for (let i = 0; i < 30; i++) await log({ ...c, code: "WRONG" + String(i).padStart(3, "0") }, names[2], "4827", { ip: net });
-  eq(by(await log(c, names[2], "4827", { ip: net })), "locked/address", "30 wrong class codes from one network: everyone there waits, 'address'");
+  eq(by(await log(c, names[2], "4827", { ip: net })), "locked/address/wait", "30 wrong class codes from one network: everyone there waits out the hour (no teacher lift)");
+  const pics = freshIp();
+  for (let i = 0; i < 5; i++) await recPic(c, names[5 + (i % 3)], [5, 6], "5839", [7, 2], pics);
+  eq(by(await recPic(c, names[8], [3, 11], "5839", [7, 2], pics)), "locked/address/teacher", "5 wrong pictures from one network: recovery there waits (her class lift ends it)");
+  const t = (await sql`insert into auth.users (email) values (${"t-" + crypto.randomUUID() + "@test.invalid"}) returning id`)[0].id;
+  await sql`insert into public.teachers values (${t}, ${c.id})`;
+  await reset("t:" + t, await pupilId(c, names[9]));
+  const otcIp = freshIp();
+  for (let i = 0; i < 5; i++) await recOtc(c, names[9], "000000", "6149", [9, 4], otcIp);
+  eq(by(await recOtc(c, names[9], "000000", "6149", [9, 4], otcIp)), "locked/name/teacher", "5 wrong one-time codes from one network: that code is refused there (a new code from her ends it)");
+  // the 30th wrong try deletes the code itself; a try that starts while a used-up code is still there (tries in
+  // parallel, N1) is refused at the start: that row is set here directly
+  await sql`update private.reset_codes set fails = 30 where pupil_id = ${await pupilId(c, names[9])}`;
+  eq(by(await recOtc(c, names[9], "000000", "6149", [9, 4], freshIp())), "locked/name/teacher", "a used-up one-time code (30 wrong): a new code from her ends it");
+  for (let i = 0; i < 3; i++) await recPic(c, names[10], [5, 6], "5839", [7, 2], freshIp());
+  eq(by(await recPic(c, names[10], [3, 11], "5839", [7, 2], freshIp())), "locked/name/teacher", "3 wrong pictures on one name: that name's recovery is closed (her unlock reopens it)");
+  for (let i = 0; i < 2; i++) await recPic(c, names[4], [5, 6], "5839", [7, 2], freshIp());
+  eq(by(await recPic(c, names[3], [3, 11], "5839", [7, 2], freshIp())), "locked/class/teacher", "10 wrong pictures in the class: recovery pauses for the class (her class lift ends it)");
+  for (let i = 0; i < 20; i++) await log(c, names[10], "9053", { ip: freshIp() });
+  eq(by(await log(c, names[10], "4827", { ip: freshIp() })), "locked/name/teacher", "20 wrong codes on one name from 20 networks: the name's day is over for strangers (her unlock ends it)");
   clock.ms += 2 * DAY;
   const spray = freshIp();
   for (let round = 0; round < 3; round++) for (const n of names.slice(0, 11)) await log(c, n, "9053", { ip: spray });
-  eq(by(await log(c, names[3], "4827", { ip: spray })), "locked/address", "30 wrong codes across the class from one network: 'address'");
+  eq(by(await log(c, names[3], "4827", { ip: spray })), "locked/address/teacher", "30 wrong codes across the class from one network: 'address' (her class lift ends it)");
   for (let i = 0; i < 80; i++) await log(c, names[i % 11], "9053", { ip: freshIp() });
-  eq(by(await log(c, names[4], "4827", { ip: freshIp() })), "locked/class", "the class brake (100 from anywhere): 'class'");
+  eq(by(await log(c, names[4], "4827", { ip: freshIp() })), "locked/class/teacher", "the class brake (100 from anywhere): 'class' (her class lift ends it)");
+  clock.ms += 2 * DAY;
+  try {
+    await settings({ ip_hour: 5 });
+    const busy = freshIp();
+    for (let i = 0; i < 5; i++) await log(c, names[1], "4827", { ip: busy });
+    eq(by(await log(c, names[1], "4827", { ip: busy })), "locked/address/wait", "calls per hour from one network: everyone there waits out the hour");
+    await settings({ ip_hour: 120, register_ip_hour: 2 });
+    const desk = freshIp();
+    await reg(c, "Newa", "4827", [3, 11], desk); await reg(c, "Newb", "4827", [3, 11], desk);
+    eq(by(await reg(c, "Newc", "4827", [3, 11], desk)), "locked/address/wait", "registrations per hour from one network: waits out the hour");
+    await settings({ register_ip_hour: 60, class_miss_hour: 3 });
+    for (let i = 0; i < 3; i++) await log({ ...c, code: "MISS" + String(i).padStart(4, "0") }, names[1], "4827", { ip: freshIp() });
+    eq(by(await log({ ...c, code: "MISS0009" }, names[1], "4827", { ip: freshIp() })), "locked/everyone/wait", "wrong class codes from everywhere this hour: every class waits");
+    await settings({ class_miss_hour: 2000 });
+    await sql`update private.settings set shadow_mode = true`;
+    eq(by(await reg(c, "Newd", "4827", [3, 11], freshIp())), "locked/system/wait", "the copy phase: registration is off, nobody can lift it");
+  } finally {
+    await sql`update private.settings set shadow_mode = false, ip_hour = 120, register_ip_hour = 60, class_miss_hour = 2000`;
+  }
   clock.ms += 2 * DAY;
 });
 
