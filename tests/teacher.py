@@ -98,9 +98,13 @@ async def run(b, w, h, tag):
     check(f'[{tag}] nothing of the session in storage (only the device switch)', json.loads(store) == [[], ['wi_tsb']], store)
     await P.shot(pg, f'teacher-{tag}')
 
-    await pg.click('#out'); await pg.wait_for_selector('#in:not([hidden])')
-    check(f'[{tag}] sign-out: the screen is emptied at once and the session revoked', await pg.is_hidden('#screen') and await pg.locator('#class tbody tr').count() == 0
-          and log[-1]['path'] == '/auth/v1/logout?scope=local' and log[-1]['auth'].startswith('Bearer acc-'), log[-1])
+    n0 = len(log)
+    await pg.click('#out'); await pg.wait_for_selector('#in:not([hidden])'); await pg.wait_for_timeout(200)
+    out = next((i for i in range(n0, len(log)) if log[i]['path'] == '/auth/v1/logout?scope=local'), None)
+    # a read still on its way may land after the revoke: what matters is that the revoke went out and nothing used
+    # her token after it (re-review of #83)
+    check(f'[{tag}] sign-out: the screen is emptied at once and the session revoked; nothing uses her token after', await pg.is_hidden('#screen') and await pg.locator('#class tbody tr').count() == 0
+          and out is not None and log[out]['auth'].startswith('Bearer acc-') and not any(x['auth'] == log[out]['auth'] for x in log[out + 1:]), log[n0:])
 
     await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
     n = len(log)
@@ -122,7 +126,7 @@ async def run(b, w, h, tag):
 
     slow[0] = 1.5                                                    # slow wifi: the code exchange takes a while
     await pg.goto(PAGE); await pg.wait_for_selector('#in:not([hidden])'); await pg.click('#in')
-    await pg.wait_for_function("document.querySelector('#msg').textContent==='מתחברים…'")
+    await pg.wait_for_function("document.querySelector('#msg')?.textContent==='מתחברים…'")
     check(f'[{tag}] back from Google on slow wifi: "signing in…" and no button to tap again until the exchange answers', await pg.is_hidden('#in') and await pg.is_hidden('#out'))
     await pg.wait_for_selector('#out:not([hidden])'); slow[0] = 0
     await pg.click('#out'); await pg.wait_for_selector('#in:not([hidden])')
@@ -131,6 +135,26 @@ async def run(b, w, h, tag):
     check(f'[{tag}] without the switch (?tsb=0) there is no screen after sign-in', await pg.is_hidden('#screen') and await pg.locator('#class tbody tr').count() == 0)
     errs = [e for e in errs if 'ERR_NAME_NOT_RESOLVED' not in e]   # that keepalive revoke, to the stand-in's made-up host
     check(f'[{tag}] no error in the console', not errs, errs[:3])
+    await c.close()
+    await sleeping_laptop(b, w, h, tag)
+
+
+async def sleeping_laptop(b, w, h, tag):
+    """A laptop that slept 31 minutes with the page in front: no tap, no visibility event, its timers did not run while it
+    slept. The page's own 30-second check must sign her out and empty the screen (re-review of #82). Playwright's clock
+    moves Date by 31 minutes without firing any timer, then runs 31 seconds of timers."""
+    log = []
+    c = await b.new_context(viewport={'width': w, 'height': h}, bypass_csp=True)
+    await c.route('**/config.js', lambda r: r.fulfill(status=200, content_type='text/javascript', body=f"window.API_URL='';window.BACKEND={{url:'{SB}',key:'{KEY}'}};"))
+    await c.route(SB + '/**', standin(log))
+    pg = await c.new_page()
+    await pg.clock.install()
+    await pg.goto(PAGE + '?tsb=1'); await pg.wait_for_selector('#in:not([hidden])')
+    await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
+    await pg.clock.set_system_time(await pg.evaluate('Date.now()') + 31 * 60000)
+    await pg.clock.run_for(31000); await pg.wait_for_timeout(300)
+    check(f'[{tag}] a laptop that woke after 31 minutes: signed out by the 30-second check, nothing of her class on the screen, no tap needed',
+          await pg.is_visible('#in') and await pg.locator('#class tbody tr').count() == 0 and any(x['path'] == '/auth/v1/logout?scope=local' for x in log), [x['path'] for x in log[-2:]])
     await c.close()
 
 
