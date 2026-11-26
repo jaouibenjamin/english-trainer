@@ -330,7 +330,6 @@ begin
   delete from private.pupil_days       where day < (now() at time zone s.tz)::date - 30;
   delete from private.ip_salts         where day < (now() at time zone 'utc')::date - 2;
   delete from private.class_misses     where hour < now() - interval '2 days';
-  delete from private.teacher_resets   where at < now() - interval '2 days';
   delete from private.reset_codes      where expires_at < now() - interval '7 days';
   delete from private.pupil_devices    where last_ok_at < now() - make_interval(days => s.device_days);
   delete from public.flags             where day < (now() at time zone s.tz)::date - s.flags_days;

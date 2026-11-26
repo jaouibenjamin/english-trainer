@@ -23,12 +23,11 @@ create function private.backup_tables() returns text[] language sql immutable se
 --   ip_salts, auth_buckets, class_misses: with the day's salt, address hashes could be reversed for every address
 --   auth_attempts, auth_lock_events: names typed at sign-in, kept 30 days in the database and never longer in a backup
 --   legacy_import: the Sheet's bare fast hashes, for minutes during the migration
---   teacher_resets: a counter for the teacher's daily cap of new codes, 2 days long
 -- A restore therefore starts with every lock open and every counter at zero; a picture recovery that was closed
 -- after 3 wrong tries is open again (the teacher's screen shows nothing locked).
 create function private.backup_excluded() returns text[] language sql immutable set search_path = '' as $$
   select array['private.ip_salts', 'private.auth_buckets', 'private.class_misses', 'private.auth_attempts',
-    'private.auth_lock_events', 'private.legacy_import', 'private.teacher_resets'] $$;
+    'private.auth_lock_events', 'private.legacy_import'] $$;
 revoke all on function private.backup_excluded() from public, anon, authenticated;
 
 /* Callable with the public key, so the twice-weekly workflow needs no server key. The caller proves it holds the
