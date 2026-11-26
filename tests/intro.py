@@ -95,9 +95,17 @@ async def opening(page, base):
     cv = await pg.evaluate('window.__cover')
     check('first open: navy from the first paint, the game hidden (laid out) under it, the sound held', cv['pending'] and cv['open'] and cv['vis'] == 'hidden' and cv['bg'] == 'rgb(5, 14, 34)', cv)
     check('the overlay took over the cover (no pending class once it is in the page)', not await pg.evaluate("document.documentElement.classList.contains('wi-intro-pending')"))
+    FAIL_SEEN = "(()=>{const f=document.querySelector('#wi-intro .wi-intro__fail');if(!f)return 'none';const r=f.getBoundingClientRect(),cs=getComputedStyle(f);return f.hidden||cs.display==='none'||cs.visibility==='hidden'||!r.width?'hidden':'SHOWN'})()"
+    await pg.wait_for_timeout(1000)
+    check('the failure line is not on the splash', await pg.evaluate(FAIL_SEEN) == 'hidden')
+    # the first screen behind, as laid out under the cover: it must not move when the overlay goes (no layout jump)
+    before = await pg.evaluate("(()=>{const e=document.querySelector('#view>*');if(!e)return null;const r=e.getBoundingClientRect();return [e.className,Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]})()")
     # every way sound could start under it: taps anywhere (the game's audio unlock), a key, the film's own tap, the tab hidden and back
     await pg.mouse.click(30, 700); await pg.keyboard.press('Shift'); await pg.wait_for_timeout(900)
     await pg.locator('#wi-intro .wi-intro__play').tap(); await pg.wait_for_timeout(1500)
+    xf = await pg.evaluate("(()=>{const b=document.querySelector('#wi-intro'),v=b.querySelector('video'),sp=b.querySelector('.wi-intro__splash');return {s:b.dataset.s,bg:getComputedStyle(b).backgroundColor,film:[getComputedStyle(v).opacity,getComputedStyle(v).transitionDuration],splash:[getComputedStyle(sp).opacity,getComputedStyle(sp).transitionDuration]}})()")
+    check('on the film\'s first frame: one cross-fade (film in, logo out, 0.35 s each) over the navy overlay, never black', xf['s'] == 'film' and xf['bg'] == 'rgb(5, 14, 34)' and xf['film'] == ['1', '0.35s'] and xf['splash'][0] == '0' and '0.35s' in xf['splash'][1], xf)
+    check('the failure line is not on a film that plays', await pg.evaluate(FAIL_SEEN) == 'hidden')
     for hid in (True, False):
         await pg.evaluate(f"Object.defineProperty(document,'hidden',{{configurable:true,get:()=>{str(hid).lower()}}});Object.defineProperty(document,'visibilityState',{{configurable:true,get:()=>'{'hidden' if hid else 'visible'}'}});document.dispatchEvent(new Event('visibilitychange'))"); await pg.wait_for_timeout(300)
     await pg.mouse.click(200, 500); await pg.wait_for_timeout(800)
@@ -111,6 +119,8 @@ async def opening(page, base):
     check('once it closes, the game\'s music starts as it would have', any(x['k'] == 'OscillatorNode' and not x['open'] for x in log), [x['k'] for x in sounding(log, False)][:5])
     fade = await pg.evaluate("({gone:!document.getElementById('wi-intro'),cls:document.documentElement.className,focus:!!document.activeElement&&!!document.activeElement.closest('#view')})")
     check('it faded onto the first screen: the overlay gone, no cover class left, the focus on the first screen', fade['gone'] and 'wi-intro' not in fade['cls'] and fade['focus'], fade)
+    after = await pg.evaluate("(()=>{const e=document.querySelector('#view>*');if(!e)return null;const r=e.getBoundingClientRect();return [e.className,Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]})()")
+    check('no layout jump: the first screen is where it was laid out under the cover', before and before == after, [before, after])
     await ctx.close()
     # the music off in the settings: still off after the film
     ctx, pg, seen, errs = await page()
@@ -143,10 +153,21 @@ async def opening(page, base):
     await pg.route('**/*.mp4', lambda r: r.abort())
     await pg.goto(base + '?ds=1&intro=1'); await pg.wait_for_selector('#wi-intro'); await pg.wait_for_timeout(900)
     await pg.locator('#wi-intro .wi-intro__play').tap(); await pg.wait_for_selector('#wi-intro .wi-intro__done:not([hidden])', timeout=12000)
-    fl = await pg.evaluate("document.querySelector('#wi-intro .wi-intro__fail').hidden?'':document.querySelector('#wi-intro .wi-intro__fail').textContent")
+    fl = await pg.evaluate("(()=>{const f=document.querySelector('#wi-intro .wi-intro__fail');return f.hidden||getComputedStyle(f).display==='none'?'':f.textContent})()")
     check('a film that cannot load: "מתחילים" with "הסרטון לא נטען. ננסה שוב בפעם הבאה."', fl == 'הסרטון לא נטען. ננסה שוב בפעם הבאה.', fl)
     await pg.locator('#wi-intro .wi-intro__done').tap(); await pg.wait_for_timeout(700)
     check('and the device does not remember it, so it is offered again', await pg.evaluate("localStorage.getItem('wi_intro')") is None and await pg.locator('#wi-intro').count() == 0)
+    await ctx.close()
+    # a slow line: the game's own code arrives 6 s late. The splash is there long before it, and the page is never blank
+    ctx, pg, seen, errs = await page()
+    async def late(route):
+        await asyncio.sleep(6); await route.continue_()
+    await pg.route('**/js/main.js', late)
+    await pg.goto(base + '?ds=1&intro=1', wait_until='commit'); t0 = time.monotonic(); marks = []
+    for at in (1.5, 4.5, 6.3):
+        await pg.wait_for_timeout(max(0, int((at - (time.monotonic() - t0)) * 1000)))
+        marks.append(await pg.evaluate("(()=>{const b=document.getElementById('wi-intro');return {at:0,splash:!!b&&getComputedStyle(b).display!=='none'&&!!b.querySelector('.wi-intro__logo'),pending:document.documentElement.classList.contains('wi-intro-pending')}})()"))
+    check('a slow line (the game\'s code 6 s late): the splash is there at 1.5 s and stays (never a blank page)', all(m['splash'] for m in marks), marks)
     await ctx.close()
     # reduced motion: fades only
     ctx, pg, seen, errs = await page()

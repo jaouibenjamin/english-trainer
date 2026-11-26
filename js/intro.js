@@ -47,12 +47,17 @@ export function showIntro(){
  splash.append(logo,play,snd,dots);
  const cap=el('p','wi-intro__cap');cap.hidden=true;
  const skip=el('button','wi-intro__skip','דלגו');skip.type='button';
- const fail=el('p','wi-intro__fail','הסרטון לא נטען. ננסה שוב בפעם הבאה.');   // wi_intro is not stored: it is offered again on the next open (the spec's "in the settings" waits for a settings row: docs/INTRO.md)fail.hidden=true;
+ // shown only when the film cannot play; wi_intro is then not stored, so it is offered again on the next open (the
+ // spec's "in the settings" waits for a settings row: docs/INTRO.md)
+ const fail=el('p','wi-intro__fail','הסרטון לא נטען. ננסה שוב בפעם הבאה.');
+ fail.hidden=true;
  const done=el('button','wi-intro__done','מתחילים');done.type='button';done.hidden=true;
  box.append(v,splash,cap,fail,done,skip);
- /* the rest of the page is inert while the film is open; it is laid out behind the overlay the whole time */
- const others=[...document.body.children].filter(n=>!n.inert);
- others.forEach(n=>{n.inert=true});document.body.appendChild(box);
+ /* the rest of the page is inert while the film is open; it is laid out behind the overlay the whole time. The overlay
+    can come before the page is fully read (a slow line): what is added to <body> afterwards is made inert too */
+ const others=[];const hold=n=>{if(n.nodeType===1&&n!==box&&!n.inert){n.inert=true;others.push(n)}};
+ [...document.body.children].forEach(hold);document.body.appendChild(box);
+ const late=new MutationObserver(ms=>{for(const m of ms)m.addedNodes.forEach(hold)});late.observe(document.body,{childList:true});
  H.classList.add('wi-intro-open');H.classList.remove('wi-intro-pending');   // the overlay is the cover from now on
  let closed=false,failed=false,timer=0;
  const state=s=>{box.dataset.s=s};
@@ -61,7 +66,7 @@ export function showIntro(){
   if(!failed)try{localStorage.setItem('wi_intro','1')}catch(e){}
   try{v.pause();v.removeAttribute('src');v.load()}catch(e){}
   document.removeEventListener('keydown',key);document.removeEventListener('visibilitychange',hide);
-  others.forEach(n=>{n.inert=false});
+  late.disconnect();others.forEach(n=>{n.inert=false});
   /* the overlay fades out onto the first screen, whose panel rises into place; the game's sound may start now */
   state('out');H.classList.add('wi-intro-rise');H.classList.remove('wi-intro-open');
   try{dispatchEvent(new Event('wi-intro-closed'))}catch(e){}
@@ -94,4 +99,8 @@ export function showIntro(){
  play.focus();
  return box;
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',showIntro);else showIntro();
+/* as soon as <body> exists: not at DOMContentLoaded, which waits for the game's own scripts (seconds on a slow line,
+   with only the navy cover to look at) */
+window.__wiIntro=1;   // js/dsflag.js: this file arrived, the overlay is on its way
+if(document.body)showIntro();
+else{const mo=new MutationObserver(()=>{if(document.body){mo.disconnect();showIntro()}});mo.observe(document.documentElement,{childList:true})}
