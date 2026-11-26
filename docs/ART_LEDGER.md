@@ -14,7 +14,7 @@ owner's approval in the designer's session (briefs: `docs/ART_QUEUE.md`):
 | A | the secret-picture grid and its clips for the pupil sign-in (`docs/SIGNIN.md`) | 25 | approved by the owner on 2026-11-26; **11.95 charged, 13.05 left** (batches l1, l1b) |
 | B | Fraction Bay islands in the new look, with locked versions | 20 | approved by the owner on 2026-11-26; **2.00 charged, 18.00 left** (batch l2) |
 | C | ten more avatars with their tap animations | 45 | approved by the owner on 2026-11-26; **44.00 charged, 1.00 left** (batch l3) |
-| D | held: walking characters 25, two new subject worlds 100, reserve 86 | 211 | only on the lead's word |
+| D | held: walking characters 25, two new subject worlds 100, reserve 86 | 211 | only on the lead's word; **124.00 used**: the waist-up hands test (batch l4, 14.50) and option 2 for all 30 characters (batch l5, 109.50, working cap 125), 87.00 left |
 
 Batches after the raise:
 
@@ -24,6 +24,8 @@ Batches after the raise:
 | l1b | A | ענבים re-recorded three ways after the owner's listen (the take used sounded wrong to him); the one spelled with א is used | text2speech_v2 elevenlabs, preset voice (3 takes) | 3 | 2.25 (3 x 0.75) | 0.45 (3 x 0.15) | 11.95 of 25 |
 | l2 | B | Four Fraction Bay islands (round with a cove; two halves and a bridge; a lagoon cut out; the terraced last island), all used; locked versions made here | gpt_image_2_5 medium 1:1 transparent, style reference: English island 1 (4 x 0.5) | 4 | 2.00 | 2.00 | 2.00 of 20 |
 | l3 | C | Ten new characters (hedgehog, koala, raccoon, capybara, otter, flamingo, zebra, badger, kangaroo, eagle (briefed as a griffin)), all used; their 2 s tap animations, 10 + 3 retakes (zebra, kangaroo, badger showed teeth); badger, griffin and flamingo trimmed and played forward and back | gpt_image_2_5 medium 1:1, style reference: the penguin portrait (10 x 0.5); grok_video 2 s 1:1, start image the portrait (13 x 3) | 23 | 44.00 | 44.00 | 44.00 of 45 |
+| l4 | D | Waist-up hands test for the character sheet (`docs/AVATAR_CHARACTER.md`, option 2 on three characters), approved by the owner on 2026-11-26: waist-up stills of boy-cap, girl-ponytail, raccoon (the two kids redone closer), and their gestures (crossed arms, fist pump, "shh"; the fist pump redone, its first take showed teeth). Not in the game: preview only | gpt_image_2_5 medium (5 x 0.5); grok_video 2 s (4 x 3) | 9 | 14.50 | 14.50 | 14.50 of 15 (test) |
+| l5 | D | Option 2 for all 30 characters, approved by the owner on 2026-11-26 (`docs/AVATAR_CHARACTER.md`): 27 waist-up stills from the approved portraits (none redone; the 3 of l4 reused), 27 sign-off gestures + 5 retakes (cat, shark showed teeth; zebra opened its mouth; kangaroo left the frame twice), added next to the approved set in `av/` and `avanim/` (nothing deleted or rewired until the owner approves) | gpt_image_2_5 medium 1:1, reference: the character's portrait (27 x 0.5); grok_video 2 s 1:1, start image: the waist-up still (32 x 3) | 59 | 109.50 | 109.50 | 109.50 of 125 (working cap) |
 
 The voice quote (0.75 a take) is above what the account charges (0.15); the cap is counted on what was charged. The
 quote alone would have crossed cap A with the retakes; next time the retakes are quoted at 0.15 only after checking
