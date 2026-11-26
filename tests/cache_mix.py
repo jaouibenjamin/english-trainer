@@ -85,7 +85,11 @@ def static_check():
             ns, target = m.group(1), m.group(2)[2:]
             for n in added.get(target, {}):
                 if re.search(r'\b' + ns + r'\.' + re.escape(n) + r'\b', src):
-                    guarded = re.search(r'typeof\s+' + ns + r'\.' + re.escape(n) + r'\s*===?\s*[\'"]function[\'"]', src) is not None
+                    # a function is called only after `typeof NS.f==='function'`; a table (object, list) is read as `NS.t||default`
+                    # (or `??`), every read of it
+                    uses = re.findall(r'(?<![\w.])' + ns + r'\.' + re.escape(n) + r'\b(\s*(?:\|\||\?\?))?', src)
+                    guarded = re.search(r'typeof\s+' + ns + r'\.' + re.escape(n) + r'\s*===?\s*[\'"]function[\'"]', src) is not None \
+                        or (bool(uses) and all(u for u in uses))
                     added[target][n].append(f'js/{f}: through {ns}.{n}' + (' with a fallback' if guarded else ' WITHOUT a fallback'))
                     if not guarded: bad.append(f'js/{f} reads {ns}.{n} without a fallback')
     return bad, added

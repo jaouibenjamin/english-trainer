@@ -22,7 +22,11 @@ import {ISLANDS,WORDS,MAX_STARS,TEXTS,LEVEL_INFO} from './data.js';
 import {stars as starRow} from './ui.js';
 import {pathPoints,stone} from './worldpath.js';
 import {ART} from './world_art.js';
-import {AVATARS,NAME_A,NAME_B,NAME_V,ENERGY,SOON} from './world_data.js';
+import {AVATARS,NAME_A,NAME_B,NAME_V} from './world_data.js';
+import * as WD from './world_data.js';   // ENERGY and SOON are newer than the last ship: read through the namespace, so a phone
+                                        // still holding the old world_data.js keeps the old ladder (docs/LESSONS.md 18)
+const ENERGY=WD.ENERGY||{worth:{star:10,word:5,story:5,mstar:0},levels:[0,40,90,150,220,300,380,460,540,620,700,760,820],after:250};
+const SOON=WD.SOON||[];
 import {M_ISLANDS,M_MAX} from './mdata.js';
 import {playAv,canMove} from './avanim.js';
 
