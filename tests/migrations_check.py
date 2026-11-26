@@ -9,7 +9,9 @@ never change, and a change goes into a new file after the last one. This suite p
   1. every migration file on `game` is here, byte for byte (none edited, renamed or removed);
   2. every other file sorts after the last one on `game`;
   3. two local databases end with the same schema: one built fresh from every file here, the other from `game`'s files
-     first and then the new ones (what a project that ran B1 earlier gets from the next `supabase db push`).
+     first, then a class with its teacher, pupils, answers and settings in it, and only then the new files (what a
+     project that ran B1 earlier and has been used gets from the next `supabase db push`): a new file that cannot run
+     on a table with rows (a column added NOT NULL without a default, a check the old rows break) fails here.
 
     python3 tests/migrations_check.py
 
@@ -33,11 +35,32 @@ def git(*a):
     return subprocess.run(['git', '-C', ROOT] + list(a), capture_output=True, text=True)
 
 
-def schema(files_dir):
-    """The schema (pg_dump --schema-only) of a fresh database built from the .sql files in files_dir, in order."""
+ROWS = """
+insert into auth.users (id) values ('00000000-0000-4000-8000-0000000000a1'), ('00000000-0000-4000-8000-0000000000b1');
+insert into public.classes (id, name) values ('00000000-0000-4000-8000-0000000000c1', 'Test class');
+insert into public.teachers (user_id, class_id) values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c1');
+insert into public.roster (class_id, name_key, display_name) values ('00000000-0000-4000-8000-0000000000c1', 'pupil one', 'Pupil One');
+insert into public.pupils (id, class_id, display_name, auth_user_id)
+  values ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000c1', 'Pupil One', '00000000-0000-4000-8000-0000000000b1');
+insert into private.auth_lock_events (class_id, name_key, kind) values ('00000000-0000-4000-8000-0000000000c1', 'pupil one', 'code');
+insert into public.flags (pupil_id, kind, day) values ('00000000-0000-4000-8000-0000000000d1', 'rate', current_date);
+"""
+
+
+def schema(files_dir, then=None):
+    """The schema (pg_dump --schema-only) of a fresh database built from the .sql files in files_dir, in order; with
+    `then`, rows are put in after those files and the files in `then` are applied on top of them."""
     os.environ['WI_MIGRATIONS'] = files_dir
     db = pg.start()
     try:
+        if then:
+            rows, err = db.psql(ROWS, user='supabase_admin')
+            if err:
+                raise RuntimeError('rows: ' + err)
+            for f in then:
+                rows, err = db.psql(None, file=f)
+                if err:
+                    raise RuntimeError(f'{os.path.basename(f)} on a database with rows: {err}')
         r = subprocess.run([os.path.join(db.bin, 'pg_dump'), '-s', '-x', '-h', db.sock, '-p', str(db.port), '-U', 'supabase_admin', pg.DB],
                            capture_output=True, text=True)
         if r.returncode:
@@ -64,12 +87,13 @@ def main():
     with tempfile.TemporaryDirectory() as old:
         for f in on_game:
             open(os.path.join(old, f), 'w', encoding='utf-8').write(git('show', f'{base}:{MIG}/{f}').stdout)
-        for f in new:
-            open(os.path.join(old, f), 'w', encoding='utf-8').write(open(os.path.join(ROOT, MIG, f), encoding='utf-8').read())
-        a = schema(old)
+        try:
+            a = schema(old, then=[os.path.join(ROOT, MIG, f) for f in new])
+        except RuntimeError as e:
+            a = ([str(e)], [], [])
     b = schema(os.path.join(ROOT, MIG))
-    diff = [ln for ln in set(a[0]) ^ set(b[0])][:5]
-    check(f"the same schema both ways: fresh from all {len(here)} files, and game's {len(on_game)} then the {len(new)} new ones (tables, views, functions, grants)",
+    diff = a[0] if len(a[0]) == 1 else [ln for ln in set(a[0]) ^ set(b[0])][:5]     # one line: the error of a new file
+    check(f"the same schema both ways: fresh from all {len(here)} files, and game's {len(on_game)} with a class in it, then the {len(new)} new ones (tables, views, functions, grants)",
           a == b and len(a[0]) > 100, diff or (a[1] != b[1], a[2] != b[2]))
     print('\nALL PASSED' if not fails else f'\n{len(fails)} FAILED')
     sys.exit(1 if fails else 0)
