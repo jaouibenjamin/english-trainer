@@ -376,7 +376,10 @@ const stay = (t, ms) => { for (let left = ms; left > 0; left -= 20 * 60000) { t.
   eq('the page is inert without a project in config.js (or with a wrong one)', [projectOf(undefined), projectOf({}), projectOf({ url: 'https://evil.example', key: KEY }), projectOf({ url: SB, key: 'short' }), !!projectOf({ url: SB, key: KEY })], [null, null, null, null, true]);
   const html = fs.readFileSync(path.join(ROOT, 'teacher.html'), 'utf8');
   const csp = (html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/) || [])[1] || '';
-  check('teacher.html: its own strict policy (no inline script or style, requests to this site only until a project is named)', /script-src 'self';/.test(csp) && /style-src 'self';/.test(csp) && /connect-src 'self';/.test(csp) && !/unsafe/.test(csp) && /form-action 'none'/.test(csp), csp);
+  // connect-src: this site, and the project config.js names, if it names one (exactly its address, nothing else)
+  const cfgUrl = ((fs.readFileSync(path.join(ROOT, 'config.js'), 'utf8').match(/window\.BACKEND\s*=\s*\{[^}]*url:\s*'(https:\/\/[a-z0-9]{20}\.supabase\.co)'/) || [])[1]) || '';
+  const connect = (csp.match(/connect-src ([^;]+);/) || [])[1] || '';
+  check('teacher.html: its own strict policy (no inline script or style, requests to this site and the project config.js names, nothing else)', /script-src 'self';/.test(csp) && /style-src 'self';/.test(csp) && connect === ("'self'" + (cfgUrl ? ' ' + cfgUrl : '')) && !/unsafe/.test(csp) && /form-action 'none'/.test(csp), csp);
   check('teacher.html: no referrer leaves the page (the code is never in a Referer)', /<meta name="referrer" content="no-referrer">/.test(html));
   const pupil = fs.readdirSync(ROOT).filter(f => f.endsWith('.html') && f !== 'teacher.html').filter(f => /teacher_auth|teacher\.js/.test(fs.readFileSync(path.join(ROOT, f), 'utf8')));
   const imports = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js') && f !== 'teacher.js' && /teacher_auth/.test(fs.readFileSync(path.join(ROOT, 'js', f), 'utf8')));
