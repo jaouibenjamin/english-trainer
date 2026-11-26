@@ -238,6 +238,9 @@ const stay = (t, ms) => { for (let left = ms; left > 0; left -= 20 * 60000) { t.
   await u.auth.signOut('out');                                   // she signs out meanwhile
   rel2();
   eq('a late refresh after sign-out is not kept', [await tp, u.auth.signedIn()], [null, false]);
+  await tick();
+  const fresh = [...u.server.sessions.values()].at(-1);
+  eq('and the session it brought is revoked at once, with keepalive (re-review of #82)', [fresh.alive, u.server.log.some(l => l.path === '/auth/v1/logout?scope=local' && l.auth === 'Bearer ' + fresh.access_token && l.keepalive)], [false, true]);
 }
 // ---- 10b. review of #82: the guard cannot be broken, the clock decides, refreshes are shared
 {
