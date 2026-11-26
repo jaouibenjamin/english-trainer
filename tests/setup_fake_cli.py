@@ -18,7 +18,11 @@ a = sys.argv[1:]
 with open(os.environ['WI_FAKE_CLI_LOG'], 'a', encoding='utf-8') as f:
     f.write(json.dumps(a) + '\n')
 if a[:1] == ['link']:
-    print(f"Connecting to remote database with password {os.environ.get('SUPABASE_DB_PASSWORD', '')} ...")
+    import urllib.parse
+    pw = os.environ.get('SUPABASE_DB_PASSWORD', '')
+    print(f"Connecting to remote database with password {pw} ...")
+    print(f"postgresql://postgres.ref:{urllib.parse.quote(pw, safe='')}@pooler.example:6543/postgres")
+    print(json.dumps({'password': pw}))
     print('Finished supabase link.')
 elif a[:2] == ['db', 'push']:
     if sys.stdin.read(1) != 'y':

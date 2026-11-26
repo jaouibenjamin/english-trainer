@@ -61,11 +61,14 @@ class Fake:
         self.publishable = 'pk_' + secrets.token_hex(20)
         self.accept = {self.secret_key} if kw.get('legacy_refused') else {self.service, self.secret_key}
         self.codes, self.log = [], []
+        self.vault_broken = False
 
     def ntables(self):
         return int(self.db.psql("select count(*) from pg_tables where schemaname = 'public'", user='supabase_admin')[0][0][0])
 
     def sql(self, q):
+        if self.vault_broken and 'select vault.create_secret(' in q:
+            return 400, {'message': 'ERROR: the stand-in Vault is broken on purpose'}
         rows, err = self.db.psql(q, user='supabase_admin')
         if err and 'ERROR' in err:
             return 400, {'message': err.strip().splitlines()[-1]}
@@ -131,8 +134,12 @@ class Fake:
             if key not in self.accept or 'admin-class' not in self.functions:
                 return 403, {'ok': False, 'e': 'forbidden'}
             code = ''.join(secrets.choice('ABCDEFGHJKMNPQRSTUVWXYZ23456789') for _ in range(8))
-            cid = self.db.psql(f"select private.class_create('{body['name']}', '{body['grade']}', '{secrets.token_hex(32)}')", user='supabase_admin')[0][0][0]
             self.codes.append(code)
+            if body['action'] == 'rotate':
+                self.db.psql(f"select private.class_rotate('{body['class_id']}'::uuid, '{secrets.token_hex(32)}')", user='supabase_admin')
+                self.log.append(('rotate', body['class_id'], self.ntables()))
+                return 200, {'ok': True, 'class_code': code}
+            cid = self.db.psql(f"select private.class_create('{body['name']}', '{body['grade']}', '{secrets.token_hex(32)}')", user='supabase_admin')[0][0][0]
             self.log.append(('class', body['name'], self.ntables()))
             return 200, {'ok': True, 'class_id': cid, 'class_code': code}
         if method == 'POST' and p == '/_fake/db_push':
@@ -184,13 +191,20 @@ def run(srv, fake, confirm='setup trial', extra=()):
     return r, cli
 
 
+def made_up():
+    """A made-up token and database password; the password has characters that URL- and JSON-encoding change."""
+    return 'tok_' + secrets.token_hex(16), 'pw/+"=' + secrets.token_hex(12)
+
+
 def leaks(out, values):
     """Every secret may appear only on its own ::add-mask:: line."""
     bad = []
+    import urllib.parse
     for v in values:
-        for ln in out.splitlines():
-            if v and v in ln and ln != f'::add-mask::{v}':
-                bad.append(ln[:80].replace(v, '<SECRET>'))
+        for f in ({v, urllib.parse.quote(v, safe=''), urllib.parse.quote_plus(v), json.dumps(v)[1:-1]} if v else ()):
+            for ln in out.splitlines():
+                if f in ln and not ln.startswith('::add-mask::'):
+                    bad.append(ln[:80].replace(f, '<SECRET>'))
     return bad
 
 
@@ -200,7 +214,7 @@ def secrets_of(fake):
 
 def fresh():
     db, fake, srv = project(functions={'admin-wrap-legacy'})
-    fake.token, fake.dbpw = 'tok_' + secrets.token_hex(16), 'pw_' + secrets.token_hex(16)
+    fake.token, fake.dbpw = made_up()
     try:
         r, cli = run(srv, fake)
         out = r.stdout + r.stderr
@@ -233,7 +247,8 @@ def fresh():
         vs = db.psql("select secret from vault.secrets where name = 'wi_trial_class_code'", user='supabase_admin')[0]
         check('the class code is in the Vault, and it is the one admin-class made', vs == [[fake.codes[0]]] if fake.codes else False, vs)
         bad = leaks(out, secrets_of(fake))
-        check('no secret in the log: token, database password (echoed by the CLI), server keys, pepper, class code only on ::add-mask:: lines',
+        check('no secret in the log, as it is, URL-encoded or JSON-encoded: token, database password (echoed by the CLI in all three forms), '
+              'server keys, pepper, class code only on ::add-mask:: lines',
               not bad and all(f'::add-mask::{s}' in out for s in (fake.token, fake.dbpw, fake.service, pep, fake.codes[0] if fake.codes else '-')), bad)
         check('the log ends with the revoke reminder', 'revoke the access token' in out)
         n_writes = len(fake.log)
@@ -242,6 +257,26 @@ def fresh():
         check('a second run changes nothing and says so', r2.returncode == 0 and 'nothing changed' in out2 and len(fake.log) == n_writes
               and not [c for c in cli2 if c[:1] != ['link']] and len(fake.codes) == 1, (out2[-800:], fake.log[n_writes:], cli2))
         check('the second run leaves the pepper as it was', fake.secrets.get('PUPIL_PEPPER') == pep)
+        check('the second run says where the code is (still in the Vault)', 'its code is in the Vault' in out2, out2[-600:])
+        db.psql("delete from vault.secrets where name = 'wi_trial_class_code'", user='supabase_admin')
+        r4, _ = run(srv, fake)
+        out4 = r4.stdout + r4.stderr
+        check('code copied and deleted from the Vault: the next run points to mode rotate-trial, and changes nothing',
+              r4.returncode == 0 and 'rotate-trial' in out4 and 'nothing changed' in out4, out4[-600:])
+        old = db.psql("select code_lookup from private.class_codes", user='supabase_admin')[0]
+        r5, _ = run(srv, fake, extra=['--rotate-trial'])
+        out5 = r5.stdout + r5.stderr
+        new = db.psql("select code_lookup from private.class_codes", user='supabase_admin')[0]
+        vs = db.psql("select secret from vault.secrets where name = 'wi_trial_class_code'", user='supabase_admin')[0]
+        check('rotate-trial: a new code (a new lookup), the new code in the Vault, nothing else touched, no secret in the log',
+              r5.returncode == 0 and old != new and vs == [[fake.codes[-1]]] and len(fake.codes) == 2
+              and fake.log[-1][0] == 'sql' and not leaks(out5, secrets_of(fake)), (out5[-600:], fake.log[-3:]))
+        fake.vault_broken = True
+        r6, _ = run(srv, fake, extra=['--rotate-trial'])
+        out6 = r6.stdout + r6.stderr
+        check('the Vault refuses the code: it stops and says the code is lost and to run rotate-trial again', r6.returncode == 1
+              and 'could not be put in the Vault' in out6 and 'rotate-trial' in out6 and not leaks(out6, secrets_of(fake)), (leaks(out6, secrets_of(fake)), out6[-900:]))
+        fake.vault_broken = False
         r3, cli3 = run(srv, fake, extra=['--redeploy'])
         check('--redeploy deploys the five functions again, and nothing else', r3.returncode == 0
               and len([c for c in cli3 if c[:2] == ['functions', 'deploy']]) == 5 and not [c for c in cli3 if c[:2] == ['db', 'push']], cli3)
@@ -251,7 +286,7 @@ def fresh():
 
 def refused(label, kw=None, prep=None, confirm='setup trial'):
     db, fake, srv = project(**(kw or {}))
-    fake.token, fake.dbpw = 'tok_' + secrets.token_hex(16), 'pw_' + secrets.token_hex(16)
+    fake.token, fake.dbpw = made_up()
     try:
         if prep:
             db.psql(prep, user='supabase_admin')
@@ -264,7 +299,7 @@ def refused(label, kw=None, prep=None, confirm='setup trial'):
 
 def fallback():
     db, fake, srv = project(legacy_refused=True, reject={'mfa_web_authn_enroll_enabled'})
-    fake.token, fake.dbpw = 'tok_' + secrets.token_hex(16), 'pw_' + secrets.token_hex(16)
+    fake.token, fake.dbpw = made_up()
     try:
         r, cli = run(srv, fake)
         out = r.stdout + r.stderr
@@ -284,10 +319,15 @@ def workflow():
           'workflow_dispatch:' in on and not re.search(r'^\s{2}(push|pull_request\w*|schedule|workflow_run|workflow_call|repository_dispatch):', on, re.M), on[:200])
     check('workflow: permissions contents: read, and no job asks for more', re.search(r'^permissions:\n  contents: read\n', w, re.M) is not None
           and w.count('permissions:') == 1)
-    jobs = re.findall(r"^    if: (.+)$", w, re.M)
-    check('workflow: each job only for the owner (actor and triggering actor) on game or main', len(jobs) == 2 and all(
-        "github.actor == 'jaouibenjamin'" in j and "github.triggering_actor == 'jaouibenjamin'" in j
-        and "github.ref == 'refs/heads/game'" in j and "github.ref == 'refs/heads/main'" in j for j in jobs), jobs)
+    jobs = dict(re.findall(r"^  ([a-z-]+):\n    if: (.+)$", w, re.M))
+    check('workflow: each job only for the owner (actor and triggering actor)', set(jobs) == {'dry-run', 'setup'} and all(
+        "github.actor == 'jaouibenjamin'" in j and "github.triggering_actor == 'jaouibenjamin'" in j for j in jobs.values()), jobs)
+    check('workflow: the real job (real, rotate-trial) only on main, never game; the step checks the branch again',
+          "github.ref == 'refs/heads/main'" in jobs.get('setup', '') and 'game' not in jobs.get('setup', '')
+          and 'if [ "$GITHUB_REF" != "refs/heads/main" ]' in w, jobs.get('setup'))
+    check('workflow: the dry run on game or main', "refs/heads/game" in jobs.get('dry-run', '') and "refs/heads/main" in jobs.get('dry-run', ''))
+    check('workflow: it fails early when a secret is empty, reading only whether it is there',
+          "${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}" in w and "${{ secrets.SUPABASE_DB_PASSWORD != '' }}" in w)
     uses = re.findall(r'uses:\s*(\S+)', w)
     check('workflow: every action pinned by a 40-character commit', uses and all(re.fullmatch(r'[\w.-]+/[\w.-]+@[0-9a-f]{40}', u) for u in uses), uses)
     check('workflow: the CLI pinned by version and sha256, checked before use', re.search(r'cli-linux-x64-\d+\.\d+\.\d+\.tgz', w) is not None
@@ -295,8 +335,9 @@ def workflow():
     runs = re.findall(r'run: \|\n((?:          .*\n?)+)', w)
     check('workflow: no ${{ }} inside a script (inputs and secrets reach the shell through env only)', runs and not any('${{' in r for r in runs))
     check('workflow: no set -x, no verbose curl', not re.search(r'set -[a-z]*x|curl [^\n]*(-v\b|--verbose)', w))
-    check('workflow: the secrets appear only in the setup step\'s env, and the real job uses the supabase-setup environment',
-          w.count('secrets.') == 2 and 'environment: supabase-setup' in w and w.index('secrets.') > w.index('name: Set up the project'))
+    vals = [m.start() for m in re.finditer(r'\$\{\{ secrets\.\w+ \}\}', w)]
+    check('workflow: the secrets\' values appear only in the setup step\'s env, and the real job uses the supabase-setup environment',
+          len(vals) == 2 and all(v > w.index('name: Set up the project') for v in vals) and 'environment: supabase-setup' in w)
     check('workflow: persist-credentials false on every checkout', w.count('actions/checkout@') == w.count('persist-credentials: false'))
 
 
@@ -307,6 +348,8 @@ def main():
     refused('a project outside the EU', {'region': 'us-east-1'})
     refused('an organization on a paid plan', {'plan': 'pro'})
     refused('a public schema with someone else\'s table', prep='create table public.orders (id int)')
+    refused('an empty public but auth users', prep="insert into auth.users (id) values (gen_random_uuid())")
+    refused('an empty public but a storage bucket', prep='create schema storage; create table storage.buckets (id text); insert into storage.buckets values (\'b\')')
     refused('a wrong confirmation', confirm='setup')
     fallback()
     print('\nALL PASSED' if not fails else f'\n{len(fails)} FAILED')

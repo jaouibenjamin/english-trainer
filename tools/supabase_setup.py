@@ -8,8 +8,9 @@ anything else is done with them, and every line printed (also the CLI's output) 
 
 In order, each step first reads what is there and changes only what differs (a second run changes nothing and says
 so):
-  0. the project: ACTIVE_HEALTHY, region eu-*, organization on the free plan; public empty, or holding exactly our
-     own migrations (a run that stopped half way). Anything else: stop before writing anything.
+  0. the project: ACTIVE_HEALTHY, region eu-*, organization on the free plan; public empty with no auth users and no
+     storage buckets (a new project), or holding exactly our own migrations (a run that stopped half way). Anything
+     else: stop before writing anything.
   1. Auth: sign-ups OFF first (before any table exists), then the rest of A3, A5 to A8 through the Management API.
   2. the API exposes schema public only (A9); pg_graphql off; pg_cron on; no table in the realtime publication.
   3. supabase db push (0001 to 0009), the catalog seed, raw_days = 30.
@@ -21,11 +22,14 @@ so):
   7. live_check.py --stage 1 with the publishable key; the checklist of what only the dashboard can set; the reminder
      to revoke the access token.
 
+  --rotate-trial does only this: a new code for the trial class (admin-class rotate), put in the Vault. For when the
+  code was lost (the Vault refused it, the answer never came, or it was deleted before it was copied).
+
     python3 tools/supabase_setup.py --confirm "setup trial" --cli /path/to/supabase
         needs SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD in the environment
     --dry-run --api http://127.0.0.1:PORT --project-url http://127.0.0.1:PORT --cli tests/setup_fake_cli.py
         what tests/setup_check.py runs against its stand-in of the Management API and a local database"""
-import argparse, glob, hashlib, json, os, re, subprocess, sys, urllib.error, urllib.request
+import argparse, glob, hashlib, json, os, re, subprocess, sys, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REF = 'sgzzsixokgohshdpkvkr'
@@ -67,14 +71,21 @@ class Setup:
         self.ref = a.ref
         self.token = os.environ.get('SUPABASE_ACCESS_TOKEN', '')
         self.dbpw = os.environ.get('SUPABASE_DB_PASSWORD', '')
-        self.hidden = [v for v in (self.token, self.dbpw) if v]
+        self.hidden = []
         self.changed, self.manual = [], []
 
     # ---------- output: nothing secret, ever ----------
+    @staticmethod
+    def forms(v):
+        """A value as it may appear in output: as it is, URL-encoded (a connection string, a query) and JSON-encoded."""
+        return {v, urllib.parse.quote(v, safe=''), urllib.parse.quote_plus(v), json.dumps(v)[1:-1]}
+
     def mask(self, v):
         if v:
-            sys.stdout.write(f'::add-mask::{v}\n'); sys.stdout.flush()
-            self.hidden.append(v)
+            for f in sorted(self.forms(v), key=len, reverse=True):
+                if f not in self.hidden:
+                    sys.stdout.write(f'::add-mask::{f}\n'); sys.stdout.flush()
+                    self.hidden.append(f)
 
     def redact(self, s):
         for v in sorted(self.hidden, key=len, reverse=True):
@@ -143,7 +154,12 @@ class Setup:
         if self.one("select to_regclass('supabase_migrations.schema_migrations') is not null as e"):
             hist = [r['v'] for r in self.rows('select version as v from supabase_migrations.schema_migrations order by version')]
         if not have and not hist:
-            self.say('  public is empty: a fresh project')
+            users = self.one('select count(*) as n from auth.users')
+            buckets = self.one('select count(*) as n from storage.buckets') if self.one("select to_regclass('storage.buckets') is not null as e") else 0
+            if users or buckets:
+                raise Stop(f'public is empty but the project is not new ({users} auth users, {buckets} storage buckets): '
+                           'nothing was changed. Tell the lead.')
+            self.say('  public is empty, no auth users, no storage buckets: a fresh project')
         elif hist == versions[:len(hist)] and set(have) <= tables:
             self.say(f'  it holds our own migrations {", ".join(hist) or "(none recorded)"} and nothing else: carrying on')
         else:
@@ -306,35 +322,19 @@ class Setup:
         self.say('6. the trial class')
         cid = self.one(f"select id::text as id from public.classes where name = '{TRIAL}' order by created_at limit 1")
         if cid:
-            self.say(f'  {TRIAL} already exists (its code was put in the Vault when it was made)')
+            if self.one(f"select count(*) as n from vault.secrets where name = '{VAULT_NAME}'") if self.vault() else 0:
+                self.say(f'  {TRIAL} already exists; its code is in the Vault as {VAULT_NAME}')
+            else:
+                self.say(f'  {TRIAL} already exists; its code is not in the Vault (copied and deleted, or never stored)')
+                self.manual.append(f'if you do not have the {TRIAL} class code: run this workflow again with mode rotate-trial '
+                                   f'(a new code, put in the Vault as {VAULT_NAME})')
         else:
-            if not self.one("select to_regprocedure('vault.create_secret(text,text,text)') is not null as e"):
+            if not self.vault():
                 self.manual.append('the Vault is not available: make the trial class by hand (docs/owner/DAY0.md step 7)')
                 return
-            keys = self.api('GET', f'/v1/projects/{self.ref}/api-keys?reveal=true') or []
-            cands = [k.get('api_key') for k in keys if k.get('name') == 'service_role'] + \
-                    [k.get('api_key') for k in keys if k.get('type') == 'secret']
-            cands = [k for k in cands if k]
-            for k in cands:
-                self.mask(k)
-            made = None
-            for k in cands:
-                s, j = self.http('POST', f'{self.a.project_url}/functions/v1/admin-class', {'action': 'create', 'name': TRIAL, 'grade': '5'},
-                                 {'authorization': f'Bearer {k}', 'apikey': k})
-                if s == 200 and isinstance(j, dict) and j.get('ok'):
-                    made = j
-                    break
-            del cands
-            if not made:
-                raise Stop('admin-class refused every server key (forbidden): make the trial class by hand (DAY0.md step 7)')
-            code, cid = str(made.get('class_code', '')), str(made.get('class_id', ''))
-            self.mask(code)
-            if not re.fullmatch(r'[A-Z0-9]{8}', code) or not re.fullmatch(r'[0-9a-f-]{36}', cid):
-                raise Stop('admin-class answered in an unexpected shape')
-            self.sql(f"select vault.create_secret('{code}', '{VAULT_NAME}', "
-                     f"'The trial class code (docs/owner/DAY0.md): copy it into the password manager, then delete this secret')")
-            del code, made
-            self.change(f'class {TRIAL} made; its code is in the Vault as {VAULT_NAME}')
+            code, cid = self.admin_class({'action': 'create', 'name': TRIAL, 'grade': '5'})
+            self.store_code(code, 'made')
+            del code
         n = self.one(f"select count(*) as n from public.roster where class_id = '{cid}'")
         if n != len(TRIAL_PUPILS):
             names = ', '.join(f"'{x}'" for x in TRIAL_PUPILS)
@@ -343,6 +343,57 @@ class Setup:
             self.change(f'roster of {TRIAL}: {", ".join(TRIAL_PUPILS)}')
         else:
             self.say(f'  roster of {TRIAL} already {", ".join(TRIAL_PUPILS)}')
+
+    def vault(self):
+        return self.one("select to_regprocedure('vault.create_secret(text,text,text)') is not null as e")
+
+    def admin_class(self, body):
+        """Calls the project's admin-class with a server key (the legacy service_role key first, then the secret key);
+        returns (class_code, class_id), both checked, the code masked before anything else."""
+        keys = self.api('GET', f'/v1/projects/{self.ref}/api-keys?reveal=true') or []
+        cands = [k.get('api_key') for k in keys if k.get('name') == 'service_role'] + \
+                [k.get('api_key') for k in keys if k.get('type') == 'secret']
+        cands = [k for k in cands if k]
+        for k in cands:
+            self.mask(k)
+        made = None
+        for k in cands:
+            s, j = self.http('POST', f'{self.a.project_url}/functions/v1/admin-class', body, {'authorization': f'Bearer {k}', 'apikey': k})
+            if s == 200 and isinstance(j, dict) and j.get('ok'):
+                made = j
+                break
+        del cands, keys
+        if not made:
+            raise Stop(f'admin-class refused every server key or did not answer ({body["action"]}): nothing was stored. '
+                       f'If the class now exists, run again with mode rotate-trial; otherwise make it by hand (DAY0.md step 7)')
+        code = str(made.get('class_code', ''))
+        self.mask(code)
+        cid = str(made.get('class_id', body.get('class_id', '')))
+        if not re.fullmatch(r'[A-Z0-9]{8}', code) or not re.fullmatch(r'[0-9a-f-]{36}', cid):
+            raise Stop('admin-class answered in an unexpected shape: run again with mode rotate-trial')
+        return code, cid
+
+    def store_code(self, code, how):
+        try:
+            self.sql(f"delete from vault.secrets where name = '{VAULT_NAME}'")
+            self.sql(f"select vault.create_secret('{code}', '{VAULT_NAME}', "
+                     f"'The trial class code (docs/owner/DAY0.md): copy it into the password manager, then delete this secret')")
+        except Stop:
+            raise Stop(f'the {TRIAL} class code was {how} but could not be put in the Vault, so it is lost: '
+                       'run this workflow again with mode rotate-trial for a new one')
+        self.change(f'class {TRIAL} {how}; its code is in the Vault as {VAULT_NAME}')
+
+    # ---------- rotate-trial: a new code for the trial class ----------
+    def rotate_trial(self):
+        self.say('the trial class: a new code')
+        cid = self.one(f"select id::text as id from public.classes where name = '{TRIAL}' order by created_at limit 1")
+        if not cid:
+            raise Stop(f'there is no class {TRIAL}: run the setup (mode real) first')
+        if not self.vault():
+            raise Stop('the Vault is not available: rotate by hand (admin-class rotate, DAY0.md step 7)')
+        code, _ = self.admin_class({'action': 'rotate', 'class_id': cid})
+        self.store_code(code, 'given a new code')
+        del code
 
     # ---------- 7. check, checklist ----------
     def stage1(self):
@@ -374,6 +425,12 @@ class Setup:
         if not self.a.dry_run and not (self.a.api.startswith('https://') and self.a.project_url == f'https://{self.ref}.supabase.co'):
             raise Stop('a real run talks only to https://api.supabase.com and the project itself')
         self.mask(self.token); self.mask(self.dbpw)
+        if self.a.rotate_trial:
+            p = self.api('GET', f'/v1/projects/{self.ref}')
+            if p.get('status') != 'ACTIVE_HEALTHY':
+                raise Stop(f'the project is {p.get("status")}, not ACTIVE_HEALTHY')
+            self.rotate_trial()
+            return
         self.check_project()
         self.auth()
         self.api_and_extensions()
@@ -393,6 +450,7 @@ def main():
     p.add_argument('--cli', default='supabase')
     p.add_argument('--redeploy', action='store_true')
     p.add_argument('--dry-run', action='store_true')
+    p.add_argument('--rotate-trial', action='store_true', help='only give the trial class a new code, into the Vault')
     a = p.parse_args()
     a.project_url = a.project_url or f'https://{a.ref}.supabase.co'
     s = Setup(a)
@@ -409,13 +467,13 @@ def main():
     for m in ['A1: 2FA on the Supabase, GitHub and Google accounts; recovery codes on paper',
               'A2: GitHub → Settings → Code security: secret scanning and push protection on'] + s.manual:
         s.say(f'  - {m}')
-    if not code:
+    if not code and (s.a.rotate_trial or any('class Trial' in c for c in s.changed)):
         s.say(f'  - the trial class code: Supabase → Project Settings → Vault (or Integrations → Vault) → {VAULT_NAME}: '
               'copy it into the password manager, then delete that secret')
         s.say('  - send the lead only "setup done" and the publishable key (sb_publishable_…)')
     s.say('\n' + ('nothing changed: the project was already set up' if not s.changed else f'{len(s.changed)} changes made'))
     s.say('\nNOW: revoke the access token (supabase.com → Account → Access Tokens → the setup token → Revoke), and delete '
-          'the SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD secrets from the repository\'s supabase-setup environment.')
+          'both secrets from the supabase-setup environment (GitHub → Settings → Environments → supabase-setup).')
     sys.exit(code)
 
 

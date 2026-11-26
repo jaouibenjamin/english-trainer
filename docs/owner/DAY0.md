@@ -16,30 +16,45 @@ Steps marked 📱 work on the phone; 💻 needs the laptop.
 
 GitHub does sections 0 and 3 to 7 below for you (`.github/workflows/supabase-setup.yml`, running
 `tools/supabase_setup.py`). It also makes the pepper inside the job, so nobody ever sees it. Section 1's A1 and A2, and
-anything the job could not set, it prints at the end as a short list.
+anything the job could not set, it prints at the end as a short list. The button appears once the lead has shipped
+the workflow to `main`; a real run works only from `main`.
 
-1. **An access token** (supabase.com → Account → Access Tokens → Generate new token, name it `wi-setup`). It can do
-   **anything on every project of your Supabase account**, so it is revoked in step 8, right after the run.
-2. **The database password**: Supabase → Project Settings → Database → Reset database password (fine on an empty
+**Before** (once):
+
+1. **2FA** on the Supabase, GitHub and Google accounts (A1), recovery codes on paper.
+2. **An access token**: supabase.com → Account → Access Tokens → Generate new token, name `wi-setup`, **only for this
+   project** and **expiring in 7 days** (if the page offers no project choice, the token can act on every project of
+   your account: all the more reason for step 9).
+3. **The database password**: Supabase → Project Settings → Database → Reset database password (fine on an empty
    project). Keep it in the password manager.
-3. **A protected place for the two secrets**: GitHub → `english-trainer` → Settings → Environments → New environment
-   `supabase-setup`:
-   - Required reviewers: yourself (every run waits for your approval);
-   - Deployment branches and tags: Selected branches: `game` and `main`;
-   - Environment secrets: `SUPABASE_ACCESS_TOKEN` (the token of step 1) and `SUPABASE_DB_PASSWORD` (step 2).
+4. **Delete any repository secrets** named `SUPABASE_ACCESS_TOKEN` or `SUPABASE_DB_PASSWORD` (GitHub →
+   `english-trainer` → Settings → Secrets and variables → Actions → Repository secrets). A repository secret can be read
+   by a workflow on any branch, so these two must never be there.
+5. **The environment** `supabase-setup` (Settings → Environments → New environment):
+   - Required reviewers: yourself; "Prevent self-review" **off** (you approve your own run);
+   - Deployment branches and tags: Selected branches: **`main` only**;
+   - Environment secrets: `SUPABASE_ACCESS_TOKEN` (step 2) and `SUPABASE_DB_PASSWORD` (step 3).
 
-   Only a run on `game` or `main`, approved by you, can read them.
-4. **The rehearsal**: Actions → supabase-setup → Run workflow → branch `game`, confirm `setup trial`, mode `dry-run`.
-   It runs the whole setup against a stand-in on GitHub's machine and sends nothing to Supabase. **Done when** green.
-5. **The real run**: the same, with mode `real`; approve it when GitHub asks. It stops by itself, before changing
-   anything, if the project is paused, outside the EU, not on the Free plan, or holds tables that are not ours.
-   **Done when** green and the log ends with "changes made" (a second run would say "nothing changed").
-6. **The trial class's code**: Supabase → Project Settings → Vault (or Integrations → Vault) → `wi_trial_class_code` →
-   reveal, copy it into the password manager as "Trial", then **delete that secret**. (It is never in the log.)
-7. **The short list at the end of the log**: do each item (A1 2FA, A2 secret scanning, and anything it could not set).
-8. **Revoke the token** (supabase.com → Account → Access Tokens → `wi-setup` → Revoke) and delete both secrets from
+**The run:**
+
+6. **The rehearsal**: Actions → supabase-setup → Run workflow → branch `main` (or `game`), confirm `setup trial`, mode
+   `dry-run`. It runs the whole setup against a stand-in on GitHub's machine and sends nothing to Supabase. **Done
+   when** green.
+7. **The real run**: branch `main`, confirm `setup trial`, mode `real`; approve it when GitHub asks. It stops by itself,
+   before changing anything, if the project is paused, outside the EU, not on the Free plan, or not new (tables that
+   are not ours, users, storage buckets). **Done when** green and the log ends with "changes made" (a second run would
+   say "nothing changed"). **Never** use "Re-run with debug logging": it prints more than the job does.
+
+**After** (right away):
+
+8. **The trial class's code**: Supabase → Project Settings → Vault (or Integrations → Vault) → `wi_trial_class_code` →
+   reveal, copy it into the password manager as "Trial", then **delete that secret**. It is never in the log. If it is
+   not there, or you lost it: run the workflow with mode `rotate-trial` (branch `main`) for a new one.
+9. **Revoke the token** (supabase.com → Account → Access Tokens → `wi-setup` → Revoke) and **delete both secrets** from
    the `supabase-setup` environment.
-9. **Send back** as in section 8: "setup done" and the publishable key, nothing else.
+10. **The short list at the end of the log**: do each item (A2 secret scanning, and anything it could not set). Google
+    for the teacher (A4) comes later, with her.
+11. **Send back** as in section 8: "setup done" and the publishable key, nothing else.
 
 If the button stops with a line you do not understand, send the lead that line (the log hides every secret) and use
 the manual way below from the step it names.
