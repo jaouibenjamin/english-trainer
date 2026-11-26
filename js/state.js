@@ -4,7 +4,9 @@ import {clipOf,HAS_CLIPS} from './voice.js';
 import {stretch} from './stretch.js';
 import {voiceCtx,voiceOut,duck} from './audio.js';
 
-import {api,forget,MODE as BACKEND} from './api.js';export {api};   // the backend adapter; with today's config.js it makes the very same request this line used to make
+import {api,forget,MODE as BACKEND} from './api.js';export {api};
+import * as AP from './api.js';   // TRIAL is newer than the last ship: read through the namespace, with a fallback (tests/cache_mix.py)
+export const TRIAL=AP.TRIAL??false;   // this device is on the new backend as a trial: the sign-in screen offers the way back   // the backend adapter; with today's config.js it makes the very same request this line used to make
 /* 'supabase' mode (docs/PHASE4.md A): the new backend gets its own record on the device, never the Sheet's, which
    stays as it is for the way back. It belongs to one pupil of one class (S.who) and is never joined into another's. */
 export const NEW=BACKEND==='supabase';

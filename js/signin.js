@@ -66,7 +66,9 @@ const T={
  gotOtc:'קיבלתי קוד מהמורה',e3h:'הקוד מהמורה',otcL:'6 ספרות',eOtc:'הקוד לא נכון או שפג תוקפו. בקשו מהמורה קוד חדש.',
  recDone:'הקוד החדש מוכן!',recDoneT:'בטלפונים ובמחשבים אחרים תצטרכו להיכנס שוב עם הקוד החדש.',
  // NEW (not in docs/SIGNIN.md; for the teacher's review)
- eNet:'אין חיבור כרגע. בדקו את האינטרנט ונסו שוב.',eFull:'אי אפשר להירשם לכיתה הזאת כרגע. בקשו מהמורה.',busy:'רגע…',
+ eNet:'אין חיבור כרגע. בדקו את האינטרנט ונסו שוב.',
+ // review of #117: the project answered 404 (its sign-in is not set up yet), and the way back from a trial device
+ eUnset:'המערכת החדשה עוד לא מוכנה. אפשר לחזור למשחק הרגיל ולנסות שוב בהמשך.',trial:'מצב ניסיון · חזרה למשחק הרגיל',eFull:'אי אפשר להירשם לכיתה הזאת כרגע. בקשו מהמורה.',busy:'רגע…',
  slot:(k,w)=>w?`תמונה ${k===1?'ראשונה':'שנייה'}: ${w}. הקישו כדי להוריד`:`משבצת ${k}, ריקה`,picked:(w,k)=>`${w}, נבחרה ${k===1?'ראשונה':'שנייה'}`,
  dot:k=>`תמונה ${k===1?'ראשונה':'שנייה'} נבחרה. הקישו כדי להוריד`,del:'מחיקה',
  waitTeacher:'הכניסה עוצרת. בקשו מהמורה לשחרר אותה.',sysRec:'אי אפשר לשחזר את הקוד כרגע. נסו שוב מאוחר יותר, או בקשו מהמורה קוד חדש.',
@@ -172,7 +174,8 @@ export function mount(root,o){
   entry:()=>`<div class="si-mid si-center"><h1 class="si-logo" tabindex="-1">${T.title}</h1></div>
    <div class="si-bar"><button type="button" class="wi-btn wi-btn--block" data-si="start" data-f="reg">${T.reg}</button>
    <button type="button" class="wi-btn wi-btn--block wi-btn--secondary" data-si="start" data-f="in">${T.have}</button>
-   <button type="button" class="wi-btn wi-btn--quiet" data-si="start" data-f="rec">${T.forgot}</button></div>`,
+   <button type="button" class="wi-btn wi-btn--quiet" data-si="start" data-f="rec">${T.forgot}</button>
+   ${o.trial?`<a class="si-trial" href="?new=0#login">${T.trial}</a>`:''}</div>`,
   a1:()=>`${top()}${head(T.a1h)}<div class="si-mid">${field('c',T.classL,T.classH,st.c,'dir="ltr" class="si-en" autocapitalize="characters" maxlength="16"')}${field('n',T.nameL,T.nameH,st.n,'maxlength="20"')}${err()}</div>${bar(T.next,'a1')}`,
   a2:()=>`${top()}${head(T.a2h)}<div class="si-mid"><p class="si-txt">${T.a2t}</p>${code('p',T.codeL,4,st.p)}${code('p2',T.code2L,4,st.p2)}${err()}${keypad()}</div>${bar(T.next,'a2',st.p.length===4&&st.p2.length===4)}`,
   a3:()=>`${top()}${head(T.a3h)}<button type="button" class="wi-btn wi-btn--quiet si-names" data-si="names" aria-pressed="${st.names}">${st.names?T.namesOn:T.namesOff}</button>${slots(st.pics)}<p class="si-hint si-c">${st.hint?esc(st.hint):T.a3hint}</p><div class="si-mid">${grid(false)}</div>${bar(T.next,'a3',st.pics.length===2)}`,
@@ -212,13 +215,13 @@ export function mount(root,o){
   if(r.e==='locked')return fail(waitText(r));
   if(r.e==='weak'){st.p=st.p2='';return fail(T.eWeak,'a2')}
   const m={class:[T.eClass,'a1'],roster:[T.eRoster,'a1'],taken:[T.eTaken,'a1'],full:[T.eFull,'a1'],input:[T.eRoster,'a1']}[r.e];
-  return m?fail(m[0],m[1]):fail(T.eNet)}
+  return m?fail(m[0],m[1]):fail(r.e==='unset'?T.eUnset:T.eNet)}
  async function login(){const r=await send('login',{c:normC(st.c),n:normN(st.n),code:st.p});if(!r)return;
   if(r.ok){flowDone();draw();return o.done()}
   if(r.e==='locked'){st.p='';return fail(waitText(r))}
   if(r.e==='class')return fail(T.eClass);
   if(r.e==='pin'||r.e==='input'){st.p='';return fail(T.ePin)}
-  return fail(T.eNet)}
+  return fail(r.e==='unset'?T.eUnset:T.eNet)}
  async function recover(){const byOtc=!!st.otc;
   const r=await send('recover',{c:normC(st.c),n:normN(st.n),...(byOtc?{otc:st.otc}:{pics:st.proof.slice()}),newCode:st.p,newPics:st.pics.slice()});if(!r)return;
   if(r.ok){flowDone();return to('done')}
@@ -231,7 +234,7 @@ export function mount(root,o){
   if(r.e==='locked')return fail(waitText(r,Date.now(),'rec'));
   if(r.e==='class')return fail(T.eClass,'e1');
   if(r.e==='input')return fail(T.eRoster,'e1');
-  return fail(T.eNet)}
+  return fail(r.e==='unset'?T.eUnset:T.eNet)}
  /* ---------- what each button does ---------- */
  const nameOk=()=>{const c=normC(st.c),n=normN(st.n);if(!classOk(c)){st.err=T.eClass;focusId='c';return false}
   if(n.length<2){st.err=T.eRoster;focusId='n';return false}return true};

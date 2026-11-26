@@ -34,11 +34,20 @@ const EVERYONE=Object.prototype.hasOwnProperty.call(B,'everyone')&&B.everyone===
 let tryOn=true,tryOff=false;
 // the device switch: ?dual=1 for 'dual', ?new=1 for 'supabase' (docs/PHASE4.md A, "a plain trial switch")
 const SW=B.mode==='supabase'?'new':'dual';
+/* Review of #117 (a shared ?new=1 link is the class's main risk): the switch is taken out of the address at once, so a
+   copied link does not carry it; and a device that holds the Sheet's game (a signed-in pupil or progress) is not
+   switched silently: it is asked first (js/trial.js, in the game; sessionStorage wi_new_ask until it answers). */
+const sheetGame=()=>{try{const o=JSON.parse(W.localStorage.getItem('aam-unit1-v1'));return!!(o&&typeof o==='object'&&(o.u||(+o.pts||0)>0))}catch(e){return false}};
 if(URL_OK&&!EVERYONE){tryOn=false;
- try{const q=new URLSearchParams(W.location&&W.location.search||'').get(SW);
-  if(q==='1')W.localStorage.setItem('wi_'+SW,'1');else if(q==='0'){tryOff=true;W.localStorage.removeItem('wi_'+SW)}
+ try{const sp=new URLSearchParams(W.location&&W.location.search||''),q=sp.get(SW);
+  if(q==='1'){if(SW==='new'&&W.localStorage.getItem('wi_new')!=='1'&&sheetGame())W.sessionStorage.setItem('wi_new_ask','1');else W.localStorage.setItem('wi_'+SW,'1')}
+  else if(q==='0'){tryOff=true;W.localStorage.removeItem('wi_'+SW);try{W.sessionStorage.removeItem('wi_new_ask')}catch(e){}}
+  if(q!==null&&W.history&&typeof W.history.replaceState==='function'){sp.delete(SW);const r=sp.toString();
+   W.history.replaceState(W.history.state,'',W.location.pathname+(r?'?'+r:'')+W.location.hash)}
   tryOn=W.localStorage.getItem('wi_'+SW)==='1'}catch(e){}}
 export const MODE=URL_OK&&tryOn&&(B.mode==='dual'||B.mode==='supabase')?B.mode:'sheet';
+/* this device is on the new backend as a trial (not the class's everyone): the sign-in screen offers the way back */
+export const TRIAL=MODE==='supabase'&&!EVERYONE;
 
 /* exactly what js/state.js did: a failed request (no connection) throws; an answer that is not JSON (an Apps Script
    error page) gives {ok:false,e:'server'} */
@@ -401,7 +410,8 @@ async function run(a,d,r){
    this device played waits for them. */
 const BY=['name','device','address','class','everyone','system'];   // whom a lock is for (0008_lock_scope.sql); a wait of -1: until the teacher opens it
 const ERRS=['input','weak','class','pin','taken','roster','full','picture','otc','locked','net','server'];
-const err=j=>{const e=j&&typeof j.e==='string'&&ERRS.includes(j.e)?j.e:'net';
+const err=(j,status)=>{if(status===404)return{ok:false,e:'unset'};   // the project's functions are not there yet (review of #117)
+ const e=j&&typeof j.e==='string'&&ERRS.includes(j.e)?j.e:'net';
  return e==='locked'?{ok:false,e,wait:num(j.wait)<0?-1:Math.max(0,Math.floor(num(j.wait))),by:BY.includes(j.by)?j.by:'name',help:j.help==='teacher'?'teacher':'wait'}:{ok:false,e}};
 /* who signed in: the pupil's id and class id, read with the new session (RLS: the pupil's own row only). The device
    keeps its record for this pupil of this class only (docs/PHASE4.md A); null when it could not be read */
@@ -409,8 +419,8 @@ async function whoIs(o){const r=await o.call('/rest/v1/pupils?select=id,class_id
  const x=!r.aborted&&r.status===200&&Array.isArray(r.j)&&r.j.length===1?r.j[0]:null;
  return x&&typeof x.id==='string'&&typeof x.class_id==='string'?{p:x.id,c:x.class_id}:null}
 /* the end of a sign-in: the session is kept (or not, when the device was signed out meanwhile), then who it is */
-async function opened(o,j){
- if(!(j&&j.ok))return err(j);
+async function opened(o,j,status){
+ if(!(j&&j.ok))return err(j,status);
  if(!o.keep(j))return{ok:false,e:'net'};
  const at=j.updated_at||null,s=j.s&&typeof j.s==='object'&&!Array.isArray(j.s)?j.s:{};
  const who=await whoIs(op());
@@ -427,11 +437,11 @@ async function supa(a,d){
   if(displaced&&a!=='board')return{ok:false,e:'net'};
   if(a==='login'||a==='register'||a==='recover'||a==='save'){if(leaving)await leaving;const ow=await sameOwner(d);if(!ow)return{ok:false,e:'net'};if(typeof ow==='string')mine=ow}
   if(a==='login'){const o=op();return await turn(async()=>{if(!o.live())return{ok:false,e:'net'};const dev=(get(K.ses)||{}).device_token;
-   const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{})});return opened(o,r.j)})}
+   const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{})});return opened(o,r.j,r.status)})}
   if(a==='register'){const o=op();return await turn(async()=>{if(!o.live())return{ok:false,e:'net'};
-   const r=await fn('pupil-register',{class_code:d.c,name:d.n,code:d.p,pictures:pics(d.pics)});return opened(o,r.j)})}
+   const r=await fn('pupil-register',{class_code:d.c,name:d.n,code:d.p,pictures:pics(d.pics)});return opened(o,r.j,r.status)})}
   if(a==='recover'){const o=op();return await turn(async()=>{if(!o.live())return{ok:false,e:'net'};
-   const r=await fn('pupil-recover',{class_code:d.c,name:d.n,new_code:d.np,new_pictures:pics(d.npics),...(d.otc!==undefined?{otc:String(d.otc)}:{pictures:pics(d.pics)})});return opened(o,r.j)})}
+   const r=await fn('pupil-recover',{class_code:d.c,name:d.n,new_code:d.np,new_pictures:pics(d.npics),...(d.otc!==undefined?{otc:String(d.otc)}:{pictures:pics(d.pics)})});return opened(o,r.j,r.status)})}
   if(a==='save'){const o=op();if(!(await o.token()))return gone_(o);   // no session: sign in again; the progress stays
    const st=get(K.stale);if(st){o.put(K.stale,null);o.put(K.ses,{...get(K.ses),at:st.at});return{ok:false,e:'stale',s:st.state}}   // a kept save met another device's
    if(!o.queue(d.s,false))return{ok:false,e:'net'};
