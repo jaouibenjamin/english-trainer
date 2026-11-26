@@ -80,6 +80,7 @@ class Setup:
         self.dbpw = os.environ.get('SUPABASE_DB_PASSWORD', '')
         self.hidden = []
         self.changed, self.manual = [], []
+        self.next_said = False
 
     # ---------- output: nothing secret, ever ----------
     @staticmethod
@@ -473,6 +474,7 @@ def main():
         code = 0
     except Stop as e:
         s.say(f'\nSTOPPED: {s.redact(str(e))}')
+        s.next_said = 'Next:' in str(e)
         code = 1
     except Exception as e:                          # no traceback: it could quote a value; the type and a redacted line only
         s.say(f'\nSTOPPED: {type(e).__name__}: {s.redact(str(e))[:300]}')
@@ -482,6 +484,8 @@ def main():
         # the token is still needed for the next run.
         if not s.changed:
             s.say('Nothing was changed.')
+            if not s.next_said:                     # an unexpected stop (a timeout, an odd answer) carries no next step
+                s.say('Next: run it again; if it stops the same way, send the lead the STOPPED line (it holds no secret).')
         else:
             s.say('Changed before it stopped: ' + '; '.join(s.changed) + '.')
             s.say('Next: fix what stopped it, then run again; the run carries on from where it stopped.')
