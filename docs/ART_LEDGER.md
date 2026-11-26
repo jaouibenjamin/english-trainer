@@ -11,7 +11,7 @@ owner's approval in the designer's session (briefs: `docs/ART_QUEUE.md`):
 | Cap | For | Credits | Status |
 |---|---|---|---|
 | (spent before the raise) | everything up to batch k9, the welcome film included (k8, k9 are in the film's PR) | 448.69 | the film is locked at its current version: no more generation on it without a new, separate number from the owner |
-| A | the secret-picture grid and its clips for the pupil sign-in (`docs/SIGNIN.md`) | 25 | approved by the owner on 2026-11-26; **11.05 charged, 13.95 left** (batch l1) |
+| A | the secret-picture grid and its clips for the pupil sign-in (`docs/SIGNIN.md`) | 25 | approved by the owner on 2026-11-26; **11.50 charged, 13.50 left** (batch l1) |
 | B | Fraction Bay islands in the new look, with locked versions | 20 | waiting |
 | C | ten more avatars with their tap animations | 45 | waiting |
 | D | held: walking characters 25, two new subject worlds 100, reserve 86 | 211 | only on the lead's word |
@@ -20,7 +20,7 @@ Batches after the raise:
 
 | Batch | Cap | What | Model, settings | Jobs | Quoted | Charged | Cap total |
 |---|---|---|---|---|---|---|---|
-| l1 | A | 20 secret pictures as 5 sheets of 4 (all used, no retake), and 22 voice clips with the preset voice Kaia (2 lines, 20 names), plus 10 retakes of names that speech recognition misheard (8, then 2; 6 retakes used) | gpt_image_2_5 high 1:1, style reference: the bolt icon (5 x 1.25); text2speech_v2 elevenlabs, preset voice (32 takes) | 37 | 30.25 (5 x 1.25 + 32 x 0.75) | 11.05 (6.25 + 32 x 0.15) | 11.05 of 25 |
+| l1 | A | 20 secret pictures as 5 sheets of 4 (all used, no retake), and 22 voice clips with the preset voice Kaia (2 lines, 20 names), plus 13 retakes of names that speech recognition misheard (8, 2, then 3 after the lead's review; 6 used); all clips levelled to -16 LUFS locally | gpt_image_2_5 high 1:1, style reference: the bolt icon (5 x 1.25); text2speech_v2 elevenlabs, preset voice (35 takes) | 40 | 32.50 (5 x 1.25 + 35 x 0.75) | 11.50 (6.25 + 35 x 0.15) | 11.50 of 25 |
 
 The voice quote (0.75 a take) is above what the account charges (0.15); the cap is counted on what was charged. The
 quote alone would have crossed cap A with the retakes; next time the retakes are quoted at 0.15 only after checking

@@ -51,9 +51,11 @@ Nikud where Kaia may misread: מְטְרִיָּה, עֲפִיפוֹן, מִסְ
 account's real price first and the quote re-checked against what is left of the cap.
 
 **Done (batch l1, 2026-11-26):** the 20 pictures are in `assets/al/secret/` (192 px tiles, each with its own navy
-tile) and the 22 clips in `assets/al/voice/`, listed in `assets/al/sources.tsv`. Speech recognition agrees with every
-clip except **ספר (book)**, which it hears as "ספל" in all three takes; **a person listens to it** (and to the rest)
-before the screens go live. 11.05 charged of cap A.
+tile) and the 22 clips in `assets/al/voice/`, listed in `assets/al/sources.tsv`, all levelled to -16 LUFS with a
+true peak at or below -1 dBTP (`tests/voice_level.py` fails a clip outside 1 LU). Speech recognition (Whisper medium)
+agrees with every clip except four, which **the owner listens to** before the screens go live: **ספר** (heard as
+"ספל" in all five takes, with and without nikud), **ענבים** (heard as "הנווים" without padding, "ענבים" with it),
+**כובע** ("קובה") and **עפיפון** ("אפיפון"); the last two are spelling, not sound. 11.50 charged of cap A.
 
 ## B. Fraction Bay islands in the new look (cap 20)
 
