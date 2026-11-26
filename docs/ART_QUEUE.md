@@ -4,7 +4,9 @@ Status: prepared at zero credits, waiting for the owner's approval of each spend
 totals are in `docs/ART_LEDGER.md` (budget 750, caps A 25, B 20, C 45; D held). Every batch below is quoted with the
 estimate tool first, its job ids go into the file names and `assets/al/sources.tsv`, its cost into the ledger, and
 the running total per cap is reported to the lead after each batch. A batch never starts if its quote would cross its
-cap. No characters, brands or real people; voices are the preset Kaia, never a clone.
+cap. No characters, brands or real people; voices are the preset Kaia, never a clone. **Every brief carries the line
+"must not resemble any existing character, mascot or toy"**, and every result is checked against it (species details,
+colours and shapes chosen so nothing evokes a known one).
 
 Style reference for every image: the night-sea look of batch h (the six English islands) and the HUD icons of batch e
 (job `81064ec7-…`, the bolt): glossy, soft-shaded, thick friendly silhouettes, the Arcade Lagoon palette.
@@ -19,7 +21,8 @@ Shared prompt text (every sheet): "A 2x2 grid of four separate square icon tiles
 plain dark navy background (#0B1E3F). Each tile: a rounded square, slightly lighter navy (#18376B), with ONE single
 object centred, large, filling about 70% of the tile, painted in the same glossy, soft-shaded, friendly game-icon style
 as the reference image, bright saturated colours, thick flat shapes with a clean silhouette readable at 56 px, no thin
-lines. No text, no letters, no numbers, no faces, no characters, no logos or brand marks, no shadows outside the tiles."
+lines. No text, no letters, no numbers, no faces, no characters, no logos or brand marks, no shadows outside the tiles.
+Must not resemble any existing character, mascot, toy or game item."
 
 | Sheet | Top right | Top left | Bottom right | Bottom left |
 |---|---|---|---|---|
@@ -27,11 +30,11 @@ lines. No text, no letters, no numbers, no faces, no characters, no logos or bra
 | 2 | ענבים: a bunch of purple grapes | פרח: one pink flower with a yellow centre on a green stem | מטריה: an open blue umbrella | עפיפון: an orange diamond kite with a short tail of bows |
 | 3 | תוף: a red and white drum with two sticks | כובע: a brown wide-brimmed hat | נעל: a single light-blue sneaker with white laces | פיל: a grey elephant, whole body, side view, simple, no human expression |
 | 4 | ג׳ירפה: a giraffe, yellow with brown spots, whole body, tall, simple, no human expression | בית: a small house, cream walls, red roof, blue door | עיפרון: one blue pencil, straight, sharpened tip | ספר: a closed blue-green book, thick |
-| 5 | פעמון: a gold bell | מכונית: a small yellow car seen from the side, no logo | מספריים: a pair of scissors, orange handles, silver blades, open | פטרייה: a mushroom, red cap with white dots, white stalk |
+| 5 | פעמון: a gold bell | מכונית: a small yellow car seen from the side, no logo | מספריים: a pair of scissors, orange handles, silver blades, open | פטרייה: a plain field mushroom, smooth orange-brown cap, no spots, cream stalk |
 
 Checks before use (frame by frame, at 56 px on navy): each object alone in its tile, no letters, no face on the
 animals, colours as listed, no pair confusable (apple and mushroom, banana and pencil, umbrella and mushroom, elephant
-and giraffe). A failing sheet is retaken once.
+and giraffe), and nothing that reads as a known game or film item (the mushroom has no spots). A failing sheet is retaken once.
 
 **Voice: 22 clips** (text2speech_v2, ElevenLabs, preset Kaia; quoted 0.75 each = **16.5**; the account has charged
 0.15 a take so far). Each clip is checked by speech recognition before use. **For the teacher's review** (our words):
@@ -74,18 +77,22 @@ smile, a small tilt, one blink, nothing else; every frame checked (reject distor
 changed outfit). No humans (the 8 children stay the open starters). Generic, original designs only: no known
 character's look, colours or outfit.
 
-| # | Character | Look |
+| # | Character (grown, not a baby) | Look |
 |---|---|---|
-| 1 | a little dragon | teal, round belly, tiny wings, soft horns, no fire |
-| 2 | a unicorn foal | white with a lavender mane, short gold horn |
-| 3 | a panda cub | holding nothing, round ears |
-| 4 | a hedgehog | warm brown spines, a small acorn hat |
-| 5 | a frog | bright green, big round eyes, a yellow bandana |
-| 6 | a lion cub | small fluffy mane, orange |
-| 7 | an axolotl | pink with feathery gills |
-| 8 | a raccoon | grey with a striped tail, a small backpack |
-| 9 | a koala | grey, big fluffy ears |
-| 10 | a friendly fluffy monster | sky-blue fur, one small horn, two round eyes |
+| 1 | a hedgehog | warm brown spines, cream face, no clothes |
+| 2 | a koala | grey, round ears, a eucalyptus leaf |
+| 3 | a raccoon | grey, ringed tail, no clothes, no mask-like costume |
+| 4 | a capybara | warm brown, calm, a small orange flower on its head |
+| 5 | an otter | brown, holding a smooth grey pebble |
+| 6 | a flamingo | coral pink, standing on one leg |
+| 7 | a zebra | plain black and white stripes, no clothes |
+| 8 | a badger | grey with a black-and-white striped face |
+| 9 | a kangaroo | sandy brown, standing |
+| 10 | a griffin (from old myths, not a film's) | eagle head and wings, lion body, brown and gold, friendly eyes |
+
+Every prompt adds: "an adult animal, not a baby; must not resemble any existing character, mascot or toy". Rejected
+when a result evokes a known character (a lion cub, a white unicorn with a pastel mane, a round teal dragon, a blue
+furry monster, a green frog with big eyes: dropped for that reason).
 
 Not used on purpose: anything in the secret-picture set (elephant, giraffe), any crab, any existing avatar.
 
