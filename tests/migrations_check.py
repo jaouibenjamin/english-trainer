@@ -64,13 +64,18 @@ delete from public.classes where id in ('00000000-0000-4000-8000-0000000000c2', 
 -- a name with a Hebrew final letter, locked: a change of how names are keyed must keep it locked
 insert into public.pupils (id, class_id, display_name) values ('00000000-0000-4000-8000-0000000000d5', '00000000-0000-4000-8000-0000000000c1', 'רון');
 insert into private.auth_buckets (class_id, name_key, kind, bucket, fails, locked_until)
-  values ('00000000-0000-4000-8000-0000000000c1', 'רון', 'code', 'i:x', 5, now() + interval '1 hour');
+  values ('00000000-0000-4000-8000-0000000000c1', 'רון', 'code', 'i:x', 5, now() + interval '1 hour'),
+         ('00000000-0000-4000-8000-0000000000c1', 'רונ', 'code', 'i:x', 7, null);   -- the plain spelling's bucket: merged, larger count and the lock kept
+insert into private.auth_attempts (class_id, name_key, kind, outcome) values ('00000000-0000-4000-8000-0000000000c1', 'רון', 'code', 'wrong');
+insert into private.auth_lock_events (class_id, name_key, kind, until) values ('00000000-0000-4000-8000-0000000000c1', 'רון', 'code', now() + interval '1 hour');
 """
 
 # what 0010 (grades v1) must do to such rows; run while 0010 is a new file here (review of #128)
 GRADES_DATA = ("select (select count(*) from public.classes where name = 'removed' and kind <> 'limbo'), "
                "(select name_key from public.pupils where id = '00000000-0000-4000-8000-0000000000d5'), "
-               "(select string_agg(name_key, ',') from private.auth_buckets where locked_until > now())")
+               "(select string_agg(name_key || ':' || fails || ':' || coalesce(locked_until > now(), false), ',') from private.auth_buckets), "
+               "(select string_agg(name_key, ',') from private.auth_attempts where name_key like 'ר%'), "
+               "(select string_agg(name_key, ',') from private.auth_lock_events where name_key like 'ר%' and until > now())")
 
 
 def schema(files_dir, then=None, extra='', data=None):
@@ -126,13 +131,22 @@ def main():
             except RuntimeError as e:
                 got = [str(e)]
             check('0010 on such rows: every hidden class is limbo (also those whose home class was deleted), a final-letter name is re-keyed '
-                  'and its lock kept', got == [[['0', 'רונ', 'רונ']]], got)
+                  'and its lock kept', got == [[['0', 'רונ', 'רונ:7:true', 'רונ', 'רונ']]], got)
             try:
                 schema(old, then=[os.path.join(ROOT, MIG, f) for f in new],
                        extra="insert into public.pupils (class_id, display_name) values ('00000000-0000-4000-8000-0000000000c1', 'רונ');")
                 msg = 'it ran'
             except RuntimeError as e:
                 msg = str(e)
+            try:
+                schema(old, then=[os.path.join(ROOT, MIG, f) for f in new],
+                       extra="insert into public.roster (class_id, name_key, display_name) values "
+                             "('00000000-0000-4000-8000-0000000000c1', 'דן', 'דן'), ('00000000-0000-4000-8000-0000000000c1', 'דנ', 'דנ');")
+                msg2 = 'it ran'
+            except RuntimeError as e:
+                msg2 = str(e)
+            check('0010 with such a pair in a class list only (דן, דנ): it stops the same way, naming no one',
+                  'final letter' in msg2 and 'דן' not in msg2 and 'דנ' not in msg2, msg2[-300:])
             check('0010 with two names of one class that differ only by a final letter (רון, רונ): it stops, says why, and names no pupil',
                   'final letter' in msg and 'רון' not in msg and 'רונ' not in msg, msg[-300:])
     b = schema(os.path.join(ROOT, MIG))

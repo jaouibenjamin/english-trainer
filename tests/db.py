@@ -774,10 +774,12 @@ def test_load(db):
     N, ROUNDS, PER = 35, 3, 10
     cls = U(0xC9)
     kids = [(U(0x1A000 + i), U(0x1B000 + i)) for i in range(N)]
+    HEB = 'אבגדהוזחטיכלמנסעפצקרשת'   # no final letters: a final letter has the key of its plain form (0010)
+    assert N <= 22 * 22
     db.admin(f"insert into public.classes (id, name, name_form) values ('{cls}', 'load class', 'first');"
              + "insert into auth.users (id) values " + ', '.join(f"('{a}')" for a, _ in kids) + ';'
              + 'insert into public.pupils (id, class_id, display_name, auth_user_id) values '
-             + ', '.join(f"('{p}', '{cls}', 'load {chr(0x5d0 + i % 27)}{chr(0x5d0 + i // 27)}', '{a}')" for i, (a, p) in enumerate(kids)) + ';'
+             + ', '.join(f"('{p}', '{cls}', 'load {HEB[i % 22]}{HEB[i // 22]}', '{a}')" for i, (a, p) in enumerate(kids)) + ';'
              + "insert into public.items (game, item_key) values " + ', '.join(f"('load', 'i{j}')" for j in range(60)) + ';')
     base = int(time.time() * 1000) - 30 * 60000
     errors, seen = [], {}
