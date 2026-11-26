@@ -194,9 +194,9 @@ message ends with what the child can do meanwhile; a pupil already signed in is 
 
 | `by` / `help` | When (backend rules) | Text |
 |---|---|---|
-| name / teacher | 5 wrong codes for this name from here: 5, then 15, 60, 240 minutes; resets after 24 hours without a mistake | רק השם שלכם עוצר לעכשיו, ל-{N} דקות. בינתיים אפשר ללחוץ "שכחתי את הקוד", או לבקש מהמורה לשחרר. |
-| name / teacher, wait −1 | recovery by pictures closed for this name | השם שלכם עוצר בינתיים. בקשו מהמורה לשחרר אותו. |
-| device / teacher | a device where only this child signed in, past its own 10 a day | המכשיר הזה עוצר בשבילכם לעכשיו, עד {HH:MM}. אפשר להיכנס ממכשיר אחר, או לבקש מהמורה לשחרר. |
+| name / teacher | 5 wrong codes for this name from here: 5, then 15, 60, 240 minutes; resets after 24 hours without a mistake | הכניסה בשם הזה נעצרה ל-{N} דקות. בינתיים אפשר ללחוץ "שכחתי את הקוד", או לבקש מהמורה לשחרר. |
+| name / teacher, wait −1 | recovery by pictures closed for this name | הכניסה בשם הזה נעצרה. בקשו מהמורה לשחרר אותה. |
+| device / teacher | a device where only this child signed in, past its own 10 a day | הכניסה מהמכשיר הזה נעצרה עד {HH:MM}. אפשר להיכנס ממכשיר אחר, או לבקש מהמורה לשחרר. |
 | address / teacher | wrong codes or pictures across the class from this network | זה לא בגללכם: הכניסה מהמחשבים כאן עוצרת לכולם עד {HH:MM}. אפשר לבקש מהמורה לשחרר. מי שכבר מחובר ממשיך לשחק. |
 | address / wait | too many calls, class codes or registrations in an hour from this network | זה לא בגללכם: הכניסה מכאן עוצרת לכולם עד {HH:MM}. נסו שוב אז. |
 | class / teacher | the class brake (100 wrong a day) | זה לא בגללכם: הכניסה לכיתה עוצרת עד {HH:MM}. אפשר לבקש מהמורה לשחרר. |
