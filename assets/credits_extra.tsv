@@ -100,3 +100,4 @@ list	assets/voice/sources.tsv	list of the voice clips: source, sha256, text
 list	assets/al/sources.tsv	list of the Arcade Lagoon art: what, job id, model, sha256		
 list	assets/credits_extra.tsv	list of everything the three lists above do not cover, written by hand		
 list	assets/CREDITS.md	this file		
+local	assets/al/intro/logo.webp	the platform logo "ניצני אופק" for the opening splash: the welcome film's closing lettering (Rubik Moonrocks, gold gradient and glow), rendered with tools/intro_film.py's title code on transparency, 640 x 201. No generator, no credits	tools/intro_film.py	b0fa09fa6763d9960b090dd3ad48dc664c457a345f08b13d0cca4aaa33dd5e58

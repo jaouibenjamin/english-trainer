@@ -56,7 +56,12 @@ export function songStep(ctx,out,n,t){
  if(sec&&(i===2||i===6))pluck(ctx,out,ch[2],t,.04);
  if(mel)pluck(ctx,out,mel,t,s>=64&&s<128?.12:.1)}
 function tick(){if(!AC)return;while(next<AC.currentTime+.3){songStep(AC,MUS,step,next);next+=STEP;step++}}
-function run(on){clearInterval(timer);timer=0;if(!on||!SET.music||!ac())return;next=AC.currentTime+.1;timer=setInterval(tick,100)}
+/* the opening film (js/intro.js, design flag only) holds the game's sound while it is open: no music and no effects
+   start under it; the music starts when it closes, as it would have (the mute setting and a hidden tab still count).
+   Without the flag html never has the class: nothing changes. */
+const held=()=>document.documentElement.classList.contains('wi-intro-open');
+addEventListener('wi-intro-closed',()=>{if(wanted)run(document.visibilityState==='visible')});
+function run(on){clearInterval(timer);timer=0;if(!on||!SET.music||held()||!ac())return;next=AC.currentTime+.1;timer=setInterval(tick,100)}
 /* ---------- iPhone and iPad: the ring/silent switch ----------
    iOS treats Web Audio as "ambient" sound and mutes it when the side switch is on silent, which is how most children's
    phones are set. Two ways out, both harmless elsewhere:
@@ -84,19 +89,19 @@ document.addEventListener('visibilitychange',()=>{const vis=document.visibilityS
 /* ---------- sound effects: short sine/triangle blips only ---------- */
 export function blip(ctx,out,f,d,v,f2,type,at){const t=at||ctx.currentTime,o=ctx.createOscillator(),g=ctx.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.008);g.gain.exponentialRampToValueAtTime(.0008,t+d);o.connect(g);g.connect(out);o.start(t);o.stop(t+d+.02)}
-const fx=(...a)=>{if(!SET.sfx||!ac())return;blip(AC,SFX,...a)};
+const fx=(...a)=>{if(!SET.sfx||held()||!ac())return;blip(AC,SFX,...a)};
 export const SND={
  tap:()=>fx(660,.07,.05),
  pull:()=>fx(180,.09,.04,230),
  shoot:()=>fx(240,.22,.09,680),
- pop:()=>{fx(700,.16,.09,1400);if(SET.sfx&&AC)blip(AC,SFX,1050,.22,.05,1580,'sine',AC.currentTime+.07)},
+ pop:()=>{fx(700,.16,.09,1400);if(SET.sfx&&!held()&&AC)blip(AC,SFX,1050,.22,.05,1580,'sine',AC.currentTime+.07)},
  bad:()=>fx(220,.26,.07,150,'triangle'),
  plank:()=>fx(330,.1,.08,260,'triangle'),
  snap:()=>{fx(200,.2,.08,90,'triangle')},
  step:()=>fx(520,.05,.035),
- star:i=>{if(!SET.sfx||!ac())return;blip(AC,SFX,[784,988,1175][i]||784,.35,.09)},
- win:()=>{if(!SET.sfx||!ac())return;[523,659,784,1047].forEach((f,i)=>blip(AC,SFX,f,.4,.08,0,'sine',AC.currentTime+i*.11))},
- unlock:()=>{if(!SET.sfx||!ac())return;[659,784,988,1319].forEach((f,i)=>blip(AC,SFX,f,.5,.07,0,'sine',AC.currentTime+i*.14))}};
+ star:i=>{if(!SET.sfx||held()||!ac())return;blip(AC,SFX,[784,988,1175][i]||784,.35,.09)},
+ win:()=>{if(!SET.sfx||held()||!ac())return;[523,659,784,1047].forEach((f,i)=>blip(AC,SFX,f,.4,.08,0,'sine',AC.currentTime+i*.11))},
+ unlock:()=>{if(!SET.sfx||held()||!ac())return;[659,784,988,1319].forEach((f,i)=>blip(AC,SFX,f,.5,.07,0,'sine',AC.currentTime+i*.14))}};
 
 /* render the soundtrack offline and report levels (used by tests; nobody can listen in CI) */
 export async function measure(seconds=30){
