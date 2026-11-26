@@ -17,7 +17,10 @@
    A mode that is not spelled exactly, or has no https project address and key, falls back to 'sheet'. */
 const W=typeof window!=='undefined'?window:globalThis;
 const SHEET=(W.API_URL||'').trim();
-const B=W.BACKEND&&typeof W.BACKEND==='object'?W.BACKEND:{};
+/* the config, read once: only its own keys, the five this file knows (review of #111: an inherited mode, url or key
+   counts for nothing, as an inherited everyone never did), each value taken once, so nothing can change between checks */
+const B=(()=>{const x=W.BACKEND,o={};if(!x||typeof x!=='object')return o;
+ for(const k of['mode','url','key','everyone','saveEveryS'])if(Object.prototype.hasOwnProperty.call(x,k))o[k]=x[k];return o})();
 const URL_OK=typeof B.url==='string'&&/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(B.url)&&typeof B.key==='string'&&B.key.length>20;
 // 'supabase' is switched on as 'dual' is: a project, the exact mode, and a trial device or everyone: true; the key
 // unfinished: true that guarded it while it was not finished went with steps 5 and 6 (review of #21, S-b; of #111)
