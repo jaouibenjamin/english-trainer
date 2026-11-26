@@ -103,3 +103,71 @@ The ten provisional animations in #99 and the 19 older generic ones are replaced
   `av/eagle.*` and `avanim/eagle.*`, and the briefs say eagle. It is not regenerated.
 - The kangaroo's ears flop sideways mid-animation in its current clip; that clip is replaced with the new gestures
   anyway.
+
+## The hands test (option 2 on three characters, 2026-11-26)
+
+The owner chose the test. Three waist-up stills (the two kids redone once, closer, so the face stays large) and three
+gestures with hands. Results, frame by frame:
+
+- **boy-cap, crossed arms:** reads at once: arms cross, a funny frown, then a smile and back. The best of the three.
+- **girl-ponytail, fist pump:** the first take showed teeth; the retake keeps the lips closed and reads well.
+- **raccoon, "shh":** a paw to the lips, clear; its last frame drifts from the still, so it would need the
+  forward-and-back or fade treatment.
+- The stills match the approved faces closely, with slight drift (the eyes and hair of the kids are a little
+  different); the owner judges whether that is acceptable.
+
+Spent 14.50 of the 15 allowed (held budget D). Its three results are used in option 2 below.
+
+## Option 2 for all 30 (2026-11-26, the owner's go-ahead)
+
+The owner asked for the waist-up version on every character, each with its own sign-off. Done: 30 waist-up stills
+(the three of the test reused, 27 new from the approved portraits; none redone) and 30 gestures, every frame checked
+for teeth, a changed face or outfit, extra limbs and leaving the frame. They are added to `assets/al/av/` and
+`assets/al/avanim/` next to the approved set, which stays and is still what the picker uses: nothing is deleted or
+rewired until the owner approves the new set (then `js/world_art.js` switches, and the owl gets an animation instead of
+the CSS bob). Each animation: 192 px, 12 fps, plays once, under 150 KB; it ends on the still, either the 24
+generated frames plus 5 that fade back, or (*) a clean part played forward and back where the clip ended in another pose.
+
+| Character | Nature | Sign-off |
+|---|---|---|
+| girl-braids | leader | beckons the group: "follow me" |
+| boy-cap | grumpy | crosses his arms, a funny frown, then a smile |
+| boy-scarf | cheerful | a big wave hello |
+| girl-curls | curious | taps her chin, then one finger up: "aha" |
+| boy-blond | jokester | a shrug with both palms up |
+| girl-glasses | music lover | headphones on, head bob, headphones back |
+| boy-curls | dreamy | chin on both hands, eyes up |
+| girl-ponytail | sporty | a fist pump |
+| cat | proud | smooths its whiskers, nose up |
+| fox | cheeky | a wink and a paw rub |
+| penguin | clumsy | flaps and wobbles* |
+| owl | thoughtful | turns its head, adjusts its goggles* |
+| parrot | show-off | fluffs up, chest out |
+| octopus | playful | drums on its own head |
+| shark | nervous | a shiver, then wipes its brow* |
+| turtle | calm | into its shell and out* |
+| diver | adventurous | taps the helmet window, bubbles rise |
+| pilot | confident | hands on hips |
+| robot-bell | light-hearted | the propeller spins, it floats up |
+| robot-box | excited | star eyes, arms up in a cheer |
+| hedgehog | shy | hides behind its paws, peeks out |
+| koala | sleepy | nods off over its leaf, jerks awake |
+| raccoon | sneaky | "shh"* |
+| capybara | zen | paws together, eyes closed, the flower opens |
+| otter | nimble | tosses its pebble and catches it |
+| flamingo | elegant | a neck-dip bow |
+| zebra | silly | scrunches its nose, a silly head shake |
+| badger | brave | flexes both arms |
+| kangaroo | bouncy | springy bobs, ears flop |
+| eagle | noble | lifts its head, a golden shimmer |
+
+Changed from the plan while checking: the zebra's sneeze opened its mouth twice, so it is a scrunch and head shake; the
+kangaroo's hops left the frame twice, so it bobs on the spot. Retakes: cat (teeth), kangaroo (twice), shark (teeth),
+zebra. Spent 109.50 from D (batch l5 in `docs/ART_LEDGER.md`).
+
+**Tile fit (the picker tile, 96 px):** the whole waist-up still, scaled to the tile, keeps a readable face, about the
+size of the old head-and-shoulders tiles, and the hands stay in view; the gesture plays in the same frame, so nothing
+jumps. Recommended: no crop. If a bigger face is wanted at rest, one crop box fits all 30: x 14% to 86%, y 0 to 72% of
+the picture (object-fit: cover with that box); the animation must then use the same box, or the hands of the gestures
+are cut. Fingers were counted on every frame of the clips with hands (the 8 kids, diver, pilot, robot-box, raccoon): no
+extra or fused fingers. Weight: 30 animations 4.29 MB in all (largest 148 KB), 30 stills 0.34 MB.
