@@ -3,4 +3,4 @@ window.API_URL = 'https://script.google.com/macros/s/AKfycbxlV1HQJM7JOR13wI7hI5S
 // The new backend (docs/PHASE3.md, docs/PHASE4.md A), as a TRIAL: only a device opened once with ?new=1 uses it; every
 // other device stays on the Sheet above (there is no everyone key, on purpose). The key is the project's publishable key
 // (public by design), pasted here once, deliberately, by the lead: while it is empty, no device uses the project at all.
-window.BACKEND = {mode: 'supabase', url: 'https://ibmhoqgpdbyfwrsnwqoy.supabase.co', key: ''};
+window.BACKEND = {mode: 'supabase', url: 'https://ibmhoqgpdbyfwrsnwqoy.supabase.co', key: 'sb_publishable_K1AIOxw4JAi5BlD5SSxJsw_b-HGqq9m'};   // gitleaks:allow (the publishable key: public by design; the owner approved this one line on 2026-11-26)

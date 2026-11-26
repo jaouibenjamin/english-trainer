@@ -55,7 +55,7 @@ mode = lambda pg: pg.evaluate("import('./js/api.js').then(m=>m.MODE)")
 async def main():
     line = [ln for ln in CFG.split('\n') if ln.startswith('window.BACKEND')]
     check('config.js names the project for a trial: mode supabase, its address, a key, and no everyone key',
-          len(line) == 1 and re.fullmatch(r"window\.BACKEND = \{mode: 'supabase', url: '" + re.escape(PROJECT) + r"', key: '[A-Za-z0-9_-]*'\};", line[0]) is not None, line)
+          len(line) == 1 and re.fullmatch(r"window\.BACKEND = \{mode: 'supabase', url: '" + re.escape(PROJECT) + r"', key: '[A-Za-z0-9_-]*'\};(\s*// gitleaks:allow \([^\n]*\))?", line[0]) is not None, line)
     keyed = re.sub(r"key: '[A-Za-z0-9_-]*'", "key: '" + TEST_KEY + "'", CFG)
     procs = P.start_servers()
     try:
