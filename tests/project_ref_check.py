@@ -31,6 +31,15 @@ check('a look-alike is not a project address (a sub-domain, a longer name, a suf
       pr.addresses(f'x.{A}.supabase.co {A}x.supabase.co https://{A}.supabase.co.evil.example.org') == set())
 check('replace changes the whole ref only', pr.replace(f'{A} {A}z z{A} https://{A}.supabase.co', A, B) == f'{B} {A}z z{A} https://{B}.supabase.co')
 check('a ref is 20 lower-case letters; the placeholder is not one', pr.REF.fullmatch(A) and not pr.REF.fullmatch('not-set-yet') and not pr.REF.fullmatch(A.upper()))
+import tempfile
+with tempfile.TemporaryDirectory() as d:
+    f = os.path.join(d, 'page.html')
+    open(f, 'wb').write(f'a https://{A}.supabase.co\r\nb\r\n'.encode())
+    pr.rewrite(f, A, B)
+    got = open(f, 'rb').read()
+check('set keeps line endings: a CRLF file stays CRLF', got == f'a https://{B}.supabase.co\r\nb\r\n'.encode(), got)
+seen = [f for f, _ in pr.tracked()]
+check('vendor/ and assets/ are not scanned', seen and not [f for f in seen if f.startswith(('vendor/', 'assets/'))])
 out = subprocess.run([sys.executable, '-c', 'import sys; sys.path.insert(0, "tools"); import supabase_setup as s; print(s.project_ref())'],
                      cwd=ROOT, capture_output=True, text=True).stdout.strip()
 check('tools/supabase_setup.py reads its default ref from supabase/project_ref', out == open(pr.FILE, encoding='utf-8').read().strip(), out)
