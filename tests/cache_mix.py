@@ -11,13 +11,12 @@ GitHub Pages lets a browser keep each file for 10 minutes (max-age=600), so for 
 new page with an old module, or an old page with new ones. A new named export that an old copy does not have, a renamed
 file, a changed function, a new contract between two files: any of them can break a screen for that pupil.
 
-Without a browser (tests/jsmods.py reads every module with a strict tokenizer): every import and export form is one it
-knows, or the test fails; an export added since the previous ship is never named in an import, an export {..} from or a
-destructured dynamic import; wherever it is read through a namespace or a dynamically imported module, the read is
-guarded right there (typeof X.name==='function' in the same statement), not somewhere else in the file, or, for a
-data export, has its fallback right after it (X.name||.. or X.name??..); destructuring the namespace (const {a}=X) or a
-computed read (X[k]) fails. The exports
-added since the previous ship are listed with every use. A self-test feeds it one mutant per known blind spot.
+Without a browser (tests/mixcheck.py, on tests/jsmods.py's strict tokenizer; the rules are in mixcheck's docstring):
+every import and export form is one it knows; an export added since the previous ship is never bound by name, and every
+read of it through a module object is guarded at that read (typeof ..==='function' around it, or ?? right after a data
+export); a module object it cannot follow fails; and every name the previous ship's modules import still exists here.
+The exports added since the previous ship are listed with every use. A self-test feeds it one mutant per known blind
+spot, and controls that must pass.
 
 In the browser, for every js/, css/ and *.html file that differs between REF and this checkout and existed in REF:
   - that one file from REF, the rest from this checkout;
@@ -31,6 +30,7 @@ import asyncio, os, re, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import play as P
 import jsmods
+from mixcheck import static_check
 from play import check, fails, new_page
 from playwright.async_api import async_playwright
 
@@ -64,101 +64,7 @@ def changed():
     return [f for f in out if re.fullmatch(r'(js/[\w.-]+\.js|css/[\w.-]+\.css|[\w-]+\.html)', f) and git('cat-file', '-e', f'{PREV}:{f}').returncode == 0]
 
 
-# ---------- without a browser ----------
-def static_check(now, prev):
-    """now, prev: {'ui.js': source}; prev without the modules that are new since. Returns (bad, added, unknown):
-    bad: every way an export new since prev is bound by name or read unguarded; added: {module: {name: [uses]}}."""
-    info = {f: jsmods.modinfo(s) for f, s in now.items()}
-    old = {f: jsmods.modinfo(s) for f, s in prev.items()}
-    unknown = [f'js/{f} {u}' for f, i in list(info.items()) + [('(previous) ' + f, i) for f, i in old.items()] for u in i['unknown']]
-    added = {f: {n: [] for n in sorted(info[f]['exports'] - old[f]['exports'])} for f in now if f in old and info[f]['exports'] - old[f]['exports']}
-    mod = lambda s: s[2:] if s.startswith('./') else s
-    bad = []
-    loose = set()   # modules imported dynamically whose result is passed on: their new exports are checked by name everywhere
-    binds = {f: {} for f in now}   # file -> {local name: module}
-    wide = {f: set() for f in now}   # the names in binds that hold a module file-wide (namespaces, aliases), not an arrow's parameter
-    for f, i in info.items():
-        for s, pairs in i['imports']:
-            for a, b in pairs:
-                if a in added.get(mod(s), {}):
-                    bad.append(f'js/{f} imports {{{a}}} from {s}'); added[mod(s)][a].append(f'js/{f}: named import (BREAKS)')
-        for s, names in i['reexports']:
-            for a in names:
-                if a in added.get(mod(s), {}):
-                    bad.append(f'js/{f} re-exports {{{a}}} from {s}'); added[mod(s)][a].append(f'js/{f}: export {{}} from (BREAKS)')
-        for s, ns in i['namespaces']:
-            binds[f][ns] = mod(s); wide[f].add(ns)
-        for s, b, _ in i['dynamic']:
-            m = mod(s)
-            if isinstance(b, list):
-                for a in b:
-                    if a in added.get(m, {}):
-                        bad.append(f'js/{f} destructures {a} from import({s})'); added[m][a].append(f'js/{f}: destructured import() (BREAKS)')
-            elif b:
-                binds[f][b] = m
-                T = i['tokens']   # plain aliases: X=p (the module kept in another name)
-                for k in range(1, len(T) - 2):
-                    if T[k].t == 'id' and jsmods._is(T[k + 1], '=') and T[k + 2].t == 'id' and T[k + 2].v == b and not jsmods._is(T[k - 1], '.') \
-                            and (k + 3 >= len(T) or (T[k + 3].t == 'punct' and T[k + 3].v in (',', ';', ')', '}'))):
-                        binds[f][T[k].v] = m; wide[f].add(T[k].v)
-            else:
-                loose.add(m)
-    for f, i in info.items():
-        T = i['tokens'] + [jsmods.Tok('punct', ';', -1, 0), jsmods.Tok('punct', ';', -1, 0)]   # two ends, so a read at the very end is seen
-        for k in range(len(T) - 2):
-            # const {NEW}=NS (or {NEW:x}): a destructured namespace, the same as a named import
-            if T[k].t == 'id' and T[k].v in binds[f] and k >= 2 and jsmods._is(T[k - 1], '=') and jsmods._is(T[k - 2], '}'):
-                m, d, j = binds[f][T[k].v], 0, k - 2
-                while j >= 0:
-                    if jsmods._is(T[j], '}'): d += 1
-                    elif jsmods._is(T[j], '{'):
-                        d -= 1
-                        if d == 0: break
-                    elif d == 1 and T[j].t == 'id' and (jsmods._is(T[j + 1], ',') or jsmods._is(T[j + 1], ':') or jsmods._is(T[j + 1], '}') or jsmods._is(T[j + 1], '=')) \
-                            and (jsmods._is(T[j - 1], '{') or jsmods._is(T[j - 1], ',')) and T[j].v in added.get(m, {}):
-                        bad.append(f'js/{f} line {T[j].line}: destructures {T[j].v} from {T[k].v}'); added[m][T[j].v].append(f'js/{f}: destructured from {T[k].v} (BREAKS)')
-                    j -= 1
-            # NS[...]: a computed read of a module it tracks cannot be checked
-            if T[k].t == 'id' and T[k].v in wide[f] and jsmods._is(T[k + 1], '[') and not (k and (jsmods._is(T[k - 1], '.') or jsmods._is(T[k - 1], '?.'))):
-                bad.append(f'js/{f} line {T[k].line}: {T[k].v}[...] is a computed read of a module; read each name as {T[k].v}.name')
-            if not (T[k].t == 'id' and (jsmods._is(T[k + 1], '.') or jsmods._is(T[k + 1], '?.')) and T[k + 2].t == 'id'):
-                continue
-            obj, name = T[k].v, T[k + 2].v
-            m = binds[f].get(obj)
-            if m is None:
-                m = next((x for x in loose if name in added.get(x, {}) and x != f), None)
-            if m is None or name not in added.get(m, {}) or (k and (jsmods._is(T[k - 1], '.') or jsmods._is(T[k - 1], '?.'))):
-                continue
-            if k and T[k - 1].t == 'id' and T[k - 1].v == 'typeof':
-                continue   # the guard itself
-            # a data export: NS.name||x or NS.name??x falls back when an old copy lacks it (a bare read does not)
-            data = k + 3 < len(T) and T[k + 3].t == 'punct' and T[k + 3].v in ('||', '??')
-            ok = data or guarded(T, k, obj, name)
-            added[m][name].append(f'js/{f} line {T[k].line}: {obj}.{name}' + (' with a fallback value' if data else ' guarded' if ok else ' UNGUARDED'))
-            if not ok:
-                bad.append(f'js/{f} line {T[k].line}: {obj}.{name} is read with no typeof guard in the same statement and no ||/?? fallback right after it')
-    return bad, added, unknown
-
-
-def guarded(T, k, obj, name):
-    """is there `typeof obj.name === 'function'` earlier in the same statement as the read at T[k], before a ? or && or )"""
-    d, j, seen_gate = 0, k - 1, False
-    while j >= 0:
-        t = T[j]
-        if t.t == 'punct':
-            if t.v in (')', ']', '}'): d += 1
-            elif t.v in ('(', '['):
-                d -= 1
-            elif t.v == '{':
-                if d <= 0: break
-                d -= 1
-            elif t.v == ';' and d <= 0: break
-            if t.v in ('?', '&&', ')'): seen_gate = True
-        if t.t == 'id' and t.v == 'typeof' and seen_gate and j + 5 < len(T) and T[j + 1].v == obj and T[j + 2].v == '.' and T[j + 3].v == name \
-                and T[j + 4].v in ('===', '==') and T[j + 5].t == 'str' and T[j + 5].v == 'function':
-            return True
-        j -= 1
-    return False
+# ---------- without a browser: tests/mixcheck.py ----------
 
 
 MUTANTS = [   # (what, now {file: src}, prev {file: src}): each must be reported (bad or unknown)
@@ -178,13 +84,35 @@ MUTANTS = [   # (what, now {file: src}, prev {file: src}): each must be reported
     ('a renamed destructuring const {a,ENERGY:e}=WD', {'world_data.js': 'export const ENERGY=5;export const a=1;', 'avatar.js': "import * as WD from './world_data.js';const {a,ENERGY:e}=WD;"}, {'world_data.js': 'export const a=1;', 'avatar.js': ''}),
     ('an optional-chain read WD?.ENERGY', {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';const e=WD?.ENERGY;"}, {'world_data.js': '', 'avatar.js': ''}),
     ('a computed read WD[k]', {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';const e=WD['ENERGY'];"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('a data export with || (it would turn a false flag true)', {'helpdata.js': 'export const GLOSSARY=false;', 'help.js': "import * as HD from './helpdata.js';const g=HD.GLOSSARY||true;"}, {'helpdata.js': '', 'help.js': ''}),
+    ('a read in the else branch of the guard', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';typeof UI.NEW==='function'?0:UI.NEW();"}, {'ui.js': '', 'main.js': ''}),
+    ('a read after an if guard with an empty body', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';if(typeof UI.NEW==='function'){}UI.NEW();"}, {'ui.js': '', 'main.js': ''}),
+    ('a guard joined by || before ?', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';const x=a||typeof UI.NEW==='function'?UI.NEW():0;"}, {'ui.js': '', 'main.js': ''}),
+    ('an if guard joined by ||', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';if(a||typeof UI.NEW==='function'){UI.NEW()}"}, {'ui.js': '', 'main.js': ''}),
+    ('a read after the && chain of the guard ends', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';typeof UI.NEW==='function'&&a||UI.NEW();"}, {'ui.js': '', 'main.js': ''}),
+    ('a guard on another name', {'ui.js': 'export const NEW=()=>1;export const NEW2=()=>1;', 'main.js': "import * as UI from './ui.js';typeof UI.NEW2==='function'&&UI.NEW();"}, {'ui.js': '', 'main.js': ''}),
+    ('a static namespace alias const U=UI', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';const U=UI;U.NEW();"}, {'ui.js': '', 'main.js': ''}),
+    ('a static alias of a data namespace W2.ENERGY', {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';const W2=WD;const e=W2.ENERGY;"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('a chained .then(m=>m).then(x=>x.newFn())', {'avatar.js': 'export function newFn(){}', 'main.js': "import('./avatar.js').then(m=>m).then(x=>x.newFn());"}, {'avatar.js': '', 'main.js': ''}),
+    ('a module object passed on f(UI)', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';f(UI);"}, {'ui.js': '', 'main.js': ''}),
+    ("precedence: 'x'+WD.ENERGY??''", {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';const s='x'+WD.ENERGY??'';"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('precedence: 2*WD.ENERGY??1', {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';const s=2*WD.ENERGY??1;"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('precedence: !WD.FLAG??1', {'world_data.js': 'export const FLAG=true;', 'avatar.js': "import * as WD from './world_data.js';const s=!WD.FLAG??1;"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('a function export read as data WD.fn??0', {'world_data.js': 'export function fn(){}', 'avatar.js': "import * as WD from './world_data.js';(WD.fn??0)();"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('an arrow export read as data', {'world_data.js': 'export const fn=(a)=>a;', 'avatar.js': "import * as WD from './world_data.js';const f=WD.fn??null;"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('export {NEW as default} with import d from', {'ui.js': 'const NEW=1;export {NEW as default};', 'main.js': "import d from './ui.js';"}, {'ui.js': '', 'main.js': ''}),
+    ("the previous ship's code imports a name that is gone", {'ui.js': 'export const b=1;', 'main.js': ''}, {'ui.js': 'export const a=1;', 'main.js': "import {a} from './ui.js';"}),
+    ("the previous ship's code imports a module that is gone", {'main.js': ''}, {'old.js': 'export const a=1;', 'main.js': "import {a} from './old.js';"}),
     ('export default (a form it does not know)', {'ui.js': 'export default 1;', 'main.js': ''}, {'ui.js': '', 'main.js': ''}),
     ('export * (a form it does not know)', {'ui.js': "export * from './state.js';", 'main.js': ''}, {'ui.js': '', 'main.js': ''}),
     ('a destructuring export (a form it does not know)', {'ui.js': 'export const {a,b}=o;', 'main.js': ''}, {'ui.js': '', 'main.js': ''}),
 ]
 CONTROLS = [   # the same shapes written safely: none may be reported
     ('a new export read through the namespace with a guard at the use', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';const f=n=>typeof UI.NEW==='function'?UI.NEW(n):'';"}, {'ui.js': '', 'main.js': ''}),
-    ('a new data export read with || and ?? fallbacks', {'world_data.js': 'export const ENERGY=5;export const SOON=[];', 'avatar.js': "import * as WD from './world_data.js';const e=WD.ENERGY||3,s=WD.SOON??[];"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('a new data export read with ?? fallbacks', {'world_data.js': 'export const ENERGY=5;export const SOON=[];', 'avatar.js': "import * as WD from './world_data.js';const e=WD.ENERGY??3,s=f(WD.SOON??[]),o={a:WD.ENERGY??0};"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('guards that cover the read: the if body, the && rest, a ?: true branch', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';if(typeof UI.NEW==='function'&&ok){UI.NEW()}typeof UI.NEW==='function'&&UI.NEW(1);const x=ok&&typeof UI.NEW==='function'?UI.NEW():0;"}, {'ui.js': '', 'main.js': ''}),
+    ('an alias that is only tested and read guarded', {'avatar.js': 'export function newFn(){}', 'main.js': "let AV=null;import('./avatar.js').then(m=>{AV=m});function f(){if(AV&&typeof AV.newFn==='function')AV.newFn()}"}, {'avatar.js': '', 'main.js': ''}),
+    ('a module with nothing new, passed on in an object', {'sling.js': 'export const a=1;', 'main.js': "import * as sling from './sling.js';const LV={sling};LV.sling.a;"}, {'sling.js': 'export const a=1;', 'main.js': ''}),
     ('a guarded dynamic read', {'avatar.js': 'export function newFn(){}', 'main.js': "import('./avatar.js').then(m=>{if(typeof m.newFn==='function')m.newFn()});"}, {'avatar.js': '', 'main.js': ''}),
 ]
 
