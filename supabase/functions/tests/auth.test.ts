@@ -2,7 +2,7 @@
 // Every name, code and address here is made up.
 import { asUser, clock, DAY, deps, e, eq, freshIp, HOUR, log, MIN, newClass, ok, pepper, pupilId, recOtc, recPic, reg, reset, saves, SCHOOL, settings, sql, user } from "./helpers.ts";
 import { kdf, legacySheetHash, stats, tag } from "../_shared/crypto.ts";
-import { adminClass, type Body, login, type Reply, teacherReset, wrapLegacy } from "../_shared/core.ts";
+import { adminClass, type Body, locked, login, type Reply, teacherReset, wrapLegacy } from "../_shared/core.ts";
 import { addressBucket, clientIp, handler } from "../_shared/http.ts";
 import { gotrueSessions } from "../_shared/gotrue.ts";
 import { isName, isWeakCode } from "../_shared/validate.ts";
@@ -634,6 +634,150 @@ T("N3: teacher-reset answers a stranger's token before any slow hashing", async 
   eq(e(await teacherReset(counting, { pupil_id: pid }, { ip: SCHOOL, token: "t:" + stranger })), "forbidden", "not her pupil");
   eq(hashed, 0, "and nothing was hashed");
   clock.ms += DAY;
+});
+
+T("S7 (review of #86): a teacher's daily cap of new codes, checked before the slow hash and again under her lock", async () => {
+  const c = await newClass();
+  await reg(c, "Gal", "4827");
+  const pid = await pupilId(c, "Gal");
+  const t = await teacherOf(c);
+  await sql`update private.settings set reset_teacher_day = 3`;
+  try {
+    const R = (dd = deps) => teacherReset(dd, { pupil_id: pid }, { ip: SCHOOL, token: "t:" + t });
+    eq([e(await R()), e(await R()), e(await R())], ["ok", "ok", "ok"], "three new codes in a day, the cap");
+    let hashed = 0;
+    const counting = { ...deps, get pepper() { hashed++; return pepper; } };
+    eq([e(await R(counting)), hashed], ["limit", 0], "the fourth is refused as 'limit', and nothing was hashed");
+    eq((await sql`select count(*)::int as n from private.teacher_resets where teacher = ${t}`)[0].n, 3, "her counter holds who and when only, three rows");
+    clock.ms += DAY + 1000;
+    await sql`update private.settings set reset_teacher_day = 4`;
+    const both = await Promise.all([R(), R(), R(), R(), R()]);
+    eq(both.map(e).filter((x) => x === "ok").length, 4, "a day later, five at once against a cap of four: exactly four pass (" + both.map(e) + ")");
+  } finally {
+    await sql`update private.settings set reset_teacher_day = 15`;
+  }
+  clock.ms += 2 * DAY;
+});
+
+T("lock scope (0008): every 'locked' answer says whom it is for and whether the teacher can end it", async () => {
+  const c = await newClass();
+  const names = Array.from({ length: 12 }, (_, i) => "Sco" + "abcdefghijkl"[i]);
+  const mine = await reg(c, names[11], "4827");                       // the pupil's own phone, a known device
+  for (const n of names.slice(0, 11)) await reg(c, n, "4827", [3, 11], freshIp());
+  clock.ms += 2 * HOUR;
+  const by = (r: Reply) => (r.ok ? "ok" : `${r.e}/${(r as { by?: string }).by ?? "-"}/${(r as { help?: string }).help ?? "-"}`);
+  const school = freshIp();
+  for (let i = 0; i < 5; i++) await log(c, names[0], "9053", { ip: school });
+  eq([by(await log(c, names[0], "4827", { ip: school })), by(await log(c, names[1], "4827", { ip: school }))], ["locked/name/teacher", "ok"],
+    "5 wrong codes on one name from the school: that name waits (her unlock ends it); a classmate at the same address signs in");
+  for (let i = 0; i < 10; i++) await log(c, names[11], "9053", { device_token: tok(mine) });
+  eq(by(await log(c, names[11], "4827", { device_token: tok(mine) })), "locked/device/teacher", "10 wrong on her own known phone: 'device'");
+  const net = freshIp();
+  for (let i = 0; i < 30; i++) await log({ ...c, code: "WRONG" + String(i).padStart(3, "0") }, names[2], "4827", { ip: net });
+  eq(by(await log(c, names[2], "4827", { ip: net })), "locked/address/wait", "30 wrong class codes from one network: everyone there waits out the hour (no teacher lift)");
+  const pics = freshIp();
+  for (let i = 0; i < 5; i++) await recPic(c, names[5 + (i % 3)], [5, 6], "5839", [7, 2], pics);
+  eq(by(await recPic(c, names[8], [3, 11], "5839", [7, 2], pics)), "locked/address/teacher", "5 wrong pictures from one network: recovery there waits (her class lift ends it)");
+  const t = (await sql`insert into auth.users (email) values (${"t-" + crypto.randomUUID() + "@test.invalid"}) returning id`)[0].id;
+  await sql`insert into public.teachers values (${t}, ${c.id})`;
+  await reset("t:" + t, await pupilId(c, names[9]));
+  const otcIp = freshIp();
+  for (let i = 0; i < 5; i++) await recOtc(c, names[9], "000000", "6149", [9, 4], otcIp);
+  eq(by(await recOtc(c, names[9], "000000", "6149", [9, 4], otcIp)), "locked/name/teacher", "5 wrong one-time codes from one network: that code is refused there (a new code from her ends it)");
+  // the 30th wrong try deletes the code itself; a try that starts while a used-up code is still there (tries in
+  // parallel, N1) is refused at the start: that row is set here directly
+  await sql`update private.reset_codes set fails = 30 where pupil_id = ${await pupilId(c, names[9])}`;
+  eq(by(await recOtc(c, names[9], "000000", "6149", [9, 4], freshIp())), "locked/name/teacher", "a used-up one-time code (30 wrong): a new code from her ends it");
+  for (let i = 0; i < 3; i++) await recPic(c, names[10], [5, 6], "5839", [7, 2], freshIp());
+  eq(by(await recPic(c, names[10], [3, 11], "5839", [7, 2], freshIp())), "locked/name/teacher", "3 wrong pictures on one name: that name's recovery is closed (her unlock reopens it)");
+  for (let i = 0; i < 2; i++) await recPic(c, names[4], [5, 6], "5839", [7, 2], freshIp());
+  eq(by(await recPic(c, names[3], [3, 11], "5839", [7, 2], freshIp())), "locked/class/teacher", "10 wrong pictures in the class: recovery pauses for the class (her class lift ends it)");
+  for (let i = 0; i < 20; i++) await log(c, names[10], "9053", { ip: freshIp() });
+  eq(by(await log(c, names[10], "4827", { ip: freshIp() })), "locked/name/teacher", "20 wrong codes on one name from 20 networks: the name's day is over for strangers (her unlock ends it)");
+  clock.ms += 2 * DAY;
+  const spray = freshIp();
+  for (let round = 0; round < 3; round++) for (const n of names.slice(0, 11)) await log(c, n, "9053", { ip: spray });
+  eq(by(await log(c, names[3], "4827", { ip: spray })), "locked/address/teacher", "30 wrong codes across the class from one network: 'address' (her class lift ends it)");
+  for (let i = 0; i < 80; i++) await log(c, names[i % 11], "9053", { ip: freshIp() });
+  eq(by(await log(c, names[4], "4827", { ip: freshIp() })), "locked/class/teacher", "the class brake (100 from anywhere): 'class' (her class lift ends it)");
+  clock.ms += 2 * DAY;
+  try {
+    await settings({ ip_hour: 5 });
+    const busy = freshIp();
+    for (let i = 0; i < 5; i++) await log(c, names[1], "4827", { ip: busy });
+    eq(by(await log(c, names[1], "4827", { ip: busy })), "locked/address/wait", "calls per hour from one network: everyone there waits out the hour");
+    await settings({ ip_hour: 120, register_ip_hour: 2 });
+    const desk = freshIp();
+    await reg(c, "Newa", "4827", [3, 11], desk); await reg(c, "Newb", "4827", [3, 11], desk);
+    eq(by(await reg(c, "Newc", "4827", [3, 11], desk)), "locked/address/wait", "registrations per hour from one network: waits out the hour");
+    await settings({ register_ip_hour: 60, class_miss_hour: 3 });
+    for (let i = 0; i < 3; i++) await log({ ...c, code: "MISS" + String(i).padStart(4, "0") }, names[1], "4827", { ip: freshIp() });
+    eq(by(await log({ ...c, code: "MISS0009" }, names[1], "4827", { ip: freshIp() })), "locked/everyone/wait", "wrong class codes from everywhere this hour: every class waits");
+    await settings({ class_miss_hour: 2000 });
+    await sql`update private.settings set shadow_mode = true`;
+    eq(by(await reg(c, "Newd", "4827", [3, 11], freshIp())), "locked/system/wait", "the copy phase: registration is off, nobody can lift it");
+  } finally {
+    await sql`update private.settings set shadow_mode = false, ip_hour = 120, register_ip_hour = 60, class_miss_hour = 2000`;
+  }
+  clock.ms += 2 * DAY;
+});
+
+T("removed from the class (0009): the sign-in no longer finds the name, the open session is over; undo brings the same code back", async () => {
+  const c = await newClass();
+  const s = await reg(c, "Remy", "4827");
+  const pid = await pupilId(c, "Remy");
+  const t = await teacherOf(c);
+  clock.ms += HOUR;
+  const asTeacher = <X>(f: (tx: typeof sql) => Promise<X>) => sql.begin(async (tx) => {
+    await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: t, role: "authenticated" })}, true)`;
+    await tx`set local role authenticated`;
+    return await f(tx as unknown as typeof sql);
+  });
+  const rm = await asTeacher((tx) => tx`select public.teacher_remove_pupil(${pid}::uuid) as v`);
+  eq(rm[0].v.ok, true, "her teacher removes the pupil");
+  ok(!(await saves(user(s))), "the session that was open cannot save any more");
+  eq(e(await log(c, "Remy", "4827", { ip: freshIp() })), "pin", "the right code no longer signs in: the class has no such name (an unknown name and a wrong code look the same)");
+  const back = await asTeacher((tx) => tx`select public.teacher_restore_pupil(${pid}::uuid) as v`);
+  eq(back[0].v.ok, true, "undo");
+  eq(e(await log(c, "Remy", "4827", { ip: freshIp() })), "ok", "and the same code signs in again: nothing of the pupil's secrets was touched");
+  clock.ms += 2 * DAY;
+});
+
+T("review of #94, B1: a removal that lands between the sign-in's check and its session gets no session", async () => {
+  const c = await newClass();
+  await reg(c, "Gili", "4827");
+  const pid = await pupilId(c, "Gili");
+  const t = await teacherOf(c);
+  const asTeacher = (q: string) => sql.begin(async (tx) => {
+    await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: t, role: "authenticated" })}, true)`;
+    await tx`set local role authenticated`;
+    return await tx.unsafe(q);
+  });
+  await asTeacher(`select public.teacher_remove_pupil('${pid}')`);
+  await asTeacher(`select public.teacher_restore_pupil('${pid}')`);   // back, with no auth user: the next sign-in creates one
+  clock.ms += HOUR;
+  const users0 = (await sql`select count(*)::int as n from auth.users`)[0].n;
+  // the code is right and auth_finish has committed; the teacher removes the pupil just before the session is linked
+  const racing = { ...deps, sessions: { ...deps.sessions, create: async () => { await asTeacher(`select public.teacher_remove_pupil('${pid}')`); return await deps.sessions.create(); } } };
+  const r = await login(racing, { class_code: c.code, name: "Gili", code: "4827" }, { ip: freshIp() });
+  eq([e(r), (await sql`select auth_user_id from public.pupils where id = ${pid}`)[0].auth_user_id, (await sql`select count(*)::int as n from auth.users`)[0].n],
+    ["pin", null, users0], "answered like an unknown name; no session linked; the auth user made for it is deleted again");
+  clock.ms += 2 * DAY;
+});
+
+T("review of #93: the device's own daily limit says 'device'; the functions never pass on an unknown scope or help", async () => {
+  const c = await newClass();
+  const mine = await reg(c, "Dalit", "4827");
+  clock.ms += HOUR;
+  for (let i = 0; i < 5; i++) await log(c, "Dalit", "9053", { device_token: tok(mine) });
+  clock.ms += 6 * MIN;
+  for (let i = 0; i < 5; i++) await log(c, "Dalit", "9053", { device_token: tok(mine) });
+  clock.ms += 16 * MIN;                                                  // both waits are over; 10 wrong today on this phone
+  const r = await log(c, "Dalit", "4827", { device_token: tok(mine) }) as Body;
+  eq([r.e, r.by, r.help], ["locked", "device", "teacher"], "her phone's 10 wrong codes of the day: 'device', her unlock ends it");
+  eq(locked({ wait: 5, by: "<b>x</b>", help: "lift-me" }), { ok: false, e: "locked", wait: 5, by: "name", help: "wait" },
+    "an unknown scope reads as 'name' and an unknown help as 'wait': a screen is never told a lift is possible when it is not");
+  clock.ms += 2 * DAY;
 });
 
 T("S5: the caller's address comes from the platform's end of X-Forwarded-For; an unreadable one shares no bucket", async () => {
