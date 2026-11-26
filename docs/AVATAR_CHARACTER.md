@@ -42,7 +42,7 @@ decide whether more characters get the waist-up version. No decision on all 30 b
 | eye | fox (one quick wink) |
 | feathers | parrot (puff then settle) |
 | head | cat (one slow lift); owl (one wide swivel); turtle (in, pause, out) |
-| light: feathers | griffin (one shimmer) |
+| light: feathers | eagle (one shimmer) |
 | light: visor | pilot (one sweep) |
 | neck | flamingo (one slow dip) |
 | one arm | octopus (curl and tap-tap) |
@@ -93,6 +93,13 @@ decide whether more characters get the waist-up version. No decision on all 30 b
 | `zebra` | silly (מצחיק) | a big funny sneeze that shakes its mane | whole body: shake | one sudden jolt | new |
 | `badger` | brave (אמיצה) | rolls its shoulders like a strongman | shoulders | two slow rolls | new |
 | `kangaroo` | bouncy (קופצני) | two big hops straight up | whole body: up-down | two big hops | new |
-| `griffin` | noble (אציל) | a golden shimmer runs over its feathers as it lifts its head | light: feathers | one shimmer | new |
+| `eagle` | noble (אציל) | a golden shimmer runs over its feathers as it lifts its head | light: feathers | one shimmer | new |
 
 The ten provisional animations in #99 and the 19 older generic ones are replaced; only the fox's is kept.
+
+## Notes from the review of #99
+
+- The "griffin" was drawn as an eagle (no lion parts), so it is called an eagle (נשר) from now on: its files are
+  `av/eagle.*` and `avanim/eagle.*`, and the briefs say eagle. It is not regenerated.
+- The kangaroo's ears flop sideways mid-animation in its current clip; that clip is replaced with the new gestures
+  anyway.
