@@ -1,8 +1,30 @@
 # Art ledger: Arcade Lagoon
 
-Owner's cap for all art and sound of the new look: **450 credits**, stop and report at 400. Tool: the owner's own
+Owner's cap for all art and sound of the new look: **450 credits** until 2026-11-25, now **750** (below). Tool: the owner's own
 Higgsfield account, existing credits only. Every batch is quoted with the estimate tool first; "charged" is what the
 account was charged for the batch. Files and their job ids: `assets/al/sources.tsv`. No account balance is written here.
+
+**Budget raised to 750 (300 more) by the owner on 2026-11-25** ("קח 300", in the lead's session). The lead split the
+new 300 into hard caps so one item cannot eat the others; each cap stops its item, and every spend still waits for the
+owner's approval in the designer's session (briefs: `docs/ART_QUEUE.md`):
+
+| Cap | For | Credits | Status |
+|---|---|---|---|
+| (spent before the raise) | everything up to batch k9, the welcome film included (k8, k9 are in the film's PR) | 448.69 | the film is locked at its current version: no more generation on it without a new, separate number from the owner |
+| A | the secret-picture grid and its clips for the pupil sign-in (`docs/SIGNIN.md`) | 25 | approved by the owner on 2026-11-26; **11.50 charged, 13.50 left** (batch l1) |
+| B | Fraction Bay islands in the new look, with locked versions | 20 | waiting |
+| C | ten more avatars with their tap animations | 45 | waiting |
+| D | held: walking characters 25, two new subject worlds 100, reserve 86 | 211 | only on the lead's word |
+
+Batches after the raise:
+
+| Batch | Cap | What | Model, settings | Jobs | Quoted | Charged | Cap total |
+|---|---|---|---|---|---|---|---|
+| l1 | A | 20 secret pictures as 5 sheets of 4 (all used, no retake), and 22 voice clips with the preset voice Kaia (2 lines, 20 names), plus 13 retakes of names that speech recognition misheard (8, 2, then 3 after the lead's review; 6 used); all clips levelled to -16 LUFS locally | gpt_image_2_5 high 1:1, style reference: the bolt icon (5 x 1.25); text2speech_v2 elevenlabs, preset voice (35 takes) | 40 | 32.50 (5 x 1.25 + 35 x 0.75) | 11.50 (6.25 + 35 x 0.15) | 11.50 of 25 |
+
+The voice quote (0.75 a take) is above what the account charges (0.15); the cap is counted on what was charged. The
+quote alone would have crossed cap A with the retakes; next time the retakes are quoted at 0.15 only after checking
+the account's charge for the first take.
 
 | Batch | What | Model, settings | Jobs | Quoted | Charged | Running total | Left of 450 |
 |---|---|---|---|---|---|---|---|
@@ -16,8 +38,24 @@ account was charged for the batch. Files and their job ids: `assets/al/sources.t
 | h | The six English map islands redrawn in the night-sea style; the map sea with quiet details (whale, lantern boats, lighthouse, jellyfish); painted frames: panel, gold button, HUD pill (9-slice) | islands and frames: gpt_image_2_5, medium, 1k, transparent, style reference: the English island of batch c; sea: high, 9:16, reference: the batch g sea | 10 | 5.75 | 5.75 | 52.83 | 397.17 |
 | i | Character animations: 2 s per character, played once on tap (20 used); sample first (fox), then 19, then two retakes | grok_video, 2 s, 1:1, start image: the character's portrait (batch a/g) | 22 | 66.00 | 66.00 | 118.83 | 331.17 |
 | i2 | Character animations, lead's frame review: retakes of penguin, fox, owl (one each); penguin and fox used, owl failed again and gets a CSS tilt-and-bounce instead | grok_video, 2 s, 1:1, same start images | 3 | 9.00 | 9.00 | 127.83 | 322.17 |
+| j | Welcome film: 3 animated shots (5 s, 5 s, 2 s) and the Hebrew narration (preset voice Kaia); shots 1, 4, 6 cut here from our pictures | grok_video 720p (7.5 + 7.5 + 3); text2speech_v2 elevenlabs (0.75) | 4 | 23.25 | 23.25 | 151.08 | 298.92 |
+| j2 | Welcome film: new narration with the platform's new name (preset voice Kaia, nikud on two words) | text2speech_v2 elevenlabs | 1 | 0.75 | 0.75 | 151.83 | 298.17 |
+| j3 | Welcome film: music bed, original, instrumental, 30 s (the platform's own theme, for the film and later the map); one take, used | elevenlabs_music_v2_5 | 1 | 4.36 | 4.36 | 156.19 | 293.81 |
+| k | Welcome film v2 (the owner's story, one continuous camera): 4 key images; 4 shots from them (gate used; path, grass, flight unused once he asked for no cuts); 5 chained shots (side, grass, faces, zoom-out, flight); narration and 2 voices for Pitzi's line (one used). Intro cap raised by the owner to 115 | gpt_image_2_5 high 9:16 (4 x 1.25); grok_video 5 s 9:16 (9 x 7.5); text2speech_v2 elevenlabs (3 x 0.75) | 16 | 74.75 | 74.75 | 230.94 | 219.06 |
+| k2 | Welcome film v3 (the owner's notes): the island rising from the sea, Pitzi's key image, Pitzi's shot x 2 (the first showed pointed teeth: unused), a closing zoom-out (a second crab appeared: unused; a digital pull-back of Pitzi's last frame instead), one narration line. Intro cap raised by the owner to 140 | grok_video 5 s (4 x 7.5); gpt_image_2_5 high (1.25); text2speech_v2 (0.75) | 6 | 32.00 | 32.00 | 262.94 | 187.06 |
+| k3 | Welcome film v4 (the owner's notes): the turn and the island rising in one camera move, Pitzi's key image in the same frame, Pitzi's lip-synced shot x 2 (the first made him a giant: unused). Intro cap raised by the owner to 160 | grok_video 5 s (3 x 7.5); gpt_image_2_5 high (1.25) | 4 | 23.75 | 23.75 | 286.69 | 163.31 |
+| k4 | Welcome film v5 (the owner's notes): the laughs (each character its own, no words), the slow rise, Pitzi's leap out of the sea (key image and 6 s shot), the kids' answer and run. Intro cap raised by the owner to 200 | grok_video (5 s x 3 = 22.5, 6 s = 9); gpt_image_2_5 high (1.25) | 5 | 32.75 | 32.75 | 319.44 | 130.56 |
+| k5 | Welcome film v6 (the owner's notes): the shocked faces and slower rise, small Pitzi's leap (key image and 6 s shot), the run again with Pitzi small. The owner approved spending within the 450 budget | grok_video (5 s x 2 = 15, 6 s = 9); gpt_image_2_5 high (1.25) | 4 | 25.25 | 25.25 | 344.69 | 105.31 |
+| k6 | Welcome film v7 (the owner's notes): laughs with Pitzi peeking from the sea, the shock flowing into the camera turn as the island rises, Pitzi's leap (key image, 6 s shot x 2: the first turned him into a crab with a penguin's face, unused), the run to the same island | grok_video (5 s x 3 = 22.5, 6 s x 2 = 18); gpt_image_2_5 high (1.25) | 6 | 41.75 | 41.75 | 386.44 | 63.56 |
+| k7 | Welcome film: the closing line re-recorded, 3 spellings (the take said "לנתני"); checked by speech recognition, the plain spelling used | text2speech_v2 elevenlabs (3 x 0.75) | 3 | 2.25 | 2.25 | 388.69 | 61.31 |
+| k8 | Welcome film: a 5 s test of upscaling the finished film to 4K (Topaz, 2160p), to price a sharper sharing version. Not used | topaz_video 2160p, 5 s | 1 | (no quote offered) | 9.00 | 397.69 | 52.31 |
+| k9 | Welcome film: the whole film (no title, 36 s) upscaled to 4K for sharing with the teacher; the title is then rendered at 4K over it. The owner asked for it | topaz_video 2160p, 36 s | 1 | (no quote offered; the test priced it about 65) | 51.00 | 448.69 | 1.31 |
 
-Total charged so far: **127.83** of 450. Left: 322.17. (Batch i and i2 together: 75.00, the cap set for the animations.)
+The welcome film's title-less master (540 x 982, the source for `tools/intro_film.py`) is kept outside the repo; sha256
+before the fade-in `4ec80b21110a97f51b19443b064f37f05d5300acc017b8c25a732085b73f521c`, with the 1 s fade-in now used
+`d52f372b003770d7760f70e56d73e658942dd457c4062d0426359057ae31345a`.
+
+Total charged so far: **448.69** of 450. Left: 1.31. (The account charges voice takes less than their quote, 0.15 for most; the ledger keeps the quote, so it errs on the safe side.) (Batches i and i2 together: 75.00, the cap set for the animations; the welcome film, j to k9: 320.86 (the owner approved spending within the 450 budget). Version 1's files, batches j and j2, are spent and no longer used; its music, j3, is reused.)
 
 ## Jobs
 
@@ -135,6 +173,47 @@ no blended frames):
 | penguin | 37bd5424-72a9-45fd-8b9e-4b44c36d7e3c | yes, frames 1 to 15 and back: smile, tilt, one blink, beak closed |
 | fox | ab8ea61d-9a2c-4fe1-beda-89141de05554 | yes, frames 1 to 13 and back: closed-mouth smile, tilt, one wink |
 | owl | 797aa225-841f-4c78-b8ef-7fc1f4e57e95 | no: one eye half-lidded into a side-eye (f7 to f9), then a frowning wink; CSS tilt-and-bounce instead |
+
+Batch j jobs: shot 2 7621ea4f-5457-4816-a8dd-cd722b9e9af3, shot 3 970ab3ba-1efa-4c15-af1b-be2b890a8e29 (start frame: our sea picture, uploaded),
+shot 5 d3df4296-1b5f-42b1-9c97-c8a8d09bb4dc, narration b87a763d-1a3c-481d-852e-87d9a69afa0f (replaced). Batch j2: narration 1ec486fb-379a-4ec2-9613-83ddce779343. Batch j3: music c9f440f8-64c5-4dfe-ac0c-db1ae20e57bd.
+
+Batch k jobs. Key images: gate 5f2c23a8-7ac6-4f64-a6f3-ca1152e431a8, path 14f86136-3284-4ec4-b8fe-91dc0954e9a1, grass
+c3ab51b6-1bcd-4ade-ab1f-a01102901f13, hill 5195d0a8-38e7-49a4-b517-5dafea99db55 (references: the portraits of girl-braids, boy-cap,
+fox, penguin). Shots used: gate d69a525d-1314-4d96-984b-e04c7bd04658, side 95ba6021-a085-4b40-9954-04cff5e7c5da, to the grass
+33b2a7ea-c94f-4a53-ac57-522ca9bd26e4 (first 1.8 s only: later frames drift, the penguin loses his goggles), faces
+e1b88c79-d744-4a09-8724-6af2218648c1, zoom-out 9f533fd3-72c0-49aa-b65c-8b09bdf03b96, flight f47c0bff-0f28-4752-80da-32d4a42b4992.
+Unused: b2acb6fc (path), 4ae25e54 (grass), e6aade1b (hill flight), Pitzi voice Dylan 13bb7b67. Narration dd64b78b-db60-4e55-9e97-e908bb1cd35a,
+Pitzi (preset voice Archie) 7e57dcd5-6db4-4210-b861-97ad87358c78. Every shot's frames were looked at: generic illustrated gate, no
+signs, names or logos; our four avatars as their portraits; the friends at the gate are generic.
+
+Batch k2 jobs: island rising 43b94f4e-17f5-477e-b88f-fa5d5882b416 (from the faces shot's last frame), Pitzi key image
+89744b75-fe4e-4e4c-9982-aa3636e2812f (references: Pitzi's wave pose c2effc24, the hill 5195d0a8, the grass c3ab51b6), Pitzi used
+f7ce2658-a46d-4523-8a64-a33ebc88e245, unused 2c24bc12 (teeth) and e34ffa12 (two crabs), narration "ופתאום... מתוך הים עולה אי ענק!"
+9e3d099a-f624-4dfb-a1b1-52a711fa9798. The shots' own generated sound is used as the background (no recordings of real children).
+
+Batch k3 jobs: turn and rise a13d3fa0-7c64-4219-83d8-77f472592e21 (from the faces shot's last frame), Pitzi added to its last frame
+dd2336d6-710e-4e93-a793-498bfcef58c1 (reference: Pitzi's wave pose), Pitzi speaking fdd4513c-1a7a-407c-83fc-f335f5abeb53 (used; his line
+is the shot's own generated voice, not a clone), unused 197e8c49 (he grew to giant size). v3's shots 43b94f4e, 89744b75 and f7ce2658
+and the narration line's v3 timing are no longer used.
+
+Batch k4 jobs: laughs e2d71bef-ca94-46a4-b59f-64b44bf67b92, slow rise 70bf74cf-6116-46b1-b3a5-6e4bbdcaa93f, Pitzi leaping key image
+e3e5f8d1-9338-4b86-93f6-3ce2ed9c2afe, Pitzi's leap and line 91f4e24c-8574-40a6-a385-e4d435b1f5c0, "Yeah, let's go!" and the run
+30220de2-7942-4db5-bb82-9f99b71a615f. All used. v4's shots e1b88c79 (its fox said "break the ice"), a13d3fa0, dd2336d6, fdd4513c are
+no longer used.
+
+Batch k5 jobs: shock and slow rise 7c37a49d-aee3-4d11-a0e2-bc8b63dbb8c9, small Pitzi leaping key image 9e3ca1ab-c4ec-48df-8a40-5e5d6f07688a,
+Pitzi's leap and line b9285b21-2c2a-42f5-abd2-bfe4f5ca614a, "Yeah, let's go!" and the run 00980a2b-0f5a-4695-b31f-982280cb406b. All used.
+v5's 70bf74cf, e3e5f8d1, 91f4e24c and 30220de2 are no longer used. The title fonts (Rubik Bubbles, Rubik Moonrocks) are Google
+Fonts under the SIL Open Font License; only rendered pictures of them are in the film.
+
+Batch k6 jobs: laughs and the peek 61679f79-a354-4edb-abce-2831547d829d, shock and rise e0b4570c-6d40-4646-ad80-7edd7efeddd6, Pitzi
+leaping key image c70906f9-77f4-4183-9011-a3855d1b53b5, Pitzi's leap and line 525c9966-647b-41e7-8339-a21560ef3c5d (unused:
+122e47e5, his face turned into a penguin's), the run e78eef89-88e1-4b0e-ab69-1469ee330bf6. v6's e2d71bef, 7c37a49d, 9e3ca1ab,
+b9285b21 and 00980a2b are no longer used.
+
+Batch k7 jobs: b1e4b4c4-8238-4bd1-9f4b-be1a9e838dd5 (used, plain spelling "לניצני אופק"), 720437b1 (nikud, also heard right,
+unused), 65fdf0c9 (heard as "הופק", unused). Checked with a local speech-recognition model (faster-whisper medium); a person
+still listens.
 
 ## Review notes
 
