@@ -236,7 +236,7 @@ for (const down of ['throw', 500]) {
 }
 {
   const st = fresh();
-  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, everyone: true, saveEveryS: 2, unfinished: true }, supabase(st));
+  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, everyone: true, saveEveryS: 2 }, supabase(st));
   await m.api('login', CRED); await idle();
   const r1 = await m.api('save', { ...CRED, s: { pts: 1 } });
   const r2 = await m.api('save', { ...CRED, s: { pts: 2 } });
@@ -250,8 +250,21 @@ for (const down of ['throw', 500]) {
 
 // ---- 2c. the reviews of #21 and #35: shared devices, sign-in once, events even when a save waits, 2 hours of play
 {
-  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, everyone: true }, sheetOk);
-  eq("'supabase' without the second key (unfinished: true) stays on the Sheet (S-b)", m.MODE, 'sheet');
+  /* the config guard of 'supabase' (review of #111, after unfinished: true went): the class is switched by
+     everyone: true only; a project and the exact mode alone give a trial (?new=1 devices); every misspelling, a value
+     that is not exactly true, a nested key or a wrong project address keeps every device on the Sheet */
+  const P = { mode: 'supabase', url: SB, key: KEY };
+  globalThis.location = globalThis.location || { search: '' }; globalThis.location.search = '';
+  const cases = [[{ ...P, everyone: true }, 'supabase'], [P, 'sheet'], [{ ...P, unfinished: true }, 'sheet'],
+    [{ ...P, everyone: 'true' }, 'sheet'], [{ ...P, everyone: 1 }, 'sheet'], [{ ...P, Everyone: true }, 'sheet'], [{ ...P, everyOne: true }, 'sheet'],
+    [{ ...P, trial: { everyone: true } }, 'sheet'], [{ mode: 'Supabase', url: SB, key: KEY, everyone: true }, 'sheet'], [{ mode: 'supabase ', url: SB, key: KEY, everyone: true }, 'sheet'],
+    [{ ...P, url: 'https://evil.example', everyone: true }, 'sheet'], [{ ...P, url: SB + '.evil.example', everyone: true }, 'sheet'], [{ ...P, key: 'short', everyone: true }, 'sheet'],
+    [{ ...P, url: SB.replace('https', 'http'), everyone: true }, 'sheet']];
+  const got = [];
+  for (const [cfg] of cases) got.push((await load(cfg, sheetOk)).m.MODE);
+  eq("config guard: only a project, the exact mode and everyone: true switch every device to 'supabase'; anything else stays on the Sheet", got, cases.map(c => c[1]));
+  const proto = Object.create({ everyone: true }); Object.assign(proto, P);
+  eq('config guard: an inherited everyone: true does not count (own key only)', (await load(proto, sheetOk)).m.MODE, 'sheet');
 }
 {
   const A = { c: 'EN-0000', n: 'Testa', p: '4827' }, Bp = { c: 'EN-0000', n: 'Probe', p: '5839' };
@@ -856,6 +869,15 @@ locks(false);
   eq('trial off the class\'s devices: nothing registered on the page', a.listeners.length, 0);
 }
 {
+  // 'supabase' has its own switch, ?new=1 (docs/PHASE4.md A); ?dual=1 does not turn it on, nor ?new=1 'dual'
+  const cfg = { mode: 'supabase', url: SB, key: KEY };
+  const at = async (q, cfg2 = cfg, shared) => { globalThis.location.search = q; const x = await load(cfg2, sheetOk, shared); globalThis.location.search = ''; return x; };
+  const a = await at(''), b = await at('?dual=1'), c = await at('?new=1'), d = await at('', cfg, c), e = await at('?new=0', cfg, c);
+  const f = await at('?new=1', { mode: 'dual', url: SB, key: KEY });
+  eq("'supabase' trial: only ?new=1 turns a device on, it is remembered, ?new=0 turns it off; ?new=1 is not the switch of 'dual'",
+    [a.m.MODE, b.m.MODE, c.m.MODE, d.m.MODE, e.m.MODE, c.store.has('wi_new'), f.m.MODE], ['sheet', 'sheet', 'supabase', 'supabase', 'sheet', false, 'sheet']);
+}
+{
   // K2b (review of #73): with a project in config.js the default is a trial; only everyone: true (that exact key, that
   // exact value) turns the class on. No typo, nesting or leftover key can switch every pupil over.
   const variants = [{}, { trial: true }, { trial: false }, { trail: true }, { everyone: 'true' }, { everyone: 1 }, { Everyone: true },
@@ -939,5 +961,98 @@ locks(false);
   eq('a counter that jumped absurdly is capped (600 answers a word, the server\'s own daily ceiling)', m.events({}, { st: { cat: [100000, 0] } }).length, 600);
   eq('and 4,000 events at most for one save', m.events({}, { st: Object.fromEntries(Array.from({ length: 10 }, (_, i) => ['w' + i, [1000, 0]])) }).length, 4000);
 }
+
+// ---- 9. 'supabase' mode, finished (docs/PHASE3.md step 6): sign in once, then the session only; record and board from Supabase
+{
+  const BASE = { mode: 'supabase', url: SB, key: KEY, everyone: true, saveEveryS: 0 };
+  const PUPIL = { id: '11111111-1111-4111-8111-111111111111', class_id: '22222222-2222-4222-8222-222222222222' };
+  /* the project as far as the game sees it: the three pupil functions, the token, the pupil's own row, the record,
+     the board and the two writes. tok: the access token it hands out; dead: every token is refused from then on */
+  const project = st => c => {
+    const u = c.url.replace(SB, ''), auth = (c.init.headers || {}).authorization || '';
+    st.seen.push(u.replace(/\?.*$/, ''));
+    const fnReply = name => { st.fn.push([name, c.body, auth]); const r = typeof st[name] === 'function' ? st[name](c.body) : st[name] ?? 'default'; return { json: r !== 'default' ? r : { ok: true, session: { access_token: st.tok, refresh_token: 'ref-' + st.tok, expires_at: Math.floor(Date.now() / 1000) + 3600 }, device_token: 'd'.repeat(43), updated_at: 't0', s: st.serverState ?? {}, name: 'נועה' } }; };
+    if (u === '/functions/v1/pupil-login') return fnReply('login');
+    if (u === '/functions/v1/pupil-register') return fnReply('register');
+    if (u === '/functions/v1/pupil-recover') return fnReply('recover');
+    if (u.startsWith('/auth/v1/token')) return st.dead ? { status: 400, json: { error: 'invalid_grant' } } : { json: { access_token: st.tok + '-r', refresh_token: 'ref-r', expires_in: 3600 } };
+    if (u.startsWith('/auth/v1/logout')) { st.logouts.push(auth); return { status: 204, json: null }; }
+    if (st.dead || !auth.startsWith('Bearer ' + st.tok)) return { status: 401, json: { message: 'JWT expired' } };
+    if (u === '/rest/v1/pupils?select=id,class_id&limit=1') return st.noWho ? { status: 500, json: null } : { json: [PUPIL] };
+    if (u === '/rest/v1/progress?select=state,updated_at&limit=1') return { json: st.record ? [st.record] : [] };
+    if (u.startsWith('/rest/v1/class_board?')) { st.boardQ = u; return { json: [{ display_name: 'נועה', points: 40, words: 3, streak: 2, me: true }, { display_name: 'Probe', points: 12, words: 1, streak: 1, me: false }] }; }
+    if (u === '/rest/v1/rpc/save_progress') { st.saves.push(c.body); return { json: { ok: true, updated_at: 'u' + st.saves.length } }; }
+    if (u === '/rest/v1/rpc/record_events') { st.batches.push(c.body); return { json: { ok: true, points: 30, flagged: 0 } }; }
+    return { status: 404, json: null };
+  };
+  const fresh9 = o => ({ seen: [], fn: [], logouts: [], saves: [], batches: [], tok: 'acc1', ...o });
+  {
+    const st = fresh9({ serverState: { pts: 40, st: { cat: [2, 0] } } });
+    const { m, calls, store } = await load(BASE, project(st));
+    eq("'supabase' with the second key: mode", m.MODE, 'supabase');
+    const r = await m.api('login', CRED); await idle();
+    eq('login: the record, the server\'s spelling of the name, and who signed in (pupil and class ids)', r, { ok: true, s: { pts: 40, st: { cat: [2, 0] } }, name: 'נועה', who: { p: PUPIL.id, c: PUPIL.class_id }, at: 't0' });
+    eq('login: the code goes to pupil-login with the public key only, and to nothing else', [st.fn[0][0], st.fn[0][1], st.fn[0][2]], ['login', { class_code: 'EN-0000', name: 'נועה', code: '4827' }, '']);
+    eq('who: read with the new session, after the sign-in', [st.seen[1], calls[1].init.headers.authorization], ['/rest/v1/pupils', 'Bearer acc1']);
+    const rec = await m.api('record', { c: CRED.c, n: CRED.n }); await idle();
+    eq('record: an empty record is {} (a new pupil)', rec, { ok: true, s: {} });
+    st.record = { state: { pts: 55 }, updated_at: 'r1' };
+    eq('record: the pupil\'s own record, with the session', await m.api('record', { c: CRED.c, n: CRED.n }), { ok: true, s: { pts: 55 } });
+    await m.api('save', { c: CRED.c, n: CRED.n, s: { pts: 56 } }); await idle();
+    eq('the next save is based on the record that was read (not taken for another device\'s)', st.saves[0].p_base, 'r1');
+    const b = await m.api('board', { c: CRED.c, n: CRED.n });
+    eq('board: from class_board, with the pupil\'s own row marked', [b.ok, b.rows, st.boardQ], [true, [{ n: 'נועה', pts: 40, words: 3, streak: 2, me: true }, { n: 'Probe', pts: 12, words: 1, streak: 1, me: false }], '/rest/v1/class_board?select=display_name,points,words,streak,me&order=points.desc']);
+    check('no request after the sign-in carries the code', calls.slice(1).every(c => !JSON.stringify(c.body || '').includes('4827') && !c.url.includes('4827')));
+    const all = [...store.entries()].map(([k, v]) => k + v).join('|');
+    check('nothing the adapter keeps on the device holds the code or the name', !all.includes('4827') && !all.includes('נועה'), all.slice(0, 200));
+    eq('teacher and reset: not here (teacher.html)', [await m.api('teacher', {}), await m.api('reset', {})], [{ ok: false, e: 'teacher' }, { ok: false, e: 'teacher' }]);
+    m.forget(true); await idle();
+    check('sign out: the session is revoked on the server and gone from the device; the device token stays', st.logouts.length === 1 && !(store.get('wi-sb-session') || '').includes('acc1') && (store.get('wi-sb-session') || '').includes('ddd'), [st.logouts, store.get('wi-sb-session')]);
+    eq('after sign-out: the record and the board ask to sign in again', [await m.api('record', {}), await m.api('board', {})], [{ ok: false, e: 'signin' }, { ok: false, e: 'signin' }]);
+  }
+  {
+    const st = fresh9();
+    const { m } = await load(BASE, project(st));
+    const r = await m.api('register', { c: 'EN-0000', n: 'נועה', p: '4827', pics: [3, 17] }); await idle();
+    eq('register: class code, name, code and the two pictures in order, nothing else', [r.ok, st.fn[0][1]], [true, { class_code: 'EN-0000', name: 'נועה', code: '4827', pictures: [3, 17] }]);
+    await m.api('recover', { c: 'EN-0000', n: 'נועה', np: '5931', npics: [4, 9], pics: [3, 17] }); await idle();
+    eq('recover by pictures: the new code, the new pictures and the old pictures', st.fn[1][1], { class_code: 'EN-0000', name: 'נועה', new_code: '5931', new_pictures: [4, 9], pictures: [3, 17] });
+    await m.api('recover', { c: 'EN-0000', n: 'נועה', np: '5931', npics: [4, 9], otc: '123456' }); await idle();
+    eq('recover by the teacher\'s one-time code: no pictures of the old pair', st.fn[2][1], { class_code: 'EN-0000', name: 'נועה', new_code: '5931', new_pictures: [4, 9], otc: '123456' });
+  }
+  for (const [answer, want] of [[{ ok: false, e: 'locked', wait: 300, by: 'device', help: 'teacher' }, { ok: false, e: 'locked', wait: 300, by: 'device', help: 'teacher' }],
+    [{ ok: false, e: 'locked', wait: 'x' }, { ok: false, e: 'locked', wait: 0, by: 'name', help: 'wait' }],
+    [{ ok: false, e: 'locked', wait: -1, by: 'name', help: 'teacher' }, { ok: false, e: 'locked', wait: -1, by: 'name', help: 'teacher' }],
+    [{ ok: false, e: 'locked', wait: 90.7, by: 'evil', help: 'x' }, { ok: false, e: 'locked', wait: 90, by: 'name', help: 'wait' }],
+    [{ ok: false, e: 'setup' }, { ok: false, e: 'net' }],
+    [{ ok: false, e: 'weak' }, { ok: false, e: 'weak' }], [{ ok: false, e: 'pin' }, { ok: false, e: 'pin' }], [{ ok: false, e: 'roster' }, { ok: false, e: 'roster' }],
+    [{ ok: false, e: '<b>odd</b>' }, { ok: false, e: 'net' }], [null, { ok: false, e: 'net' }]]) {
+    const st = fresh9({ login: () => answer });
+    const { m } = await load(BASE, project(st));
+    eq(`login refused with ${JSON.stringify(answer)}: the screen gets the server's word, its wait, scope and help`, await m.api('login', CRED), want);
+    await idle();
+  }
+  {
+    const st = fresh9({ noWho: true });
+    const { m } = await load(BASE, project(st));
+    eq('who cannot be read: signed in, but who is null (the game then joins nothing of the device)', (await m.api('login', CRED)).who, null); await idle();
+  }
+  {
+    const st = fresh9();
+    const { m } = await load(BASE, project(st));
+    await m.api('login', CRED); await idle();
+    st.dead = true;
+    const s = JSON.parse(globalThis.localStorage.getItem('wi-sb-session')); s.expires_at = 1; globalThis.localStorage.setItem('wi-sb-session', JSON.stringify(s));
+    eq('the session ended on the server (expired, not renewable): the save asks to sign in again', await m.api('save', { c: CRED.c, n: CRED.n, s: { pts: 1 } }), { ok: false, e: 'signin' });
+    eq('and so do the record and the board', [await m.api('record', {}), await m.api('board', {})], [{ ok: false, e: 'signin' }, { ok: false, e: 'signin' }]);
+    await idle();
+  }
+  {
+    const src = fs.readFileSync(path.join(ROOT, 'js/state.js'), 'utf8');
+    check("js/state.js: in 'supabase' mode cred() has no code and the record is the new key, never the Sheet's",
+      src.includes("export const cred=()=>NEW?{c:S.u.c,n:S.u.n}:{c:S.u.c,n:S.u.n,p:S.u.p};") && src.includes("export const KEY=NEW?'wi-new-v1':'aam-unit1-v1';"));
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

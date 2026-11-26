@@ -4,7 +4,11 @@ import {clipOf,HAS_CLIPS} from './voice.js';
 import {stretch} from './stretch.js';
 import {voiceCtx,voiceOut,duck} from './audio.js';
 
-export const KEY='aam-unit1-v1';          // shared with trainer.html so both keep one progress record
+import {api,forget,MODE as BACKEND} from './api.js';export {api};   // the backend adapter; with today's config.js it makes the very same request this line used to make
+/* 'supabase' mode (docs/PHASE4.md A): the new backend gets its own record on the device, never the Sheet's, which
+   stays as it is for the way back. It belongs to one pupil of one class (S.who) and is never joined into another's. */
+export const NEW=BACKEND==='supabase';
+export const KEY=NEW?'wi-new-v1':'aam-unit1-v1';   // the Sheet's is shared with trainer.html so both keep one progress record
 const SET_KEY='word-islands-settings-v1'; // device-only preferences
 const blankG=()=>({st:{},ball:0,ob:{},plays:0});
 export const blank=()=>({m:{st:{},plays:0},w:{},read:{},parts:[1,2,3,4,5],dir:'en-he',cnt:10,me:[],ct:3,ccnt:15,ctypes:['en-he','he-en','tobe'],pts:0,st:{},day:'',streak:0,u:null,lastC:'',g:blankG()});
@@ -23,22 +27,22 @@ try{Object.assign(SET,JSON.parse(localStorage.getItem(SET_KEY))||{})}catch(e){}
 export const saveSet=()=>{try{localStorage.setItem(SET_KEY,JSON.stringify(SET))}catch(e){}};
 
 /* ---------- class backend (Google Sheet via Apps Script) ---------- */
-export const API=(window.API_URL||'').trim();
-export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסודי לא נכון. נסו שוב.',nouser:'לא מצאנו את השם הזה בכיתה. עוד לא נרשמתם?',taken:'השם הזה כבר רשום. לא אתם? הוסיפו אות אחת אחרי השם. זה אתם?',roster:'השם לא נמצא ברשימת הכיתה.\nכתבו את השם הפרטי, או בקשו מהמורה להוסיף אתכם.',locked:'יותר מדי ניסיונות.\nחכו 5 דקות ונסו שוב.',full:'הכיתה מלאה. פנו למורה.',input:'צריך קוד כיתה, שם באותיות\nוקוד סודי של 4 ספרות.',teacher:'קוד המורה לא נכון.',setup:'המערכת עוד לא הוגדרה.',net:'אין חיבור כרגע.\nבדקו את האינטרנט ונסו שוב.',server:'משהו השתבש בשרת. נסו שוב מאוחר יותר.'};
+export const API=(window.API_URL||'').trim()||(NEW?'supabase':'');   // "a class backend is there": in 'supabase' mode also without a Sheet address
+export const ERR={class:'קוד הכיתה לא נכון.',pin:'הקוד הסודי לא נכון. נסו שוב.',nouser:'לא מצאנו את השם הזה בכיתה. עוד לא נרשמתם?',taken:'השם הזה כבר רשום. לא אתם? הוסיפו אות אחת אחרי השם. זה אתם?',roster:'השם לא נמצא ברשימת הכיתה.\nכתבו את השם הפרטי, או בקשו מהמורה להוסיף אתכם.',locked:'יותר מדי ניסיונות.\nחכו 5 דקות ונסו שוב.',full:'הכיתה מלאה. פנו למורה.',input:'צריך קוד כיתה, שם באותיות\nוקוד סודי של 4 ספרות.',teacher:'קוד המורה לא נכון.',setup:'המערכת עוד לא הוגדרה.',net:'אין חיבור כרגע.\nבדקו את האינטרנט ונסו שוב.',server:'משהו השתבש בשרת. נסו שוב מאוחר יותר.',signin:'צריך להיכנס שוב. ההתקדמות שלכם שמורה במכשיר.'};
 /* a failed request (no connection) throws, as before. A server that answered with something that is not JSON (an Apps
    Script error page) gives {e:'server'}, so the pupil is not told to check an internet connection that works. */
-import {api,forget,MODE as BACKEND} from './api.js';export {api};   // the backend adapter; with today's config.js it makes the very same request this line used to make
-export const cred=()=>({c:S.u.c,n:S.u.n,p:S.u.p});
+// 'supabase': the code is never kept, so it is never sent again; the session does the rest
+export const cred=()=>NEW?{c:S.u.c,n:S.u.n}:{c:S.u.c,n:S.u.n,p:S.u.p};
 export const wordsKnown=()=>WORDS.filter(w=>w.p<6&&(S.w[w.en]||0)>=2).length;
 const pack=()=>({w:S.w,read:S.read,st:S.st,pts:S.pts,day:S.day,streak:S.streak,me:S.me,g:S.g,m:S.m,x:S.x,k:{words:wordsKnown(),reads:TEXTS.filter(t=>S.read[t.id]===t.qs.length).length}});
 let dirty=0,syncT=0,retryT=0,retryN=0,inflight=null,fatal=false;
-const FATAL=['pin','nouser','class','input','big','setup'];   // the server will never take this save: do not keep trying
+const FATAL=['pin','nouser','class','input','big','setup','signin'];   // signin: 'supabase' only, the session is gone   // the server will never take this save: do not keep trying
 /* ---------- is the class table up to date? ----------
    S.sync = {at: time of the last save the server took, err: why the last one was refused}. Kept on the device, never sent.
    A refusal for good (the class code changed, the pupil's name was edited in the sheet, the row was deleted) used to be
    silent: the device kept the points and the sheet never saw them. Now the pupil is asked to sign in again, and what this
    device earned is joined to the account they sign in to, when it is the same pupil (see auth). */
-export const RELOGIN=['pin','nouser','class'];
+export const RELOGIN=['pin','nouser','class','signin'];
 export const syncState=()=>S.sync||{};
 export const needsRelogin=()=>!!(API&&S.u&&S.sync&&RELOGIN.includes(S.sync.err));
 const onSync=()=>{try{dispatchEvent(new Event('sync'))}catch(e){}};
@@ -82,7 +86,7 @@ function merge(r){
 let pullAt=0;
 export async function pull(){
  if(!API||!S.u||Date.now()-pullAt<60000)return false;pullAt=Date.now();
- const u=S.u;let r;try{r=await api('login',cred())}catch(e){return false}
+ const u=S.u;let r;try{r=await api(NEW?'record':'login',cred())}catch(e){return false}
  if(r&&!r.ok&&S.u===u&&FATAL.includes(r.e)){fatal=true;refused(r.e);return true}   // the account no longer takes this device's progress: ask to sign in again
  if(!r||!r.ok||S.u!==u)return false;
  if(S.sync&&S.sync.err&&RELOGIN.includes(S.sync.err)){S.sync={at:Date.now()};onSync()}
@@ -90,6 +94,7 @@ export async function pull(){
  if(sig(S)!==sig(rs))touch();
  return sig(S)!==before}
 export async function auth(mode,c,n,p){
+ if(NEW){const r=await enter(mode,{c,n,code:p});return r.ok?null:ERR[r.e]||ERR.net}
  let r;try{r=await api(mode,{c,n,p})}catch(e){r={e:'net'}}
  if(!r.ok)return ERR[r.e]||ERR.net;
  newPin=r.newpin?p:'';   // the code was reset: these digits are the pupil's new code
@@ -100,18 +105,46 @@ export async function auth(mode,c,n,p){
  if(mine&&sameKid(mine.n,n)){const before=sig(r.s||{});merge(mine.s);fix();if(sig(S)!==before)touch()}
  else if(mine&&hasProgress(mine.s))S.stash=mine;
  S.sync={at:Date.now()};saveLocal();onSync();return null}
+/* ---------- 'supabase': the one call of the sign-in screens (the seam with step 5, in the PR) ----------
+   kind: 'register' {c,n,code,pics}, 'login' {c,n,code}, 'recover' {c,n,newCode,newPics, pics or otc}.
+   Resolves {ok:true}, or {ok:false,e,wait?,by?,help?} with the server's word for what went wrong; never throws.
+   The device's record is this pupil's of this class only: another pupil's, or the same name in another class, or a
+   record whose pupil is unknown, is dropped before anything is joined (docs/PHASE4.md A). */
+const sameWho=(a,b)=>!!(a&&b&&a.p&&a.c&&a.p===b.p&&a.c===b.c);
+export async function enter(kind,f){
+ if(!NEW)return{ok:false,e:'mode'};
+ f=f||{};const c=String(f.c||'').trim(),n=String(f.n||'').trim().replace(/\s+/g,' ');
+ const d=kind==='register'?{c,n,p:f.code,pics:f.pics}:kind==='login'?{c,n,p:f.code}:kind==='recover'?{c,n,np:f.newCode,npics:f.newPics,...(f.otc!==undefined?{otc:f.otc}:{pics:f.pics})}:null;
+ if(!d)return{ok:false,e:'input'};
+ let r;try{r=await api(kind,d)}catch(e){r={ok:false,e:'net'}}
+ if(!r||!r.ok)return r&&r.e?r:{ok:false,e:'net'};
+ const o=S,who=r.who||null;
+ /* B1 (review of #111): who could not be read: nothing may be joined or put aside on a guess, so the sign-in does not
+    count; the new session is let go and the device keeps everything as it was (the pupil tries again) */
+ if(!who){forget(false);return{ok:false,e:'net'}}
+ /* what this device played and did not save yet: the signed-in pupil's (o.u), else what was put aside (o.stash) */
+ const cur=o.u&&hasProgress(pack())?{n:o.u.n,s:pack(),who:o.who||null}:o.stash||null;
+ const mine=cur&&sameWho(cur.who,who)?cur:null;
+ S=Object.assign(blank(),{parts:o.parts,dir:o.dir,cnt:o.cnt,ct:o.ct,ccnt:o.ccnt,ctypes:o.ctypes},r.s||{},{u:{c,n:r.name||n},who,lastC:c});
+ delete S.k;delete S.stash;delete S.sync;fix();dirty=0;fatal=false;pullAt=Date.now();
+ if(mine){const before=sig(r.s||{});merge(mine.s);fix();if(sig(S)!==before)touch()}   // this pupil's own: joined
+ /* another pupil's or another class's: kept aside for them, never joined into this one (as in Sheet mode); joined
+    when that pupil of that class signs in on this device again */
+ else if(cur&&cur.who&&hasProgress(cur.s))S.stash=cur;
+ S.sync={at:Date.now()};saveLocal();onSync();return{ok:true}}
 let newPin='';
 export const takeNewPin=()=>{const p=newPin;newPin='';return p};
 const norm=x=>String(x||'').trim().replace(/\s+/g,' ');
 export const sameKid=(a,b)=>{a=norm(a);b=norm(b);return!!a&&(a===b||a.split(' ')[0]===b.split(' ')[0])};
 const hasProgress=s=>!!s&&((+s.pts||0)>0);
 /* sign in again after a refusal: what this device earned is put aside and joined in when the same pupil signs in */
-export function relogin(){const u=S.u;if(!u)return null;forget(false);S.stash={n:u.n,s:pack()};clearTimeout(syncT);clearTimeout(retryT);const e=(S.sync&&S.sync.err)||'';S.u=null;dirty=0;fatal=false;delete S.sync;saveLocal();onSync();return{c:u.c,n:u.n,e}}
+export function relogin(){const u=S.u;if(!u)return null;forget(false);S.stash={n:u.n,s:pack(),...(NEW?{who:S.who||null}:{})};clearTimeout(syncT);clearTimeout(retryT);const e=(S.sync&&S.sync.err)||'';S.u=null;dirty=0;fatal=false;delete S.sync;saveLocal();onSync();return{c:u.c,n:u.n,e}}
 /* resolves false, and keeps the pupil signed in, while progress is still waiting to be saved (no connection):
    signing out would erase it. A record the server refuses for good (the teacher removed the pupil) does not hold anyone back. */
 export async function logout(){const ok=await push();if(!ok&&!fatal)return false;
  forget(true);   // the backend adapter forgets this pupil's session on the device (and revokes it, when there is one)
  clearTimeout(syncT);clearTimeout(retryT);const c=S.lastC,keep=fatal&&hasProgress(pack())?{n:S.u.n,s:pack()}:S.stash||null;   // a refused record is not thrown away: it waits for its owner to sign in
+ if(NEW&&keep&&!keep.who)keep.who=S.who||null;   // 'supabase': kept for this pupil of this class only
  S=Object.assign(blank(),{lastC:c},keep?{stash:keep}:{});dirty=0;fatal=false;saveLocal();onSync();return true}
 
 /* D1 (review of #63): another pupil signed in in another tab of this device, so the backend adapter stopped copying
