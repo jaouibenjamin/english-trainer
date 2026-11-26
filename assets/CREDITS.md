@@ -481,7 +481,8 @@ The game shows them from one sheet, drawn from these sources by `tools/sheet.htm
 Character portraits, Pitzi in the new look, backgrounds, islands, mission stones, HUD icons, and instrumental music
 and sounds. Tool: Higgsfield, model named per file. Each picture was cut, resized and encoded as WebP from its
 original; each sound was cut, levelled and encoded as mono MP3. Original work: no known characters, brands, tunes
-or real people, no voices. Two HUD icons can share one job (they were drawn in one picture).
+or real people; voices only from a generated preset (Kaia), never a clone. Two HUD icons can share one job, and the
+secret pictures come four to a job (each drawn as a sheet of four, then cut).
 
 ### Character portraits
 
@@ -615,6 +616,58 @@ or real people, no voices. Two HUD icons can share one job (they were drawn in o
 | `assets/al/snd/sig-animal.hf_20261124_210018_b7364c03-16fe-42a0-9ef0-b85483a79c8c.mp3` | signature sound, animal characters | 2026-11-24 | b7364c03-16fe-42a0-9ef0-b85483a79c8c | elevenlabs_music_v2_5 |
 | `assets/al/snd/sig-robot.hf_20261124_210017_32dd90d2-d557-408b-8a24-8f57e7e6ca18.mp3` | signature sound, robot and helmet characters | 2026-11-24 | 32dd90d2-d557-408b-8a24-8f57e7e6ca18 | elevenlabs_music_v2_5 |
 | `assets/al/snd/sig-kid.hf_20261124_210017_6517f4b3-2431-4fc7-9381-2508da43efb2.mp3` | signature sound, kid characters | 2026-11-24 | 6517f4b3-2431-4fc7-9381-2508da43efb2 | elevenlabs_music_v2_5 |
+
+### Secret pictures for the pupil sign-in (not used yet)
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/secret/apple.hf_20261126_041323_3bedd33e-537f-445d-9b2f-a2de6c83f3d4.webp` | secret picture for the pupil sign-in: תפוח (apple); cut from a sheet of four, 192 px | 2026-11-26 | 3bedd33e-537f-445d-9b2f-a2de6c83f3d4 | gpt_image_2_5 high |
+| `assets/al/secret/banana.hf_20261126_041323_3bedd33e-537f-445d-9b2f-a2de6c83f3d4.webp` | secret picture for the pupil sign-in: בננה (banana); cut from a sheet of four, 192 px | 2026-11-26 | 3bedd33e-537f-445d-9b2f-a2de6c83f3d4 | gpt_image_2_5 high |
+| `assets/al/secret/bell.hf_20261126_041323_04bbaf2a-1abe-45cc-837b-ccffb8d58a23.webp` | secret picture for the pupil sign-in: פעמון (bell); cut from a sheet of four, 192 px | 2026-11-26 | 04bbaf2a-1abe-45cc-837b-ccffb8d58a23 | gpt_image_2_5 high |
+| `assets/al/secret/book.hf_20261126_041324_98e7de0d-19d1-4079-b408-10392bd66467.webp` | secret picture for the pupil sign-in: ספר (book); cut from a sheet of four, 192 px | 2026-11-26 | 98e7de0d-19d1-4079-b408-10392bd66467 | gpt_image_2_5 high |
+| `assets/al/secret/cactus.hf_20261126_041323_3bedd33e-537f-445d-9b2f-a2de6c83f3d4.webp` | secret picture for the pupil sign-in: קקטוס (cactus); cut from a sheet of four, 192 px | 2026-11-26 | 3bedd33e-537f-445d-9b2f-a2de6c83f3d4 | gpt_image_2_5 high |
+| `assets/al/secret/car.hf_20261126_041323_04bbaf2a-1abe-45cc-837b-ccffb8d58a23.webp` | secret picture for the pupil sign-in: מכונית (car); cut from a sheet of four, 192 px | 2026-11-26 | 04bbaf2a-1abe-45cc-837b-ccffb8d58a23 | gpt_image_2_5 high |
+| `assets/al/secret/drum.hf_20261126_041323_f033b30a-5de8-4534-aa9f-1b61ac24e09b.webp` | secret picture for the pupil sign-in: תוף (drum); cut from a sheet of four, 192 px | 2026-11-26 | f033b30a-5de8-4534-aa9f-1b61ac24e09b | gpt_image_2_5 high |
+| `assets/al/secret/elephant.hf_20261126_041323_f033b30a-5de8-4534-aa9f-1b61ac24e09b.webp` | secret picture for the pupil sign-in: פיל (elephant); cut from a sheet of four, 192 px | 2026-11-26 | f033b30a-5de8-4534-aa9f-1b61ac24e09b | gpt_image_2_5 high |
+| `assets/al/secret/flower.hf_20261126_041322_4b04d8ff-8ca0-47fd-a5ea-62a29b8c9dd8.webp` | secret picture for the pupil sign-in: פרח (flower); cut from a sheet of four, 192 px | 2026-11-26 | 4b04d8ff-8ca0-47fd-a5ea-62a29b8c9dd8 | gpt_image_2_5 high |
+| `assets/al/secret/giraffe.hf_20261126_041324_98e7de0d-19d1-4079-b408-10392bd66467.webp` | secret picture for the pupil sign-in: ג׳ירפה (giraffe); cut from a sheet of four, 192 px | 2026-11-26 | 98e7de0d-19d1-4079-b408-10392bd66467 | gpt_image_2_5 high |
+| `assets/al/secret/grapes.hf_20261126_041322_4b04d8ff-8ca0-47fd-a5ea-62a29b8c9dd8.webp` | secret picture for the pupil sign-in: ענבים (grapes); cut from a sheet of four, 192 px | 2026-11-26 | 4b04d8ff-8ca0-47fd-a5ea-62a29b8c9dd8 | gpt_image_2_5 high |
+| `assets/al/secret/hat.hf_20261126_041323_f033b30a-5de8-4534-aa9f-1b61ac24e09b.webp` | secret picture for the pupil sign-in: כובע (hat); cut from a sheet of four, 192 px | 2026-11-26 | f033b30a-5de8-4534-aa9f-1b61ac24e09b | gpt_image_2_5 high |
+| `assets/al/secret/house.hf_20261126_041324_98e7de0d-19d1-4079-b408-10392bd66467.webp` | secret picture for the pupil sign-in: בית (house); cut from a sheet of four, 192 px | 2026-11-26 | 98e7de0d-19d1-4079-b408-10392bd66467 | gpt_image_2_5 high |
+| `assets/al/secret/kite.hf_20261126_041322_4b04d8ff-8ca0-47fd-a5ea-62a29b8c9dd8.webp` | secret picture for the pupil sign-in: עפיפון (kite); cut from a sheet of four, 192 px | 2026-11-26 | 4b04d8ff-8ca0-47fd-a5ea-62a29b8c9dd8 | gpt_image_2_5 high |
+| `assets/al/secret/mushroom.hf_20261126_041323_04bbaf2a-1abe-45cc-837b-ccffb8d58a23.webp` | secret picture for the pupil sign-in: פטרייה (mushroom); cut from a sheet of four, 192 px | 2026-11-26 | 04bbaf2a-1abe-45cc-837b-ccffb8d58a23 | gpt_image_2_5 high |
+| `assets/al/secret/pencil.hf_20261126_041324_98e7de0d-19d1-4079-b408-10392bd66467.webp` | secret picture for the pupil sign-in: עיפרון (pencil); cut from a sheet of four, 192 px | 2026-11-26 | 98e7de0d-19d1-4079-b408-10392bd66467 | gpt_image_2_5 high |
+| `assets/al/secret/scissors.hf_20261126_041323_04bbaf2a-1abe-45cc-837b-ccffb8d58a23.webp` | secret picture for the pupil sign-in: מספריים (scissors); cut from a sheet of four, 192 px | 2026-11-26 | 04bbaf2a-1abe-45cc-837b-ccffb8d58a23 | gpt_image_2_5 high |
+| `assets/al/secret/shoe.hf_20261126_041323_f033b30a-5de8-4534-aa9f-1b61ac24e09b.webp` | secret picture for the pupil sign-in: נעל (shoe); cut from a sheet of four, 192 px | 2026-11-26 | f033b30a-5de8-4534-aa9f-1b61ac24e09b | gpt_image_2_5 high |
+| `assets/al/secret/umbrella.hf_20261126_041322_4b04d8ff-8ca0-47fd-a5ea-62a29b8c9dd8.webp` | secret picture for the pupil sign-in: מטריה (umbrella); cut from a sheet of four, 192 px | 2026-11-26 | 4b04d8ff-8ca0-47fd-a5ea-62a29b8c9dd8 | gpt_image_2_5 high |
+| `assets/al/secret/watermelon.hf_20261126_041323_3bedd33e-537f-445d-9b2f-a2de6c83f3d4.webp` | secret picture for the pupil sign-in: אבטיח (watermelon); cut from a sheet of four, 192 px | 2026-11-26 | 3bedd33e-537f-445d-9b2f-a2de6c83f3d4 | gpt_image_2_5 high |
+
+### Voice clips for the pupil sign-in (preset voice Kaia, not used yet)
+
+| File | What | Made | Job id | Model |
+|---|---|---|---|---|
+| `assets/al/voice/apple.hf_20261126_041501_6e989b5b-457d-413a-b052-91c5d415333a.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture תפוח (apple), said on tap | 2026-11-26 | 6e989b5b-457d-413a-b052-91c5d415333a | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/banana.hf_20261126_041501_1749fdd7-d81e-4ff5-8802-4c9a12cbc35c.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture בננה (banana), said on tap | 2026-11-26 | 1749fdd7-d81e-4ff5-8802-4c9a12cbc35c | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/bell.hf_20261126_041503_54a0ec08-1f0a-49c4-a020-b9db1af31528.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture פעמון (bell), said on tap | 2026-11-26 | 54a0ec08-1f0a-49c4-a020-b9db1af31528 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/book.hf_20261126_044253_e88faa03-fd09-4dff-908d-e1d6fcdd0ae3.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture ספר (book), said on tap | 2026-11-26 | e88faa03-fd09-4dff-908d-e1d6fcdd0ae3 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/cactus.hf_20261126_041501_305fd88d-103c-4868-a8ce-6576188890be.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture קקטוס (cactus), said on tap | 2026-11-26 | 305fd88d-103c-4868-a8ce-6576188890be | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/car.hf_20261126_041503_7d6ec7c6-a168-4438-8fac-5bc91cf8ff55.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture מכונית (car), said on tap | 2026-11-26 | 7d6ec7c6-a168-4438-8fac-5bc91cf8ff55 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/drum.hf_20261126_041501_3639ff18-963e-4fa3-94c9-e345a6fc4541.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture תוף (drum), said on tap | 2026-11-26 | 3639ff18-963e-4fa3-94c9-e345a6fc4541 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/elephant.hf_20261126_041503_8c39ba93-5a31-430e-9033-14834c89b24d.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture פיל (elephant), said on tap | 2026-11-26 | 8c39ba93-5a31-430e-9033-14834c89b24d | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/flower.hf_20261126_041822_d3ae8b43-4946-4375-8390-56b2d11d86b8.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture פרח (flower), said on tap | 2026-11-26 | d3ae8b43-4946-4375-8390-56b2d11d86b8 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/giraffe.hf_20261126_041820_4a431c47-503b-4a2e-852c-53493f881296.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture ג׳ירפה (giraffe), said on tap | 2026-11-26 | 4a431c47-503b-4a2e-852c-53493f881296 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/grapes.hf_20261126_041820_99108227-8bff-464e-9d1d-f54281b6a2e7.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture ענבים (grapes), said on tap | 2026-11-26 | 99108227-8bff-464e-9d1d-f54281b6a2e7 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/hat.hf_20261126_041820_b2c05453-5cf8-481e-9e3e-f03442827454.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture כובע (hat), said on tap | 2026-11-26 | b2c05453-5cf8-481e-9e3e-f03442827454 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/house.hf_20261126_041503_4da55548-bad7-4392-bfb2-e845ff116845.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture בית (house), said on tap | 2026-11-26 | 4da55548-bad7-4392-bfb2-e845ff116845 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/kite.hf_20261126_041501_5ddd60a1-6a59-4b8f-8ba9-634847123e63.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture עפיפון (kite), said on tap | 2026-11-26 | 5ddd60a1-6a59-4b8f-8ba9-634847123e63 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/line-order.hf_20261126_041501_1b46e76f-b879-483e-bea7-15c82072397a.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: "קודם תמונה אחת, אחר כך עוד אחת." (A3, played once) | 2026-11-26 | 1b46e76f-b879-483e-bea7-15c82072397a | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/line-say.hf_20261126_041501_cf51d4e5-62e9-473b-888c-158d1941071c.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: "אמרו את זה בקול." (A4) | 2026-11-26 | cf51d4e5-62e9-473b-888c-158d1941071c | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/mushroom.hf_20261126_041820_c0c6aef4-ba22-4f70-9fc5-4b7dfa845a8c.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture פטרייה (mushroom), said on tap | 2026-11-26 | c0c6aef4-ba22-4f70-9fc5-4b7dfa845a8c | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/pencil.hf_20261126_041521_e7bdb3ef-ccd9-4101-b0dc-b8df78a1e34f.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture עיפרון (pencil), said on tap | 2026-11-26 | e7bdb3ef-ccd9-4101-b0dc-b8df78a1e34f | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/scissors.hf_20261126_041520_bac811c6-d9c5-4946-a09f-361bc9daa58d.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture מספריים (scissors), said on tap | 2026-11-26 | bac811c6-d9c5-4946-a09f-361bc9daa58d | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/shoe.hf_20261126_041945_22708831-06e1-4ac9-8977-63bbde8ec217.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture נעל (shoe), said on tap | 2026-11-26 | 22708831-06e1-4ac9-8977-63bbde8ec217 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/umbrella.hf_20261126_041501_66667285-eef1-48cd-a8d5-4ebe3b5f7307.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture מטריה (umbrella), said on tap | 2026-11-26 | 66667285-eef1-48cd-a8d5-4ebe3b5f7307 | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/watermelon.hf_20261126_041501_f13d943c-abd0-4057-aa17-fa2aaaffb883.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture אבטיח (watermelon), said on tap | 2026-11-26 | f13d943c-abd0-4057-aa17-fa2aaaffb883 | text2speech_v2 elevenlabs, preset voice |
 
 ## Older art: sprites, backgrounds, app icons
 
