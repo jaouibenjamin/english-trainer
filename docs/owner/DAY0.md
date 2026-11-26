@@ -1,6 +1,6 @@
 # Day 0: what only Benji does (about an hour)
 
-For the project `sgzzsixokgohshdpkvkr` (https://sgzzsixokgohshdpkvkr.supabase.co). This is `docs/LIVE_STAGE.md`
+For the project whose ref is in `supabase/project_ref` (the lead sets it; `python3 tools/project_ref.py` prints it). This is `docs/LIVE_STAGE.md`
 steps A and B for day 0 only, in the order to do them, with every command ready to copy. Nothing here touches the
 Sheet or the class: the class keeps playing as today.
 
@@ -65,7 +65,7 @@ the manual way below from the step it names.
 
 ## 0. Check the project first (📱, 5 minutes)
 
-It may have been made a while ago. In the Supabase dashboard, project `sgzzsixokgohshdpkvkr`:
+It may have been made a while ago. In the Supabase dashboard, the project (its ref is in `supabase/project_ref`):
 
 | Check | Where | Must be | If not |
 |---|---|---|---|
@@ -110,7 +110,7 @@ The publishable key is in Settings → API Keys (`sb_publishable_…`). `read -r
 paste: paste the key, press Enter.
 
 ```sh
-export SUPABASE_URL=https://sgzzsixokgohshdpkvkr.supabase.co
+export SUPABASE_URL="https://$(cat supabase/project_ref).supabase.co"
 read -rs SUPABASE_ANON_KEY; export SUPABASE_ANON_KEY
 python3 tests/live_check.py --stage 1
 ```
@@ -122,7 +122,7 @@ and run the last command again.
 
 ```sh
 supabase login
-supabase link --project-ref sgzzsixokgohshdpkvkr
+supabase link --project-ref "$(cat supabase/project_ref)"
 supabase db push
 ```
 
@@ -174,7 +174,7 @@ The server key is in Settings → API Keys → **Legacy API keys → `service_ro
 
 ```sh
 read -rs SUPABASE_SERVICE_KEY; export SUPABASE_SERVICE_KEY
-curl -s -X POST https://sgzzsixokgohshdpkvkr.supabase.co/functions/v1/admin-class \
+curl -s -X POST "https://$(cat supabase/project_ref).supabase.co/functions/v1/admin-class" \
   -H "authorization: Bearer $SUPABASE_SERVICE_KEY" -H "apikey: $SUPABASE_SERVICE_KEY" \
   -H "content-type: application/json" \
   -d '{"action":"create","name":"Trial","grade":"5"}'
