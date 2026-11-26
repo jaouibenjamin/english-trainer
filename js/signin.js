@@ -50,8 +50,14 @@ const LINE={order:'assets/al/voice/line-order.hf_20261126_041501_1b46e76f-b879-4
 const T={
  title:'ניצני אופק',reg:'נרשמים בפעם הראשונה',have:'כבר נרשמתי',forgot:'שכחתי את הקוד',
  step:(a,b)=>`שלב ${a} מתוך ${b}`,back:'חזרה',next:'המשך',
- a1h:'מי אתם?',classL:'קוד הכיתה',classH:'8 תווים, אותיות ומספרים. הוא על הלוח.',nameL:'השם הפרטי שלכם',nameH:'כמו שכתוב ברשימה של המורה',
- eClass:'קוד הכיתה לא נכון. בדקו שוב מול הלוח.',eRoster:'השם הזה לא ברשימת הכיתה. בקשו מהמורה להוסיף אותו.',
+ a1h:'מי אתם?',classL:'קוד הכיתה',classH:'8 תווים, אותיות ומספרים. הוא על הלוח.',
+ // the name: first name + one letter of the surname (docs/SIGNIN.md section 1 "Identity", docs/GRADES_V1.md 0011)
+ firstL:'השם הפרטי',letterL:'אות משפחה',letterA:'האות הראשונה של שם המשפחה',nameH:'השם הפרטי והאות הראשונה של שם המשפחה, כמו ברשימה של המורה.',
+ asIs:'כך יופיע במשחק: ',eScript:'האות צריכה להיות באותה שפה של השם.',
+ // NEW, not in the spec (on the teacher-review list): the server says the class takes the letter, or the name's form
+ eLetter:'חסרה האות הראשונה של שם המשפחה. אות אחת, למשל כ.',
+ eForm:'כתבו את השם כמו ברשימה של המורה: השם הפרטי, ואות אחת משם המשפחה.',
+ eClass:'קוד הכיתה לא נכון. בדקו שוב מול הלוח.',eRoster:'השם הזה לא ברשימת הכיתה. בדקו את השם ואת האות, או בקשו מהמורה.',
  eTaken:'מישהו כבר נרשם בשם הזה. אם זה אתם, הקישו "כבר נרשמתי". אם יש בכיתה שני ילדים בשם הזה, בקשו מהמורה.',
  a2h:'בוחרים קוד סודי',a2t:'4 ספרות שרק אתם יודעים. לא הקוד של הטלפון!',codeL:'הקוד הסודי שלי (4 ספרות)',code2L:'שוב את אותו הקוד',
  show:'הצגה',hide:'הסתרה',eWeak:'קל מדי לנחש. לא 1234 ולא ספרות חוזרות. נסו קוד אחר.',eDiff:'שני הקודים לא זהים. נסו שוב.',
@@ -104,6 +110,25 @@ export function weak(code){const d=[...code].map(Number),step=(d[1]-d[0]+10)%10;
  const run=(step===1||step===9)&&(d[2]-d[1]+10)%10===step&&(d[3]-d[2]+10)%10===step,a=+code.slice(0,2),b=+code.slice(2);
  return(d[0]===d[1]&&d[1]===d[2]&&d[2]===d[3])||run||(d[0]===d[2]&&d[1]===d[3])||(d[0]===d[1]&&d[2]===d[3])||code.startsWith('19')||code.startsWith('20')||isDate(a,b)||isDate(b,a)||KEYPAD.has(code)}
 const normC=x=>String(x||'').trim().toUpperCase(),normN=x=>String(x||'').normalize('NFC').trim().replace(/\s+/g,' ');
+/* the name in a 'first_initial' class is `${first} ${letter}.` (docs/GRADES_V1.md 0011); a 'first' class (the trial)
+   takes the first name alone, so the letter goes only when one was typed. The box: one Hebrew letter (a final form is
+   written as its plain one: an initial is never final) or one Latin letter, as a capital; a second character only as
+   the teacher's list has it for two pupils of the same name and letter (a digit, "כ2", or a second letter) */
+const FINAL={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
+const LET=ch=>{if(FINAL[ch])return FINAL[ch];if(ch>='א'&&ch<='ת')return ch;const u=ch.toUpperCase();return u.length===1&&u>='A'&&u<='Z'?u:''};
+export function letter(s){const a=[];for(const c of String(s??'').normalize('NFC')){const L=LET(c),d=c>='0'&&c<='9'?c:'';
+ if(L||(d&&a.length))a.push(L||d);if(a.length===2)break}return a.join('')}
+const isHe=c=>c>='א'&&c<='ת';
+/* the letter takes the name's script (a Hebrew name, a Hebrew letter): false when they differ */
+export function sameScript(first,l){const f=[...String(first||'')].find(c=>isHe(c)||LET(c)),k=[...String(l||'')][0];return!f||!k||isHe(f)===isHe(k)}
+/* first name and letter as they will be sent: a two-word first name is written with a hyphen (בת-אל); a letter typed
+   into the first name ("נועה כ." with the letter field empty) moves to its field */
+export function whoName(first,let1){let f=normN(first),l=letter(let1);
+ if(!l){const w=f.split(' '),t=w.length>1?w[w.length-1]:'',u=t.endsWith('.')?t.slice(0,-1):t;
+  const cs=[...u];if((cs.length===1||(cs.length===2&&cs[1]>='0'&&cs[1]<='9'))&&letter(u).length===u.length){l=letter(u);f=w.slice(0,-1).join(' ')}}
+ while(f.endsWith('.'))f=f.slice(0,-1).trim();
+ let h='';for(const c of f)h+=c===' '?'-':c;
+ return{f:h,l,n:l?`${h} ${l}.`:h}}
 /* no regular expression ever runs on a code, a one-time code or a class code (docs/LESSONS.md 17: it would stay in
    RegExp.$_): escaping and the digit filter go character by character */
 const ESC={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
@@ -123,12 +148,16 @@ const STEPS={reg:5,rec:3};
    one tap (docs/SIGNIN.md "Shared device and switching"). The device stays signed in after the browser is closed (a
    class computer included), so the next child sees the previous one's name here and signs them out. out() is the
    game's own sign-out (it refuses while progress is not saved yet, and says so). */
-const NM={hi:n=>`שלום, ${n}!`,notMe:'זה לא אני',q:'לצאת?',t:'ההתקדמות נשמרת. בפעם הבאה תצטרכו את השם ואת הקוד.',yes:'כן, לצאת',no:'נשארים',hint:'במחשב משותף, תמיד יוצאים בסוף.'};
+const NM={notMe:'זה לא אני · יציאה',q:'לצאת?',t:'ההתקדמות נשמרת. בפעם הבאה תצטרכו את השם ואת הקוד.',yes:'כן, לצאת',no:'נשארים',hint:'במחשב משותף, תמיד יוצאים בסוף.'};
 export function notMe(host,o){
  for(const h of['css/ds.css','css/signin.css'])if(!document.querySelector(`link[href="${h}"]`)){const l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l)}
  const old=host.querySelector('.si-who');if(old)old.remove();
  const box=document.createElement('div');box.className='si-who wi-root'+(o.inline?' si-who--in':'');box.dir='rtl';
- box.innerHTML=`<span class="si-hi">${o.inline?NM.hi(`<bdi>${esc(o.name)}</bdi>`):`<bdi>${esc(o.name)}</bdi>`}</span><button type="button" class="wi-btn wi-btn--quiet si-nm" data-sw="ask">${NM.notMe}</button>`;
+ /* the pill of docs/SIGNIN.md "Who is playing": (the avatar,) the name, a dot, the button. The name in one <bdi> (a Latin
+    name stays LTR); when space is short only the first name is cut, never the letter ("Alexandri… K.") */
+ const n=String(o.name??''),k=n.lastIndexOf(' '),tail=k>0&&n.endsWith('.')&&[...n.slice(k+1)].length<=3?n.slice(k+1):'';
+ const nm=tail?`<span class="si-fn">${esc(n.slice(0,k))}</span><span class="si-ln">&nbsp;${esc(tail)}</span>`:`<span class="si-fn">${esc(n)}</span>`;
+ box.innerHTML=`${o.av?`<img class="si-av" src="${esc(o.av)}" alt="" width="36" height="36">`:''}<bdi class="si-hi">${nm}</bdi><span class="si-sep" aria-hidden="true">·</span><button type="button" class="wi-btn wi-btn--quiet si-nm" data-sw="ask">${NM.notMe}</button>`;
  let ov=null;const close=()=>{if(ov){ov.remove();ov=null}};
  box.addEventListener('click',e=>{const b=e.target.closest('[data-sw]');if(!b)return;
   if(b.dataset.sw==='ask'){close();ov=document.createElement('div');ov.className='si-ov wi-root';ov.dir='rtl';
@@ -141,7 +170,7 @@ export function notMe(host,o){
 
 export function mount(root,o){
  // pics: the pair being chosen (A3); rec: the taps of the recall step (A5); proof: the old pair typed in recovery (E2)
- const st={flow:'',scr:'entry',c:o.lastC||'',n:'',p:'',p2:'',pics:[],rec:[],proof:[],otc:'',err:'',hint:'',busy:false,
+ const st={flow:'',scr:'entry',c:o.lastC||'',n:'',l:'',needL:false,p:'',p2:'',pics:[],rec:[],proof:[],otc:'',err:'',hint:'',busy:false,
   shown:{},order:null,misses:0,closed:false,saidOrder:false,names:false};
  let alive=true,audio=null;
  const css=['css/ds.css','css/signin.css'].filter(h=>!document.querySelector(`link[href="${h}"]`)).map(h=>{const l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l);return l});
@@ -153,6 +182,9 @@ export function mount(root,o){
  const head=t=>`<h2 class="si-h" tabindex="-1">${t}</h2>`;
  const err=()=>st.err?`<p class="si-err" role="alert">${esc(st.err)}</p>`:'';
  const bar=(label,act,on=true,extra='')=>`<div class="si-bar">${extra}<button type="button" class="wi-btn wi-btn--block" data-si="${act}" ${on&&!st.busy?'':'disabled'}>${st.busy?T.busy:label}</button></div>`;
+ /* the name: two fields side by side (first name; one letter of the surname), and on A1 the name as it will appear */
+ const nrow=as=>{const w=whoName(st.n,st.l);
+  return`<div class="si-nrow"><div class="si-f si-fn"><label for="si-n">${T.firstL}</label><input id="si-n" data-sin="n" value="${esc(st.n)}" autocomplete="off" maxlength="20" aria-describedby="si-n-h"></div><div class="si-f si-lt"><label for="si-l">${T.letterL}</label><input id="si-l" data-sin="l" value="${esc(st.l)}" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="2" aria-label="${T.letterA}" ${st.needL?'aria-required="true"':''} aria-describedby="si-n-h"></div></div><span class="si-hint" id="si-n-h">${sameScript(w.f,w.l)?T.nameH:T.eScript}</span>${as?`<p class="si-as" ${w.f?'':'hidden'}>${T.asIs}<b><bdi>${esc(w.n)}</bdi></b></p>`:''}`};
  const field=(id,label,hint,val,attrs='')=>`<div class="si-f"><label for="si-${id}">${label}</label>${hint?`<span class="si-hint" id="si-${id}-h">${hint}</span>`:''}<input id="si-${id}" data-sin="${id}" value="${esc(val)}" autocomplete="off" ${hint?`aria-describedby="si-${id}-h"`:''} ${attrs}></div>`;
  /* a code never goes into the screen's HTML (a string that may outlive the screen): the fields and boxes are drawn empty
     and filled through the DOM (fill) */
@@ -176,15 +208,15 @@ export function mount(root,o){
    <button type="button" class="wi-btn wi-btn--block wi-btn--secondary" data-si="start" data-f="in">${T.have}</button>
    <button type="button" class="wi-btn wi-btn--quiet" data-si="start" data-f="rec">${T.forgot}</button>
    ${o.trial?`<a class="si-trial" href="?new=0#login">${T.trial}</a>`:''}</div>`,
-  a1:()=>`${top()}${head(T.a1h)}<div class="si-mid">${field('c',T.classL,T.classH,st.c,'dir="ltr" class="si-en" autocapitalize="characters" maxlength="16"')}${field('n',T.nameL,T.nameH,st.n,'maxlength="20"')}${err()}</div>${bar(T.next,'a1')}`,
+  a1:()=>`${top()}${head(T.a1h)}<div class="si-mid">${field('c',T.classL,T.classH,st.c,'dir="ltr" class="si-en" autocapitalize="characters" maxlength="16"')}${nrow(true)}${err()}</div>${bar(T.next,'a1')}`,
   a2:()=>`${top()}${head(T.a2h)}<div class="si-mid"><p class="si-txt">${T.a2t}</p>${code('p',T.codeL,4,st.p)}${code('p2',T.code2L,4,st.p2)}${err()}${keypad()}</div>${bar(T.next,'a2',st.p.length===4&&st.p2.length===4)}`,
   a3:()=>`${top()}${head(T.a3h)}<button type="button" class="wi-btn wi-btn--quiet si-names" data-si="names" aria-pressed="${st.names}">${st.names?T.namesOn:T.namesOff}</button>${slots(st.pics)}<p class="si-hint si-c">${st.hint?esc(st.hint):T.a3hint}</p><div class="si-mid">${grid(false)}</div>${bar(T.next,'a3',st.pics.length===2)}`,
   a4:()=>{const[a,b]=st.pics.map(P);return`${top()}${head(T.a4h)}<div class="si-mid si-center">${slots(st.pics,false,true)}<p class="si-pair">${T.pair(a.he,b.he)}</p><p class="si-txt si-c">${T.a4say}</p><p class="si-txt si-c">${T.a4t}</p></div>${bar(T.a4b,'a4')}`},
   a5:()=>`${top()}${head(T.a5h)}<p class="si-txt">${T.a5t}</p>${slots(st.rec)}${err()}<div class="si-mid">${grid(true)}</div>${bar(T.next,'a5',st.rec.length===2)}`,
   done:()=>`<div class="si-mid si-center"><h2 class="si-h si-c" tabindex="-1">${st.flow==='rec'?T.recDone:T.regDone}</h2><p class="si-txt si-c">${st.flow==='rec'?T.recDoneT:T.regDoneT}</p></div>${bar(T.go,'go')}`,
-  b:()=>`${top()}${head(T.bh)}<div class="si-mid">${field('c',T.classL,'',st.c,'dir="ltr" class="si-en" autocapitalize="characters" maxlength="16"')}${field('n',T.nameL,'',st.n,'maxlength="20"')}${code('p',T.codeL,4,st.p)}${err()}${keypad()}
+  b:()=>`${top()}${head(T.bh)}<div class="si-mid">${field('c',T.classL,'',st.c,'dir="ltr" class="si-en" autocapitalize="characters" maxlength="16"')}${nrow(false)}${code('p',T.codeL,4,st.p)}${err()}${keypad()}
    <button type="button" class="wi-btn wi-btn--quiet si-link" data-si="start" data-f="rec">${T.forgot}</button></div>${bar(T.enter,'b')}`,
-  e1:()=>`${top()}${head(T.e1h)}<div class="si-mid">${field('c',T.classL,'',st.c,'dir="ltr" class="si-en" autocapitalize="characters" maxlength="16"')}${field('n',T.nameL,'',st.n,'maxlength="20"')}${err()}</div>${bar(T.next,'e1')}`,
+  e1:()=>`${top()}${head(T.e1h)}<div class="si-mid">${field('c',T.classL,'',st.c,'dir="ltr" class="si-en" autocapitalize="characters" maxlength="16"')}${nrow(false)}${err()}</div>${bar(T.next,'e1')}`,
   e2:()=>`${top()}${head(T.e2h)}${slots(st.proof,true)}${err()}<div class="si-mid">${st.closed?'':grid(true)}
    <button type="button" class="wi-btn wi-btn--quiet si-link" data-si="otc">${T.gotOtc}</button></div>${st.closed?'':bar(T.next,'e2',st.proof.length===2)}`,
   e3:()=>`${top()}${head(T.e3h)}<div class="si-mid">${code('otc',T.otcL,6,st.otc)}${err()}${keypad()}</div>${bar(T.next,'e3',st.otc.length===6)}`
@@ -195,12 +227,16 @@ export function mount(root,o){
   for(const id of['p','p2','otc'])fill(id);
   const f=focusId&&root.querySelector('#si-'+focusId)||root.querySelector('.si-h,.si-logo');if(f)f.focus({preventScroll:true})}
  /* a picture screen gets a new order each time it is entered (and each recovery try) */
- function to(scr,keep){if(!keep){st.err='';st.hint=''}focusId='';
+ function to(scr,keep,fid){if(!keep){st.err='';st.hint=''}focusId=fid||'';
   st.scr=scr;if(scr==='a3'||scr==='a5'||scr==='e2')st.order=shuffle();
   if(scr==='a3'&&!st.saidOrder){st.saidOrder=true;say(LINE.order)}
   // A4 says nothing aloud: "אמרו את זה בלב" (a secret is not said aloud in a classroom); the old clip said the opposite
   draw()}
- const fail=(msg,scr)=>{st.busy=false;st.err=msg;if(scr&&scr!==st.scr){to(scr,true)}else draw()};
+ const fail=(msg,scr,fid)=>{st.busy=false;st.err=msg;if(scr&&scr!==st.scr){to(scr,true,fid)}else{if(fid)focusId=fid;draw()}};
+ /* the class takes first name + letter and the name sent was not in that form: back to the name, the letter field asked
+    for, everything else kept (the server says so only once the class code is right) */
+ const nameForm=(r,scr)=>{if(r.form==='first_initial')st.needL=true;return fail(st.needL&&!st.l?T.eLetter:T.eForm,scr,st.needL&&!st.l?'l':'n')};
+ const nm=()=>whoName(st.n,st.l).n;
  const flowDone=()=>{st.busy=false;wipe()};
  /* the back arrow: the screen before this one in its flow (what was typed is kept) */
  function prev(){const s=st.scr,f=st.flow;
@@ -210,20 +246,22 @@ export function mount(root,o){
  /* ---------- the requests: one per flow, at its end ---------- */
  async function send(kind,f){st.busy=true;draw();let r;try{r=await o.enter(kind,f)}catch(e){r={ok:false,e:'net'}}
   if(!alive)return null;return r&&typeof r==='object'?r:{ok:false,e:'net'}}
- async function register(){const r=await send('register',{c:normC(st.c),n:normN(st.n),code:st.p,pics:st.pics.slice()});if(!r)return;
+ async function register(){const r=await send('register',{c:normC(st.c),n:nm(),code:st.p,pics:st.pics.slice()});if(!r)return;
   if(r.ok){flowDone();return to('done')}
   if(r.e==='locked')return fail(waitText(r));
   if(r.e==='weak'){st.p=st.p2='';return fail(T.eWeak,'a2')}
+  if(r.e==='name')return nameForm(r,'a1');
   const m={class:[T.eClass,'a1'],roster:[T.eRoster,'a1'],taken:[T.eTaken,'a1'],full:[T.eFull,'a1'],input:[T.eRoster,'a1']}[r.e];
   return m?fail(m[0],m[1]):fail(r.e==='unset'?T.eUnset:T.eNet)}
- async function login(){const r=await send('login',{c:normC(st.c),n:normN(st.n),code:st.p});if(!r)return;
+ async function login(){const r=await send('login',{c:normC(st.c),n:nm(),code:st.p});if(!r)return;
   if(r.ok){flowDone();draw();return o.done()}
   if(r.e==='locked'){st.p='';return fail(waitText(r))}
   if(r.e==='class')return fail(T.eClass);
+  if(r.e==='name')return nameForm(r);
   if(r.e==='pin'||r.e==='input'){st.p='';return fail(T.ePin)}
   return fail(r.e==='unset'?T.eUnset:T.eNet)}
  async function recover(){const byOtc=!!st.otc;
-  const r=await send('recover',{c:normC(st.c),n:normN(st.n),...(byOtc?{otc:st.otc}:{pics:st.proof.slice()}),newCode:st.p,newPics:st.pics.slice()});if(!r)return;
+  const r=await send('recover',{c:normC(st.c),n:nm(),...(byOtc?{otc:st.otc}:{pics:st.proof.slice()}),newCode:st.p,newPics:st.pics.slice()});if(!r)return;
   if(r.ok){flowDone();return to('done')}
   if(r.e==='weak'){st.p=st.p2='';return fail(T.eWeak,'a2')}
   if(r.e==='otc'){st.otc='';return fail(T.eOtc,'e3')}
@@ -233,11 +271,16 @@ export function mount(root,o){
    return fail(r.by==='class'?T.e2paused:Number(r.wait)<0?T.e2end:T.e2month,'e2')}
   if(r.e==='locked')return fail(waitText(r,Date.now(),'rec'));
   if(r.e==='class')return fail(T.eClass,'e1');
+  if(r.e==='name')return nameForm(r,'e1');
   if(r.e==='input')return fail(T.eRoster,'e1');
   return fail(r.e==='unset'?T.eUnset:T.eNet)}
  /* ---------- what each button does ---------- */
- const nameOk=()=>{const c=normC(st.c),n=normN(st.n);if(!classOk(c)){st.err=T.eClass;focusId='c';return false}
-  if(n.length<2){st.err=T.eRoster;focusId='n';return false}return true};
+ /* the fields are tidied to what will be sent (the hyphen, a letter moved to its field), so the child sees it */
+ const nameOk=()=>{const c=normC(st.c),w=whoName(st.n,st.l);if(!classOk(c)){st.err=T.eClass;focusId='c';return false}
+  st.n=w.f;st.l=w.l;
+  if([...w.f].length<2){st.err=T.eRoster;focusId='n';return false}
+  if(st.needL&&!w.l){st.err=T.eLetter;focusId='l';return false}
+  if(!sameScript(w.f,w.l)){st.err=T.eScript;focusId='l';return false}return true};
  const A={
   start(d){st.flow=d.f==='in'?'':d.f;st.closed=false;st.misses=0;wipe();to(d.f==='reg'?'a1':d.f==='in'?'b':'e1')},
   back(){if(st.scr==='entry')return;const p=prev();if(p==='entry'){st.flow='';wipe()}to(p)},
@@ -273,14 +316,17 @@ export function mount(root,o){
    fill(id);
    const btn=root.querySelector('.si-bar [data-si]');if(btn&&(st.scr==='a2'||st.scr==='e3'))btn.disabled=!(st.scr==='a2'?st.p.length===4&&st.p2.length===4:st.otc.length===6);
    if(id==='p'&&v.length===4&&root.querySelector('#si-p2')&&!st.p2)root.querySelector('#si-p2').focus();return}
-  st[id]=el.value};
+  if(id==='l'){const v=letter(el.value);if(v!==el.value)el.value=v}
+  st[id]=el.value;
+  if(id==='n'||id==='l'){const w=whoName(st.n,st.l),as=root.querySelector('.si-as'),h=root.querySelector('#si-n-h');
+   if(as){as.hidden=!w.f;as.querySelector('bdi').textContent=w.n}if(h)h.textContent=sameScript(w.f,w.l)?T.nameH:T.eScript}};
  const onFocus=e=>{const id=e.target.dataset&&e.target.dataset.sin;if(id)focusId=id};
  const onKey=e=>{if(e.key!=='Enter'||!e.target.dataset||!e.target.dataset.sin)return;e.preventDefault();const b=root.querySelector('.si-bar .wi-btn--block:not([disabled])');if(b)b.click()};
  /* the page is left (a link, Back, closing the tab) or hidden for a minute: every secret is forgotten and the flow starts
     again, so Back from the back-forward cache, or the next child at the screen, finds no code typed and no picture
     chosen ("הצגה" has nothing to show) */
  let hidT=0;
- const forget=()=>{clearTimeout(hidT);if(!alive)return;wipe();st.shown={};st.flow='';st.err='';st.hint='';st.closed=false;st.busy=false;focusId='';
+ const forget=()=>{clearTimeout(hidT);if(!alive)return;wipe();st.n=st.l='';st.needL=false;st.shown={};st.flow='';st.err='';st.hint='';st.closed=false;st.busy=false;focusId='';
   root.querySelectorAll('input').forEach(i=>{i.value=''});st.scr='entry';draw()};
  const onHide=()=>forget();
  const onVis=()=>{clearTimeout(hidT);if(document.visibilityState==='hidden')hidT=setTimeout(forget,60000)};
@@ -289,6 +335,6 @@ export function mount(root,o){
  draw();
  /* the flow ends (the game moves on): every secret is wiped and the listeners go */
  return{destroy(){clearTimeout(hidT);removeEventListener('pagehide',onHide);document.removeEventListener('visibilitychange',onVis);
-  root.querySelectorAll('input').forEach(i=>{i.value=''});alive=false;wipe();st.c=st.n='';if(audio){try{audio.pause()}catch(e){}}audio=null;
+  root.querySelectorAll('input').forEach(i=>{i.value=''});alive=false;wipe();st.c=st.n=st.l='';if(audio){try{audio.pause()}catch(e){}}audio=null;
   root.removeEventListener('click',onClick);root.removeEventListener('input',onInput);root.removeEventListener('change',onInput);root.removeEventListener('focusin',onFocus);root.removeEventListener('keydown',onKey);
   css.forEach(l=>l.remove())}}}
