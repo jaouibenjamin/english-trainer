@@ -40,9 +40,10 @@ PATH_CAP = {'requests': 4, 'bytes': 160 * KB}   # 160, not 110: bg/english kept 
 # 2% of room on purpose (1,950 KB), so an ordinary fix in a shared file does not fail it; it is raised on purpose, with a
 # note here, by each live change that adds weight. Requests: not one more.
 CEIL_OFF = {'requests': 88, 'bytes': 1950 * KB}
-# with the flag on: Fraction Bay's map, first load. With its own islands (#99, misl-1..4): 48 requests, 778 KB on
-# 26.11.2026 (689 KB with the English islands in their place). The cap holds that with a little room.
-BUDGET_MATH = {'requests': 50, 'bytes': 800 * KB}
+# with the flag on: Fraction Bay's map, first load. With its own islands (#99, misl-1..4, re-encoded at quality 75):
+# 48 requests, 706 KB, usable in 15.9 s on the slow profile (26.11.2026); with the English islands in their place it was
+# 689 KB and 15.7 s, unencoded 778 KB and 17.3 s. The cap holds that with a little room.
+BUDGET_MATH = {'requests': 50, 'bytes': 725 * KB}
 
 ROOT = P.ROOT
 
