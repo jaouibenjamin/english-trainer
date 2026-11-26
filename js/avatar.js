@@ -38,7 +38,7 @@ export const LEVELS=ENERGY.levels;
    level that opens the last character (or the last "soon" level) is above this, or within reach of English alone. */
 export const MAX_ENERGY=WORTH.star*MAX_STARS+WORTH.word*WORDS.filter(w=>w.p<6).length+WORTH.story*TEXTS.length+WORTH.mstar*M_MAX;
 /* Fraction Bay's stars: the best stars per level, from the math record the game already keeps (S.m.st) */
-const mathStars=()=>{const st=(S.m&&S.m.st)||{};let n=0;for(const i of M_ISLANDS)for(const t of i.levels)n+=Math.min(3,Math.max(0,+st[i.id+'-'+t]||0));return Math.min(M_MAX,n)};
+const mathStars=()=>{const st=(S.m&&S.m.st)||{};let n=0;for(const i of M_ISLANDS)for(const t of i.levels)n+=Math.min(3,Math.max(0,Math.floor(+st[i.id+'-'+t]||0)));return Math.min(M_MAX,n)};
 const FOCUS_MAX=5;
 const EN_MAX=100000;   // a stored energy above this is read as this (a damaged or edited record must not freeze the map)
 
@@ -75,7 +75,10 @@ function energyOf(id){const r=mine(id),pts=Math.min(EN_MAX,Math.max(r.en,earned(
  if(pts!==r.en)keep(id,{...r,en:pts});
  const level=levelOf(pts);
  const opens=AVATARS.some(a=>a.open===level+1)?'נפתחת דמות חדשה':'עוד רמה בדרך';
- return{points:pts,level,from:step(level-1),next:step(level),opens}}
+ /* the most English can still bring is the English maximum plus the math already done: when that is below the next
+    level, only Fraction Bay can take the pupil there, and the note says so */
+ const mathOnly=MAX_ENERGY-WORTH.mstar*M_MAX+WORTH.mstar*mathStars()<step(level);
+ return{points:pts,level,from:step(level-1),next:step(level),opens,mathOnly}}
 
 /* ---------- today's focus: words the pupil got wrong and does not know yet, on the open island with the most ---------- */
 /* The bonus island (months and numbers) is left out on purpose: today's focus is about the unit's five word lists. */
@@ -119,7 +122,7 @@ export async function decorateMap(view,go,live=()=>true){
  const en=btn('wd__en',null,()=>{note.hidden=!note.hidden;en.setAttribute('aria-expanded',note.hidden?'false':'true')});
  en.append(el('b',null,'⚡'),el('span','wd__lvw','רמה'),el('span',null,String(E.level)));   // the word goes on narrow phones (css/avatar.css); the label keeps it
  en.setAttribute('aria-label','רמת אנרגיה '+E.level+'. מה זו אנרגיה?');en.setAttribute('aria-expanded','false');
- const note=el('p','wd__note','מרוויחים אנרגיה כשלומדים, והיא אף פעם לא נגמרת. עוד '+(E.next-E.points)+' אנרגיה לרמה '+(E.level+1)+': '+E.opens+'.');
+ const note=el('p','wd__note','מרוויחים אנרגיה כשלומדים, והיא אף פעם לא נגמרת. עוד '+(E.next-E.points)+' אנרגיה לרמה '+(E.level+1)+': '+E.opens+'.'+(E.mathOnly?' גם במפרץ השברים מרוויחים אנרגיה.':''));
  note.hidden=true;note.setAttribute('role','status');
  dock.append(meB,en);
  if(F){const f=btn('wd__focus',null,()=>go('island/'+F.island));

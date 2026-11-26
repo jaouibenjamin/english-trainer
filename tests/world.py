@@ -396,6 +396,23 @@ async def energy_migration(b, errs):
     rec = json.loads(await pg.evaluate("localStorage.getItem('wi_world')"))['p']['local']
     check('Fraction Bay stars give energy (2 stars = 40 = level 2), worked out from the saved math record', E['points'] == 40 and E['level'] == 2 and rec.get('en') == 40 and set(rec) <= {'av', 'nm', 'nv', 'en', 'sl', 'at'}, (E, rec))
     await c.close()
+    # a stored math value is read as at most 3 stars per level, never below 0, never a word: no lasting extra energy
+    for st, want in (({'1-pizza': 99}, 60), ({'1-pizza': -2, '1-sling': 'x', '1-sheet': None}, 0), ({'1-pizza': 2.5, '9-pizza': 3, 'nope': 3}, 40)):
+        c, pg, reqs = await page(b, 390, 844, errs, {'m': {'st': st, 'plays': 1}})
+        await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+        E = await pg.evaluate('window.__world.energy')
+        check(f'a stored math record {st} gives {want} energy (whole stars, at most 3 per real level, nothing for a bad value or an unknown level)', E['points'] == want, E)
+        await c.close()
+    # at the English maximum, the next level needs Fraction Bay: the energy note says so (and only then)
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+    await set_world(pg, {'av': 'fox', 'nm': [0, 0], 'nv': 2, 'en': 980, 'sl': 15}); await goto_hash(pg, 'map', '.map .wd')
+    E = await pg.evaluate('window.__world.energy'); note = await pg.evaluate("document.querySelector('.wd__note').textContent")
+    check('at the English maximum (980, level 15), the note adds that Fraction Bay gives energy too', E['mathOnly'] is True and 'גם במפרץ השברים מרוויחים אנרגיה.' in note, (E, note))
+    await set_world(pg, {'av': 'fox', 'nm': [0, 0], 'nv': 2, 'en': 300, 'sl': 6}); await goto_hash(pg, 'map', '.map .wd')
+    E = await pg.evaluate('window.__world.energy'); note = await pg.evaluate("document.querySelector('.wd__note').textContent")
+    check('below it (300, level 6), English can still get there: no such line', E['mathOnly'] is False and 'מפרץ השברים' not in note, (E, note))
+    await c.close()
 
 
 async def soon_tiles(b, errs):
