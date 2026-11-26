@@ -62,8 +62,8 @@ try:
     inc = [r[0] for r in db.admin('select unnest(private.backup_tables())')]
     exc = [r[0] for r in db.admin('select unnest(private.backup_excluded())')]
     eq('every table is either backed up or left out on purpose (a new table must be put in one list)', sorted(inc + exc), alltab)
-    eq('the left-out ones: address salts and buckets, typed names, the bare Sheet hashes (review S-d)', sorted(exc),
-       ['private.auth_attempts', 'private.auth_buckets', 'private.auth_lock_events', 'private.class_misses', 'private.ip_salts', 'private.legacy_import'])
+    eq('the left-out ones: address salts and buckets, typed names, the bare Sheet hashes (review S-d), the 2-day counter of new codes', sorted(exc),
+       ['private.auth_attempts', 'private.auth_buckets', 'private.auth_lock_events', 'private.class_misses', 'private.ip_salts', 'private.legacy_import', 'private.teacher_resets'])
     eq('the mock exam paper has its size', db.one("select size from public.levels where game = 'exam' and level_key = 'mock'"), '20')
 
     # ---------------------------------------------------------------- migrate_sheet
