@@ -40,13 +40,15 @@ export interface Ctx {
 }
 // deno-lint-ignore no-explicit-any
 export type Body = Record<string, any>;
-export type Reply = { ok: true; [k: string]: unknown } | { ok: false; e: string; wait?: number; by?: string; help?: string };
+export type Reply = { ok: true; [k: string]: unknown } | { ok: false; e: string; wait?: number; by?: string; help?: string; form?: string };
 
 const ZERO = "00000000-0000-0000-0000-000000000000";
 const fail = (e: string, wait?: number): Reply => (wait === undefined ? { ok: false, e } : { ok: false, e, wait });
 /** a "locked" answer with whom it is for (name, device, address, class, everyone, system) and who can end it (teacher or
     only waiting: anything unknown reads as "wait", so a screen never promises a lift that cannot happen); 0008_lock_scope.sql */
 const SCOPES = ["name", "device", "address", "class", "everyone", "system"];
+/** the class code was right, the name is not in the class's form (docs/GRADES_V1.md): the screen asks for the letter */
+const wrongForm = (b: { form?: unknown }): Reply => ({ ok: false, e: "name", form: b.form === "first_initial" ? "first_initial" : "first" });
 export const locked = (b: { wait?: number; by?: unknown; help?: unknown }): Reply =>
   ({ ok: false, e: "locked", wait: b.wait as number, by: SCOPES.includes(b.by as string) ? b.by as string : "name", help: b.help === "teacher" ? "teacher" : "wait" });
 /** loose shape before the class's own settings are known: a short list of small whole numbers */
@@ -121,6 +123,7 @@ export async function register(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (isWeakCode(body.code)) return fail("weak");
   const { b, k } = await begin(d, "register", { ...body, device_token: undefined }, ctx);
   if (b.s === "locked") return locked(b);
+  if (b.s === "name") return wrongForm(b);
   if (b.s !== "go") return fail("class");
   if (!isPictures(body.pictures, b.pic_count, b.pic_choices)) return fail("input");
   const id = crypto.randomUUID();
@@ -140,6 +143,7 @@ export async function login(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (upgrade && isWeakCode(body.new_code)) return fail("weak");
   const { b, k } = await begin(d, "code", body, ctx);
   if (b.s === "locked") return locked(b);
+  if (b.s === "name") return wrongForm(b);
   if (b.s !== "go") return fail("class");
   if (upgrade && !isPictures(body.pictures, b.pic_count, b.pic_choices)) return fail("input");
   // one slow hash on every path: against the pupil's salt, or against a throw-away one when there is nothing to compare with
@@ -164,6 +168,7 @@ export async function recover(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (isWeakCode(body.new_code)) return fail("weak");
   const { b, k } = await begin(d, byOtc ? "otc" : "picture", body, ctx);
   if (b.s === "locked") return locked(b);
+  if (b.s === "name") return wrongForm(b);
   if (b.s !== "go") return fail("class");
   if (!isPictures(body.new_pictures, b.pic_count, b.pic_choices) || (!byOtc && !isPictures(body.pictures, b.pic_count, b.pic_choices))) return fail("input");
   const pupil: string = b.pupil ?? ZERO;
@@ -229,9 +234,11 @@ function classCode(): string {
     The class code is shown once, here; the database keeps only a keyed lookup of it. */
 export async function adminClass(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (!d.serverKey || !ctx.token || !sameHex(await tag(d.pepper, "k", ctx.token), await tag(d.pepper, "k", d.serverKey))) return fail("forbidden");
-  if (body.action === "create" && typeof body.name === "string" && body.name.length >= 1 && body.name.length <= 40) {
+  // a class is made in its grade (docs/GRADES_V1.md): the grade's label, e.g. ה׳, is required
+  if (body.action === "create" && typeof body.name === "string" && body.name.length >= 1 && body.name.length <= 40
+      && typeof body.grade === "string" && body.grade.trim().length >= 1 && body.grade.length <= 20) {
     const code = classCode();
-    const id = (await d.sql`select private.class_create(${body.name}, ${String(body.grade ?? "").slice(0, 20)}, ${await tag(d.pepper, "class", code)}) as v`)[0].v;
+    const id = (await d.sql`select private.class_create(${body.name}, ${body.grade.trim()}, ${await tag(d.pepper, "class", code)}) as v`)[0].v;
     return { ok: true, class_id: id, class_code: code };
   }
   if (body.action === "rotate" && isUuid(body.class_id)) {

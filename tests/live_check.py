@@ -102,7 +102,7 @@ def run(api, a):
     if not (s == 200 and j and j.get('ok')):
         print('cannot create the test class with admin-class:', s, j); return
     made['class'] = j['class_id']; ccode = j['class_code']
-    api.admin('PATCH', f'/rest/v1/classes?id=eq.{made["class"]}', {'roster_only': False})
+    api.admin('PATCH', f'/rest/v1/classes?id=eq.{made["class"]}', {'roster_only': False, 'name_form': 'first'})   # made-up first names alone (0010)
     code, pics = '%04d' % (4827), [3, 11]
     try:
         # 1

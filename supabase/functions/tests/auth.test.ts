@@ -380,9 +380,42 @@ T("admin-class: only with the server key; the class code is 8 clear characters, 
   ok(!JSON.stringify(await sql`select * from private.class_codes`).includes(r.class_code), "the code itself is not stored");
   const c = { id: r.class_id as string, code: r.class_code as string };
   await sql`update public.classes set roster_only = false where id = ${c.id}`;
-  eq(e(await reg(c, "Uri", "4827")), "ok", "pupils register with it");
+  const g = (await sql`select c.name_form, g.label from public.classes c join private.grades g on g.id = c.grade_id where c.id = ${c.id}`)[0];
+  eq([g.name_form, g.label], ["first_initial", "5"], "a class made now is in its grade, and takes a first name and one surname letter");
+  eq(JSON.stringify(await reg(c, "Uri", "4827")), JSON.stringify({ ok: false, e: "name", form: "first_initial" }), "a first name alone: the screen is told to ask for the letter");
+  eq(e(await reg(c, "Uri ב.", "4827")), "ok", "pupils register with it");
   const r2 = await A("test-server-key", { action: "rotate", class_id: c.id }) as Body;
-  eq([e(await log(c, "Uri", "4827", { ip: freshIp() })), e(await log({ ...c, code: r2.class_code }, "Uri", "4827", { ip: freshIp() }))], ["class", "ok"], "after a rotation the old class code is dead and the new one works");
+  eq([e(await log(c, "Uri ב.", "4827", { ip: freshIp() })), e(await log({ ...c, code: r2.class_code }, "Uri ב.", "4827", { ip: freshIp() }))], ["class", "ok"], "after a rotation the old class code is dead and the new one works");
+  eq([e(await A("test-server-key", { action: "create", name: "no grade" })), e(await A("test-server-key", { action: "create", name: "no grade", grade: " " }))], ["input", "input"], "a class without its grade is refused");
+});
+
+T("names: a first name and ONE surname letter in a new class; a second letter only from the roster; never a full surname", async () => {
+  const c = await newClass({ form: "first_initial", roster: ["נועה כ.", "נועה כה.", "Dan L."] });
+  const before = Number((await sql`select count(*) as n from private.auth_attempts`)[0].n);
+  for (const bad of ["נועה", "Noa Cohen", "נועה כהן", "Dan L", "Dan Le."]) {
+    eq(JSON.stringify(await reg(c, bad, "4827")), JSON.stringify({ ok: false, e: "name", form: "first_initial" }), "refused: " + bad);
+  }
+  eq(Number((await sql`select count(*) as n from private.auth_attempts`)[0].n), before, "a name in the wrong form is answered before any attempt is counted");
+  eq(e(await reg({ ...c, code: "NOPE0000" }, "נועה", "4827")), "class", "with a wrong class code the form is not told");
+  eq([e(await reg(c, "נועה כ.", "4827")), e(await reg(c, "נועה כה.", "5839")), e(await reg(c, "dan l.", "5839"))], ["ok", "ok", "ok"],
+     "one letter; two letters because the roster holds them (a clash); letter case does not matter");
+  eq(e(await log(c, "נועה", "4827", { ip: freshIp() })), "name", "sign-in without the letter: told, not counted as a wrong code");
+  eq(e(await log(c, "נועה כ.", "4827", { ip: freshIp() })), "ok", "sign-in with the letter");
+  const err = await sql`insert into public.roster values (${c.id}, app.name_key('Avi Levi'), 'Avi Levi')`.then(() => "inserted", (x: Error) => x.message);
+  ok(err.includes("form"), "the roster refuses a full surname too: " + err);
+  const old = await newClass({ roster: ["Test"] });
+  eq(e(await reg(old, "Test", "4827")), "ok", "a class made before (the trial, 'first'): a first name alone still works");
+});
+
+T("limits per address AND class: one school address registers a whole grade, each class with its own allowance", async () => {
+  await settings({ register_ip_class_hour: 2, ip_class_hour: 1000 });
+  const ip = freshIp();
+  const a = await newClass(), b = await newClass();
+  eq([e(await reg(a, "Aa", "4827", [3, 11], ip)), e(await reg(a, "Ab", "4827", [3, 11], ip)), e(await reg(a, "Ac", "4827", [3, 11], ip))], ["ok", "ok", "locked"],
+     "the third registration for one class from one address in an hour waits");
+  eq([e(await reg(b, "Ba", "4827", [3, 11], ip)), e(await reg(b, "Bb", "4827", [3, 11], ip))], ["ok", "ok"], "another class from the same address is not held back");
+  eq(e(await reg(a, "Ad", "4827", [3, 11], freshIp())), "ok", "the same class from another address is not held back");
+  await settings({ register_ip_class_hour: 60, ip_class_hour: 120 });
 });
 
 T("copy phase (shadow_mode): a Sheet-era code opens a session that can only receive copies; switching it off ends those sessions", async () => {
