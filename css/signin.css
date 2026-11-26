@@ -69,3 +69,5 @@ p.si-hint{padding:0 16px}
 .si-card{max-inline-size:340px;inline-size:100%;padding:16px}
 .si-card .si-h,.si-card .si-txt,.si-card .si-hint{padding:0}
 .si-row{display:flex;gap:8px;margin-top:12px}.si-row .wi-btn{flex:1;min-block-size:48px}
+.si-names{align-self:center;margin:2px auto 0;min-block-size:44px;font-size:var(--wi-fs-sm)}
+.si-names[aria-pressed="true"]{color:var(--wi-gold)}

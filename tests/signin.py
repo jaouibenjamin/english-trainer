@@ -38,31 +38,33 @@ window.__M = M;
 const W = window;
 /* the stand-in for js/state.js enter(): core.ts's answers, a class of made-up first names */
 W.__calls = []; W.__next = []; W.__done = 0;
-const roster = new Set(['נועה', 'יואב', 'דנה', 'דנה ב']), pupils = new Map([['דנה', {code: '5831', pics: [3, 9]}]]);
-const otc = {'דנה': '482913'}, tries = {};
+const K = c => 'k' + [...String(c)].reverse().join('');   // the stand-in keeps codes only in this form: a heap scan then finds what the screens keep
+const roster = new Set(['נועה', 'יואב', 'דנה', 'דנה ב']), pupils = new Map([['דנה', {code: K('5831'), pics: [3, 9]}]]);
+const otc = {'דנה': 'k319284'}, tries = {};   // the teacher's code, already in the stand-in's form (the code itself written here would stay in the page's own source)
 W.__enter = async (kind, f) => {
-  W.__calls.push({kind, f: JSON.parse(JSON.stringify(f))});
+  if (!W.__quiet) W.__calls.push({kind, f: JSON.parse(JSON.stringify(f))});
   await new Promise(r => setTimeout(r, 120));
   if (W.__next.length) return W.__next.shift();
   if (f.c !== '""" + CLASS + """') return {ok: false, e: 'class'};
   if (kind === 'register') {
     if (!roster.has(f.n)) return {ok: false, e: 'roster'};
     if (pupils.has(f.n)) return {ok: false, e: 'taken'};
-    pupils.set(f.n, {code: f.code, pics: f.pics}); return {ok: true};
+    pupils.set(f.n, {code: K(f.code), pics: f.pics}); return {ok: true};
   }
   const p = pupils.get(f.n);
-  if (kind === 'login') return p && p.code === f.code ? {ok: true} : {ok: false, e: 'pin'};
+  if (kind === 'login') return p && p.code === K(f.code) ? {ok: true} : {ok: false, e: 'pin'};
   if (kind === 'recover') {
-    if (f.otc !== undefined) { if (!p || otc[f.n] !== f.otc) return {ok: false, e: 'otc'}; }
+    if (f.otc !== undefined) { if (!p || otc[f.n] !== K(f.otc)) return {ok: false, e: 'otc'}; }
     else {
       if ((tries[f.n] || 0) >= 3) return {ok: false, e: 'locked', wait: -1, by: 'name', help: 'teacher'};
-      if (!p || p.pics.join('>') !== f.pics.join('>')) { tries[f.n] = (tries[f.n] || 0) + 1; return {ok: false, e: 'picture'}; }
+      if (!p || p.pics.join('>') !== f.pics.join('>')) { tries[f.n] = (tries[f.n] || 0) + 1; return tries[f.n] >= 3 ? {ok: false, e: 'locked', wait: -1, by: 'name', help: 'teacher'} : {ok: false, e: 'picture'}; }
     }
-    p.code = f.newCode; p.pics = f.newPics; return {ok: true};
+    p.code = K(f.newCode); p.pics = f.newPics; return {ok: true};
   }
   return {ok: false, e: 'net'};
 };
-W.__mount = () => { if (W.__si) W.__si.destroy(); W.__si = M.mount(document.getElementById('view'), {enter: W.__enter, done: () => { W.__done++; }, sound: () => false, lastC: ''}); };
+W.__clips = []; W.Audio = function (src) { W.__clips.push(String(src).split('/').pop().split('.')[0]); return {play: () => Promise.resolve(), pause() {}}; };
+W.__mount = () => { if (W.__si) W.__si.destroy(); W.__si = M.mount(document.getElementById('view'), {enter: W.__enter, done: () => { W.__done++; }, sound: () => true, lastC: ''}); };
 W.__mount();
 </script></body></html>"""
 NO = {'apple': 1, 'banana': 2, 'watermelon': 3, 'cactus': 4, 'grapes': 5, 'flower': 6, 'umbrella': 7, 'kite': 8, 'drum': 9, 'hat': 10}
@@ -209,6 +211,8 @@ WAITS = [
     ({'by': 'everyone', 'help': 'wait', 'wait': 3600}, 'יש עכשיו עומס. נסו שוב ב-{T}.'),
     ({'by': 'system', 'help': 'wait', 'wait': -1}, 'אי אפשר להירשם כרגע. נסו שוב מאוחר יותר. מי שכבר רשום יכול להיכנס.'),
     ({'by': 'moon', 'help': 'pizza', 'wait': 3600}, 'הכניסה עוצרת לכמה דקות. נסו שוב ב-{T}.'),
+    ({'by': 'name', 'help': 'pizza', 'wait': 3600}, 'הכניסה עוצרת לכמה דקות. נסו שוב ב-{T}.'),     # help not teacher: no promise of the teacher
+    ({'by': 'constructor', 'help': 'teacher', 'wait': 3600}, 'הכניסה עוצרת לכמה דקות. נסו שוב ב-{T}.'),
 ]
 
 
@@ -245,15 +249,15 @@ async def recover(b):
         await typ(pg, 'p', '7302'); await typ(pg, 'p2', '7302'); await main_btn(pg)
         await pick(pg, 'hat', 'grapes'); await main_btn(pg); await main_btn(pg); await pick(pg, 'hat', 'grapes'); await main_btn(pg)
     await new_secrets()
-    check('wrong pictures: back to step 2, "אפשר לנסות עוד 2 פעמים"', await scr(pg) == 'e2' and await err(pg) == 'לא התאים. אפשר לנסות עוד 2 פעמים.')
+    check('wrong pictures: back to step 2, "לא התאים" with no count kept on the device (the server decides when it is over)', await scr(pg) == 'e2' and await err(pg) == 'לא התאים. קחו רגע לחשוב על הסדר ונסו שוב.')
     call = (await pg.evaluate('__calls'))[-1]
     check('the request: class, name, the old pictures, the new code and pictures', call == {'kind': 'recover', 'f': {'c': CLASS, 'n': 'דנה', 'pics': [9, 1], 'newCode': '7302', 'newPics': [10, 5]}}, call)
     await pick(pg, 'apple', 'drum'); await main_btn(pg)
     check('the new code is kept for the next try', await pg.input_value('#si-p') == '7302')
     await main_btn(pg); await main_btn(pg); await main_btn(pg); await pick(pg, 'hat', 'grapes'); await main_btn(pg)
-    check('second wrong try: "ניסיון אחרון"', await err(pg) == 'ניסיון אחרון. קחו רגע לחשוב על הסדר.')
+    check('second wrong try: the same words', await err(pg) == 'לא התאים. קחו רגע לחשוב על הסדר ונסו שוב.')
     await pick(pg, 'kite', 'apple'); await main_btn(pg); await main_btn(pg); await main_btn(pg); await main_btn(pg); await pick(pg, 'hat', 'grapes'); await main_btn(pg)
-    check('third: closed, the teacher will help; no pictures to tap, only "קיבלתי קוד מהמורה"', await err(pg) == 'הפעם התמונות לא עבדו. המורה תעזור לכם עם קוד חדש.' and await pg.locator('.si-tile').count() == 0 and await pg.locator('[data-si="otc"]').count() == 1)
+    check('third: the server closes the pictures (locked by name, -1): the teacher will help; no pictures to tap, only "קיבלתי קוד מהמורה"', await err(pg) == 'הפעם התמונות לא עבדו. המורה תעזור לכם עם קוד חדש.' and await pg.locator('.si-tile').count() == 0 and await pg.locator('[data-si="otc"]').count() == 1)
     await shot(pg, '21-e2-closed')
     await tap(pg, '[data-si="otc"]')
     check('the teacher\'s code: six digits, the same keypad', await scr(pg) == 'e3' and await pg.get_attribute('#si-otc', 'maxlength') == '6')
@@ -271,6 +275,84 @@ async def recover(b):
         await pick(pg, 'drum', 'apple'); await main_btn(pg)
         await pg.evaluate(f"__next.push({json.dumps(dict(ans, ok=False, e='locked'))})"); await new_secrets()
         check(f'recovery locked by {ans["by"]}: "{want[:22]}…", only the teacher\'s code offered', await err(pg) == want and await pg.locator('.si-tile').count() == 0, await err(pg))
+    check('no page error', not errs, errs)
+    await c.close()
+
+
+async def traces(pg, secrets):
+    """where a code could still be read once the screens are done with it: the RegExp statics (docs/LESSONS.md 17) and
+    the whole heap after a garbage collection. The stand-in keeps codes only in another form and its call log is
+    emptied first, so a hit is the screens'."""
+    await pg.evaluate('__calls.length = 0')
+    statics = await pg.evaluate('String(RegExp.$_) + "|" + String(RegExp.lastMatch) + "|" + String(RegExp.input) + "|" + String(RegExp.leftContext) + "|" + String(RegExp.rightContext)')
+    cdp = await pg.context.new_cdp_session(pg); chunks = []
+    cdp.on('HeapProfiler.addHeapSnapshotChunk', lambda e: chunks.append(e['chunk']))
+    await cdp.send('HeapProfiler.enable'); await cdp.send('HeapProfiler.collectGarbage')
+    await cdp.send('HeapProfiler.takeHeapSnapshot', {'reportProgress': False}); await cdp.detach()
+    # only the heap's string objects count: the snapshot's own table of names also holds numbers (node ids, indexes), so
+    # any four digits, typed or not, are in it (checked: 1234 and 5555 were there in a run that never typed them)
+    snap = json.loads(''.join(chunks)); m = snap['snapshot']['meta']; N, S = snap['nodes'], snap['strings']
+    nf = m['node_fields']; w, ti, ni = len(nf), nf.index('type'), nf.index('name')
+    kinds = {k for k, t in enumerate(m['node_types'][0]) if t in ('string', 'concatenated string', 'sliced string')}
+    strings = [S[N[i + ni]] for i in range(0, len(N), w) if N[i + ti] in kinds]
+    return [(x, 'RegExp statics') for x in secrets if x in statics] + [(x, 'heap') for x in secrets if any(x in v for v in strings)]
+
+
+async def secrets_gone(b):
+    c, pg, errs = await page(b)
+    # a stray letter in a code field: no regexp runs on it (it would leave the digits in RegExp.$_)
+    await tap(pg, '[data-si="start"][data-f="reg"]'); await typ(pg, 'c', CLASS); await typ(pg, 'n', 'נועה'); await main_btn(pg)
+    await pg.type('#si-p', '48x2'); await pg.type('#si-p2', '48x2')
+    check('a letter typed in a code field is dropped, the digits kept', await pg.input_value('#si-p') == '482')
+    st = await pg.evaluate('String(RegExp.$_) + "|" + String(RegExp.lastMatch) + "|" + String(RegExp.input)')
+    check('no regexp ran on what was typed in a code field (RegExp.$_, lastMatch, input)', '48' not in st and '482' not in st, st)
+    await c.close()
+    # each flow, to its end: the code, the new code and the one-time code are nowhere in the page any more
+    c, pg, errs = await page(b)
+    await tap(pg, '[data-si="start"][data-f="reg"]'); await typ(pg, 'c', CLASS); await typ(pg, 'n', 'יואב'); await main_btn(pg)
+    await keys(pg, '7395'); await keys(pg, '7395'); await main_btn(pg)
+    await pick(pg, 'apple', 'kite'); await main_btn(pg); await main_btn(pg); await pick(pg, 'apple', 'kite'); await main_btn(pg)
+    await pg.wait_for_selector('.si[data-scr="done"]')
+    found = await traces(pg, ['7395'])
+    check('after registering, the code is nowhere: not in RegExp statics, not in the heap', not found, found)
+    await pg.evaluate('__mount()'); await tap(pg, '[data-si="start"][data-f="in"]'); await typ(pg, 'c', CLASS); await typ(pg, 'n', 'יואב'); await keys(pg, '7395'); await main_btn(pg)
+    found = await traces(pg, ['7395'])
+    check('after signing in, the code is nowhere', not found and await pg.evaluate('__done') >= 1, found)
+    await pg.evaluate('__mount()'); await tap(pg, '[data-si="start"][data-f="rec"]'); await typ(pg, 'c', CLASS); await typ(pg, 'n', 'דנה'); await main_btn(pg)
+    await tap(pg, '[data-si="otc"]'); await keys(pg, '482913'); await main_btn(pg)
+    await keys(pg, '6174'); await keys(pg, '6174'); await main_btn(pg); await pick(pg, 'hat', 'grapes'); await main_btn(pg); await main_btn(pg); await pick(pg, 'hat', 'grapes'); await main_btn(pg)
+    await pg.wait_for_selector('.si[data-scr="done"]')
+    found = await traces(pg, ['482913', '6174'])
+    check('after recovery with the teacher\'s code, neither it nor the new code is anywhere', not found, found)
+    # a code typed, then the page left; Back (from the back-forward cache when the browser keeps the page)
+    await pg.evaluate('__mount()'); await tap(pg, '[data-si="start"][data-f="in"]'); await typ(pg, 'c', CLASS); await typ(pg, 'n', 'דנה'); await keys(pg, '4827')
+    await tap(pg, '[data-si="show"][data-id="p"]')
+    await pg.evaluate("window.__kept = 1")
+    await pg.goto(f'http://127.0.0.1:{P.PORT}/docs/mock/signin.html'); await pg.go_back(wait_until='commit'); await pg.wait_for_timeout(800); await pg.wait_for_selector('.si')
+    back = await pg.evaluate("({kept: window.__kept === 1, scr: document.querySelector('.si').dataset.scr, values: [...document.querySelectorAll('.si input')].map(i => i.value).join(''), text: document.querySelector('.si').textContent})")
+    check('leaving the page with a code typed and shown, then Back from the back-forward cache: the entry screen, no code anywhere on it',
+          back['kept'] and back['scr'] == 'entry' and '4827' not in back['values'] and '4827' not in back['text'], back)
+    found = await traces(pg, ['4827'])
+    check('and the left code is not in the page either', not found, found)
+    check('no page error', not errs, errs)
+    await c.close()
+
+
+async def quiet_names(b):
+    c, pg, errs = await page(b)
+    await tap(pg, '[data-si="start"][data-f="reg"]'); await typ(pg, 'c', CLASS); await typ(pg, 'n', 'נועה'); await main_btn(pg)
+    await typ(pg, 'p', '5831'); await typ(pg, 'p2', '5831'); await main_btn(pg)
+    await pg.evaluate('__clips.length = 0'); await pick(pg, 'apple', 'kite')
+    clips = await pg.evaluate('__clips')
+    check('by default a tapped picture is not said aloud (in a classroom the neighbours would hear the pair)', clips == [], clips)
+    check('the names switch is there, off', await pg.get_attribute('[data-si="names"]', 'aria-pressed') == 'false')
+    await tap(pg, '[data-si="names"]'); await tap(pg, '.si-slot[data-k="2"]'); await pick(pg, 'drum')
+    clips = await pg.evaluate('__clips')
+    check('turned on, the tapped picture\'s name is said', clips == ['drum'], clips)
+    await main_btn(pg); await main_btn(pg); await pg.evaluate('__clips.length = 0'); await pick(pg, 'apple', 'drum')
+    check('recall stays silent whatever the switch', await pg.evaluate('__clips') == [])
+    r = await pg.evaluate("(()=>{const h=document.createElement('div'),g=document.createElement('div');document.body.append(h,g);__M.notMe(h,{name:'Newbie',inline:true,out(){}});__M.notMe(g,{name:'<b>x</b>',out(){}});return h.innerHTML+g.innerHTML})()")
+    check('the name next to "זה לא אני" sits in <bdi> (a Latin name in Hebrew), and is shown as text', '<bdi>Newbie</bdi>' in r and '<bdi>&lt;b&gt;x&lt;/b&gt;</bdi>' in r, r[:300])
     check('no page error', not errs, errs)
     await c.close()
 
@@ -368,11 +450,12 @@ async def main():
     procs = P.start_servers(mock=False)
     try:
         async with async_playwright() as pw:
-            b = await pw.chromium.launch(executable_path=P.CHROME, args=['--no-sandbox'])
+            # the back-forward cache on (Playwright turns it off by default): Back must find no code typed (secrets_gone)
+            b = await pw.chromium.launch(executable_path=P.CHROME, args=['--no-sandbox'], ignore_default_args=['--disable-back-forward-cache'])
             if VIDEO:
                 await record(b)
             else:
-                await unit(b); await register_flow(b); await register_refusals(b); await sign_in(b); await recover(b); await sizes(b)
+                await unit(b); await register_flow(b); await register_refusals(b); await sign_in(b); await recover(b); await secrets_gone(b); await quiet_names(b); await sizes(b)
             await b.close()
     finally:
         for p in procs: p.terminate()
