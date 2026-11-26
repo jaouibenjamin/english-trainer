@@ -144,7 +144,7 @@ function show(state,user,why){
 /* in a frame, or opened by another page that keeps a handle on it: the page refuses to run */
 const framed=(()=>{try{return window.top!==window.self||!!window.opener}catch(e){return true}})();
 /* the one address on the sign-in's redirect list is …/teacher.html; Pages also serves …/teacher */
-if(/\/teacher$/.test(location.pathname))location.replace(location.pathname+'.html'+location.search);
+if(/\/teacher$/.test(location.pathname))location.replace(location.origin+location.pathname+'.html'+location.search);
 else if(!P)show('off');
 else if(framed)show('framed');
 else{
@@ -162,6 +162,9 @@ else{
  $('#code').addEventListener('cancel',e=>{e.preventDefault()});     // Escape does not hide the code by accident: the button does
  for(const t of['pointerdown','keydown'])window.addEventListener(t,()=>{codeClock();auth.touch()},{passive:true});
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){codeClock();auth.wake()}});
+ /* and every 30 seconds: a laptop that wakes up with the page in front fires no event; neither the class nor a code may
+    stay on the screen until the next person's first tap (re-review of #82 and #86) */
+ window.setInterval(()=>{codeClock();auth.wake()},30000);
  window.addEventListener('pagehide',()=>{auth.left()});                       // leaving the page ends the session
  window.addEventListener('pageshow',e=>{if(e.persisted&&!auth.signedIn())show('out')});   // the back button shows nothing of her
  const back=new URLSearchParams(location.search).has('code');
