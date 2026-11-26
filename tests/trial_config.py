@@ -22,7 +22,7 @@ from play import check, fails
 from sb_standin import Project
 from playwright.async_api import async_playwright
 
-PROJECT = 'https://sgzzsixokgohshdpkvkr.supabase.co'
+PROJECT = 'https://ibmhoqgpdbyfwrsnwqoy.supabase.co'
 PAGE = f'http://127.0.0.1:{P.PORT}/index.html'
 CFG = open(os.path.join(P.ROOT, 'config.js'), encoding='utf-8').read()
 TEST_KEY = 'made-up-key-for-the-trial-test-0123456789'   # not shaped like a vendor's key (LESSONS 15): the lead pastes the real one, once

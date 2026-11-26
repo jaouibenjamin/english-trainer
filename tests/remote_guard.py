@@ -13,7 +13,7 @@ import glob, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 URL = re.compile(r"""(?:https?:)?//[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+[^\s"'`)<>]*""")
 # config.js: the Sheet's /exec address, and the one Supabase project of the class (exactly its address, nothing wider)
-PROJECT = 'https://sgzzsixokgohshdpkvkr.supabase.co'
+PROJECT = 'https://ibmhoqgpdbyfwrsnwqoy.supabase.co'
 ALLOWED = {'config.js': re.compile(r'https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec|' + re.escape(PROJECT) + r'(?![\w.-])')}
 # The pages' Content-Security-Policy names the class backend's two hosts (bare origins, no path) in connect-src: allowed
 # there and only there, on the line of a page's <meta http-equiv="Content-Security-Policy">.
