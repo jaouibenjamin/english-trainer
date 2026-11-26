@@ -10,13 +10,16 @@ the tests carry it. (Patching the page in the browser instead would make Chrome 
 its calls to the local mock.)
 
 With WI_GZIP=1 in its environment (tests/slow_net.py sets it), text files (html, js, css, json, svg, the manifest) are
-sent gzip-compressed to a browser that asks for it, as GitHub Pages sends them, so measured bytes match the live site."""
+sent gzip-compressed to a browser that asks for it, as GitHub Pages sends them, so measured bytes match the live site.
+With WI_REQLOG=<file>, every path it is asked for is appended to that file, one per line: what was really requested,
+counted where it arrives, not as a browser reports it (tests/weight.py)."""
 import functools, gzip, http.server, io, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = int(sys.argv[1])
 MOCK = sys.argv[2] if len(sys.argv) > 2 else ''
 GZIP = os.environ.get('WI_GZIP') == '1'
+REQLOG = os.environ.get('WI_REQLOG', '')
 TEXT = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json'}
 
 
@@ -25,6 +28,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
     def send_head(self):
+        if REQLOG:
+            with open(REQLOG, 'a', encoding='utf-8') as f:
+                f.write(self.path.split('?', 1)[0] + '\n')
         path = self.translate_path(self.path)
         if os.path.isdir(path):
             path = os.path.join(path, 'index.html')

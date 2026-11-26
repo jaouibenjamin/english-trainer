@@ -23,6 +23,11 @@
  document.documentElement.classList.add('ds');
  if(/^איי המילים$/.test(document.title))document.title='ניצני אופק';   // the platform's new name (docs/PLAN.md), with the flag only; other pages keep their own title
  ['css/ds.css','css/ds-game.css','css/ds-teacher.css'].forEach(function(h){var l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l)});
+ /* the welcome film, once per device (js/intro.js, loaded as a module script: a bare import() here would be a syntax
+    error that stops this whole file on very old browsers): only the game page, only if not seen; ?intro=1 shows it again.
+    An automated browser (navigator.webdriver, the test suites) does not get it unless ?intro=1 asks for it. */
+ var seen=true;try{var iq=new URLSearchParams(location.search).get('intro');if(iq==='1')localStorage.removeItem('wi_intro');seen=localStorage.getItem('wi_intro')==='1'||(navigator.webdriver&&iq!=='1')}catch(e){}
+ if(!seen&&/(^|\/)(index\.html)?$/.test(location.pathname)){var l=document.createElement('link');l.rel='stylesheet';l.href='css/ds-intro.css';document.head.appendChild(l);var m=document.createElement('script');m.type='module';m.src='js/intro.js';document.head.appendChild(m)}
  /* The game page only: start at once, side by side, what the first screen will ask for one file after another (the game's
     modules, the new look's Latin font, the screen's background, and on the map, island and picker the new world's code
     and styles). Only names the page goes on to use (tests/weight.py checks every one). Never without the flag. */
