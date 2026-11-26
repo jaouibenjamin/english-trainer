@@ -488,6 +488,26 @@ secret pictures come four to a job (each drawn as a sheet of four, then cut).
 
 | File | What | Made | Job id | Model |
 |---|---|---|---|---|
+| `assets/al/av/fox.hf_20261124_193400_13666c83-348b-431b-b04d-d074564ab9fd.webp` | character portrait: fox | 2026-11-24 | 13666c83-348b-431b-b04d-d074564ab9fd | gpt_image_2_5 |
+| `assets/al/av/owl.hf_20261124_193404_dc061f6f-695e-4b6c-a996-d0b4e74350d8.webp` | character portrait: owl | 2026-11-24 | dc061f6f-695e-4b6c-a996-d0b4e74350d8 | gpt_image_2_5 |
+| `assets/al/av/turtle.hf_20261124_193402_bd14c2df-0a0c-4503-913a-c618ad758171.webp` | character portrait: sea turtle | 2026-11-24 | bd14c2df-0a0c-4503-913a-c618ad758171 | gpt_image_2_5 |
+| `assets/al/av/shark.hf_20261124_193402_ebdc7601-0e4f-4db6-b376-84e91dd84f87.webp` | character portrait: shark | 2026-11-24 | ebdc7601-0e4f-4db6-b376-84e91dd84f87 | gpt_image_2_5 |
+| `assets/al/av/parrot.hf_20261124_193401_8182976b-36b2-49bf-9bb6-8e79477af20e.webp` | character portrait: parrot | 2026-11-24 | 8182976b-36b2-49bf-9bb6-8e79477af20e | gpt_image_2_5 |
+| `assets/al/av/cat.hf_20261124_193404_98c66024-7444-4d43-b85c-e32596bc0a82.webp` | character portrait: cat | 2026-11-24 | 98c66024-7444-4d43-b85c-e32596bc0a82 | gpt_image_2_5 |
+| `assets/al/av/penguin.hf_20261124_193404_b06fade6-d121-4d46-ba6d-dd434c30f3bc.webp` | character portrait: penguin | 2026-11-24 | b06fade6-d121-4d46-ba6d-dd434c30f3bc | gpt_image_2_5 |
+| `assets/al/av/robot-box.hf_20261124_193358_8e9be566-a832-4ec2-bc0a-46cbbed67678.webp` | character portrait: robot, box head | 2026-11-24 | 8e9be566-a832-4ec2-bc0a-46cbbed67678 | gpt_image_2_5 |
+| `assets/al/av/diver.hf_20261124_193400_9ef9220a-3ee3-43b5-b9b8-1dc8cd3e07c3.webp` | character portrait: diver, brass helmet | 2026-11-24 | 9ef9220a-3ee3-43b5-b9b8-1dc8cd3e07c3 | gpt_image_2_5 |
+| `assets/al/av/pilot.hf_20261124_193359_947a73dd-7a75-4153-af79-eed8ba753557.webp` | character portrait: explorer, closed helmet | 2026-11-24 | 947a73dd-7a75-4153-af79-eed8ba753557 | gpt_image_2_5 |
+| `assets/al/av/girl-curls.hf_20261124_204323_038b25bc-891b-4454-8816-30bc402e16d8.webp` | character portrait: girl, curls and headband | 2026-11-24 | 038b25bc-891b-4454-8816-30bc402e16d8 | gpt_image_2_5 |
+| `assets/al/av/girl-braids.hf_20261124_204325_e3e65a4e-765d-4e6c-a55e-bd82ecfed64a.webp` | character portrait: girl, braids | 2026-11-24 | e3e65a4e-765d-4e6c-a55e-bd82ecfed64a | gpt_image_2_5 |
+| `assets/al/av/girl-glasses.hf_20261124_204324_29e62949-8a89-4238-b6b5-82767b20433f.webp` | character portrait: girl, glasses and headphones | 2026-11-24 | 29e62949-8a89-4238-b6b5-82767b20433f | gpt_image_2_5 |
+| `assets/al/av/girl-ponytail.hf_20261124_204326_28c64740-7668-4b38-98e4-c4a154e32e30.webp` | character portrait: girl, ponytail and goggles | 2026-11-24 | 28c64740-7668-4b38-98e4-c4a154e32e30 | gpt_image_2_5 |
+| `assets/al/av/boy-cap.hf_20261124_204325_8963b8c9-566d-48e1-af0b-6821ec7db0f8.webp` | character portrait: boy, cap | 2026-11-24 | 8963b8c9-566d-48e1-af0b-6821ec7db0f8 | gpt_image_2_5 |
+| `assets/al/av/boy-curls.hf_20261124_204323_a05319fb-6024-40fa-83d0-004133d8b41f.webp` | character portrait: boy, curls and rain jacket | 2026-11-24 | a05319fb-6024-40fa-83d0-004133d8b41f | gpt_image_2_5 |
+| `assets/al/av/boy-blond.hf_20261124_204326_b8ec8cff-d393-4d2c-9f4d-a7148f64e7d4.webp` | character portrait: boy, glasses and vest | 2026-11-24 | b8ec8cff-d393-4d2c-9f4d-a7148f64e7d4 | gpt_image_2_5 |
+| `assets/al/av/boy-scarf.hf_20261124_204325_431de75e-e64b-46fa-a0df-33ddf428cc62.webp` | character portrait: boy, bandana | 2026-11-24 | 431de75e-e64b-46fa-a0df-33ddf428cc62 | gpt_image_2_5 |
+| `assets/al/av/octopus.hf_20261124_204327_b1c753c1-abca-4c2e-9a73-d209ae4faad3.webp` | character portrait: octopus | 2026-11-24 | b1c753c1-abca-4c2e-9a73-d209ae4faad3 | gpt_image_2_5 |
+| `assets/al/av/robot-bell.hf_20261124_210015_6c7fc276-a450-4cc4-930d-e689225044d4.webp` | character portrait: robot, green diving bell | 2026-11-24 | 6c7fc276-a450-4cc4-930d-e689225044d4 | gpt_image_2_5 |
 | `assets/al/av/badger.hf_20261126_114004_25159f96-a8b7-419b-af60-1382361defb8.webp` | character portrait, waist up with hands: badger (new set of ten, not used yet) | 2026-11-26 | 25159f96-a8b7-419b-af60-1382361defb8 | gpt_image_2_5 medium |
 | `assets/al/av/boy-blond.hf_20261126_114010_9aa12498-153c-4cec-a244-5a77dbbeff14.webp` | character portrait, waist up with hands: boy-blond | 2026-11-26 | 9aa12498-153c-4cec-a244-5a77dbbeff14 | gpt_image_2_5 medium |
 | `assets/al/av/boy-cap.hf_20261126_094858_ecd784ab-a641-4ee0-a25b-a497d0a0e0e4.webp` | character portrait, waist up with hands: boy-cap | 2026-11-26 | ecd784ab-a641-4ee0-a25b-a497d0a0e0e4 | gpt_image_2_5 medium |
@@ -523,6 +543,25 @@ secret pictures come four to a job (each drawn as a sheet of four, then cut).
 
 | File | What | Made | Job id | Model |
 |---|---|---|---|---|
+| `assets/al/avanim/fox.hf_20261125_135453_ab8ea61d-9a2c-4fe1-beda-89141de05554.webp` | character animation, 2 s, plays once on tap: fox (retake: smile, tilt, one wink or blink; frames 1 to 13 and back) | 2026-11-25 | ab8ea61d-9a2c-4fe1-beda-89141de05554 | grok_video |
+| `assets/al/avanim/turtle.hf_20261125_130901_e0c51c5f-6901-4c33-89bb-89313b26215c.webp` | character animation, 2 s, plays once on tap: sea turtle | 2026-11-25 | e0c51c5f-6901-4c33-89bb-89313b26215c | grok_video |
+| `assets/al/avanim/shark.hf_20261125_130858_d982cc13-a6f1-46e8-9d8f-9cca79ccfaf7.webp` | character animation, 2 s, plays once on tap: shark | 2026-11-25 | d982cc13-a6f1-46e8-9d8f-9cca79ccfaf7 | grok_video |
+| `assets/al/avanim/parrot.hf_20261125_131130_9028e4dd-1693-4a0d-abd8-1a7219bcef28.webp` | character animation, 2 s, plays once on tap: parrot | 2026-11-25 | 9028e4dd-1693-4a0d-abd8-1a7219bcef28 | grok_video |
+| `assets/al/avanim/cat.hf_20261125_130859_2d6e7703-b127-467d-a053-b9b8ebd478c2.webp` | character animation, 2 s, plays once on tap: cat | 2026-11-25 | 2d6e7703-b127-467d-a053-b9b8ebd478c2 | grok_video |
+| `assets/al/avanim/penguin.hf_20261125_135453_37bd5424-72a9-45fd-8b9e-4b44c36d7e3c.webp` | character animation, 2 s, plays once on tap: penguin (retake: smile, tilt, one wink or blink; frames 1 to 15 and back) | 2026-11-25 | 37bd5424-72a9-45fd-8b9e-4b44c36d7e3c | grok_video |
+| `assets/al/avanim/robot-box.hf_20261125_130857_079ba72f-84f8-488a-b4f2-c2993213ec78.webp` | character animation, 2 s, plays once on tap: robot, box head | 2026-11-25 | 079ba72f-84f8-488a-b4f2-c2993213ec78 | grok_video |
+| `assets/al/avanim/diver.hf_20261125_130858_47e0e32c-cfc8-416b-a766-4c9c11c9681d.webp` | character animation, 2 s, plays once on tap: diver, brass helmet | 2026-11-25 | 47e0e32c-cfc8-416b-a766-4c9c11c9681d | grok_video |
+| `assets/al/avanim/pilot.hf_20261125_130857_b554383f-e6e2-447f-814b-a2631f39a0b3.webp` | character animation, 2 s, plays once on tap: explorer, closed helmet | 2026-11-25 | b554383f-e6e2-447f-814b-a2631f39a0b3 | grok_video |
+| `assets/al/avanim/girl-curls.hf_20261125_130858_71e97db1-4ff6-4158-b859-fe8aab0c0420.webp` | character animation, 2 s, plays once on tap: girl, curls and headband | 2026-11-25 | 71e97db1-4ff6-4158-b859-fe8aab0c0420 | grok_video |
+| `assets/al/avanim/girl-braids.hf_20261125_130859_dc24c69f-f02f-4a62-8471-3446698fc491.webp` | character animation, 2 s, plays once on tap: girl, braids | 2026-11-25 | dc24c69f-f02f-4a62-8471-3446698fc491 | grok_video |
+| `assets/al/avanim/girl-glasses.hf_20261125_130856_36896b79-c6e7-4229-9bd4-94bfd3f9e073.webp` | character animation, 2 s, plays once on tap: girl, glasses and headphones | 2026-11-25 | 36896b79-c6e7-4229-9bd4-94bfd3f9e073 | grok_video |
+| `assets/al/avanim/girl-ponytail.hf_20261125_130919_ff0b06a1-c050-406a-bcbf-f839ca4b147c.webp` | character animation, 2 s, plays once on tap: girl, ponytail and goggles | 2026-11-25 | ff0b06a1-c050-406a-bcbf-f839ca4b147c | grok_video |
+| `assets/al/avanim/boy-cap.hf_20261125_130921_28e1c89e-fa99-4ede-bd23-61b296bc3900.webp` | character animation, 2 s, plays once on tap: boy, cap | 2026-11-25 | 28e1c89e-fa99-4ede-bd23-61b296bc3900 | grok_video |
+| `assets/al/avanim/boy-curls.hf_20261125_130920_c2d74619-7816-46f9-af65-b8bf92836a8b.webp` | character animation, 2 s, plays once on tap: boy, curls and rain jacket | 2026-11-25 | c2d74619-7816-46f9-af65-b8bf92836a8b | grok_video |
+| `assets/al/avanim/boy-blond.hf_20261125_130925_b6caefca-93f5-4684-ac8a-c5336523c0dd.webp` | character animation, 2 s, plays once on tap: boy, glasses and vest | 2026-11-25 | b6caefca-93f5-4684-ac8a-c5336523c0dd | grok_video |
+| `assets/al/avanim/boy-scarf.hf_20261125_130919_29b9100c-d989-49ad-894b-ddcd03be8800.webp` | character animation, 2 s, plays once on tap: boy, bandana | 2026-11-25 | 29b9100c-d989-49ad-894b-ddcd03be8800 | grok_video |
+| `assets/al/avanim/octopus.hf_20261125_130919_719b4000-fc5c-460a-a244-508cc849d7ce.webp` | character animation, 2 s, plays once on tap: octopus | 2026-11-25 | 719b4000-fc5c-460a-a244-508cc849d7ce | grok_video |
+| `assets/al/avanim/robot-bell.hf_20261125_130924_c1de682e-ac27-40f8-b210-34792001ae2d.webp` | character animation, 2 s, plays once on tap: robot, green diving bell | 2026-11-25 | c1de682e-ac27-40f8-b210-34792001ae2d | grok_video |
 | `assets/al/avanim/badger.hf_20261126_114516_c341384d-30f2-40e6-b344-4a004e892a7a.webp` | character sign-off animation, 2 s, plays once on tap: badger, flexes both arms (new set of ten, not used yet) | 2026-11-26 | c341384d-30f2-40e6-b344-4a004e892a7a | grok_video, 2 s |
 | `assets/al/avanim/boy-blond.hf_20261126_114516_9684f450-5259-4b98-8e06-88c0bf14bf66.webp` | character sign-off animation, 2 s, plays once on tap: boy-blond, shrug, palms up | 2026-11-26 | 9684f450-5259-4b98-8e06-88c0bf14bf66 | grok_video, 2 s |
 | `assets/al/avanim/boy-cap.hf_20261126_094938_ba6044e7-611f-4183-a69b-cbc73d7f8744.webp` | character sign-off animation, 2 s, plays once on tap: boy-cap, crossed arms | 2026-11-26 | ba6044e7-611f-4183-a69b-cbc73d7f8744 | grok_video, 2 s |
