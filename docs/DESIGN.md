@@ -249,6 +249,16 @@ One 2 s animated WebP per character (`assets/al/avanim/`, 192 px, under 150 KB, 
 - Wired in `world.html`'s picker (`js/world.js`). For the live game's picker (`js/avatar.js`, behind `?ds=1`): `import {playAv} from './avanim.js'` and call `playAv(img, id)` with the character's `<img>` when it is chosen.
 - Checked by `tests/avanim.py`: every character has one, each is an animated WebP under 150 KB listed with its sha256; nothing is requested before a tap; a tap requests that one file and the portrait comes back; nothing with reduced motion or calm mode; nothing without the flag.
 
+## Welcome film, behind the same flag
+
+Shown once on first open of the game page; poster first, play only on tap, 48 px skip from the first second, captions
+as live text. The platform's new name, **ניצני אופק**, is in its closing title only (the in-game rename is the client
+engineer's, behind the flag). Details and the narration (flagged for the teacher's review) in `docs/INTRO.md`; art in
+batch j of the ledger.
+
+**Before the flag flips** (for the welcome film): the owner listens to the whole film with sound on a phone (Pitzi's
+line and "Yeah, let's go!" clear, the laughter wordless, no crackle) and says yes. Until then the film never reaches
+pupils. The 4K version for sharing is not in the repo.
 
 ## Spec: the character on the map and the island as a path (behind the flag; for the client engineer)
 
