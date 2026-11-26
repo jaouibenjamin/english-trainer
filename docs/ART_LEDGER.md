@@ -1,17 +1,7 @@
 # Art ledger: Arcade Lagoon
 
 Owner's cap for all art and sound of the new look: **450 credits**, stop and report at 400. Tool: the owner's own
-Higgsfield account, existing credits only. **Raised to 750 by the owner on 2026-11-25 (300 more), split by the lead into
-hard caps** so one item cannot eat the others; each cap stops its item:
-
-| Cap | For | Credits | Status |
-|---|---|---|---|
-| (spent) | everything up to batch k9, the welcome film included | 448.69 | the film is locked at its current version: no more generation on it without a new, separate number from the owner |
-| A | the secret-picture grid for the pupil sign-in (`docs/SIGNIN.md`) | 25 | not started |
-| B | Fraction Bay islands in the new look, with locked versions | 20 | not started |
-| C | ten more avatars with their tap animations | 45 | not started |
-| D | held: walking characters 25, two new subject worlds 100, reserve 86 | 211 | only on the lead's word |
- Every batch is quoted with the estimate tool first; "charged" is what the
+Higgsfield account, existing credits only. Every batch is quoted with the estimate tool first; "charged" is what the
 account was charged for the batch. Files and their job ids: `assets/al/sources.tsv`. No account balance is written here.
 
 | Batch | What | Model, settings | Jobs | Quoted | Charged | Running total | Left of 450 |
