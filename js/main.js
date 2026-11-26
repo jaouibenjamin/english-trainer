@@ -136,7 +136,7 @@ async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type)
  if(my!==navId){l.destroy();return}level=l;
  /* the result screen sits over the island's own beach: fetched while the level is played, once the level's own voice
     clips are all in (they come first on a slow line), so it is there when the level ends. ST: a namespace import, so
-    an older cached state.js without clipsQuiet only means the old timing (docs/LESSONS.md 18) */
+    an older cached state.js without clipsQuiet only means the old timing (tests/cache_mix.py) */
  (typeof ST.clipsQuiet==='function'?ST.clipsQuiet():Promise.resolve()).then(()=>{if(my===navId)img(BG(i.bg))})}
 function result(i,type,r){if(level){level.destroy();level=null}clearFx();hush();
  const {gained,opened}=setStars(i.id,type,r.stars),clean=r.first===r.total;
