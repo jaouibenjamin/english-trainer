@@ -50,6 +50,11 @@ Nikud where Kaia may misread: מְטְרִיָּה, עֲפִיפוֹן, מִסְ
 **Total A: 22.75 quoted** (6.25 + 16.5), inside 25. If a retake sheet is needed, the clips are recorded in the
 account's real price first and the quote re-checked against what is left of the cap.
 
+**Done (batch l1, 2026-11-26):** the 20 pictures are in `assets/al/secret/` (192 px tiles, each with its own navy
+tile) and the 22 clips in `assets/al/voice/`, listed in `assets/al/sources.tsv`. Speech recognition agrees with every
+clip except **ספר (book)**, which it hears as "ספל" in all three takes; **a person listens to it** (and to the rest)
+before the screens go live. 11.05 charged of cap A.
+
 ## B. Fraction Bay islands in the new look (cap 20)
 
 Today the math map (`js/mdata.js`, 4 islands) reuses the English island art under CSS (`css/ds-game.css`, art 2, 3,
