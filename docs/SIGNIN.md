@@ -114,7 +114,7 @@ The tick box keeps the session for this tab only (it ends when the tab closes). 
 | A4 4/5 | Heading | זוכרים בעזרת סיפור |
 | | (note) | the pair and the story below are a **sample**; the screen shows the child's own two pictures |
 | | The pair, large | תפוח, ואחר כך עפיפון |
-| | Text (sound) | אמרו את זה בקול. |
+| | Text (no sound) | אמרו את זה בלב. (was "בקול": a secret is not said aloud in a classroom; the Kaia clip of the old line is not played. For the teacher's review) |
 | | Text | מצאו סיפור קצר שמחבר אותן. למשל: התפוח עף על עפיפון. אל תספרו אותו לאף אחד. |
 | | Button | זכרתי |
 | A5 5/5 | Heading | עכשיו מהזיכרון |

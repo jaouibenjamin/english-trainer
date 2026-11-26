@@ -32,7 +32,14 @@ so):
 import argparse, glob, hashlib, json, os, re, subprocess, sys, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REF = 'sgzzsixokgohshdpkvkr'
+REF_FILE = os.path.join(ROOT, 'supabase', 'project_ref')   # the one place the project's ref is written (tools/project_ref.py)
+
+
+def project_ref():
+    try:
+        return open(REF_FILE, encoding='utf-8').read().strip()
+    except OSError:
+        return ''
 CONFIRM = 'setup trial'
 FUNCTIONS = ['pupil-login', 'pupil-register', 'pupil-recover', 'teacher-reset', 'admin-class']
 ORIGIN = 'https://jaouibenjamin.github.io'
@@ -73,6 +80,7 @@ class Setup:
         self.dbpw = os.environ.get('SUPABASE_DB_PASSWORD', '')
         self.hidden = []
         self.changed, self.manual = [], []
+        self.next_said = False
 
     # ---------- output: nothing secret, ever ----------
     @staticmethod
@@ -140,14 +148,15 @@ class Setup:
         status, region, org = p.get('status'), p.get('region', ''), p.get('organization_id')
         self.say(f'  status {status}, region {region}')
         if status != 'ACTIVE_HEALTHY':
-            raise Stop(f'the project is {status}, not ACTIVE_HEALTHY: restore it in the dashboard (free) and run again')
+            raise Stop(f'the project is {status}, not ACTIVE_HEALTHY. Next: restore it in the Supabase dashboard (free), then run again')
         if not str(region).startswith('eu-'):
-            raise Stop(f'the region is {region}, not in the EU (DAY0.md step 0): nothing was changed')
+            raise Stop(f'the region is {region}, not in the EU (DAY0.md step 0), and a region cannot be changed. Next: create a new '
+                       'project in Frankfurt (eu-central-1) on the Free plan and send the lead its ref; keep this one untouched')
         o = self.api('GET', f'/v1/organizations/{org}')
         plan = str(o.get('plan', '')).lower()
         self.say(f'  plan {plan or "(not given)"}')
         if plan != 'free':
-            raise Stop(f'the organization\'s plan is "{plan}", not free: nothing was changed (the owner\'s rule: free only)')
+            raise Stop(f'the organization\'s plan is "{plan}", not free (the owner\'s rule: free only). Next: tell the lead')
         versions, tables = ours()
         have = [r['t'] for r in self.rows("select tablename as t from pg_tables where schemaname = 'public'")]
         hist = []
@@ -157,15 +166,15 @@ class Setup:
             users = self.one('select count(*) as n from auth.users')
             buckets = self.one('select count(*) as n from storage.buckets') if self.one("select to_regclass('storage.buckets') is not null as e") else 0
             if users or buckets:
-                raise Stop(f'public is empty but the project is not new ({users} auth users, {buckets} storage buckets): '
-                           'nothing was changed. Tell the lead.')
+                raise Stop(f'public is empty but the project is not new ({users} auth users, {buckets} storage buckets). '
+                           'Next: tell the lead these two numbers')
             self.say('  public is empty, no auth users, no storage buckets: a fresh project')
         elif hist == versions[:len(hist)] and set(have) <= tables:
             self.say(f'  it holds our own migrations {", ".join(hist) or "(none recorded)"} and nothing else: carrying on')
         else:
             foreign = sorted(set(have) - tables)[:10]
             raise Stop(f'public is not empty and not ours ({len(have)} tables, e.g. {foreign or have[:10]}; migrations {hist[:10]}): '
-                       'nothing was changed. Tell the lead.')
+                       'Next: tell the lead this line')
         self.versions = versions
 
     # ---------- 1. Auth ----------
@@ -176,7 +185,7 @@ class Setup:
         if cfg.get('disable_signup') is not True:
             self.api('PATCH', path, {'disable_signup': True})
             if self.api('GET', path).get('disable_signup') is not True:
-                raise Stop('sign-ups could not be switched off: nothing else was changed')
+                raise Stop('sign-ups could not be switched off. Next: switch them off in the dashboard (DAY0.md section 1, A3), then run again')
             self.change('sign-ups OFF')
         else:
             self.say('  sign-ups already OFF')
@@ -333,6 +342,7 @@ class Setup:
                 self.manual.append('the Vault is not available: make the trial class by hand (docs/owner/DAY0.md step 7)')
                 return
             code, cid = self.admin_class({'action': 'create', 'name': TRIAL, 'grade': '5'})
+            self.change(f'class {TRIAL} made')                # recorded before the Vault, so a stop after it says so
             self.store_code(code, 'made')
             del code
         n = self.one(f"select count(*) as n from public.roster where class_id = '{cid}'")
@@ -381,7 +391,7 @@ class Setup:
         except Stop:
             raise Stop(f'the {TRIAL} class code was {how} but could not be put in the Vault, so it is lost: '
                        'run this workflow again with mode rotate-trial for a new one')
-        self.change(f'class {TRIAL} {how}; its code is in the Vault as {VAULT_NAME}')
+        self.change(f'its code put in the Vault as {VAULT_NAME}')
 
     # ---------- rotate-trial: a new code for the trial class ----------
     def rotate_trial(self):
@@ -392,6 +402,7 @@ class Setup:
         if not self.vault():
             raise Stop('the Vault is not available: rotate by hand (admin-class rotate, DAY0.md step 7)')
         code, _ = self.admin_class({'action': 'rotate', 'class_id': cid})
+        self.change(f'class {TRIAL} given a new code (the old one no longer works)')
         self.store_code(code, 'given a new code')
         del code
 
@@ -419,7 +430,10 @@ class Setup:
 
     def run(self):
         if self.a.confirm != CONFIRM:
-            raise Stop(f'type exactly "{CONFIRM}" to run')
+            raise Stop(f'the confirmation was not "{CONFIRM}". Next: run it again and type exactly: {CONFIRM}')
+        if not re.fullmatch(r'[a-z]{20}', self.ref or ''):
+            raise Stop('supabase/project_ref holds no project ref yet. Next: the lead sets it (tools/project_ref.py set <ref>) '
+                       'and ships it to main; then run again')
         if not self.a.dry_run and (not self.token or not self.dbpw):
             raise Stop('SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD must be set (GitHub secrets)')
         if not self.a.dry_run and not (self.a.api.startswith('https://') and self.a.project_url == f'https://{self.ref}.supabase.co'):
@@ -444,7 +458,7 @@ class Setup:
 def main():
     p = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     p.add_argument('--confirm', default='')
-    p.add_argument('--ref', default=REF)
+    p.add_argument('--ref', default=None, help='default: the ref in supabase/project_ref')
     p.add_argument('--api', default='https://api.supabase.com')
     p.add_argument('--project-url', default=None)
     p.add_argument('--cli', default='supabase')
@@ -452,6 +466,7 @@ def main():
     p.add_argument('--dry-run', action='store_true')
     p.add_argument('--rotate-trial', action='store_true', help='only give the trial class a new code, into the Vault')
     a = p.parse_args()
+    a.ref = a.ref or project_ref()
     a.project_url = a.project_url or f'https://{a.ref}.supabase.co'
     s = Setup(a)
     try:
@@ -459,21 +474,34 @@ def main():
         code = 0
     except Stop as e:
         s.say(f'\nSTOPPED: {s.redact(str(e))}')
+        s.next_said = 'Next:' in str(e)
         code = 1
     except Exception as e:                          # no traceback: it could quote a value; the type and a redacted line only
         s.say(f'\nSTOPPED: {type(e).__name__}: {s.redact(str(e))[:300]}')
         code = 1
+    if code:
+        # A refusal or a stop: what stopped it (above), what was changed, what to do next. No list, no revoke reminder:
+        # the token is still needed for the next run.
+        if not s.changed:
+            s.say('Nothing was changed.')
+            if not s.next_said:                     # an unexpected stop (a timeout, an odd answer) carries no next step
+                s.say('Next: run it again; if it stops the same way, send the lead the STOPPED line (it holds no secret).')
+        else:
+            s.say('Changed before it stopped: ' + '; '.join(s.changed) + '.')
+            s.say('Next: fix what stopped it, then run again; the run carries on from where it stopped.')
+        sys.exit(code)
     s.say('\n== what is left for the owner ==')
     for m in ['A1: 2FA on the Supabase, GitHub and Google accounts; recovery codes on paper',
               'A2: GitHub → Settings → Code security: secret scanning and push protection on'] + s.manual:
         s.say(f'  - {m}')
-    if not code and (s.a.rotate_trial or any('class Trial' in c for c in s.changed)):
+    if s.a.rotate_trial or any('class Trial' in c for c in s.changed):
         s.say(f'  - the trial class code: Supabase → Project Settings → Vault (or Integrations → Vault) → {VAULT_NAME}: '
               'copy it into the password manager, then delete that secret')
-        s.say('  - send the lead only "setup done" and the publishable key (sb_publishable_…)')
+    s.say('  - send the lead only "setup done" and the publishable key (sb_publishable_…)')
     s.say('\n' + ('nothing changed: the project was already set up' if not s.changed else f'{len(s.changed)} changes made'))
-    s.say('\nNOW: revoke the access token (supabase.com → Account → Access Tokens → the setup token → Revoke), and delete '
-          'both secrets from the supabase-setup environment (GitHub → Settings → Environments → supabase-setup).')
+    if s.token:                                     # a run that used the access token, and finished
+        s.say('\nNOW: revoke the access token (supabase.com → Account → Access Tokens → the setup token → Revoke), and delete '
+              'both secrets from the supabase-setup environment (GitHub → Settings → Environments → supabase-setup).')
     sys.exit(code)
 
 

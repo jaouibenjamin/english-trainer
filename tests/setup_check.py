@@ -62,6 +62,8 @@ class Fake:
         self.accept = {self.secret_key} if kw.get('legacy_refused') else {self.service, self.secret_key}
         self.codes, self.log = [], []
         self.vault_broken = False
+        self.requests = []
+        self.garbage = kw.get('garbage', False)
 
     def ntables(self):
         return int(self.db.psql("select count(*) from pg_tables where schemaname = 'public'", user='supabase_admin')[0][0][0])
@@ -95,6 +97,9 @@ class Fake:
         return {'ok': True, 'out': '\n'.join(out) or 'Remote database is up to date.'}
 
     def handle(self, method, path, body, headers):
+        self.requests.append((method, path))
+        if self.garbage and path.split('?')[0] == f'/v1/projects/{REF}':
+            return 200, 'not json'                       # an answer the tool does not expect: an unexpected stop
         p = path.split('?')[0]
         base = f'/v1/projects/{REF}'
         if method == 'GET' and p == base:
@@ -178,13 +183,13 @@ def project(**kw):
     return db, fake, serve(fake)
 
 
-def run(srv, fake, confirm='setup trial', extra=()):
+def run(srv, fake, confirm='setup trial', extra=(), ref=REF):
     url = f'http://127.0.0.1:{srv.server_address[1]}'
     log = tempfile.mktemp(prefix='wi-cli-')
     env = dict(os.environ, WI_FAKE_API=url, WI_FAKE_CLI_LOG=log)
     env['SUPABASE_ACCESS_TOKEN'], env['SUPABASE_DB_PASSWORD'] = fake.token, fake.dbpw          # made-up values (fresh())
     env.pop('HTTPS_PROXY', None); env.pop('https_proxy', None)
-    r = subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'supabase_setup.py'), '--dry-run', '--confirm', confirm, '--ref', REF,
+    r = subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'supabase_setup.py'), '--dry-run', '--confirm', confirm, '--ref', ref,
                         '--api', url, '--project-url', url, '--cli', os.path.join(ROOT, 'tests', 'setup_fake_cli.py')] + list(extra),
                        env=env, capture_output=True, text=True, timeout=600)
     cli = [json.loads(ln) for ln in open(log, encoding='utf-8')] if os.path.exists(log) else []
@@ -274,6 +279,8 @@ def fresh():
         fake.vault_broken = True
         r6, _ = run(srv, fake, extra=['--rotate-trial'])
         out6 = r6.stdout + r6.stderr
+        check('the Vault refuses the code: the ending says the class got a new code before it stopped, and no revoke reminder',
+              'Changed before it stopped: class Trial given a new code' in out6 and 'revoke' not in out6.lower(), out6[-500:])
         check('the Vault refuses the code: it stops and says the code is lost and to run rotate-trial again', r6.returncode == 1
               and 'could not be put in the Vault' in out6 and 'rotate-trial' in out6 and not leaks(out6, secrets_of(fake)), (leaks(out6, secrets_of(fake)), out6[-900:]))
         fake.vault_broken = False
@@ -284,15 +291,25 @@ def fresh():
         srv.shutdown(); db.stop()
 
 
-def refused(label, kw=None, prep=None, confirm='setup trial'):
+def tail_ok(out):
+    """After a refusal: what stopped it, that nothing was changed, what to do next; no list, no revoke reminder."""
+    end = out[out.rfind('\nSTOPPED:'):]
+    return ('Nothing was changed.' in end and 'Next:' in end and 'revoke' not in out.lower() and 'what is left' not in out
+            and 'already set up' not in out and 'changes made' not in out)
+
+
+def refused(label, kw=None, prep=None, confirm='setup trial', ref=REF, silent=False):
     db, fake, srv = project(**(kw or {}))
     fake.token, fake.dbpw = made_up()
     try:
         if prep:
             db.psql(prep, user='supabase_admin')
-        r, cli = run(srv, fake, confirm=confirm)
+        r, cli = run(srv, fake, confirm=confirm, ref=ref)
         out = r.stdout + r.stderr
         check(f'{label}: stops before any write', r.returncode == 1 and 'STOPPED' in out and not fake.log and not cli, (out[-600:], fake.log, cli))
+        check(f'{label}: the log ends with what stopped it, "Nothing was changed.", what to do next; no revoke reminder', tail_ok(out), out[out.rfind('\nSTOPPED:'):][:500])
+        if silent:
+            check(f'{label}: not one request reached the stand-in', not fake.requests, fake.requests)
     finally:
         srv.shutdown(); db.stop()
 
@@ -350,7 +367,9 @@ def main():
     refused('a public schema with someone else\'s table', prep='create table public.orders (id int)')
     refused('an empty public but auth users', prep="insert into auth.users (id) values (gen_random_uuid())")
     refused('an empty public but a storage bucket', prep='create schema storage; create table storage.buckets (id text); insert into storage.buckets values (\'b\')')
-    refused('a wrong confirmation', confirm='setup')
+    refused('a wrong confirmation', confirm='setup', silent=True)
+    refused('no project ref yet (supabase/project_ref not set, or not a ref)', ref='notaref', silent=True)
+    refused('an unexpected answer (an unexpected stop, like a timeout)', {'garbage': True})
     fallback()
     print('\nALL PASSED' if not fails else f'\n{len(fails)} FAILED')
     sys.exit(1 if fails else 0)

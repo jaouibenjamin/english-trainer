@@ -307,7 +307,12 @@ const clipFor=text=>misses>=2&&Date.now()<retryAt?null:clipOf(text);
 const missed=()=>{misses++;retryAt=Date.now()+30000};
 /* speak one text. Resolves true when it was spoken (a clip: when it ended or was interrupted; browser voice: when it started),
    false if this device could not say it (used by the listening level). */
+/* the opening film (js/intro.js, design flag only) holds the voice while it is open: what a screen behind it says waits
+   until it closes (a newer say or hush() in between drops it). Without the flag html never has the class. */
+const held=()=>document.documentElement.classList.contains('wi-intro-open');
+const unheld=()=>new Promise(r=>addEventListener('wi-intro-closed',r,{once:true}));
 export async function say(text,rate,slow){const my=++seq;
+ if(held()){await unheld();if(my!==seq)return true}
  const c=clipFor(text);
  if(slow&&!c){if(stopClip)stopClip();return false}   // slowly is for recorded clips only, never the browser voice
  if(c){synthStop();const r=await playClip(c,my,slow);if(r==='end'){misses=0;return true}if(r==='stop')return true;missed();
@@ -317,6 +322,7 @@ export async function say(text,rate,slow){const my=++seq;
 /* speak several texts in order with a short breath between them ("read to me"); hush() or any newer speech stops it.
    A part without a clip (or whose clip fails) is read by the browser voice, then the clips carry on. */
 export async function sayAll(parts,rate,gap=380,slow){const my=++seq;if(stopClip)stopClip();synthStop();
+ if(held()){await unheld();if(my!==seq)return true}
  for(const part of parts){
   const c=clipFor(part);let r=c?await playClip(c,my,slow):'none';
   if(my!==seq||r==='stop')return true;
