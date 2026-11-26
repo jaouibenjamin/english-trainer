@@ -55,6 +55,10 @@ Status: a proposal for the lead and the owner. Steps 1 and 2 are open pull reque
      (`signin`); what the device played waits for the same pupil;
    - the `unfinished` key goes with whichever of steps 5 and 6 lands second, so the class cannot be switched without
      the sign-in screens.
+   - two pupils in two tabs of one device (review of #111): the tab whose pupil was replaced shows "someone else signed
+     in on this device" and sends nothing more. **Known limit, accepted by the lead:** that tab's play since its last
+     save (the adapter sends at most every 30 s) is lost: the other pupil's sign-in ended its session first, and it is
+     never written into the other pupil's record. With the Sheet (Phase 2) that last save still reached the Sheet.
    Tests: `tests/api_check.mjs` section 9, `tests/supabase_mode.py`.
 
 ## What must be true before the Sheet is switched off
