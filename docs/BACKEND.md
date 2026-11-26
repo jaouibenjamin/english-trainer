@@ -177,7 +177,8 @@ they choose a **new** 4-digit code and their two pictures (A4, A5). Until that i
 1. After A or B the device keeps a session. The pupil is not asked again on that device, also after closing the
    browser or restarting the phone.
 2. The 4-digit code is **not kept on the device and is not sent again**. Saving progress uses the session only.
-   (The first run of the new version deletes the code the old version kept on the device.)
+   (The new version keeps its own record on the device and never reads the old one; the old record, with the code
+   the Sheet era kept, stays as it was for the way back (`docs/PHASE4.md` A) and goes when the Sheet is switched off.)
 3. "Sign out" ends it for that device only (used on a shared computer).
 4. A pupil who clears the browser's data, or gets a new phone, signs in again as in B.
 
