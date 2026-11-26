@@ -46,6 +46,19 @@ async def page(b, w, h, errs, seed=None, api=None, user=None):
     return c, pg, reqs
 
 
+async def tap_to_open(pg, sel, route):
+    """click a stone and return the time from the tap to the level's address, in the page's own clock (the tap's event
+    time to the hashchange), so a busy test machine's round trips do not count"""
+    await pg.evaluate("""(()=>{window.__tt={};if(!window.__ttOn){window.__ttOn=1;
+      addEventListener('click',e=>{if(e.target.closest&&e.target.closest('.w-st'))__tt.tap=e.timeStamp},true);
+      addEventListener('hashchange',()=>{if(location.hash.startsWith('#play/')&&__tt.tap!==undefined&&__tt.hc===undefined)__tt.hc=performance.now()})}})()""")
+    await pg.click(sel)
+    await pg.wait_for_function("window.__tt.hc!==undefined", timeout=5000)
+    assert await pg.evaluate('location.hash') == '#' + route, await pg.evaluate('location.hash')
+    t = await pg.evaluate('window.__tt')
+    return t['hc'] - t['tap']
+
+
 async def to_path(pg, isl):
     """an island's path, the way a child gets there: from the map, once the map has fetched the path's pictures
     (window.__world.pathArt, a promise: no wall-clock wait), then the island"""
@@ -353,6 +366,51 @@ async def ladder(b, errs):
     rec = json.loads((await pg.evaluate(LS))['wi_world'])['p']['local']
     check('a device that first opens the map at level 7 is not told about old news; level 7 is remembered', await pg.locator('.wnew').count() == 0 and rec.get('sl') == 7, rec)
     await c.close()
+
+
+async def loader_look(b, errs):
+    """the wait before a level, in the new look: navy over the whole board, the new Pitzi (the old sprite is not
+    downloaded), the same words, role=status, an honest "עוד רגע…" only after 5 s, still with reduced motion; without
+    the flag the loader is exactly as today"""
+    import slow_net as SN
+    # when a loader appears and when its extra line appears, recorded by the page itself (no wall-clock guess here)
+    REC = "window.__ld=[];new MutationObserver(()=>{const l=document.querySelector('.loader');if(l&&!l.__t){l.__t=1;__ld.push(['loader',performance.now()])}const m=l&&l.querySelector('.loader__more');if(m&&m.textContent&&!l.__m){l.__m=1;__ld.push(['more',performance.now()])}}).observe(document,{subtree:true,childList:true,characterData:true})"
+    for ds, reduce in ((True, False), (True, True), (False, False)):
+        c, pg, reqs = await page(b, 390, 844, [], {'g': {'st': {'1-sling': 3}}})
+        if reduce: await pg.emulate_media(reduced_motion='reduce')
+        await pg.add_init_script(REC)
+        cdp = await c.new_cdp_session(pg); await cdp.send('Network.enable')
+        await cdp.send('Network.emulateNetworkConditions', {'offline': False, 'latency': SN.PROFILE['latency'], 'downloadThroughput': SN.PROFILE['down'], 'uploadThroughput': SN.PROFILE['up']})
+        await pg.goto(P.BASE + ('?ds=1' if ds else '') + '#play/1/listen', wait_until='commit')
+        # the play loader only (the boot one, before the style sheets are in, can be in the old look on a slow phone)
+        await pg.wait_for_function("((document.getElementById('stage')||{}).dataset||{}).scr==='play'&&!!document.querySelector('.loader')", timeout=90000); await pg.wait_for_timeout(500)
+        LAY = "(()=>{const l=document.querySelector('.loader');if(!l)return null;const i=l.querySelector('img'),t=l.querySelector('p');return [i.offsetTop,i.offsetLeft,t.offsetTop,t.offsetLeft]})()"   # layout boxes: the bob (a transform) does not count
+        pz0 = await pg.evaluate(LAY)
+        L = await pg.evaluate("""(()=>{const l=document.querySelector('.loader'),r=l.getBoundingClientRect(),s=document.getElementById('stage').getBoundingClientRect(),i=l.querySelector('img'),cs=getComputedStyle(l);
+          return {cover:Math.abs(r.left-s.left)<1&&Math.abs(r.top-s.top)<1&&Math.abs(r.width-s.width)<1&&Math.abs(r.height-s.height)<1,bg:cs.backgroundColor,role:l.getAttribute('role'),
+            text:l.querySelector('p').textContent,more:!!l.querySelector('.loader__more'),art:getComputedStyle(i).backgroundImage,anim:getComputedStyle(i).animationName,srcset:!!i.getAttribute('srcset')}})()""")
+        old = [u for u, _ in reqs if u.endswith('/assets/sp/crab_wave.webp')]
+        await pg.wait_for_timeout(6000)
+        pz1 = await pg.evaluate(LAY)
+        ld = await pg.evaluate('window.__ld')
+        t = dict(ld); more = (t['more'] - t['loader']) if 'more' in t and 'loader' in t else None
+        at58 = await pg.evaluate("(()=>{const m=document.querySelector('.loader .loader__more');return m?m.textContent:null})()")
+        at46 = more is not None and more < 4900
+        if ds:
+            tag = 'reduced motion' if reduce else 'motion'
+            check(f'[loader, new look, {tag}] navy (--wi-navy-900) over the whole board', L['cover'] and L['bg'] == 'rgb(11, 30, 63)', L)
+            check(f'[loader, new look, {tag}] the new Pitzi is drawn (the loader\'s old picture has its stand-in, so the loader itself asks for no old crab; play() still preloads CORE, item (b)); same words; role=status', 'pitzi/wave' in L['art'] and L['srcset'] and L['text'] == 'רגע, מפליגים…' and L['role'] == 'status', L)
+            check(f'[loader, new look, {tag}] nothing moves when "עוד רגע…" appears (Pitzi and the words stay where they were)', pz1 is not None and all(abs(x - y) < 0.5 for x, y in zip(pz0, pz1)), (pz0, pz1))
+            check(f'[loader, new look, {tag}] "עוד רגע…" only after 5 s of waiting (measured by the page: 5.0 to 5.6 s after the loader)', more is not None and 4990 <= more <= 5600 and at58 == 'עוד רגע…', (more, at58))
+            if reduce:
+                check('[loader, new look, reduced motion] Pitzi does not bob', L['anim'] == 'none', L['anim'])
+            else:
+                a = await pg.evaluate(AUDIT.replace(".wd *,.wd__note,.wpick *", ".loader p"))
+                check('[loader, new look] its words at least 4.5:1', not a['bad'], a['bad'])
+                await P.shot(pg, 'world-loader-390x844')
+        else:
+            check('[loader, flag off] exactly as today: no role, no extra line after 5 s, the old background', L['role'] is None and not L['more'] and at58 is None and L['bg'] == 'rgba(255, 244, 222, 0.6)', L)
+        await c.close()
 
 
 async def reachable(b, errs):
@@ -694,10 +752,7 @@ async def island_path(b, errs):
     c, pg, reqs = await page(b, 390, 844, errs, st)
     await pg.add_init_script(seed)
     await to_path(pg, 1)
-    t0 = await pg.evaluate('performance.now()')
-    await pg.click('.w-st[data-to="play/1/bridge"]')
-    await pg.wait_for_function("location.hash==='#play/1/bridge'", timeout=3000)
-    dt = await pg.evaluate('performance.now()') - t0
+    dt = await tap_to_open(pg, '.w-st[data-to="play/1/bridge"]', 'play/1/bridge')
     check('a tapped stone: the character glides there and that level opens, in under 0.6 s', dt < 650, round(dt))
     await P.lv(pg, 'bridge')
     await c.close()
@@ -715,8 +770,7 @@ async def island_path(b, errs):
     await to_path(pg, 1)
     await pg.evaluate("window.__opens=[];addEventListener('hashchange',()=>{if(location.hash.startsWith('#play/'))__opens.push(location.hash)})")
     await pg.click('.w-st[data-to="play/1/bridge"]'); await pg.wait_for_timeout(120)
-    t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/1/sling"]')
-    await pg.wait_for_function("location.hash.startsWith('#play/')", timeout=3000); dt = await pg.evaluate('performance.now()') - t0; await pg.wait_for_timeout(600)
+    dt = await tap_to_open(pg, '.w-st[data-to="play/1/sling"]', 'play/1/sling'); await pg.wait_for_timeout(600)
     check('a second tap during the glide ends it and goes at once: that level opens, and only it', await pg.evaluate('__opens') == ['#play/1/sling'] and dt < 400, (await pg.evaluate('__opens'), round(dt)))
     await to_path(pg, 1)
     await pg.evaluate("window.__opens=[]")   # the same page (only the address after # changed): its listener is still there
@@ -743,9 +797,8 @@ async def island_path(b, errs):
     c, pg, reqs = await page(b, 390, 844, errs, st)
     await pg.emulate_media(reduced_motion='reduce'); await pg.add_init_script(seed)
     await to_path(pg, 1)
-    t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/1/read"]')
-    await pg.wait_for_function("location.hash==='#play/1/read'", timeout=3000)
-    check('reduced motion: no walk, the level opens at once', await pg.evaluate('performance.now()') - t0 < 400)
+    dt = await tap_to_open(pg, '.w-st[data-to="play/1/read"]', 'play/1/read')
+    check('reduced motion: no walk, the level opens at once', dt < 400, round(dt))
     await to_path(pg, 1)
     check('reduced motion: the glowing stone does not pulse', await pg.evaluate("getComputedStyle(document.querySelector('.w-st--current .w-st__art')).animationName") == 'none')
     await c.close()
@@ -754,9 +807,8 @@ async def island_path(b, errs):
     await to_path(pg, 6); await pg.wait_for_timeout(200)
     g = await pg.evaluate(GEO)
     check('the bonus island: its two levels as two stones, no character when none is chosen', [x['to'] for x in g['st']] == ['play/6/sling', 'play/6/listen'] and await pg.locator('.w-walker').count() == 0, g['st'])
-    t0 = await pg.evaluate('performance.now()'); await pg.click('.w-st[data-to="play/6/listen"]')
-    await pg.wait_for_function("location.hash==='#play/6/listen'", timeout=3000)
-    check('no character: a tap opens the level at once', await pg.evaluate('performance.now()') - t0 < 400)
+    dt = await tap_to_open(pg, '.w-st[data-to="play/6/listen"]', 'play/6/listen')
+    check('no character: a tap opens the level at once', dt < 400, round(dt))
     await c.close()
     # a device that cannot keep a character: the path, without a character
     api = f'http://127.0.0.1:{P.API_PORT}/'
@@ -830,6 +882,32 @@ async def island_path(b, errs):
         span = (max(empty) - min(empty)) if empty else 0
         check(f'CPU x{rate}, pictures already in: the list never shows before the path, the area is empty at most about 0.35 s, then the path for good', isl and 'list' not in [k for _, k in isl] and isl[-1][1] == 'path' and span <= 350, (span, ''.join(k[0] for _, k in isl)))
         await c.close()
+    # on a slow line (tests/slow_net.py's profile), the path's pictures are asked for only after every picture the map
+    # shows (its <img>s) has arrived: compared in the browser's own network log (one clock, no polling), title then map
+    import slow_net as SN
+    c, pg, reqs = await page(b, 390, 844, [], st)
+    await pg.add_init_script(seed)
+    cdp = await c.new_cdp_session(pg); await cdp.send('Network.enable')
+    await cdp.send('Network.emulateNetworkConditions', {'offline': False, 'latency': SN.PROFILE['latency'], 'downloadThroughput': SN.PROFILE['down'], 'uploadThroughput': SN.PROFILE['up']})
+    log = {}
+    def _sent(e): log[e['requestId']] = {'url': e['request']['url'], 'sent': e['timestamp'], 'done': None}
+    def _done(e):
+        if e['requestId'] in log: log[e['requestId']]['done'] = e['timestamp']
+    cdp.on('Network.requestWillBeSent', _sent); cdp.on('Network.loadingFinished', _done)
+    await pg.goto(P.BASE + '?ds=1#', wait_until='commit')
+    await pg.wait_for_selector('.scr.title .btn', timeout=150000)
+    await pg.wait_for_function("document.readyState==='complete'", timeout=150000)   # after the load event: it no longer holds anything back
+    await pg.evaluate("location.hash='map'")
+    await pg.wait_for_selector('.scr.map .wd', timeout=150000)
+    ok = await pg.wait_for_function('window.__world&&window.__world.pathArt', timeout=150000)
+    ok = await pg.evaluate('window.__world.pathArt')
+    shown = set(await pg.evaluate("[...document.querySelectorAll('.scr.map img')].map(i=>i.currentSrc||i.src).filter(u=>u&&!u.startsWith('data:'))"))
+    path = [r for r in log.values() if '/assets/al/bg/english.' in r['url'] or '/assets/al/ui/stone-' in r['url']]
+    own = [r for r in log.values() if r['url'] in shown]
+    first = min((r['sent'] for r in path), default=None)
+    last = max((r['done'] or 1e18 for r in own), default=None)
+    check('slow line, title then map: the path\'s pictures are asked for only after every picture the map shows has arrived (same network log), and still arrive', ok is True and first is not None and last is not None and first >= last, {'own': len(own), 'path': len(path), 'gap s': round(first - last, 2) if first and last else None})
+    await c.close()
     # leaving the map for anything but an island drops a preload still under way; the next map fetches again
     c, pg, reqs = await page(b, 390, 844, [], st)
     await pg.add_init_script(seed)
@@ -1006,6 +1084,7 @@ async def main():
             await anim(b, errs)
             await ladder(b, errs)
             await notice_clear(b, errs)
+            await loader_look(b, errs)
             await reachable(b, errs)
             await energy_migration(b, errs)
             await soon_tiles(b, errs)

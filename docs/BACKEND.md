@@ -124,7 +124,16 @@ Database functions a signed-in pupil may call (each derives the pupil from `auth
 `anon` may call exactly one function, `ping()`, which returns `true` (the keep-alive).
 
 A teacher may call `teacher_delete_pupil(pupil uuid)` (her class only): deletes the pupil, their answers, points,
-progress, secrets and their auth user. This is the "data a teacher or parent can ask to delete" path.
+progress, secrets and their auth user. This is the "data a teacher or parent can ask to delete" path: immediate, also
+for a pupil she took out of the class.
+
+She may also take a pupil out of the class with 14 days to undo it (`0009_soft_delete.sql`):
+`teacher_remove_pupil(pupil uuid)`, `teacher_restore_pupil(pupil uuid)` and `teacher_removed()` (her list, with the
+day each is deleted). The pupil's row moves to a hidden class of its own (`private.limbo`: no code, no teacher), so
+every rule scoped by class leaves them out without a change: the sign-in finds no such name, the board and her views
+do not show them, and their session ends (the auth user is deleted). Their records stay for the way back; `undo`
+is refused when a new pupil took the name meanwhile (`taken`) or the class is full. After `removed_days` (14),
+`maintenance()` deletes them for good, as `teacher_delete_pupil` does, and records it in `private.deletions`.
 
 `maintenance()` (the roll-up, the deletions with a short life, a totals check, the storage brake) runs for the server
 role only, every night from pg_cron. pg_cron keeps only "1 row" of its answer, so each night's answer is written to
@@ -382,6 +391,7 @@ Who is asking (review S2, S3):
 | Wrong class codes, all addresses together | 2,000 an hour, then everyone waits for the next hour | so forged addresses cannot grow the database (pre-live review S3) |
 | Calls per address, any kind | 120 an hour | |
 | Registrations per address | 60 an hour (a class registering from the school's one address must fit) | |
+| New one-time codes, one teacher | 15 in 24 hours (`reset_teacher_day`), counted before the slow hash and again under her own lock; her count and cap are in `backend_health` (review of #86, S7) | each reset costs 600,000 hash rounds and signs the pupil out everywhere |
 
 The teacher has two remedies, both in `teacher-reset` (review N1, N2): **unlock a pupil** clears that name's locks
 and counters without touching the code or the pictures (for the pupil kept off the school computers by someone's
@@ -411,7 +421,11 @@ What this gives, and what it does not:
   the session is issued.
 
 Answers of the functions: `ok`, `class`, `pin` (name or code not right; also "no such pupil" and "code was reset"),
-`locked` (with seconds to wait, or -1 for "ask the teacher"), `setup` (old code right, now choose the new code and
+`locked` (with seconds to wait, or -1 for "ask the teacher", and `by`, whom it is for: `name` this name only,
+`device` the pupil's own known device, `address` everyone at this network, `class` the whole class, `everyone` every
+class this hour, `system` the copy phase; and `help`: `teacher` when her unlock, her class lift or a new code ends
+it, `wait` when only time does (calls, wrong class codes and registrations per network per hour, every class this
+hour, the copy phase), so a screen never promises a lift that cannot happen; `0008_lock_scope.sql`), `setup` (old code right, now choose the new code and
 pictures), `weak` (code on the deny-list), `picture`, `otc`, `taken`, `roster`, `full`, `input`, `forbidden`, and for
 the teacher `limit` (a third unlock of a name, or a third brake lift, in a day). `teacher-reset` checks that the pupil
 is hers before any slow hashing, so a stranger's token makes it do no work (pre-live review N3).
@@ -560,6 +574,10 @@ Nothing here needs a card. If a limit is reached the project is restricted, not 
 - Typed names of failed sign-ins stay 30 days in `private.auth_attempts` (needed for the limits), then are deleted.
 - `teacher_delete_pupil` removes the pupil row and everything keyed by the pupil or by class and name (events,
   ledgers, blob, secrets, devices, one-time code, tries, locks) and the auth user. Tested table by table.
+- A pupil taken out of the class (`teacher_remove_pupil`) is still personal data held: kept up to 14 days for the way
+  back, then deleted by `maintenance()` the same way. A parent's request to delete is `teacher_delete_pupil`, at once,
+  also during those 14 days. Encrypted exports taken before a deletion keep the child until they age out (7 days in
+  the workflow; the owner's offline copy until he replaces it). This goes into the note for parents.
 
 ## 7. Threat model
 
@@ -679,11 +697,15 @@ Project settings (each has a test in section 10):
    is per calling address and all our functions share theirs, so five classes signing in in the same five minutes
    need five times that; raise it again before a second class joins. Sign-ups and email sends at the minimum. No
    custom SMTP.
-9. Authentication → URL configuration: site URL and redirect list = the game's address only.
+9. Authentication → URL configuration: site URL and redirect list = the game's address only. With the teacher's page
+   (Phase 3, `docs/PHASE3.md`): the redirect list holds exactly `<the game's address>/teacher.html` as well, and nothing
+   else: it is the only address the Google sign-in may return to.
 10. API settings: exposed schemas = `public` only. `pg_graphql` extension off. Realtime: off for every table.
 11. Database → Extensions: `pgcrypto` (the encrypted export) and `pg_cron` (the nightly clean-up) on.
 12. Run the migrations (`supabase db push`), then `supabase/seed/catalog.sql`. The output must say
     "maintenance is scheduled: every night at 02:17 UTC"; if it says "maintenance is NOT scheduled", stop.
+    **Migrations are append-only:** `db push` runs each file once and never again, so a file already on `game` is never
+    edited; a change is a new file after the last one (`tests/migrations_check.py`; docs/LESSONS.md entry 15).
 13. Secrets for the functions: `PUPIL_PEPPER` generated on the owner's computer (`openssl rand -base64 32`), set with
     `supabase secrets set`, never pasted anywhere else. `ALLOWED_ORIGINS`. Deploy the functions.
 14. Backup: generate an RSA 4096 key pair with `gpg` on the owner's computer; store the **public** key in
