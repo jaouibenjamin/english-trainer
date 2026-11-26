@@ -52,8 +52,10 @@ const P={
 export const ico=(n,cls='')=>`<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n]}</svg>`;
 /* with the design flag, an old picture in the size list gets its stand-in written into the tag (and a marker that js/main.js
    dsSettle uses to give the picture back where the new look does not draw over it): the browser never starts on src.
-   Without the flag the tag is exactly as before. */
-const standInAttrs=n=>{const b=document.documentElement.classList.contains('ds')&&standIn(n);return b?` srcset="${b}" data-wi-sp=""`:''};
+   Only when js/main.js has said at load that it settles them (globalThis.__wiSettles): an older main.js still in a
+   phone's cache after a ship has no dsSettle, and its pictures would stay blank (tests/cache_mix.py). Without the
+   design flag the tag is exactly as before. */
+const standInAttrs=n=>{const b=globalThis.__wiSettles===true&&document.documentElement.classList.contains('ds')&&standIn(n);return b?` srcset="${b}" data-wi-sp=""`:''};
 export const spr=(n,cls='',alt='')=>`<img class="${cls}" src="${SP(n)}"${standInAttrs(n)} alt="${esc(alt)}" draggable="false">`;
 /* round painted button (a watercolour bubble with an ink icon or a small sprite) */
 export const rb=(act,inner,label,tone=0,extra='')=>`<button class="rb t${tone}" data-a="${act}" aria-label="${esc(label)}" ${extra}>${inner}</button>`;
