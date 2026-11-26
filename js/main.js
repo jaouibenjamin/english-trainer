@@ -54,7 +54,7 @@ function title(){setBg('title','bottom');
    <button class="btn blue xl sb" data-a="nav" data-to="math"><span><b>חשבון: שברים</b><small>מפרץ השברים${md>0&&md<30?` · מבחן בעוד ${num(md)} ימים`:''}</small></span></button>
    ${API&&S.u?`<p class="who">${esc(S.u.n)} · ${pts(S.pts)} נקודות</p>`:''}</div>
   ${spr('crab_wave','tcrab bob')}</section>`;
- const c=view.querySelector('.tcrab');c.style.left=(m.ox+466*m.s)+'px';c.style.top=(m.oy+1240*m.s)+'px'}
+ const c=view.querySelector('.tcrab');c.style.left=(m.ox+466*m.s)+'px';c.style.top=(m.oy+1240*m.s)+'px';whoChip()}
 
 /* ---------- map ---------- */
 function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,H=stage.clientHeight,mt=H<700?88:100;
@@ -88,7 +88,7 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
    return `<button class="isl i${i.id}${o?'':' locked'}${st===mx?' full':''}${cur?' cur':''}${todo?' todo':''}${x<50?' lc':''}" style="left:${x}%;top:${y.toFixed(1)}px" data-a="${o?'nav':'locked'}" data-to="island/${i.id}" data-need="${i.need}" aria-label="${esc(i.he)}${o?'':' (נעול)'}${cur&&dsOn()?(tot?', ממשיכים כאן':', מתחילים כאן'):''}">
     <span class="pw">${spr('isl_'+i.id,'pic')}${o?'':spr('lock','lk')}${cur?`<span class="here">${spr('crab_wave','bc')}</span>`:''}</span>
     <span class="tag">${cur?`<em class="hb">${tot?'ממשיכים כאן':'מתחילים כאן'}</em>`:''}<b>${esc(i.he)}</b>${i.bonus?`<small class="bn">אי בונוס · שני שלבים</small>`:''}<small>${o?`${star()}${num(st+'/'+mx)}${st===mx?spr('ic_check','ck'):''}`:`נפתח ב־${num(i.need)}${star()}`}</small></span></button>`}).join('')}
- </section>`;worldMap();
+ </section>`;worldMap();whoChip();
  /* with the design flag, a very short screen leaves the all-played banner out (worldFits): say its line once per visit */
  if(played&&!fin&&!finSaid){finSaid=true;toast(all?'כל הכבוד! סיימתם את כל האיים':`עברתם בכל האיים! ${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`} באיים שבמסגרת הצהובה`,3200)}}
 let finSaid=false;   // the all-played line was said as a toast in this visit (a logout resets it, for the next pupil on this tab)
@@ -209,7 +209,14 @@ function help(){setBg('paper','center');
   ${c('star','כוכבים','בכל שלב יש עד 3 כוכבים, והם פותחים איים חדשים. הכוכבים למעלה מראים כמה השלב שווה עכשיו. '+SLIP_NOTE+'. '+HINT_NOTE+'.')}</section>`}
 
 /* ---------- class mode: login, leaderboard, teacher (same backend calls as the classic trainer) ---------- */
-function login(){setBg('paper','center');
+/* 'supabase' mode (ST.NEW, PHASE3 step 6): the new sign-in screens (js/signin.js, docs/SIGNIN.md), loaded only then.
+   NEW and enter are newer than the last ship: read through the namespace, with a fallback (tests/cache_mix.py). */
+let SI=null;
+function signin(){const my=navId;import('./signin.js').then(m=>{if(my!==navId||V.name!=='login'||SI)return;
+ SI=m.mount(view,{enter:(k,f)=>typeof ST.enter==='function'?ST.enter(k,f):Promise.resolve({ok:false,e:'net'}),done:()=>go('title'),sound:()=>SET.sfx&&!SET.calm,lastC:S.lastC||''})}).catch(()=>{})}
+/* whose device this is, and "זה לא אני" (one tap, then the game's own sign-out): title and map, 'supabase' mode only */
+function whoChip(){if(!(ST.NEW??false)||!S.u)return;const my=navId;import('./signin.js').then(m=>{if(my===navId&&typeof m.notMe==='function'&&(V.name==='title'||V.name==='map')){const t=view.querySelector('.scr.title .tgo');m.notMe(t||view.querySelector('.scr')||view,{name:S.u.n,inline:!!t,out:()=>A.logout()})}}).catch(()=>{})}
+function login(){if(ST.NEW??false)return signin();setBg('paper','center');
  /* a device that has never signed in starts on "first time"; afterwards the usual case is coming back */
  const reg=(V.m||(S.lastC?'login':'register'))==='register';
  const tab=(m,t)=>`<button type="button" role="tab" aria-selected="${(m==='register')===reg}" data-a="lmode" data-m="${m}">${t}</button>`;
@@ -339,7 +346,7 @@ document.addEventListener('touchmove',e=>{if(e.target.closest('.lv canvas'))e.pr
 
 /* ---------- router ---------- */
 function route(){navId++;if(stage.classList.contains('wdock'))stage.classList.remove('wdock');   // the new world's dock class (js/avatar.js), only when it is there: without the flag #stage is not touched
- document.getElementById('toast').classList.remove('on');if(level){level.destroy();level=null}clearFx();hush();
+ document.getElementById('toast').classList.remove('on');if(level){level.destroy();level=null}if(SI){SI.destroy();SI=null}clearFx();hush();
  let h=location.hash.slice(1),[n,a,b]=h.split('/');
  if(API&&!S.u&&n!=='teacher')n='login';
  if(!API&&(n==='login'||n==='board'))n='map';

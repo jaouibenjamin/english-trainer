@@ -37,7 +37,7 @@ from playwright.async_api import async_playwright
 QUICK = '--quick' in sys.argv
 WANT = tuple(sys.argv[sys.argv.index('--only') + 1].split(',')) if '--only' in sys.argv else ()
 # THE PREVIOUS SHIP: main's commit as the class has it now. Bump it with every ship (CLAUDE.md, "Branches and deploy").
-PREV_SHIP = '13a3496'
+PREV_SHIP = 'f9fdd32'
 PREV = sys.argv[sys.argv.index('--prev') + 1] if '--prev' in sys.argv else PREV_SHIP
 ROOT = P.ROOT
 SCREENS = [('title', 'index.html#', '.scr.title .btn'), ('map', 'index.html#map', '.map .isl'), ('collection', 'index.html#collection', '.scr.coll'),
@@ -180,9 +180,12 @@ async def main():
             e, _ = await screen(b, 'index.html#', '.scr.title .btn', {'js/ui.js': broken.encode()}, False)
             check('browser self-test: an old copy without a named export the new code imports is seen as a broken page', broken != ui and any('spr' in x for x in e), e[:3])
             ungated = ui.replace('globalThis.__wiSettles===true&&', '', 1)
-            if 'js/main.js' in files:
-                e, blank = await screen(b, 'index.html#collection', '.scr.coll', {'js/ui.js': ungated.encode(), 'js/main.js': git('show', f'{PREV}:js/main.js').stdout}, True)
-                check('browser self-test: stand-ins written for a main.js that cannot put them back are seen as blank pictures', ungated != ui and bool(blank), (blank, e[:2]))
+            # a main.js that cannot put the pictures back: this checkout's, with its settling switched off (not the previous
+            # ship's, which may settle them itself once a ship has the gate; review after the bump to 72d80d3)
+            main_ = open(os.path.join(ROOT, 'js', 'main.js'), encoding='utf-8').read()
+            nosettle = main_.replace('function dsSettle(root){', 'function dsSettle(root){return;', 1)
+            e, blank = await screen(b, 'index.html#collection', '.scr.coll', {'js/ui.js': ungated.encode(), 'js/main.js': nosettle.encode()}, True)
+            check('browser self-test: stand-ins written for a main.js that cannot put them back are seen as blank pictures', ungated != ui and nosettle != main_ and bool(blank), (blank, e[:2]))
             mixes = [('this checkout alone', {})]
             olds = {f: git('show', f'{PREV}:{f}').stdout for f in files}
             for f in files:
@@ -199,6 +202,28 @@ async def main():
                         if e or blank:
                             bad_here.append((name, 'flag on' if ds else 'flag off', e[:2], blank[:3]))
                 check(f'{what}: {len(SCREENS)} screens, flag off and on, drawn with no error and no blank picture', not bad_here, bad_here[:4])
+            # the welcome film (flag on): the previous ship's js/intro.js, which knows nothing of the sound hold, next to this
+            # js/dsflag.js, js/audio.js and js/state.js. Closed after the 4 s fallback, the game must not stay silent: dsflag
+            # lets the hold go when the overlay leaves the page (review of #116). The old file is served for the new address
+            # too, as if the browser still had it.
+            if git('cat-file', '-e', f'{PREV}:js/intro.js').returncode == 0:
+                old_intro = git('show', f'{PREV}:js/intro.js').stdout
+                c, pg = await new_page(b, 390, 844, errs=[])
+                await pg.add_init_script("window.__osc=[];for(const C of [AudioScheduledSourceNode,AudioBufferSourceNode,OscillatorNode])if(Object.prototype.hasOwnProperty.call(C.prototype,'start')){const S0=C.prototype.start;C.prototype.start=function(...a){__osc.push(document.documentElement.classList.contains('wi-intro-open'));return S0.apply(this,a)}}")
+                await pg.route(re.compile(r'.*/js/intro\.js(\?.*)?$'), serve(old_intro, 'text/javascript'))
+                held = None
+                try:
+                    await pg.goto(P.BASE.rsplit('/', 1)[0] + '/index.html?ds=1&intro=1#')
+                    await pg.wait_for_selector('#wi-intro .wi-intro__skip', timeout=12000)
+                    await pg.wait_for_timeout(6000)
+                    await pg.locator('#wi-intro .wi-intro__skip').click(); await pg.wait_for_timeout(800)
+                    await pg.evaluate('__osc.length=0'); await pg.mouse.click(30, 760); await pg.wait_for_timeout(300)
+                    await pg.evaluate("void import('./js/audio.js').then(a=>a.SND.tap())"); await pg.wait_for_timeout(1200)
+                    held = await pg.evaluate("({open:document.documentElement.classList.contains('wi-intro-open'),sounds:__osc.length})")
+                except Exception as e:
+                    held = {'error': str(e).splitlines()[0][:80]}
+                await c.close()
+                check('js/intro.js from the previous ship, flag on, the film closed at 6 s: the hold is let go and the game makes sound', bool(held) and held.get('open') is False and held.get('sounds', 0) > 0, held)
             await b.close()
     finally:
         for p in procs: p.terminate()

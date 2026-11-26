@@ -749,7 +749,7 @@ secret pictures come four to a job (each drawn as a sheet of four, then cut).
 | `assets/al/voice/house.hf_20261126_041503_4da55548-bad7-4392-bfb2-e845ff116845.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture בית (house), said on tap | 2026-11-26 | 4da55548-bad7-4392-bfb2-e845ff116845 | text2speech_v2 elevenlabs, preset voice |
 | `assets/al/voice/kite.hf_20261126_041501_5ddd60a1-6a59-4b8f-8ba9-634847123e63.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture עפיפון (kite), said on tap | 2026-11-26 | 5ddd60a1-6a59-4b8f-8ba9-634847123e63 | text2speech_v2 elevenlabs, preset voice |
 | `assets/al/voice/line-order.hf_20261126_041501_1b46e76f-b879-483e-bea7-15c82072397a.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: "קודם תמונה אחת, אחר כך עוד אחת." (A3, played once) | 2026-11-26 | 1b46e76f-b879-483e-bea7-15c82072397a | text2speech_v2 elevenlabs, preset voice |
-| `assets/al/voice/line-say.hf_20261126_041501_cf51d4e5-62e9-473b-888c-158d1941071c.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: "אמרו את זה בקול." (A4) | 2026-11-26 | cf51d4e5-62e9-473b-888c-158d1941071c | text2speech_v2 elevenlabs, preset voice |
+| `assets/al/voice/line-say.hf_20261126_041501_cf51d4e5-62e9-473b-888c-158d1941071c.mp3` | RETIRED 2026-11-26, not played: A4 now says "אמרו את זה בלב." in silence (a secret is not said aloud in a classroom). Was: voice clip, preset voice Kaia, levelled to -16 LUFS: "אמרו את זה בקול." (A4) | 2026-11-26 | cf51d4e5-62e9-473b-888c-158d1941071c | text2speech_v2 elevenlabs, preset voice |
 | `assets/al/voice/mushroom.hf_20261126_041820_c0c6aef4-ba22-4f70-9fc5-4b7dfa845a8c.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture פטרייה (mushroom), said on tap | 2026-11-26 | c0c6aef4-ba22-4f70-9fc5-4b7dfa845a8c | text2speech_v2 elevenlabs, preset voice |
 | `assets/al/voice/pencil.hf_20261126_041521_e7bdb3ef-ccd9-4101-b0dc-b8df78a1e34f.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture עיפרון (pencil), said on tap | 2026-11-26 | e7bdb3ef-ccd9-4101-b0dc-b8df78a1e34f | text2speech_v2 elevenlabs, preset voice |
 | `assets/al/voice/scissors.hf_20261126_041520_bac811c6-d9c5-4946-a09f-361bc9daa58d.mp3` | voice clip, preset voice Kaia, levelled to -16 LUFS: the name of the secret picture מספריים (scissors), said on tap | 2026-11-26 | bac811c6-d9c5-4946-a09f-361bc9daa58d | text2speech_v2 elevenlabs, preset voice |
@@ -859,6 +859,14 @@ so each is marked "not recorded". Pitzi the crab is the game's own character.
 | `assets/icons/icon-192.png` | app icon, 192 px | not recorded |
 | `assets/icons/icon-512.png` | app icon, 512 px | not recorded |
 | `assets/icons/icon-maskable-512.png` | app icon, 512 px, maskable | not recorded |
+
+## Made here
+
+Rendered by this project's own tools from the fonts below, with no generator and no credits.
+
+| File | What | Made with | sha256 |
+|---|---|---|---|
+| `assets/al/intro/logo.webp` | the platform logo "ניצני אופק" for the opening splash: the welcome film's closing lettering (Rubik Moonrocks, gold gradient and glow), rendered with tools/intro_film.py's title code on transparency, 640 x 201. No generator, no credits | tools/intro_film.py | b0fa09fa6763d9960b090dd3ad48dc664c457a345f08b13d0cca4aaa33dd5e58 |
 
 ## Fonts
 
