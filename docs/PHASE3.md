@@ -85,6 +85,20 @@ These are focused engineer days for each step. Each PR takes about 2 review roun
 
 In total that is about 11 engineer days, or about 3 to 4 weeks on the calendar with reviews and the teacher's time. Steps 1 to 4 are useful on their own: the teacher gets her own reset and unlock during `dual`, so the lead's manual step goes.
 
+## Step 4: what only the real project and a real device can show (the owner's list)
+
+The security review of #82, #83 and #86 left these for the session with the teacher. Nothing in the tests can stand in for them.
+
+- **Signing out of our page does not sign her out of Google.** On a shared class computer, the next person who opens Google is still her. The page says so and recommends a guest or incognito window. The sign-in asks Google to show the account chooser every time (`prompt=select_account`). Check that Google really shows the chooser, and give the wording a final form with the designer's screen spec.
+- **The Auth redirect list holds exactly `<game>/teacher.html`**, and the site URL is the game (runbook A8). Open `<game>/teacher` without `.html`: the page must move itself to `teacher.html` before any sign-in.
+- **Sign-up is off** in Authentication → Providers (only the users the owner created can sign in), and Google is the only provider.
+- **Her Google Workspace allows the app** (a school account can block outside apps), and Testing mode shows her the "unverified app" screen once.
+- **On a real phone and a real laptop, with the back-forward cache:** sign in, go to the game, press back. Nobody is signed in, and Authentication → Users shows her session ended (the keepalive revoke reached the project). Repeat on a slow connection with a second tap on "sign in".
+- **The access token outlives a sign-out by up to its expiry** (a JWT is not recalled, only its session). Keep the project's JWT expiry at the default hour or shorter.
+- **`app.name_key` under the project's locale:** add "İlknur" and "Élie" to the class list from the page; each must be accepted or refused, never stored twice.
+- **The project's log settings:** API and Edge Function logs must not keep request bodies (the one-time code is in a response body).
+- **`teacher-reset` with a real token, an expired token and no token:** `ok`, refused, refused. Then 16 new codes in a day with the default cap: the 16th is refused and `backend_health` shows 15 of 15.
+
 ## Questions for the owner (and the teacher)
 
 - **Which Google account will the teacher use: her personal one or the school's?** A school Google Workspace can block sign-in to outside apps; that has to be tried before step 1.
