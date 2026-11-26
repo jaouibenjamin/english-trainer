@@ -1,14 +1,18 @@
 /* Word Islands: router and all non-level screens. */
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
 import {S,SET,saveSet,save,API,ERR,api,cred,auth,takeNewPin,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
+import * as ST from './state.js';   // exports newer than the last ship (clipsQuiet), as for ui.js below (tests/cache_mix.py)
 import {initHelp,helpKnown,setHelp,clearNotes} from './help.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
-import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
+import {$,view,stage,SP,BG,img,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 /* exports added to ui.js after the last ship are read through the namespace, never named in the import above: a phone that
    still has the previous ship's ui.js in its cache (GitHub Pages lets it keep it for 10 minutes) would otherwise fail to
    load this module at all (tests/cache_mix.py). Missing there, they are simply not used. */
 import * as UI from './ui.js';
 const standIn=n=>typeof UI.standIn==='function'?UI.standIn(n):'';
+/* this main.js puts back the pictures js/ui.js spr() gives a stand-in (dsSettle below): ui.js writes stand-ins only after
+   this, so a newer ui.js with an older main.js (a phone's cache after a ship) draws plain pictures */
+globalThis.__wiSettles=true;
 import * as sling from './sling.js';
 import * as listen from './listen.js';
 import * as read from './read.js';
@@ -132,7 +136,11 @@ async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type)
  const my=navId;loader();const bg=LEVEL_INFO[type].bg||i.bg;await preload([BG(bg),...CORE]);if(my!==navId)return;
  setBg(bg,BGFIT[type]);hudReset();
  const l=await LEVELS[type].start(view,{island:i,type,part:lv[1]},{done:r=>result(i,type,r)});
- if(my!==navId){l.destroy();return}level=l}
+ if(my!==navId){l.destroy();return}level=l;
+ /* the result screen sits over the island's own beach: fetched while the level is played, once the level's own voice
+    clips are all in (they come first on a slow line), so it is there when the level ends. ST: a namespace import, so
+    an older cached state.js without clipsQuiet only means the old timing (tests/cache_mix.py) */
+ (typeof ST.clipsQuiet==='function'?ST.clipsQuiet():Promise.resolve()).then(()=>{if(my===navId)img(BG(i.bg))})}
 function result(i,type,r){if(level){level.destroy();level=null}clearFx();hush();
  const {gained,opened}=setStars(i.id,type,r.stars),clean=r.first===r.total;
  const k=i.levels.findIndex(l=>l[0]===type),nx=i.levels[k+1],nextIsl=!nx&&ISLANDS.find(o=>o.id===i.id+1&&isOpen(o));
