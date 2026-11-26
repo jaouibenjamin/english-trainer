@@ -15,6 +15,16 @@ export const AVATARS=[
  {id:'parrot',he:'תוכי',open:6},{id:'robot-box',he:'רובוט',open:7},{id:'diver',he:'צוללן',open:8},{id:'penguin',he:'פינגווין',open:9},
  {id:'shark',he:'כריש',open:10},{id:'octopus',he:'תמנון',open:11},{id:'robot-bell',he:'רובוט ירוק',open:12},{id:'pilot',he:'דמות עם קסדה',open:13}];
 
+/* The ten characters of levels 14 to 23 (docs/ART_QUEUE.md, docs/AVATAR_CHARACTER.md), approved by the owner with the
+   waist-up set: a list of its own, not in AVATARS, so a phone that still holds the last ship's js/avatar.js or
+   js/world_art.js (no picture for them yet) never asks for one; js/avatar.js shows a character only where its picture
+   is known. The Hebrew names are ours, FLAGGED FOR THE TEACHER'S REVIEW. The "griffin" was drawn as an eagle and is the
+   eagle (נשר) everywhere. */
+export const MORE=[
+ {id:'hedgehog',he:'קיפוד',open:14},{id:'koala',he:'קואלה',open:15},{id:'raccoon',he:'דביבון',open:16},{id:'capybara',he:'קפיברה',open:17},
+ {id:'otter',he:'לוטרה',open:18},{id:'flamingo',he:'פלמינגו',open:19},{id:'zebra',he:'זברה',open:20},{id:'badger',he:'גירית',open:21},
+ {id:'kangaroo',he:'קנגורו',open:22},{id:'eagle',he:'נשר',open:23}];
+
 /* Energy, in one table (the new world, behind the flag): what each thing learned is worth, and the level thresholds.
    Option A of docs/features/energy-math.md, chosen 2026-11-26 (switching to B is a change to this table only):
    10 per English star, 5 per word known, 5 per story read, 20 per Fraction Bay star (best stars per level, so energy

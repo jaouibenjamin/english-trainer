@@ -23,7 +23,7 @@ def check(label, ok, extra=''):
         fails.append(label)
 
 
-NO_FILE = {'owl'}   # two takes changed its expression: it gets the CSS tilt-and-bounce of its still portrait instead
+NO_FILE = set()   # the waist-up set (#108): every character, the owl too, has its own sign-off animation
 
 
 def files_check():
@@ -32,7 +32,7 @@ def files_check():
     ids = re.findall(r"\{id:'([a-z-]+)'", data)
     anim = dict(re.findall(r"'avanim/([a-z-]+)':'([^']+)'", art))
     want = set(ids) - NO_FILE
-    check(f'every one of the {len(ids)} characters but {sorted(NO_FILE)} has an animation file, and no other', len(ids) == 20 and set(anim) == want, sorted(want ^ set(anim)))
+    check(f'every one of the {len(ids)} characters but {sorted(NO_FILE)} has an animation file, and no other', len(ids) == 30 and set(anim) == want, sorted(want ^ set(anim)))
     rows = {}
     for ln in open(os.path.join(ROOT, 'assets', 'al', 'sources.tsv'), encoding='utf-8').read().split('\n')[1:]:
         c = ln.split('\t')
@@ -98,12 +98,11 @@ async def run(ids):
             await pg.wait_for_timeout(2600)
             src = await pg.evaluate("document.querySelector('#avgrid [aria-pressed=true] .wi-av__art').getAttribute('src')")
             check('after it has played, the still portrait is back', f'/av/{want}.' in src and '/avanim/' not in src, src)
-            # the owl has no file: its still portrait tilts and bounces once, and nothing is requested
+            # the owl now has its own animation (it had the CSS bob before the waist-up set)
             n0 = len(seen)
-            bob = await pg.evaluate("""async()=>{const img=document.querySelectorAll('#avgrid .wi-av__art')[%d];const m=await import('./js/avanim.js');
-              const r=m.playAv(img,'owl');const a=getComputedStyle(img).animationName;await new Promise(z=>setTimeout(z,1100));
-              return [r,a,img.classList.contains('wi-av__art--bob'),img.getAttribute('src')]}""" % ids.index('owl'))
-            check('the owl: no file is requested, its still tilts and bounces once, then the class is gone', len(seen) == n0 and bob[0] and bob[1] == 'wi-av-bob' and not bob[2] and '/av/owl.' in bob[3], bob)
+            got = await pg.evaluate("""async()=>{const img=document.querySelectorAll('#avgrid .wi-av__art')[%d];const m=await import('./js/avanim.js');
+              const r=m.playAv(img,'owl');await new Promise(z=>setTimeout(z,300));return [r,img.getAttribute('src'),img.classList.contains('wi-av__art--bob')]}""" % ids.index('owl'))
+            check('the owl: its own animation file is requested and shown (no CSS bob)', got[0] and '/avanim/owl.' in got[1] and not got[2] and len(seen) == n0 + 1 and '/avanim/owl.' in seen[-1], [got, seen[n0:]])
             check('no page errors', not errs, errs[:2])
             await ctx.close()
 
