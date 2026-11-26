@@ -1,0 +1,52 @@
+/* teacher.html: plain and calm; the game's colours (css/game.css) without its stage */
+:root{--ink:#5a4534;--paper:#fff4de;--line:rgba(90,69,52,.25)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:#efe2c6;color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+main{width:min(100%,480px);background:var(--paper);border-radius:16px;box-shadow:0 0 0 2px var(--line);padding:24px;display:flex;flex-direction:column;gap:16px;text-align:center}
+h1{margin:0;font-size:24px}
+p{margin:0}
+#who{font-weight:700;direction:ltr;unicode-bidi:isolate}
+#note{min-height:1.5em}
+button{min-height:48px;padding:10px 24px;border:0;border-radius:12px;background:var(--ink);color:var(--paper);font:inherit;font-weight:700;cursor:pointer}
+button:focus-visible{outline:3px solid #2a4a8c;outline-offset:2px}
+[hidden]{display:none!important}
+main.wide{width:min(100%,760px)}
+h2{margin:0;font-size:19px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+button.small{min-height:44px;padding:6px 16px;font-size:15px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:start}
+td.num,th.num{text-align:end;font-variant-numeric:tabular-nums}
+td.name{font-weight:700}
+.warn{background:#fbe3dc;border-radius:12px;padding:10px 12px;font-weight:700;color:#7a2b18}
+#hard{margin:0;padding-inline-start:24px;text-align:start}
+#hard li{padding:2px 0}
+#hard .en{direction:ltr;unicode-bidi:isolate;font-weight:700}
+/* step 3: her actions */
+td.acts{min-width:132px}
+td.acts button{display:block;width:100%;white-space:nowrap;padding:6px 10px}
+td.acts button+button{margin-top:6px}
+#act{min-height:1.5em;font-weight:700}
+#roster{display:flex;flex-direction:column;gap:16px;text-align:start}
+h3{margin:0;font-size:17px}
+ul.names{list-style:none;margin:8px 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+ul.names li{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;padding:4px 4px 4px 12px}
+ul.names li span{font-weight:700}
+.add{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.add input{min-height:44px;flex:1 1 160px;padding:6px 12px;border:2px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font:inherit}
+.add input:focus-visible{outline:3px solid #2a4a8c;outline-offset:2px}
+button:disabled{opacity:.5;cursor:default}
+button.quiet{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
+dialog{border:0;border-radius:16px;padding:24px;max-width:min(92vw,420px);background:var(--paper);color:var(--ink);box-shadow:0 0 0 2px var(--line);text-align:center}
+dialog::backdrop{background:rgba(40,30,20,.55)}
+dialog p{margin:0 0 16px}
+dialog .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+#code-digits{font-size:44px;font-weight:800;letter-spacing:.12em;font-variant-numeric:tabular-nums;unicode-bidi:isolate}
+p.note{font-size:15px;text-align:start}
+/* 0009: out of the class */
+#removed{text-align:start;display:flex;flex-direction:column;gap:8px}
+ul.gone{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+ul.gone li{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+button.danger{background:#7a2b18}
+#ask-type{min-height:44px;width:100%;margin:0 0 16px;padding:6px 12px;border:2px solid var(--line);border-radius:12px;font:inherit}
