@@ -1,0 +1,114 @@
+[
+ {
+  "requests": [
+   [
+    "http://127.0.0.1:API/",
+    "POST",
+    "{\"a\":\"register\",\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"}"
+   ]
+  ],
+  "step": "register",
+  "storage": {
+   "aam-unit1-v1": "{\"m\":{\"st\":{},\"plays\":0},\"w\":{},\"read\":{},\"parts\":[1,2,3,4,5],\"dir\":\"en-he\",\"cnt\":10,\"me\":[],\"ct\":3,\"ccnt\":15,\"ctypes\":[\"en-he\",\"he-en\",\"tobe\"],\"pts\":0,\"st\":{},\"day\":\"\",\"streak\":0,\"u\":{\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"},\"lastC\":\"EN-1234\",\"g\":{\"st\":{},\"ball\":0,\"ob\":{},\"plays\":0},\"sync\":{\"at\":1795695850334}}"
+  },
+  "value": null
+ },
+ {
+  "requests": [],
+  "step": "play",
+  "storage": {
+   "aam-unit1-v1": "{\"m\":{\"st\":{},\"plays\":0},\"w\":{\"cat\":1},\"read\":{},\"parts\":[1,2,3,4,5],\"dir\":\"en-he\",\"cnt\":10,\"me\":[],\"ct\":3,\"ccnt\":15,\"ctypes\":[\"en-he\",\"he-en\",\"tobe\"],\"pts\":67,\"st\":{\"cat\":[1,0]},\"day\":\"2026-11-26\",\"streak\":1,\"u\":{\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"},\"lastC\":\"EN-1234\",\"g\":{\"st\":{\"1-sling\":2},\"ball\":0,\"ob\":{},\"plays\":1},\"sync\":{\"at\":1795695850334}}"
+  },
+  "value": 67
+ },
+ {
+  "requests": [
+   [
+    "http://127.0.0.1:API/",
+    "POST",
+    "{\"a\":\"save\",\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\",\"s\":{\"w\":{\"cat\":1},\"read\":{},\"st\":{\"cat\":[1,0]},\"pts\":67,\"day\":\"2026-11-26\",\"streak\":1,\"me\":[],\"g\":{\"st\":{\"1-sling\":2},\"ball\":0,\"ob\":{},\"plays\":1},\"m\":{\"st\":{},\"plays\":0},\"k\":{\"words\":0,\"reads\":0}}}"
+   ]
+  ],
+  "step": "save",
+  "storage": {
+   "aam-unit1-v1": "{\"m\":{\"st\":{},\"plays\":0},\"w\":{\"cat\":1},\"read\":{},\"parts\":[1,2,3,4,5],\"dir\":\"en-he\",\"cnt\":10,\"me\":[],\"ct\":3,\"ccnt\":15,\"ctypes\":[\"en-he\",\"he-en\",\"tobe\"],\"pts\":67,\"st\":{\"cat\":[1,0]},\"day\":\"2026-11-26\",\"streak\":1,\"u\":{\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"},\"lastC\":\"EN-1234\",\"g\":{\"st\":{\"1-sling\":2},\"ball\":0,\"ob\":{},\"plays\":1},\"sync\":{\"at\":1795695851553}}"
+  },
+  "value": true
+ },
+ {
+  "requests": [],
+  "step": "pull",
+  "storage": {
+   "aam-unit1-v1": "{\"m\":{\"st\":{},\"plays\":0},\"w\":{\"cat\":1},\"read\":{},\"parts\":[1,2,3,4,5],\"dir\":\"en-he\",\"cnt\":10,\"me\":[],\"ct\":3,\"ccnt\":15,\"ctypes\":[\"en-he\",\"he-en\",\"tobe\"],\"pts\":67,\"st\":{\"cat\":[1,0]},\"day\":\"2026-11-26\",\"streak\":1,\"u\":{\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"},\"lastC\":\"EN-1234\",\"g\":{\"st\":{\"1-sling\":2},\"ball\":0,\"ob\":{},\"plays\":1},\"sync\":{\"at\":1795695851553}}"
+  },
+  "value": false
+ },
+ {
+  "requests": [
+   [
+    "http://127.0.0.1:API/",
+    "POST",
+    "{\"a\":\"board\",\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"}"
+   ]
+  ],
+  "step": "board",
+  "storage": {
+   "aam-unit1-v1": "{\"m\":{\"st\":{},\"plays\":0},\"w\":{\"cat\":1},\"read\":{},\"parts\":[1,2,3,4,5],\"dir\":\"en-he\",\"cnt\":10,\"me\":[],\"ct\":3,\"ccnt\":15,\"ctypes\":[\"en-he\",\"he-en\",\"tobe\"],\"pts\":67,\"st\":{\"cat\":[1,0]},\"day\":\"2026-11-26\",\"streak\":1,\"u\":{\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"},\"lastC\":\"EN-1234\",\"g\":{\"st\":{\"1-sling\":2},\"ball\":0,\"ob\":{},\"plays\":1},\"sync\":{\"at\":1795695851553}}"
+  },
+  "value": {
+   "ok": true,
+   "rows": [
+    {
+     "n": "Testprobe",
+     "pts": 67,
+     "streak": 1,
+     "words": 0
+    }
+   ]
+  }
+ },
+ {
+  "requests": [],
+  "step": "logout",
+  "storage": {
+   "aam-unit1-v1": "{\"m\":{\"st\":{},\"plays\":0},\"w\":{},\"read\":{},\"parts\":[1,2,3,4,5],\"dir\":\"en-he\",\"cnt\":10,\"me\":[],\"ct\":3,\"ccnt\":15,\"ctypes\":[\"en-he\",\"he-en\",\"tobe\"],\"pts\":0,\"st\":{},\"day\":\"\",\"streak\":0,\"u\":null,\"lastC\":\"EN-1234\",\"g\":{\"st\":{},\"ball\":0,\"ob\":{},\"plays\":0}}"
+  },
+  "value": true
+ },
+ {
+  "requests": [
+   [
+    "http://127.0.0.1:API/",
+    "POST",
+    "{\"a\":\"login\",\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"}"
+   ]
+  ],
+  "step": "login",
+  "storage": {
+   "aam-unit1-v1": "{\"m\":{\"st\":{},\"plays\":0},\"w\":{\"cat\":1},\"read\":{},\"parts\":[1,2,3,4,5],\"dir\":\"en-he\",\"cnt\":10,\"me\":[],\"ct\":3,\"ccnt\":15,\"ctypes\":[\"en-he\",\"he-en\",\"tobe\"],\"pts\":67,\"st\":{\"cat\":[1,0]},\"day\":\"2026-11-26\",\"streak\":1,\"u\":{\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"},\"lastC\":\"EN-1234\",\"g\":{\"st\":{\"1-sling\":2},\"ball\":0,\"ob\":{},\"plays\":1},\"sync\":{\"at\":1795695853999}}"
+  },
+  "value": null
+ },
+ {
+  "requests": [],
+  "step": "relogin",
+  "storage": {
+   "aam-unit1-v1": "{\"m\":{\"st\":{},\"plays\":0},\"w\":{\"cat\":1},\"read\":{},\"parts\":[1,2,3,4,5],\"dir\":\"en-he\",\"cnt\":10,\"me\":[],\"ct\":3,\"ccnt\":15,\"ctypes\":[\"en-he\",\"he-en\",\"tobe\"],\"pts\":67,\"st\":{\"cat\":[1,0]},\"day\":\"2026-11-26\",\"streak\":1,\"u\":null,\"lastC\":\"EN-1234\",\"g\":{\"st\":{\"1-sling\":2},\"ball\":0,\"ob\":{},\"plays\":1},\"stash\":{\"n\":\"Testprobe\",\"s\":{\"w\":{\"cat\":1},\"read\":{},\"st\":{\"cat\":[1,0]},\"pts\":67,\"day\":\"2026-11-26\",\"streak\":1,\"me\":[],\"g\":{\"st\":{\"1-sling\":2},\"ball\":0,\"ob\":{},\"plays\":1},\"m\":{\"st\":{},\"plays\":0},\"k\":{\"words\":0,\"reads\":0}}}}"
+  },
+  "value": null
+ },
+ {
+  "requests": [
+   [
+    "http://127.0.0.1:API/",
+    "POST",
+    "{\"a\":\"login\",\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"}"
+   ]
+  ],
+  "step": "login2",
+  "storage": {
+   "aam-unit1-v1": "{\"m\":{\"st\":{},\"plays\":0},\"w\":{\"cat\":1},\"read\":{},\"parts\":[1,2,3,4,5],\"dir\":\"en-he\",\"cnt\":10,\"me\":[],\"ct\":3,\"ccnt\":15,\"ctypes\":[\"en-he\",\"he-en\",\"tobe\"],\"pts\":67,\"st\":{\"cat\":[1,0]},\"day\":\"2026-11-26\",\"streak\":1,\"u\":{\"c\":\"EN-1234\",\"n\":\"Testprobe\",\"p\":\"4827\"},\"lastC\":\"EN-1234\",\"g\":{\"st\":{\"1-sling\":2},\"ball\":0,\"ob\":{},\"plays\":1},\"sync\":{\"at\":1795695855218}}"
+  },
+  "value": null
+ }
+]
