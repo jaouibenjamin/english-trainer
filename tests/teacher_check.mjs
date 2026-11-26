@@ -314,7 +314,7 @@ const stay = (t, ms) => { for (let left = ms; left > 0; left -= 20 * 60000) { t.
   eq('no action without a session (no request at all)', [await t.auth.write('/rest/v1/roster', { class_id: 'c1' }), t.server.log.length], [null, n]);
   const src = fs.readFileSync(path.join(ROOT, 'js/teacher.js'), 'utf8');
   check('teacher.js: the code never goes to the console, storage or the address bar', !/console\./.test(src) && !/(local|session)Storage\.setItem\([^)]*otc/i.test(src) && !/(location|history)[^;]*otc/i.test(src));
-  check('teacher.js: every action waits for her "yes" and checks the epoch after each await', (src.match(/act\(`/g) || []).length === 5 && (src.match(/if\(!r\|\|e!==epoch\)return;/g) || []).length === 5);
+  check('teacher.js: every action waits for her "yes" and checks the epoch after each await', (src.match(/act\(`/g) || []).length === 8 && (src.match(/if\(!r\|\|e!==epoch\)return;/g) || []).length === 8);
 }
 // ---- 10b. review of #82: the guard cannot be broken, the clock decides, refreshes are shared
 {

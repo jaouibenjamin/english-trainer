@@ -44,3 +44,9 @@ dialog p{margin:0 0 16px}
 dialog .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
 #code-digits{font-size:44px;font-weight:800;letter-spacing:.12em;font-variant-numeric:tabular-nums;unicode-bidi:isolate}
 p.note{font-size:15px;text-align:start}
+/* 0009: out of the class */
+#removed{text-align:start;display:flex;flex-direction:column;gap:8px}
+ul.gone{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+ul.gone li{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+button.danger{background:#7a2b18}
+#ask-type{min-height:44px;width:100%;margin:0 0 16px;padding:6px 12px;border:2px solid var(--line);border-radius:12px;font:inherit}

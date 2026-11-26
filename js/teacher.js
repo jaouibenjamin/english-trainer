@@ -23,19 +23,20 @@ try{const q=new URLSearchParams(location.search).get('tsb');if(q==='1')localStor
 const STATUS=r=>[r.locked_today>0?`ננעל היום ${r.locked_today} פעמים`:'',r.code_status==='waiting'?'מחכה לקוד חדש':'',r.recovery_status==='closed'?'השחזור סגור':r.recovery_status==='locked'?'השחזור נעול לזמן קצר':'',r.flags_week>0?'לבדיקה':''].filter(Boolean).join(' · ');
 const num=x=>Number.isFinite(+x)?String(Math.round(+x)):'0';
 const txt=x=>x==null?'':String(x);                          // a missing name is empty, never "null"
-function clearScreen(){const sc=$('#screen');if(!sc)return;sc.hidden=true;$('main').classList.remove('wide');$('#class tbody').replaceChildren();$('#hard').replaceChildren();$('#roster').replaceChildren();$('#health').hidden=true;$('#health').textContent='';$('#quota').textContent='';$('#load').textContent='';$('#act').textContent=''}
+function clearScreen(){const sc=$('#screen');if(!sc)return;sc.hidden=true;$('main').classList.remove('wide');$('#class tbody').replaceChildren();$('#hard').replaceChildren();$('#roster').replaceChildren();$('#removed').replaceChildren();$('#health').hidden=true;$('#health').textContent='';$('#quota').textContent='';$('#load').textContent='';$('#act').textContent=''}
 function cell(tr,text,cls){const td=document.createElement('td');td.textContent=text;if(cls)td.className=cls;tr.append(td);return td}
 function btn(text,onClick,cls){const b=document.createElement('button');b.type='button';b.className='small act'+(cls?' '+cls:'');b.textContent=text;b.disabled=busy;b.addEventListener('click',onClick);return b}
 const byName=(a,b)=>txt(a).localeCompare(txt(b),'he');
-function render(view,items,health,classes,roster){
+function render(view,items,health,classes,roster,removed){
  const body=$('#class tbody'),hard=$('#hard');body.replaceChildren();hard.replaceChildren();
  for(const r of view.slice().sort((a,b)=>byName(a.display_name,b.display_name))){
   const tr=document.createElement('tr'),name=txt(r.display_name),id=String(r.pupil_id);
   cell(tr,name,'name');cell(tr,num(r.points),'num');cell(tr,num(r.answers),'num');cell(tr,num(r.error_pct)+'%','num');cell(tr,num(r.stars),'num');cell(tr,STATUS(r));
   const td=cell(tr,'','acts');td.append(btn('קוד חדש',()=>reset(id,name)));
   if(r.locked_today>0||r.recovery_status==='locked')td.append(btn('שחרור נעילה',()=>unlock(id,name)));
+  td.append(btn('הוצאה מהכיתה',()=>takeOut(id,name)));
   body.append(tr)}
- renderRoster(classes,roster);
+ renderRoster(classes,roster);renderRemoved(removed);
  for(const it of items.slice().sort((a,b)=>(+b.error_pct-+a.error_pct)||(+b.tries-+a.tries)).slice(0,10)){
   const li=document.createElement('li'),w=document.createElement('span');w.className='en';w.textContent=txt(it.item_key);
   li.append(w,document.createTextNode(` · ${num(it.wrong)} טעויות מתוך ${num(it.tries)} (${num(it.error_pct)}%)`));hard.append(li)}
@@ -59,16 +60,28 @@ function renderRoster(classes,roster){
   inp.type='text';inp.maxLength=20;inp.autocomplete='off';inp.spellcheck=false;inp.id='add-'+cid;lab.htmlFor=inp.id;lab.textContent='שם פרטי או כינוי:';
   add.append(lab,inp,btn('הוספה לרשימה',()=>addName(cid,cname,inp)));
   sec.append(bar,ul,add);box.append(sec)}}
+/* pupils taken out of the class: back with one tap for 14 days, then deleted for good by the server; or deleted for
+   good now (a parent's request), after she types the name */
+const day=t=>{const d=new Date(t);return Number.isFinite(d.getTime())?d.toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem',day:'numeric',month:'numeric'}):''};
+function renderRemoved(rows){
+ const box=$('#removed');box.replaceChildren();if(!rows.length)return;
+ const h=document.createElement('h2');h.textContent='הוצאו מהכיתה';const ul=document.createElement('ul');ul.className='gone';
+ for(const r of rows.slice().sort((a,b)=>byName(a.display_name,b.display_name))){
+  const li=document.createElement('li'),s=document.createElement('span'),id=String(r.pupil_id),name=txt(r.display_name);
+  s.textContent=`${name} · יימחק/תימחק לצמיתות ב־${day(r.purge_at)}`;
+  li.append(s,btn('החזרה לכיתה',()=>bringBack(id,name)),btn('מחיקה לצמיתות',()=>forGood(id,name),'danger'));ul.append(li)}
+ box.append(h,ul)}
 let loading=0,auth=null;
 async function load(){
  if(!tsb||!auth||!auth.signedIn())return;
- const my=++loading;$('#screen').hidden=false;$('main').classList.add('wide');$('#load').textContent='טוען…';
- const[v,i,h,c,ro]=await Promise.all([auth.read('/rest/v1/teacher_view?select=pupil_id,class_id,display_name,points,answers,error_pct,stars,locked_today,code_status,recovery_status,flags_week'),
+ const my=++loading;$('#screen').dataset.busy='1';$('#screen').hidden=false;$('main').classList.add('wide');$('#load').textContent='טוען…';
+ const[v,i,h,c,ro,rm]=await Promise.all([auth.read('/rest/v1/teacher_view?select=pupil_id,class_id,display_name,points,answers,error_pct,stars,locked_today,code_status,recovery_status,flags_week'),
   auth.read('/rest/v1/teacher_items?select=item_key,tries,wrong,error_pct'),auth.read('/rest/v1/backend_health?select=warn,resets_day,resets_cap'),
-  auth.read('/rest/v1/classes?select=id,name'),auth.read('/rest/v1/roster?select=class_id,name_key,display_name')]);
- if(my!==loading||!auth.signedIn()||!v||!i||!h||!c||!ro)return;   // signed out, left or another load since: nothing of it is shown
- if(v.error||i.error||h.error||c.error||ro.error){$('#load').textContent='לא הצלחנו לטעון. נסו שוב.';return}
- render(v.rows,i.rows,h.rows,c.rows,ro.rows)}
+  auth.read('/rest/v1/classes?select=id,name'),auth.read('/rest/v1/roster?select=class_id,name_key,display_name'),auth.read('/rest/v1/rpc/teacher_removed')]);
+ if(my!==loading||!auth.signedIn()||!v||!i||!h||!c||!ro||!rm)return;   // signed out, left or another load since: nothing of it is shown
+ $('#screen').dataset.busy='';                                // drawn (the tests wait for this, not for a time)
+ if(v.error||i.error||h.error||c.error||ro.error||rm.error){$('#load').textContent='לא הצלחנו לטעון. נסו שוב.';return}
+ render(v.rows,i.rows,h.rows,c.rows,ro.rows,rm.rows)}
 
 /* Her actions (docs/PHASE3.md step 3). Each one: asked first (a dialog, "yes" or "cancel"), one at a time (busy), and
    sent with her token; the server checks again that the pupil or the class is hers (teacher-reset, row-level
@@ -80,13 +93,16 @@ const ERR={input:'הפעולה לא התקבלה. רעננו ונסו שוב.',f
 const fail=r=>r.status===0?ERR.net:r.j&&typeof r.j.e==='string'&&ERR[r.j.e]||ERR.server;
 const say=t=>{$('#act').textContent=t};
 function setBusy(b){busy=b;for(const x of document.querySelectorAll('button.act'))x.disabled=b}
-function ask(text,yes){
- const d=$('#ask');$('#ask-text').textContent=text;$('#ask-yes').textContent=yes;d.returnValue='';
- return new Promise(res=>{d.addEventListener('close',()=>res(d.returnValue==='yes'),{once:true});d.showModal();$('#ask-no').focus()})}
-async function act(question,yes,run){
+/* typed: for what cannot be undone, "yes" waits until she has typed the pupil's name */
+function ask(text,yes,typed){
+ const d=$('#ask'),inp=$('#ask-type'),y=$('#ask-yes');$('#ask-text').textContent=text;y.textContent=yes;d.returnValue='';
+ inp.value='';inp.hidden=!typed;$('#ask-type-label').hidden=!typed;y.disabled=!!typed;
+ inp.oninput=typed?()=>{y.disabled=clean(inp.value)!==typed}:null;
+ return new Promise(res=>{d.addEventListener('close',()=>{inp.oninput=null;inp.value='';res(d.returnValue==='yes'&&(!typed||!y.disabled))},{once:true});d.showModal();(typed?inp:$('#ask-no')).focus()})}
+async function act(question,yes,run,typed){
  if(busy||!auth||!auth.signedIn())return;
  const e=epoch;setBusy(true);
- try{if(!await ask(question,yes)||e!==epoch||!auth.signedIn())return;
+ try{if(!await ask(question,yes,typed)||e!==epoch||!auth.signedIn())return;
   say('שולחים…');await run(e)}
  finally{if(e===epoch)setBusy(false)}}
 /* a new code: the old one stops working. The six digits are shown once, in a dialog, and are kept nowhere else: not in
@@ -119,6 +135,23 @@ const unlockClass=(cid,cname)=>act(`לשחרר את הנעילות של כל ה�
  const r=await auth.write('/functions/v1/teacher-reset',{action:'unlock_class',class_id:cid});
  if(!r||e!==epoch)return;
  if(r.status===200&&r.j&&r.j.ok===true){say(`הנעילות של הכיתה ${cname} שוחררו.`);load()}else say(fail(r))});
+/* out of the class, back, or deleted for good: hers only, checked again by the database (0009_soft_delete.sql) */
+const rpc=(fn,id)=>auth.write('/rest/v1/rpc/'+fn,{p_pupil:id});
+const takeOut=(id,name)=>act(`להוציא את ${name} מהכיתה? הוא/היא יוצא/ת מהמשחק מיד ולא יופיע/תופיע בטבלה. אפשר להחזיר תוך 14 יום, ואחר כך הכול נמחק לצמיתות.`,'כן, להוציא',async e=>{
+ const r=await rpc('teacher_remove_pupil',id);
+ if(!r||e!==epoch)return;
+ if(r.status===200&&r.j&&r.j.ok===true){say(`${name} הוצא/ה מהכיתה. אפשר להחזיר עד ${day(r.j.purge_at)}.`);load()}
+ else say(r.j&&r.j.e==='taken'?`כבר יש ברשימת המוצאים תלמיד/ה בשם ${name}. אפשר להחזיר או למחוק אותו/ה קודם.`:fail(r))});
+const bringBack=(id,name)=>act(`להחזיר את ${name} לכיתה? כל הנקודות וההתקדמות חוזרות, והקוד הישן עובד.`,'כן, להחזיר',async e=>{
+ const r=await rpc('teacher_restore_pupil',id);
+ if(!r||e!==epoch)return;
+ if(r.status===200&&r.j&&r.j.ok===true){say(`${name} חזר/ה לכיתה.`);load()}
+ else say(r.j&&r.j.e==='taken'?`אי אפשר להחזיר: השם ${name} תפוס עכשיו בכיתה (נרשם/ה תלמיד/ה חדש/ה בשם הזה). הרשומה של מי שהוצא/ה נשארת ברשימת המוצאים עד ${day(r.j.purge_at)}, ואז נמחקת לצמיתות. אפשר גם למחוק אותה עכשיו.`
+  :r.j&&r.j.e==='full'?'אי אפשר להחזיר: הכיתה מלאה.':r.j&&r.j.e==='gone'?`הרשומה של ${name} כבר נמחקה לצמיתות.`:fail(r))});
+const forGood=(id,name)=>act(`למחוק את ${name} לצמיתות? כל מה ששמור עליו/עליה נמחק עכשיו, ואי אפשר לבטל. כדי לאשר, כתבו את השם:`,'מחיקה לצמיתות',async e=>{
+ const r=await rpc('teacher_delete_pupil',id);
+ if(!r||e!==epoch)return;
+ if(r.status===200&&r.j===true){say(`${name} נמחק/ה לצמיתות.`);load()}else say(fail(r))},name);
 /* the class list, through the database's own rules: a name she adds or removes is checked there (her class only, a
    valid first name, the key the database computes the same way: trimmed, inner spaces squeezed, lower-cased) */
 const clean=n=>String(n).replace(/^ +| +$/g,'').replace(/\s+/g,' ');
