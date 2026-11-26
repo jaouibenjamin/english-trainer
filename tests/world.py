@@ -363,6 +363,51 @@ async def ladder(b, errs):
     await c.close()
 
 
+async def loader_look(b, errs):
+    """the wait before a level, in the new look: navy over the whole board, the new Pitzi (the old sprite is not
+    downloaded), the same words, role=status, an honest "עוד רגע…" only after 5 s, still with reduced motion; without
+    the flag the loader is exactly as today"""
+    import slow_net as SN
+    # when a loader appears and when its extra line appears, recorded by the page itself (no wall-clock guess here)
+    REC = "window.__ld=[];new MutationObserver(()=>{const l=document.querySelector('.loader');if(l&&!l.__t){l.__t=1;__ld.push(['loader',performance.now()])}const m=l&&l.querySelector('.loader__more');if(m&&m.textContent&&!l.__m){l.__m=1;__ld.push(['more',performance.now()])}}).observe(document,{subtree:true,childList:true,characterData:true})"
+    for ds, reduce in ((True, False), (True, True), (False, False)):
+        c, pg, reqs = await page(b, 390, 844, [], {'g': {'st': {'1-sling': 3}}})
+        if reduce: await pg.emulate_media(reduced_motion='reduce')
+        await pg.add_init_script(REC)
+        cdp = await c.new_cdp_session(pg); await cdp.send('Network.enable')
+        await cdp.send('Network.emulateNetworkConditions', {'offline': False, 'latency': SN.PROFILE['latency'], 'downloadThroughput': SN.PROFILE['down'], 'uploadThroughput': SN.PROFILE['up']})
+        await pg.goto(P.BASE + ('?ds=1' if ds else '') + '#play/1/listen', wait_until='commit')
+        # the play loader only (the boot one, before the style sheets are in, can be in the old look on a slow phone)
+        await pg.wait_for_function("((document.getElementById('stage')||{}).dataset||{}).scr==='play'&&!!document.querySelector('.loader')", timeout=90000); await pg.wait_for_timeout(500)
+        LAY = "(()=>{const l=document.querySelector('.loader');if(!l)return null;const i=l.querySelector('img'),t=l.querySelector('p');return [i.offsetTop,i.offsetLeft,t.offsetTop,t.offsetLeft]})()"   # layout boxes: the bob (a transform) does not count
+        pz0 = await pg.evaluate(LAY)
+        L = await pg.evaluate("""(()=>{const l=document.querySelector('.loader'),r=l.getBoundingClientRect(),s=document.getElementById('stage').getBoundingClientRect(),i=l.querySelector('img'),cs=getComputedStyle(l);
+          return {cover:Math.abs(r.left-s.left)<1&&Math.abs(r.top-s.top)<1&&Math.abs(r.width-s.width)<1&&Math.abs(r.height-s.height)<1,bg:cs.backgroundColor,role:l.getAttribute('role'),
+            text:l.querySelector('p').textContent,more:!!l.querySelector('.loader__more'),art:getComputedStyle(i).backgroundImage,anim:getComputedStyle(i).animationName,srcset:!!i.getAttribute('srcset')}})()""")
+        old = [u for u, _ in reqs if u.endswith('/assets/sp/crab_wave.webp')]
+        await pg.wait_for_timeout(6000)
+        pz1 = await pg.evaluate(LAY)
+        ld = await pg.evaluate('window.__ld')
+        t = dict(ld); more = (t['more'] - t['loader']) if 'more' in t and 'loader' in t else None
+        at58 = await pg.evaluate("(()=>{const m=document.querySelector('.loader .loader__more');return m?m.textContent:null})()")
+        at46 = more is not None and more < 4900
+        if ds:
+            tag = 'reduced motion' if reduce else 'motion'
+            check(f'[loader, new look, {tag}] navy (--wi-navy-900) over the whole board', L['cover'] and L['bg'] == 'rgb(11, 30, 63)', L)
+            check(f'[loader, new look, {tag}] the new Pitzi is drawn (the loader\'s old picture has its stand-in, so the loader itself asks for no old crab; play() still preloads CORE, item (b)); same words; role=status', 'pitzi/wave' in L['art'] and L['srcset'] and L['text'] == 'רגע, מפליגים…' and L['role'] == 'status', L)
+            check(f'[loader, new look, {tag}] nothing moves when "עוד רגע…" appears (Pitzi and the words stay where they were)', pz1 is not None and all(abs(x - y) < 0.5 for x, y in zip(pz0, pz1)), (pz0, pz1))
+            check(f'[loader, new look, {tag}] "עוד רגע…" only after 5 s of waiting (measured by the page: 5.0 to 5.6 s after the loader)', more is not None and 4990 <= more <= 5600 and at58 == 'עוד רגע…', (more, at58))
+            if reduce:
+                check('[loader, new look, reduced motion] Pitzi does not bob', L['anim'] == 'none', L['anim'])
+            else:
+                a = await pg.evaluate(AUDIT.replace(".wd *,.wd__note,.wpick *", ".loader p"))
+                check('[loader, new look] its words at least 4.5:1', not a['bad'], a['bad'])
+                await P.shot(pg, 'world-loader-390x844')
+        else:
+            check('[loader, flag off] exactly as today: no role, no extra line after 5 s, the old background', L['role'] is None and not L['more'] and at58 is None and L['bg'] == 'rgba(255, 244, 222, 0.6)', L)
+        await c.close()
+
+
 async def reachable(b, errs):
     """the ladder fits what a pupil can earn: the level that opens the last character is reachable with today's content
     (js/avatar.js MAX_ENERGY; when content adds energy, the ladder is to be revisited)"""
@@ -964,6 +1009,7 @@ async def main():
             await anim(b, errs)
             await ladder(b, errs)
             await notice_clear(b, errs)
+            await loader_look(b, errs)
             await reachable(b, errs)
             await kept(b, errs)
             await old_names(b, errs)
