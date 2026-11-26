@@ -14,7 +14,9 @@ file, a changed function, a new contract between two files: any of them can brea
 Without a browser (tests/jsmods.py reads every module with a strict tokenizer): every import and export form is one it
 knows, or the test fails; an export added since the previous ship is never named in an import, an export {..} from or a
 destructured dynamic import; wherever it is read through a namespace or a dynamically imported module, the read is
-guarded right there (typeof X.name==='function' in the same statement), not somewhere else in the file. The exports
+guarded right there (typeof X.name==='function' in the same statement), not somewhere else in the file, or, for a
+data export, has its fallback right after it (X.name||.. or X.name??..); destructuring the namespace (const {a}=X) or a
+computed read (X[k]) fails. The exports
 added since the previous ship are listed with every use. A self-test feeds it one mutant per known blind spot.
 
 In the browser, for every js/, css/ and *.html file that differs between REF and this checkout and existed in REF:
@@ -74,6 +76,7 @@ def static_check(now, prev):
     bad = []
     loose = set()   # modules imported dynamically whose result is passed on: their new exports are checked by name everywhere
     binds = {f: {} for f in now}   # file -> {local name: module}
+    wide = {f: set() for f in now}   # the names in binds that hold a module file-wide (namespaces, aliases), not an arrow's parameter
     for f, i in info.items():
         for s, pairs in i['imports']:
             for a, b in pairs:
@@ -84,7 +87,7 @@ def static_check(now, prev):
                 if a in added.get(mod(s), {}):
                     bad.append(f'js/{f} re-exports {{{a}}} from {s}'); added[mod(s)][a].append(f'js/{f}: export {{}} from (BREAKS)')
         for s, ns in i['namespaces']:
-            binds[f][ns] = mod(s)
+            binds[f][ns] = mod(s); wide[f].add(ns)
         for s, b, _ in i['dynamic']:
             m = mod(s)
             if isinstance(b, list):
@@ -97,26 +100,43 @@ def static_check(now, prev):
                 for k in range(1, len(T) - 2):
                     if T[k].t == 'id' and jsmods._is(T[k + 1], '=') and T[k + 2].t == 'id' and T[k + 2].v == b and not jsmods._is(T[k - 1], '.') \
                             and (k + 3 >= len(T) or (T[k + 3].t == 'punct' and T[k + 3].v in (',', ';', ')', '}'))):
-                        binds[f][T[k].v] = m
+                        binds[f][T[k].v] = m; wide[f].add(T[k].v)
             else:
                 loose.add(m)
     for f, i in info.items():
-        T = i['tokens']
+        T = i['tokens'] + [jsmods.Tok('punct', ';', -1, 0), jsmods.Tok('punct', ';', -1, 0)]   # two ends, so a read at the very end is seen
         for k in range(len(T) - 2):
-            if not (T[k].t == 'id' and jsmods._is(T[k + 1], '.') and T[k + 2].t == 'id'):
+            # const {NEW}=NS (or {NEW:x}): a destructured namespace, the same as a named import
+            if T[k].t == 'id' and T[k].v in binds[f] and k >= 2 and jsmods._is(T[k - 1], '=') and jsmods._is(T[k - 2], '}'):
+                m, d, j = binds[f][T[k].v], 0, k - 2
+                while j >= 0:
+                    if jsmods._is(T[j], '}'): d += 1
+                    elif jsmods._is(T[j], '{'):
+                        d -= 1
+                        if d == 0: break
+                    elif d == 1 and T[j].t == 'id' and (jsmods._is(T[j + 1], ',') or jsmods._is(T[j + 1], ':') or jsmods._is(T[j + 1], '}') or jsmods._is(T[j + 1], '=')) \
+                            and (jsmods._is(T[j - 1], '{') or jsmods._is(T[j - 1], ',')) and T[j].v in added.get(m, {}):
+                        bad.append(f'js/{f} line {T[j].line}: destructures {T[j].v} from {T[k].v}'); added[m][T[j].v].append(f'js/{f}: destructured from {T[k].v} (BREAKS)')
+                    j -= 1
+            # NS[...]: a computed read of a module it tracks cannot be checked
+            if T[k].t == 'id' and T[k].v in wide[f] and jsmods._is(T[k + 1], '[') and not (k and (jsmods._is(T[k - 1], '.') or jsmods._is(T[k - 1], '?.'))):
+                bad.append(f'js/{f} line {T[k].line}: {T[k].v}[...] is a computed read of a module; read each name as {T[k].v}.name')
+            if not (T[k].t == 'id' and (jsmods._is(T[k + 1], '.') or jsmods._is(T[k + 1], '?.')) and T[k + 2].t == 'id'):
                 continue
             obj, name = T[k].v, T[k + 2].v
             m = binds[f].get(obj)
             if m is None:
                 m = next((x for x in loose if name in added.get(x, {}) and x != f), None)
-            if m is None or name not in added.get(m, {}) or jsmods._is(T[k - 1] if k else None, '.'):
+            if m is None or name not in added.get(m, {}) or (k and (jsmods._is(T[k - 1], '.') or jsmods._is(T[k - 1], '?.'))):
                 continue
             if k and T[k - 1].t == 'id' and T[k - 1].v == 'typeof':
                 continue   # the guard itself
-            ok = guarded(T, k, obj, name)
-            added[m][name].append(f'js/{f} line {T[k].line}: {obj}.{name}' + (' guarded' if ok else ' UNGUARDED'))
+            # a data export: NS.name||x or NS.name??x falls back when an old copy lacks it (a bare read does not)
+            data = k + 3 < len(T) and T[k + 3].t == 'punct' and T[k + 3].v in ('||', '??')
+            ok = data or guarded(T, k, obj, name)
+            added[m][name].append(f'js/{f} line {T[k].line}: {obj}.{name}' + (' with a fallback value' if data else ' guarded' if ok else ' UNGUARDED'))
             if not ok:
-                bad.append(f'js/{f} line {T[k].line}: {obj}.{name} is read with no typeof guard in the same statement')
+                bad.append(f'js/{f} line {T[k].line}: {obj}.{name} is read with no typeof guard in the same statement and no ||/?? fallback right after it')
     return bad, added, unknown
 
 
@@ -151,12 +171,20 @@ MUTANTS = [   # (what, now {file: src}, prev {file: src}): each must be reported
     ('export {q as zz} not at the start of a line', {'ui.js': 'const q=1;const r=2;export {q as zz};', 'main.js': "import {zz} from './ui.js';"}, {'ui.js': '', 'main.js': ''}),
     ('a typeof guard elsewhere, the call unguarded', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';const ok=typeof UI.NEW==='function';UI.NEW();"}, {'ui.js': '', 'main.js': ''}),
     ('a destructured import()', {'avatar.js': 'export function newFn(){}', 'main.js': "import('./avatar.js').then(({newFn})=>newFn());"}, {'avatar.js': '', 'main.js': ''}),
+    ('a bare read of a new data export', {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';const e=WD.ENERGY;"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('a new data export in a call argument, no fallback', {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';show(WD.ENERGY,1);"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('a fallback that applies to a member, not the export', {'world_data.js': 'export const SOON={};', 'avatar.js': "import * as WD from './world_data.js';const s=WD.SOON.x||0;"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('a destructured namespace const {ENERGY}=WD', {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';const {ENERGY}=WD;"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('a renamed destructuring const {a,ENERGY:e}=WD', {'world_data.js': 'export const ENERGY=5;export const a=1;', 'avatar.js': "import * as WD from './world_data.js';const {a,ENERGY:e}=WD;"}, {'world_data.js': 'export const a=1;', 'avatar.js': ''}),
+    ('an optional-chain read WD?.ENERGY', {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';const e=WD?.ENERGY;"}, {'world_data.js': '', 'avatar.js': ''}),
+    ('a computed read WD[k]', {'world_data.js': 'export const ENERGY=5;', 'avatar.js': "import * as WD from './world_data.js';const e=WD['ENERGY'];"}, {'world_data.js': '', 'avatar.js': ''}),
     ('export default (a form it does not know)', {'ui.js': 'export default 1;', 'main.js': ''}, {'ui.js': '', 'main.js': ''}),
     ('export * (a form it does not know)', {'ui.js': "export * from './state.js';", 'main.js': ''}, {'ui.js': '', 'main.js': ''}),
     ('a destructuring export (a form it does not know)', {'ui.js': 'export const {a,b}=o;', 'main.js': ''}, {'ui.js': '', 'main.js': ''}),
 ]
 CONTROLS = [   # the same shapes written safely: none may be reported
     ('a new export read through the namespace with a guard at the use', {'ui.js': 'export const NEW=()=>1;', 'main.js': "import * as UI from './ui.js';const f=n=>typeof UI.NEW==='function'?UI.NEW(n):'';"}, {'ui.js': '', 'main.js': ''}),
+    ('a new data export read with || and ?? fallbacks', {'world_data.js': 'export const ENERGY=5;export const SOON=[];', 'avatar.js': "import * as WD from './world_data.js';const e=WD.ENERGY||3,s=WD.SOON??[];"}, {'world_data.js': '', 'avatar.js': ''}),
     ('a guarded dynamic read', {'avatar.js': 'export function newFn(){}', 'main.js': "import('./avatar.js').then(m=>{if(typeof m.newFn==='function')m.newFn()});"}, {'avatar.js': '', 'main.js': ''}),
 ]
 
