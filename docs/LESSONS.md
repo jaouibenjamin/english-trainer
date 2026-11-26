@@ -104,7 +104,9 @@ Each entry is a bug class that cost us more than one review round. An engineer r
   page, while the class is using it.
 - **Rule:** never add a named import of an export that is new since the last ship, across two files that can be cached
   apart. Keep the new code in the file that uses it, or import the module as a namespace (`import * as UI`) and fall
-  back when the name is missing. The same goes for a renamed or removed export.
-- **How to test it:** `tests/cache_mix.py` serves each module in its last-shipped version while every other file is the
-  branch's, and checks the game still starts with no page error. It caught #92's first version ("does not provide an
-  export named 'loaded'").
+  back when the name is missing: a function behind `typeof NS.f==='function'`, a table as `NS.t??default` (`??`, not
+  `||`, so a falsy export is kept). The same goes for a renamed or removed export.
+- **How to test it:** `tests/cache_mix.py` (#104, #105) lists every export added since the last ship and fails on a
+  named import of one or an unguarded read; then it serves each changed file in its last-shipped version while every
+  other file is the branch's, and checks the game still starts with no page error. An early copy of it caught #92's
+  first version ("does not provide an export named 'loaded'").
