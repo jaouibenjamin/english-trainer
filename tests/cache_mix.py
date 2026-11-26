@@ -4,7 +4,7 @@
 
     python3 tests/cache_mix.py               # every file that changed since the previous ship, one at a time
     python3 tests/cache_mix.py --quick       # the same, title and map only
-    python3 tests/cache_mix.py --prev REF    # the previous ship (default origin/main, what the class has today)
+    python3 tests/cache_mix.py --prev REF    # another previous ship than PREV_SHIP below
 
 GitHub Pages lets a browser keep each file for 10 minutes (max-age=600), so for a while after a ship a phone can run the
 new page with an old module, or an old page with a new one. A new named export that an old copy does not have, a
@@ -13,7 +13,10 @@ For every js/, css/ and index.html file that differs between REF and this checko
 one file and this checkout's copy of everything else, and opens the title, the map, one level and the teacher screen:
 each must be drawn with no page error, console error or failed request. A self-test first serves a copy of js/ui.js
 without one named export and must see the page fail, so a pass means the check can see a break.
-Needs REF in the local clone: `git fetch origin main` (the test says so and fails if it is missing)."""
+Also, without a browser: every named import of a module's export that the previous ship's copy of that module does not
+have is listed and fails (it is exactly the break above); an export added since then must be read through the module's
+namespace (`import * as UI`) with a fallback. The exports added since the previous ship, and how each is used, are listed.
+Needs the previous ship in the local clone (`git fetch origin main`; the test says so and fails if it is missing)."""
 import asyncio, os, re, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import play as P
@@ -21,7 +24,9 @@ from play import check, fails, new_page
 from playwright.async_api import async_playwright
 
 QUICK = '--quick' in sys.argv
-PREV = sys.argv[sys.argv.index('--prev') + 1] if '--prev' in sys.argv else 'origin/main'
+# THE PREVIOUS SHIP: main's commit as the class has it now. Bump it with every ship (CLAUDE.md, "Branches and deploy").
+PREV_SHIP = '13a3496'
+PREV = sys.argv[sys.argv.index('--prev') + 1] if '--prev' in sys.argv else PREV_SHIP
 ROOT = P.ROOT
 SCREENS = [('title', '#', '.scr.title .btn'), ('map', '#map', '.map .isl'), ('level', '#play/1/sling', '.lv'), ('teacher', '#teacher', '.teacher')]
 if QUICK:
@@ -42,6 +47,48 @@ def serve(body, typ):
     async def h(route, request=None):
         await route.fulfill(status=200, content_type=typ, body=body)
     return h
+
+
+EXPORT = re.compile(r'^export\s+(?:async\s+)?(?:const|let|var|function\*?|class)\s+([A-Za-z_$][\w$]*)|^export\s*\{([^}]*)\}', re.M)
+IMPORT = re.compile(r'^import\s*\{([^}]*)\}\s*from\s*[\'"](\./[\w.-]+\.js)[\'"]', re.M)
+
+
+def exports(src):
+    out = set()
+    for a, b in EXPORT.findall(src):
+        if a: out.add(a)
+        for part in b.split(','):
+            part = part.strip()
+            if part: out.add(part.split(' as ')[-1].strip())
+    return out
+
+
+def static_check():
+    """named imports of exports the previous ship lacks (the break), and the exports added since (with their uses)"""
+    bad, added = [], {}
+    mods = sorted(f for f in os.listdir(os.path.join(ROOT, 'js')) if f.endswith('.js'))
+    now = {f: open(os.path.join(ROOT, 'js', f), encoding='utf-8').read() for f in mods}
+    for f in mods:
+        old = git('show', f'{PREV}:js/{f}')
+        if old.returncode: continue   # a module new since the previous ship: every importer of it is new too
+        new_names = exports(now[f]) - exports(old.stdout.decode())
+        if new_names: added[f] = {n: [] for n in sorted(new_names)}
+    for f, src in now.items():
+        for names, frm in IMPORT.findall(src):
+            target = frm[2:]
+            if target not in added: continue
+            for part in names.split(','):
+                n = part.strip().split(' as ')[0].strip()
+                if n in added[target]:
+                    bad.append(f'js/{f} imports {{{n}}} from {frm}'); added[target][n].append(f'js/{f}: named import (BREAKS)')
+        for m in re.finditer(r'import\s*\*\s*as\s*(\w+)\s*from\s*[\'"](\./[\w.-]+\.js)[\'"]', src):
+            ns, target = m.group(1), m.group(2)[2:]
+            for n in added.get(target, {}):
+                if re.search(r'\b' + ns + r'\.' + re.escape(n) + r'\b', src):
+                    guarded = re.search(r'typeof\s+' + ns + r'\.' + re.escape(n) + r'\s*===?\s*[\'"]function[\'"]', src) is not None
+                    added[target][n].append(f'js/{f}: through {ns}.{n}' + (' with a fallback' if guarded else ' WITHOUT a fallback'))
+                    if not guarded: bad.append(f'js/{f} reads {ns}.{n} without a fallback')
+    return bad, added
 
 
 async def screen(b, path, sel, served):
@@ -67,6 +114,11 @@ async def main():
         print(f"\n{len(fails)} FAILED: " + '; '.join(fails)); sys.exit(1)
     files = changed()
     print(f'previous ship {PREV} = {git("rev-parse", "--short", PREV).stdout.decode().strip()}; {len(files)} files differ: {", ".join(files)}')
+    bad, added = static_check()
+    for mod, names in added.items():
+        for n, uses in names.items():
+            print(f'  new since the previous ship: js/{mod} exports {n}; used by: ' + ('; '.join(uses) or 'no other module'))
+    check(f'no module names an export that the previous ship\'s copy lacks (a new export is read through the namespace, with a fallback): {sum(len(v) for v in added.values())} new exports', not bad, bad)
     procs = P.start_servers()
     try:
         async with async_playwright() as pw:
