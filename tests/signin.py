@@ -382,7 +382,7 @@ async def letter_form(b):
     check('A1: first name and the letter side by side, the hint says one letter, Hebrew or Latin',
           await pg.inner_text('label[for="si-n"]') == 'השם הפרטי' and await pg.inner_text('label[for="si-l"]') == 'אות משפחה'
           and await pg.get_attribute('#si-l', 'aria-label') == 'האות הראשונה של שם המשפחה'
-          and await pg.inner_text('#si-n-h') == 'השם הפרטי והאות הראשונה של שם המשפחה, כמו ברשימה של המורה.' and await pg.get_attribute('#si-l', 'maxlength') == '2')
+          and await pg.inner_text('#si-n-h') == 'השם הפרטי והאות הראשונה של שם המשפחה, כמו ברשימה של המורה.' and await pg.get_attribute('#si-l', 'maxlength') == '2' and await pg.get_attribute('#si-n', 'maxlength') == '17')
     await typ(pg, 'c', CLASS); await typ(pg, 'n', 'נועה')
     check('the name as it will appear, while typing (no letter yet: the first name)', await pg.inner_text('.si-as') == 'כך יופיע במשחק: נועה')
     await main_btn(pg)
