@@ -684,6 +684,8 @@ Project settings (each has a test in section 10):
 11. Database → Extensions: `pgcrypto` (the encrypted export) and `pg_cron` (the nightly clean-up) on.
 12. Run the migrations (`supabase db push`), then `supabase/seed/catalog.sql`. The output must say
     "maintenance is scheduled: every night at 02:17 UTC"; if it says "maintenance is NOT scheduled", stop.
+    **Migrations are append-only:** `db push` runs each file once and never again, so a file already on `game` is never
+    edited; a change is a new file after the last one (`tests/migrations_check.py`; docs/LESSONS.md entry 15).
 13. Secrets for the functions: `PUPIL_PEPPER` generated on the owner's computer (`openssl rand -base64 32`), set with
     `supabase secrets set`, never pasted anywhere else. `ALLOWED_ORIGINS`. Deploy the functions.
 14. Backup: generate an RSA 4096 key pair with `gpg` on the owner's computer; store the **public** key in
