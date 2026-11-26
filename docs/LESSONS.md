@@ -66,7 +66,19 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 - **Rule:** anything kept past the current synchronous step (a request, an answer, a record handed in or out) is copied at the moment it is taken: `JSON.parse(JSON.stringify(x))`, or `structuredClone`. That applies both ways: what you hand back (the game's own object stays the game's) and what you were given (a caller may keep editing it).
 - **How to test it:** take the object the call returned and change it in place right after the call, before any background work runs; then check that what was stored or counted is what was sent or answered, not the edited object.
 
-## 13. A made-up key that looks like a vendor's turns the whole repo red (#82)
+## 13. An audio filter that resamples and lifts the pauses (welcome film, #58)
+
+- **What happened:** the welcome film's voice crackled and hissed on the owner's phone. The `loudnorm` filter outputs 192 kHz; nothing resampled it, so the AAC came out at 96 kHz and only 48 kbps. Its dynamic mode also raised the quiet pauses, so the room noise of the take sat under the whole film. The numbers looked fine (duration, pauses counted); nobody listened before it was sent.
+- **Rule:** after every audio step, check the output's sample rate and codec, and measure the noise floor in the pauses (silencedetect, astats). Encode once at 44.1 or 48 kHz with a fixed bitrate; use a plain linear gain, not a dynamic loudness filter, on speech. A person listens before it ships.
+- **How to test it:** `ffprobe` shows 44100 or 48000 Hz; silencedetect at -45 dB finds every pause; the pauses' RMS is far below the voice.
+
+## 14. Measure the thing you are trying to remove (#78, closed)
+
+- **What happened:** #78 moved the game page's Latin font preload out of `index.html` so the new look (`?ds=1`) would stop downloading the old look's 191 KB font. The request timing and the safety checks were measured carefully, and the test checked the `<link>` list. But with the flag on, `game.css` (and the boot's `document.fonts.load`) still asked for that font, so it was downloaded anyway, the new look's font came on top. With the flag on the old look's font request started later in both engines; with the flag off, in WebKit, it started one round trip later than with the static tag. The benefit was never measured, only the safety.
+- **Rule:** a test for a cut asserts that the resource is NOT requested, counted where it arrives (the test server's log: `WI_REQLOG`, `tests/static_server.py`) as well as where the browser reports it, in every engine the class uses (Chromium and WebKit). A list of links or attributes is not proof that a byte was saved.
+- **How to test it:** for each cut, a check that the file is not served on the screens where it should not be, plus a control that the log does see it where it should be (otherwise "not served" may only mean "not logged"). Where WebKit is not available, say so in the PR as something the tests could not prove.
+
+## 15. A made-up key that looks like a vendor's turns the whole repo red (#82)
 
 - **What happened:** a test stand-in used `sb_publishable_test_0123456789abcdef` as its key. It was invented, but gitleaks read it as a real key. Gitleaks scans the history of every branch, so the `secrets` check went red on every open pull request and on `game`, and fixing the file did not clear it: the string stays in the branch's history.
 - **Rule:** in tests, never write a fake value with a real credential's prefix or shape (`sb_publishable_`, `sb_secret_`, any `eyJ…` token whatever its role, `sk_`/`rk_live_` and `_test_`, `ghp_`/`gho_`/`ghs_`, `github_pat_`, `AKIA…`, `AIza…`, `xoxb-`), also glued after other letters. Write it so it cannot pass for one: `public-key-for-tests-0123456789`, as `tests/api_check.mjs` does. Where a test really needs the real shape (a JWT for the gateway), build it from pieces at run time.
