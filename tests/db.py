@@ -902,8 +902,29 @@ def test_grades(db):
        [before, db.admin(f"select pts, tries from private.pupil_carry where pupil_id = '{p_noa}'"),
         db.one(f"select count(*) from public.answer_daily where pupil_id = '{p_noa}'"), db.one(f"select count(*) from public.answers where pupil_id = '{p_noa}'"),
         db.admin(f"select * from private.totals_check() where pupil_id = '{p_noa}'")], [[], [['30', '4']], '0', '0', []])
-    eq('the per-address ceilings rose for a grade (ip_hour 600, register_ip_hour 300), per (address, class) 120 and 60',
-       db.admin('select ip_hour, register_ip_hour, ip_class_hour, register_ip_class_hour from private.settings'), [['600', '300', '120', '60']])
+    eq('limits with headroom for a grade at one address (ip_hour 3000, register_ip_hour 1500; per class 300 and 150)',
+       db.admin('select ip_hour, register_ip_hour, ip_class_hour, register_ip_class_hour from private.settings'), [['3000', '1500', '300', '150']])
+    eq('year_end must be a day every year has: 02-30 and 02-29 are refused, 06-30 is taken',
+       [db.psql(f"update private.settings set year_end = '{d}'", user='supabase_admin')[1] is None for d in ('02-30', '02-29', '06-30', '08-31')], [False, False, True, True])
+    db.admin(f"""insert into public.answer_daily (pupil_id, day, item_id, tries, pts) select '{p_noa}', current_date - 300 - g, i.id, 1, 1
+                  from generate_series(1, 3) g, public.items i where i.game = 'carry';
+                  update public.pupil_totals set points = points + 3, answers = answers + 3 where pupil_id = '{p_noa}';
+                  update private.settings set fold_per_run = 2;""")
+    db.one("select private.fold_history(now())")
+    eq('the fold is bounded per run (fold_per_run): 2 of 3 old rows tonight, the last one the next night; totals right throughout',
+       [db.one(f"select count(*) from public.answer_daily where pupil_id = '{p_noa}'"), db.admin(f"select * from private.totals_check() where pupil_id = '{p_noa}'")], ['1', []])
+    db.one("select private.fold_history(now())")
+    eq('and the next night folds the rest', db.one(f"select count(*) from public.answer_daily where pupil_id = '{p_noa}'"), '0')
+    db.admin("update private.settings set fold_per_run = 50000")
+    db.admin(f"insert into public.pupils (class_id, display_name) select '{a}', 'Big' || chr(65 + g / 26) || chr(65 + g % 26) || ' B.' from generate_series(0, 329) g")
+    eq('the grade board holds a grade of more than 300 pupils', len(board(('authenticated', u(1)))[0]) > 330, True)
+    db.admin(f"delete from public.pupils where class_id = '{a}' and display_name like 'Big%'")
+    check('no class is ever named like the hidden ones', db.psql(f"select private.class_create('Removed', 'ה׳', '{lk()}')", user='supabase_admin')[1] is not None)
+    db.admin("insert into public.classes (name, name_form) values ('removed', 'first')")      # one made by hand, as a real class
+    p_noa2 = db.one(f"select id from public.pupils where class_id = '{a}' and display_name = 'נועה כ2.'")
+    db.admin(f"insert into public.teachers values ('{u(9)}', '{a}') on conflict do nothing")
+    v, err = db.rpc(('authenticated', u(9)), 'teacher_remove_pupil', dict(p_pupil=p_noa2))
+    eq('a real class named "removed" does not stop a removal: the hidden class is made as limbo', [err, (v or {}).get('ok')], [None, True])
 
 
 def main():

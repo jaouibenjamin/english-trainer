@@ -316,6 +316,12 @@ def fresh():
         r13, _ = run(srv, fake, extra=['--add-class', 'trial', '--grade', 'ה׳'])
         check('add-class named like the trial: refused, nothing changed', r13.returncode == 1 and tail_ok(r13.stdout + r13.stderr)
               and db.psql("select count(*) from public.classes where lower(name) = 'trial'", user='supabase_admin')[0] == [['1']], r13.stdout[-300:])
+        n_cls = db.psql('select count(*) from public.classes', user='supabase_admin')[0]
+        r14, _ = run(srv, fake, extra=['--add-class', 'Removed', '--grade', 'ה׳'])
+        r15, _ = run(srv, fake, extra=['--add-class', 'א' * 27, '--grade', 'ה׳'])
+        check('add-class named "removed", or longer than 26 characters (its Vault name would lose the code): refused, '
+              'nothing changed', r14.returncode == 1 and r15.returncode == 1 and '26' in r15.stdout
+              and db.psql('select count(*) from public.classes', user='supabase_admin')[0] == n_cls, (r14.stdout[-200:], r15.stdout[-200:]))
         r10, _ = run(srv, fake, extra=['--add-teacher', tid, '--class', 'ה׳9'])
         check('add-teacher for a class that does not exist: stops, says what to do, nothing changed',
               r10.returncode == 1 and tail_ok(r10.stdout + r10.stderr) and 'add-class' in r10.stdout, r10.stdout[-400:])

@@ -46,29 +46,49 @@ insert into private.auth_lock_events (class_id, name_key, kind) values ('0000000
 insert into public.flags (pupil_id, kind, day) values ('00000000-0000-4000-8000-0000000000d1', 'rate', current_date);
 insert into public.pupils (id, class_id, display_name) values ('00000000-0000-4000-8000-0000000000d2', '00000000-0000-4000-8000-0000000000c1', 'Pupil Two');
 -- once game holds 0009: a pupil taken out of the class too (a hidden class and a removed row), so a later file meets them
+-- and two hidden classes whose home classes were deleted by hand afterwards (their limbo row's class_id is null then)
+insert into public.classes (id, name) values ('00000000-0000-4000-8000-0000000000c2', 'Gone A'), ('00000000-0000-4000-8000-0000000000c3', 'Gone B');
+insert into public.teachers (user_id, class_id) values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c2'),
+                                                       ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c3');
+insert into public.pupils (id, class_id, display_name) values ('00000000-0000-4000-8000-0000000000d3', '00000000-0000-4000-8000-0000000000c2', 'Gone Pupil'),
+                                                             ('00000000-0000-4000-8000-0000000000d4', '00000000-0000-4000-8000-0000000000c3', 'Gone Pupil');
 do $$ begin
   if to_regprocedure('public.teacher_remove_pupil(uuid)') is not null then
     perform set_config('request.jwt.claims', '{"role": "authenticated", "sub": "00000000-0000-4000-8000-0000000000a1"}', true);
     execute 'select public.teacher_remove_pupil(''00000000-0000-4000-8000-0000000000d2'')';
+    execute 'select public.teacher_remove_pupil(''00000000-0000-4000-8000-0000000000d3'')';
+    execute 'select public.teacher_remove_pupil(''00000000-0000-4000-8000-0000000000d4'')';
   end if;
 end $$;
+delete from public.classes where id in ('00000000-0000-4000-8000-0000000000c2', '00000000-0000-4000-8000-0000000000c3');
+-- a name with a Hebrew final letter, locked: a change of how names are keyed must keep it locked
+insert into public.pupils (id, class_id, display_name) values ('00000000-0000-4000-8000-0000000000d5', '00000000-0000-4000-8000-0000000000c1', 'רון');
+insert into private.auth_buckets (class_id, name_key, kind, bucket, fails, locked_until)
+  values ('00000000-0000-4000-8000-0000000000c1', 'רון', 'code', 'i:x', 5, now() + interval '1 hour');
 """
 
+# what 0010 (grades v1) must do to such rows; run while 0010 is a new file here (review of #128)
+GRADES_DATA = ("select (select count(*) from public.classes where name = 'removed' and kind <> 'limbo'), "
+               "(select name_key from public.pupils where id = '00000000-0000-4000-8000-0000000000d5'), "
+               "(select string_agg(name_key, ',') from private.auth_buckets where locked_until > now())")
 
-def schema(files_dir, then=None):
+
+def schema(files_dir, then=None, extra='', data=None):
     """The schema (pg_dump --schema-only) of a fresh database built from the .sql files in files_dir, in order; with
     `then`, rows are put in after those files and the files in `then` are applied on top of them."""
     os.environ['WI_MIGRATIONS'] = files_dir
     db = pg.start()
     try:
         if then:
-            rows, err = db.psql(ROWS, user='supabase_admin')
+            rows, err = db.psql(ROWS + extra, user='supabase_admin')
             if err:
                 raise RuntimeError('rows: ' + err)
             for f in then:
                 rows, err = db.psql(None, file=f)
                 if err:
                     raise RuntimeError(f'{os.path.basename(f)} on a database with rows: {err}')
+            if data is not None:
+                data.append(db.psql(GRADES_DATA, user='supabase_admin')[0])
         r = subprocess.run([os.path.join(db.bin, 'pg_dump'), '-s', '-x', '-h', db.sock, '-p', str(db.port), '-U', 'supabase_admin', pg.DB],
                            capture_output=True, text=True)
         if r.returncode:
@@ -99,6 +119,22 @@ def main():
             a = schema(old, then=[os.path.join(ROOT, MIG, f) for f in new])
         except RuntimeError as e:
             a = ([str(e)], [], [])
+        if '0010_grades_v1.sql' in new:
+            got = []
+            try:
+                schema(old, then=[os.path.join(ROOT, MIG, f) for f in new], data=got)
+            except RuntimeError as e:
+                got = [str(e)]
+            check('0010 on such rows: every hidden class is limbo (also those whose home class was deleted), a final-letter name is re-keyed '
+                  'and its lock kept', got == [[['0', 'רונ', 'רונ']]], got)
+            try:
+                schema(old, then=[os.path.join(ROOT, MIG, f) for f in new],
+                       extra="insert into public.pupils (class_id, display_name) values ('00000000-0000-4000-8000-0000000000c1', 'רונ');")
+                msg = 'it ran'
+            except RuntimeError as e:
+                msg = str(e)
+            check('0010 with two names of one class that differ only by a final letter (רון, רונ): it stops, says why, and names no pupil',
+                  'final letter' in msg and 'רון' not in msg and 'רונ' not in msg, msg[-300:])
     b = schema(os.path.join(ROOT, MIG))
     diff = a[0] if len(a[0]) == 1 else [ln for ln in set(a[0]) ^ set(b[0])][:5]     # one line: the error of a new file
     check(f"the same schema both ways: fresh from all {len(here)} files, and game's {len(on_game)} with a class in it, then the {len(new)} new ones (tables, views, functions, grants)",

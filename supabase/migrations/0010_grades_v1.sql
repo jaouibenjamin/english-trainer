@@ -26,13 +26,42 @@ alter table public.classes
   -- 'first_initial': a first name and one letter of the surname, "נועה כ." (the owner's decision of 2026-11-26)
   add column name_form text not null default 'first' check (name_form in ('first', 'first_initial'));
 alter table public.classes alter column name_form set default 'first_initial';     -- classes made from now on
--- the classes that exist keep 'first'; the hidden "removed" classes of 0009 are marked
-update public.classes c set kind = 'limbo', name_form = h.name_form, grade_id = h.grade_id
+-- the classes that exist keep 'first'; every hidden "removed" class of 0009 is marked, also one whose home class was
+-- deleted by hand (its class_id is null then), and takes its home class's grade and form where there is one
+update public.classes set kind = 'limbo' where id in (select limbo_id from private.limbo);
+update public.classes c set name_form = h.name_form, grade_id = h.grade_id
   from private.limbo l join public.classes h on h.id = l.class_id where c.id = l.limbo_id;
 -- a class name names one class (add-teacher finds the class by it)
 create unique index classes_name_one on public.classes (name) where kind = 'class';
 
--- a new hidden "removed" class (teacher_remove_pupil, 0009) is marked and takes its home class's grade and name form
+-- teacher_remove_pupil (0009) as it was, except that the hidden class is made with kind 'limbo' from the start, so a
+-- real class named "removed" never collides with it (classes_name_one counts kind 'class' only)
+create or replace function public.teacher_remove_pupil(p_pupil uuid) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare p public.pupils; v_limbo uuid; s private.settings;
+begin
+  select * into s from private.settings;
+  select * into p from public.pupils where id = p_pupil;
+  if p.id is null or not app.teaches(p.class_id) then raise exception 'not your pupil' using errcode = '42501'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('limbo/' || p.class_id::text, 42));
+  perform private.name_lock(p.class_id, p.name_key);
+  select * into p from public.pupils where id = p_pupil for update;      -- as it is now: a sign-in may have linked a session
+  if p.id is null or not app.teaches(p.class_id) then raise exception 'not your pupil' using errcode = '42501'; end if;
+  select limbo_id into v_limbo from private.limbo where class_id = p.class_id;
+  if v_limbo is null then
+    insert into public.classes (name, roster_only, max_pupils, kind) values ('removed', true, 200, 'limbo') returning id into v_limbo;
+    insert into private.limbo (limbo_id, class_id) values (v_limbo, p.class_id);
+  end if;
+  if exists (select 1 from public.pupils where class_id = v_limbo and name_key = p.name_key) then
+    return jsonb_build_object('ok', false, 'e', 'taken');
+  end if;
+  insert into private.removed_pupils (pupil_id, class_id, removed_at, removed_by) values (p.id, p.class_id, now(), auth.uid());
+  update public.pupils set class_id = v_limbo, auth_user_id = null where id = p.id;
+  if p.auth_user_id is not null then delete from auth.users where id = p.auth_user_id; end if;   -- the session ends now
+  return jsonb_build_object('ok', true, 'purge_at', now() + make_interval(days => s.removed_days));
+end $$;
+
+-- a new hidden class also takes its home class's grade and name form
 create function private.limbo_mark() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   update public.classes c set kind = 'limbo', grade_id = h.grade_id, name_form = h.name_form
@@ -41,16 +70,30 @@ begin
 end $$;
 create trigger limbo_mark after insert on private.limbo for each row execute function private.limbo_mark();
 
+-- a day of the year as MM-DD that exists in every year (so not 02-29)
+create function app.mmdd_ok(p text) returns boolean language plpgsql immutable set search_path = '' as $$
+begin
+  if p !~ '^\d\d-\d\d$' then return false; end if;
+  perform make_date(2001, split_part(p, '-', 1)::int, split_part(p, '-', 2)::int);
+  return true;
+exception when others then return false;
+end $$;
+
 -- the school year a moment belongs to: it starts the day after settings.year_end (below)
 alter table private.settings
-  add column year_end        text not null default '08-31' check (year_end ~ '^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'),
+  add column year_end        text not null default '08-31' check (app.mmdd_ok(year_end)),   -- a real day: not 02-30, not 02-29
   add column year_end_delete boolean not null default true,       -- item history deleted when a school year ends
   add column daily_days      int not null default 120 check (daily_days between 30 and 3650),
-  add column ip_class_hour          int not null default 120,     -- calls from one address for one class in an hour
-  add column register_ip_class_hour int not null default 60;      -- registrations from one address for one class
--- one school address now carries a grade: the per-address ceilings rise, the per-(address, class) ones hold a class
-update private.settings set ip_hour = 600 where ip_hour = 120;
-update private.settings set register_ip_hour = 300 where register_ip_hour = 60;
+  add column fold_per_run    int not null default 50000 check (fold_per_run between 1 and 1000000),   -- rows a night (LESSONS 9)
+  add column ip_class_hour          int not null default 300,     -- calls from one address for one class in an hour
+  add column register_ip_class_hour int not null default 150;     -- registrations from one address for one class
+-- One school address now carries a grade. The arithmetic, for a class of 35 and for 10 such classes, all in one hour,
+-- every child at worst (a registration and two retries, two sign-ins, one "I forgot my code"; every call counts):
+--   per (address, class): registrations 35 x 3 = 105, limit 150 (+43%); calls 35 x (3 + 2 + 1) = 210, limit 300 (+43%).
+--   per address, 10 classes: registrations 1,050, limit 1,500 (+43%); calls 2,100, limit 3,000 (+43%).
+-- The brakes against guessing stay where they are: per name, per class and the wrong-class-code limits of 0004/0008.
+update private.settings set ip_hour = 3000 where ip_hour = 120;
+update private.settings set register_ip_hour = 1500 where register_ip_hour = 60;
 
 create function private.year_start(p_now timestamptz) returns date language sql stable set search_path = '' as $$
   with s as (select year_end, tz from private.settings),
@@ -78,6 +121,7 @@ language plpgsql security definer set search_path = '' as $$
 declare v uuid;
 begin
   if coalesce(btrim(p_grade), '') = '' then raise exception 'a class needs its grade' using errcode = '22023'; end if;
+  if lower(btrim(p_name)) = 'removed' then raise exception 'that is the name of the hidden classes' using errcode = '22023'; end if;
   insert into public.classes (name, grade, grade_id) values (p_name, btrim(p_grade), private.grade_for(btrim(p_grade), now())) returning id into v;
   insert into private.class_codes (class_id, code_lookup) values (v, decode(p_lookup, 'hex'));
   return v;
@@ -108,8 +152,11 @@ create function app.name_chars_ok(p_name text) returns boolean language sql immu
       or (p_name ~ '^[^ ]+ [A-Za-zÀ-ÖØ-öø-žא-ת][2-9]\.$' and app.name_ok(regexp_replace(p_name, '[2-9]\.$', '.'))) $$;
 alter table public.pupils drop constraint pupils_display_name_check, add constraint pupils_display_name_check check (app.name_chars_ok(display_name));
 alter table public.roster drop constraint roster_display_name_check, add constraint roster_display_name_check check (app.name_chars_ok(display_name));
+-- The first name carries no dot and at most one hyphen (בת-אל), so "דנה-כהן-לוי" or "דנה.כהן" cannot carry a whole
+-- surname; one hyphen cannot be told from a double first name, so the class list (roster_only) is the real guard.
 create function app.name_form_ok(p_form text, p_name text, p_two boolean) returns boolean language sql immutable set search_path = '' as $$
   select case
+    when p_form = 'first_initial' and (split_part(p_name, ' ', 1) ~ '\.' or split_part(p_name, ' ', 1) ~ '-.*-') then false
     when p_form = 'first_initial' then
          (app.name_ok(p_name) and p_name ~ '^[^ ]+ [A-Za-zÀ-ÖØ-öø-žא-ת]\.$')
       or (p_two and app.name_chars_ok(p_name) and p_name ~ '[2-9]\.$')
@@ -119,8 +166,27 @@ create function app.name_form_ok(p_form text, p_name text, p_two boolean) return
 -- pupil. name_key is the generated key of pupils and the checked key of roster, so both are recomputed here.
 create or replace function app.name_key(n text) returns text language sql immutable set search_path = '' as
   $$ select translate(lower(regexp_replace(btrim(n), '\s+', ' ', 'g')), 'ךםןףץ', 'כמנפצ') $$;
-update public.pupils set display_name = display_name;
-update public.roster set name_key = app.name_key(display_name);
+-- Two names of one class that differ only by a final letter would become one: the migration stops before changing
+-- anything, and says so without naming a pupil (rename one in the class list, then run it again).
+do $$ begin
+  if exists (select 1 from public.pupils group by class_id, translate(name_key, 'ךםןףץ', 'כמנפצ') having count(*) > 1)
+     or exists (select 1 from public.roster group by class_id, translate(name_key, 'ךםןףץ', 'כמנפצ') having count(*) > 1) then
+    raise exception 'two names in one class differ only by a final letter: rename one of them in the class list, then run again';
+  end if;
+end $$;
+update public.pupils set display_name = display_name where name_key ~ '[ךםןףץ]';                 -- the generated key again
+update public.roster set name_key = app.name_key(display_name) where name_key ~ '[ךםןףץ]';
+-- the sign-in bookkeeping follows the key, so a locked name stays locked; two spellings' buckets merge (the later lock
+-- and the larger counts win)
+update private.auth_attempts    set name_key = translate(name_key, 'ךםןףץ', 'כמנפצ') where name_key ~ '[ךםןףץ]';
+update private.auth_lock_events set name_key = translate(name_key, 'ךםןףץ', 'כמנפצ') where name_key ~ '[ךםןףץ]';
+insert into private.auth_buckets as b (class_id, name_key, kind, bucket, fails, round, locked_until, last_fail_at)
+  select class_id, translate(name_key, 'ךםןףץ', 'כמנפצ'), kind, bucket, fails, round, locked_until, last_fail_at
+  from private.auth_buckets where name_key ~ '[ךםןףץ]'
+  on conflict (class_id, name_key, kind, bucket) do update
+    set fails = greatest(b.fails, excluded.fails), round = greatest(b.round, excluded.round),
+        locked_until = greatest(b.locked_until, excluded.locked_until), last_fail_at = greatest(b.last_fail_at, excluded.last_fail_at);
+delete from private.auth_buckets where name_key ~ '[ךםןףץ]';
 
 create function private.roster_form() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
@@ -149,31 +215,42 @@ create trigger pupil_form before insert on public.pupils for each row execute fu
 alter function private.auth_begin(text, text, text, text, text, text, timestamptz) rename to auth_begin_0008;
 create function private.auth_begin(p_kind text, p_class_lookup text, p_name text, p_dev text, p_ip text, p_ip_prev text, p_now timestamptz) returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare s private.settings; v_class uuid; v_form text; v_key text := app.name_key(p_name); n int; v_oldest timestamptz;
+declare s private.settings; v_class uuid; v_form text; v_key text := app.name_key(p_name); v_n int; v_oldest timestamptz;
+        v_hour timestamptz := date_trunc('hour', p_now);
 begin
   if p_kind not in ('code', 'picture', 'otc', 'register') then raise exception 'bad kind'; end if;
   select * into s from private.settings;
   perform pg_advisory_xact_lock(hashtextextended('ip/' || p_ip, 42));
+  -- the address first, exactly as 0008 counts it (every call, and wrong class codes), and the copy-phase lock: nothing
+  -- below, the form answer included, is reachable past them
+  select count(*), min(at) into v_n, v_oldest from private.auth_attempts where ip_bucket in (p_ip, p_ip_prev) and at > p_now - interval '1 hour';
+  v_n := v_n + coalesce((select m.n from private.class_misses m where m.bucket = p_ip and m.hour = v_hour), 0);
+  if v_n >= s.ip_hour then
+    return jsonb_build_object('s', 'locked', 'by', 'address', 'help', 'wait', 'wait', private.wait_s(coalesce(v_oldest, v_hour) + interval '1 hour', p_now));
+  end if;
+  if s.shadow_mode and p_kind <> 'code' then return jsonb_build_object('s', 'locked', 'by', 'system', 'help', 'wait', 'wait', -1); end if;
   select c.id, c.name_form into v_class, v_form
     from private.class_codes k join public.classes c on c.id = k.class_id where k.code_lookup = decode(p_class_lookup, 'hex');
   if v_class is not null then
     -- this address on this class: a grade at one school address is many classes, each with its own allowance
-    select count(*), min(at) into n, v_oldest from private.auth_attempts
+    select count(*), min(at) into v_n, v_oldest from private.auth_attempts
      where ip_bucket in (p_ip, p_ip_prev) and class_id = v_class and at > p_now - interval '1 hour';
-    if n >= s.ip_class_hour then
+    if v_n >= s.ip_class_hour then
       return jsonb_build_object('s', 'locked', 'by', 'address', 'help', 'wait', 'wait', private.wait_s(v_oldest + interval '1 hour', p_now));
     end if;
     if p_kind = 'register' then
-      select count(*), min(at) into n, v_oldest from private.auth_attempts
+      select count(*), min(at) into v_n, v_oldest from private.auth_attempts
        where ip_bucket in (p_ip, p_ip_prev) and class_id = v_class and kind = 'register' and at > p_now - interval '1 hour';
-      if n >= s.register_ip_class_hour then
+      if v_n >= s.register_ip_class_hour then
         return jsonb_build_object('s', 'locked', 'by', 'address', 'help', 'wait', 'wait', private.wait_s(v_oldest + interval '1 hour', p_now));
       end if;
     end if;
-    -- the name's form, told only to a caller who has the class code: a pupil who left out the letter is told so,
-    -- instead of a wrong code that would count towards a lock
-    if not app.name_form_ok(v_form, p_name, exists (select 1 from public.roster r where r.class_id = v_class and r.name_key = v_key)
-                                            or exists (select 1 from public.pupils p where p.class_id = v_class and p.name_key = v_key)) then
+    -- the name's SHAPE for this class, never whether the class list holds it (that would list names nobody has
+    -- registered yet): a pupil who left out the letter is told so instead of a wrong code. The call is counted like
+    -- any other (outcome 'ok': it is not a wrong code against any name), so it is never free.
+    if not app.name_form_ok(v_form, p_name, true) then
+      insert into private.auth_attempts (at, class_id, name_key, kind, dev_bucket, ip_bucket, outcome)
+        values (p_now, v_class, v_key, p_kind, p_dev, p_ip, 'ok');
       return jsonb_build_object('s', 'name', 'form', v_form);
     end if;
   end if;
@@ -198,7 +275,7 @@ language sql stable security definer set search_path = '' as $$
   where auth.uid() is not null and c.kind = 'class' and c.grade_id is not null
     and c.grade_id in (select grade_id from mine where grade_id is not null)
   order by t.points desc, p.display_name
-  limit 300 $$;
+  limit 1000 $$;      -- a grade of 10 classes of 35 is 350 pupils; tested with more than 300
 
 -- ---------- room for about 10 classes: older item history folded into a per-pupil carry ----------
 create table private.pupil_carry (
@@ -218,13 +295,16 @@ begin
   select * into s from private.settings;
   v_daily := (p_now at time zone s.tz)::date - s.daily_days;
   if s.year_end_delete and v_start > v_daily then v_daily := v_start; end if;
-  with old as (delete from public.answer_daily where day < v_daily returning pupil_id, pts, tries),
+  -- at most fold_per_run rows of each kind a night: a first night after a long time cannot run for hours
+  with old as (delete from public.answer_daily d using (select pupil_id, day, item_id from public.answer_daily where day < v_daily limit s.fold_per_run) x
+               where d.pupil_id = x.pupil_id and d.day = x.day and d.item_id = x.item_id returning d.pupil_id, d.pts, d.tries),
   agg as (select pupil_id, sum(pts)::bigint as pts, sum(tries)::bigint as tries from old group by 1),
   ins as (insert into private.pupil_carry as c (pupil_id, pts, tries) select * from agg
           on conflict (pupil_id) do update set pts = c.pts + excluded.pts, tries = c.tries + excluded.tries returning 1)
   select (select count(*) from old) into n_daily;
   if s.year_end_delete then
-    with old as (delete from public.answers where at < (v_start::timestamp at time zone s.tz) returning pupil_id, pts),
+    with old as (delete from public.answers where id in (select id from public.answers where at < (v_start::timestamp at time zone s.tz) limit s.fold_per_run)
+                 returning pupil_id, pts),
     agg as (select pupil_id, sum(pts)::bigint as pts, count(*)::bigint as tries from old group by 1),
     ins as (insert into private.pupil_carry as c (pupil_id, pts, tries) select * from agg
             on conflict (pupil_id) do update set pts = c.pts + excluded.pts, tries = c.tries + excluded.tries returning 1)

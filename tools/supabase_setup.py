@@ -355,9 +355,10 @@ class Setup:
             self.change(f'class {TRIAL} made')                # recorded before the Vault, so a stop after it says so
             self.store_code(code, 'made')
             del code
-            # the trial takes first names alone (Test, Tester), as the trial made before 0010 does
+            # the trial is as the one made before 0010 (docs/GRADES_V1.md): first names alone (Test, Tester), no grade, so
+            # it is on no grade board
             if self.one("select count(*) as n from information_schema.columns where table_schema = 'public' and table_name = 'classes' and column_name = 'name_form'"):
-                self.sql(f"update public.classes set name_form = 'first' where id = '{cid}'")
+                self.sql(f"update public.classes set name_form = 'first', grade_id = null where id = '{cid}'")
         n = self.one(f"select count(*) as n from public.roster where class_id = '{cid}'")
         if n != len(TRIAL_PUPILS):
             names = ', '.join(f"'{x}'" for x in TRIAL_PUPILS)
@@ -492,8 +493,12 @@ class Setup:
             raise Stop('a real run talks only to https://api.supabase.com and the project itself')
         self.mask(self.token); self.mask(self.dbpw)
         if self.a.add_class or self.a.add_teacher:
-            if self.a.add_class and not (OK_NAME.fullmatch(self.a.add_class or '') and OK_NAME.fullmatch(self.a.grade or '') and len(self.a.grade) <= 20):
-                raise Stop('a class needs a name (1 to 40 characters) and its grade (1 to 20), with no quotes. Next: run again with both')
+            # 26: the Vault name wi_class_code_<name> must stay within 40, checked here, before anything is made
+            if self.a.add_class and not (OK_NAME.fullmatch(self.a.add_class or '') and len(self.a.add_class) <= 26
+                                         and OK_NAME.fullmatch(self.a.grade or '') and len(self.a.grade) <= 20):
+                raise Stop('a class needs a name (1 to 26 characters) and its grade (1 to 20), with no quotes. Next: run again with both')
+            if self.a.add_class and self.a.add_class.strip().casefold() in (TRIAL.casefold(), 'removed'):
+                raise Stop(f'"{self.a.add_class}" is a name the system uses (the trial, or the hidden classes). Next: give the class its own name, e.g. ה׳2')
             if self.a.add_teacher and not (re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', self.a.add_teacher)
                                            and OK_NAME.fullmatch(self.a.class_name or '')):
                 raise Stop('add-teacher needs the teacher\'s user id (a uuid from Authentication → Users) and the class name. Next: run again with both')
