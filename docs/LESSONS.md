@@ -84,7 +84,7 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 - **Rule:** in tests, never write a fake value with a real credential's prefix or shape (`sb_publishable_`, `sb_secret_`, any `eyJ…` token whatever its role, `sk_`/`rk_live_` and `_test_`, `ghp_`/`gho_`/`ghs_`, `github_pat_`, `AKIA…`, `AIza…`, `xoxb-`), also glued after other letters. Write it so it cannot pass for one: `public-key-for-tests-0123456789`, as `tests/api_check.mjs` does. Where a test really needs the real shape (a JWT for the gateway), build it from pieces at run time.
 - **How it is checked:** `tests/secret_guard.py` rule 10 fails a test file with a vendor-shaped value, before it is ever committed; run `python3 tests/secret_guard.py` before pushing.
 
-## 15. A migration that already ran is never edited (review of #87)
+## 16. A migration that already ran is never edited (review of #87)
 
 - **What happened:** a fix to `teacher_view` (the class's day from `settings.tz`) was written into `0002_access.sql` in place. `supabase db push` runs each migration file once and records it; a project that had already run `0002` would never run the edited file, and would keep the old view without any error. From gate 8 on, the owner may run the runbook's B1 at any time, so any file on `game` may already be on the project.
 - **Rule:** migrations on `game` are append-only. A change to a table, a view or a function is a new file after the last one (`create or replace …`, `alter table …`), never an edit of an older file, also before the project exists.

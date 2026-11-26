@@ -1,6 +1,6 @@
 -- teacher_view: the class's day is private.settings.tz, as for the points and the nightly roll-up, not a zone
 -- written into the view (review of #80). locked_today and flags_week counted Jerusalem's day.
--- A new migration, not an edit of 0002: a project that already ran 0002 never runs it again (docs/LESSONS.md 15).
+-- A new migration, not an edit of 0002: a project that already ran 0002 never runs it again (docs/LESSONS.md 16).
 -- Same columns in the same order; `create or replace` keeps the view's grants (as 0004_auth.sql does for backend_health).
 create or replace view public.teacher_view with (security_barrier = true) as
   select p.id as pupil_id, p.class_id, p.display_name,
