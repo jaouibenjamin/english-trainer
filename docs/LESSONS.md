@@ -65,3 +65,9 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 - **What happened:** the adapter kept the Sheet's answer to use later as a pupil's starting point. The game kept the same object as its own state (`S.st` is the answer's `s.st`) and added the pupil's new answers to it. When the delayed copy finally stored it, the new answers were already inside, so they were never counted (A→B→A: 0 of 2).
 - **Rule:** anything kept past the current synchronous step (a request, an answer, a record handed in or out) is copied at the moment it is taken: `JSON.parse(JSON.stringify(x))`, or `structuredClone`. That applies both ways: what you hand back (the game's own object stays the game's) and what you were given (a caller may keep editing it).
 - **How to test it:** take the object the call returned and change it in place right after the call, before any background work runs; then check that what was stored or counted is what was sent or answered, not the edited object.
+
+## 13. An audio filter that resamples and lifts the pauses (welcome film, #58)
+
+- **What happened:** the welcome film's voice crackled and hissed on the owner's phone. The `loudnorm` filter outputs 192 kHz; nothing resampled it, so the AAC came out at 96 kHz and only 48 kbps. Its dynamic mode also raised the quiet pauses, so the room noise of the take sat under the whole film. The numbers looked fine (duration, pauses counted); nobody listened before it was sent.
+- **Rule:** after every audio step, check the output's sample rate and codec, and measure the noise floor in the pauses (silencedetect, astats). Encode once at 44.1 or 48 kHz with a fixed bitrate; use a plain linear gain, not a dynamic loudness filter, on speech. A person listens before it ships.
+- **How to test it:** `ffprobe` shows 44100 or 48000 Hz; silencedetect at -45 dB finds every pause; the pauses' RMS is far below the voice.
