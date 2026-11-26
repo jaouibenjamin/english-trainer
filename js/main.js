@@ -3,7 +3,12 @@ import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
 import {S,SET,saveSet,save,API,ERR,api,cred,auth,takeNewPin,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
 import {initHelp,helpKnown,setHelp,clearNotes} from './help.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
-import {$,view,stage,SP,BG,preload,CORE,standIn,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
+import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
+/* exports added to ui.js after the last ship are read through the namespace, never named in the import above: a phone that
+   still has the previous ship's ui.js in its cache (GitHub Pages lets it keep it for 10 minutes) would otherwise fail to
+   load this module at all (tests/cache_mix.py). Missing there, they are simply not used. */
+import * as UI from './ui.js';
+const standIn=n=>typeof UI.standIn==='function'?UI.standIn(n):'';
 import * as sling from './sling.js';
 import * as listen from './listen.js';
 import * as read from './read.js';

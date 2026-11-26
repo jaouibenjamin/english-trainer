@@ -40,6 +40,10 @@ PATH_CAP = {'requests': 4, 'bytes': 160 * KB}   # 160, not 110: bg/english kept 
 # 2% of room on purpose (1,950 KB), so an ordinary fix in a shared file does not fail it; it is raised on purpose, with a
 # note here, by each live change that adds weight. Requests: not one more.
 CEIL_OFF = {'requests': 88, 'bytes': 1950 * KB}
+# with the flag on: Fraction Bay's map, first load. With its own islands (#99, misl-1..4, re-encoded at quality 75):
+# 48 requests, 706 KB, usable in 15.9 s on the slow profile (26.11.2026); with the English islands in their place it was
+# 689 KB and 15.7 s, unencoded 778 KB and 17.3 s. The cap holds that with a little room.
+BUDGET_MATH = {'requests': 50, 'bytes': 725 * KB}
 
 ROOT = P.ROOT
 
@@ -120,9 +124,17 @@ async def structure(b, errs):
                     # counted twice: as the browser reports it, and as the server saw it (docs/LESSONS.md 14)
                     check(f'{tag} none of the swapped old pictures is requested (browser) or served (server)', not old and not served, (old, served))
                 check(f'{tag} everything asked for early is used (Chrome warns of no unused preload)', not warn, warn)
+                misl = [u for u in open(REQLOG, encoding='utf-8').read().split() if '/assets/al/map/misl-' in u]
+                if path == '#math':
+                    check(f'{tag} Fraction Bay\'s map draws its own islands (misl-1..4 served)', any('/misl-1.' in u for u in misl), misl)
+                elif path in ('#map', '#island/1'):
+                    check(f'{tag} the English screens never fetch Fraction Bay\'s islands', not misl, misl)
             else:
                 L = await pg.evaluate("[document.querySelectorAll('img[srcset]').length,document.querySelectorAll('link[rel=modulepreload],link[rel=preload][as=image],link[rel=preload][as=style]').length,document.documentElement.classList.contains('ds'),[...document.querySelectorAll('link[rel=stylesheet]')].map(l=>l.getAttribute('href')).filter(h=>/ds|avatar|worldpath/.test(h))]")
                 check(f'{tag} nothing of the new look: no srcset, no early requests, no new-look style sheets', L == [0, 0, False, []], L)
+                if path == '#math':   # the new look's art is never served without the flag (Fraction Bay's own islands included)
+                    al = [u for u in open(REQLOG, encoding='utf-8').read().split() if u.startswith('/assets/al/')]
+                    check(f'{tag} nothing of the new look\'s art is served (assets/al/, Fraction Bay\'s islands included)', not al, al[:5])
                 if path == '#map':   # the server's log works: the live look's own island picture is there (the control for the check above)
                     check(f'{tag} the server log sees the live look\'s pictures (isl_1.webp served)', '/assets/sp/isl_1.webp' in open(REQLOG, encoding='utf-8').read().split())
             await c.close()
@@ -141,6 +153,9 @@ async def budget(b):
             check(f'flag on, the next screen\'s art fetched ahead from the map: {len(pre)} requests (cap {PATH_CAP["requests"]}), {pk // KB} KB (cap {PATH_CAP["bytes"] // KB})', len(pre) <= PATH_CAP['requests'] and pk <= PATH_CAP['bytes'], pre)
         else:
             check(f'flag off, map first load: {n} requests (ceiling {CEIL_OFF["requests"]}), {kb // KB} KB (ceiling {CEIL_OFF["bytes"] // KB}): not heavier than the live game', n <= CEIL_OFF['requests'] and kb <= CEIL_OFF['bytes'] and not pre, (own[:5], pre))
+    r = await N.measure(b, 'index.html#math', "()=>!!document.querySelector('.scr.mmap .isl')", True, throttle=False)
+    n, kb = r['requests'], r['bytes']
+    check(f'flag on, Fraction Bay\'s map first load: {n} requests (budget {BUDGET_MATH["requests"]}), {kb // KB} KB (budget {BUDGET_MATH["bytes"] // KB})', n <= BUDGET_MATH['requests'] and kb <= BUDGET_MATH['bytes'], r['top'][:5])
     if not QUICK:
         for ds in (True, False):
             r = await N.measure(b, 'index.html#map', "()=>!!document.querySelector('.scr.map .isl')", ds, throttle=True)

@@ -11,7 +11,7 @@ owner's approval in the designer's session (briefs: `docs/ART_QUEUE.md`):
 | Cap | For | Credits | Status |
 |---|---|---|---|
 | (spent before the raise) | everything up to batch k9, the welcome film included (k8, k9 are in the film's PR) | 448.69 | the film is locked at its current version: no more generation on it without a new, separate number from the owner |
-| A | the secret-picture grid and its clips for the pupil sign-in (`docs/SIGNIN.md`) | 25 | approved by the owner on 2026-11-26; **11.50 charged, 13.50 left** (batch l1) |
+| A | the secret-picture grid and its clips for the pupil sign-in (`docs/SIGNIN.md`) | 25 | approved by the owner on 2026-11-26; **11.95 charged, 13.05 left** (batches l1, l1b) |
 | B | Fraction Bay islands in the new look, with locked versions | 20 | approved by the owner on 2026-11-26; **2.00 charged, 18.00 left** (batch l2) |
 | C | ten more avatars with their tap animations | 45 | approved by the owner on 2026-11-26; **44.00 charged, 1.00 left** (batch l3) |
 | D | held: walking characters 25, two new subject worlds 100, reserve 86 | 211 | only on the lead's word |
@@ -21,6 +21,7 @@ Batches after the raise:
 | Batch | Cap | What | Model, settings | Jobs | Quoted | Charged | Cap total |
 |---|---|---|---|---|---|---|---|
 | l1 | A | 20 secret pictures as 5 sheets of 4 (all used, no retake), and 22 voice clips with the preset voice Kaia (2 lines, 20 names), plus 13 retakes of names that speech recognition misheard (8, 2, then 3 after the lead's review; 6 used); all clips levelled to -16 LUFS locally | gpt_image_2_5 high 1:1, style reference: the bolt icon (5 x 1.25); text2speech_v2 elevenlabs, preset voice (35 takes) | 40 | 32.50 (5 x 1.25 + 35 x 0.75) | 11.50 (6.25 + 35 x 0.15) | 11.50 of 25 |
+| l1b | A | ענבים re-recorded three ways after the owner's listen (the take used sounded wrong to him); the one spelled with א is used | text2speech_v2 elevenlabs, preset voice (3 takes) | 3 | 2.25 (3 x 0.75) | 0.45 (3 x 0.15) | 11.95 of 25 |
 | l2 | B | Four Fraction Bay islands (round with a cove; two halves and a bridge; a lagoon cut out; the terraced last island), all used; locked versions made here | gpt_image_2_5 medium 1:1 transparent, style reference: English island 1 (4 x 0.5) | 4 | 2.00 | 2.00 | 2.00 of 20 |
 | l3 | C | Ten new characters (hedgehog, koala, raccoon, capybara, otter, flamingo, zebra, badger, kangaroo, griffin), all used; their 2 s tap animations, 10 + 3 retakes (zebra, kangaroo, badger showed teeth); badger, griffin and flamingo trimmed and played forward and back | gpt_image_2_5 medium 1:1, style reference: the penguin portrait (10 x 0.5); grok_video 2 s 1:1, start image the portrait (13 x 3) | 23 | 44.00 | 44.00 | 44.00 of 45 |
 
