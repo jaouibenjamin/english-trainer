@@ -120,7 +120,7 @@ async def structure(b, errs):
                 old = [u for u in got if re.search(r'/assets/sp/(isl_\d|star|star_off|lock|ic_gear)\.webp$', u)]
                 served = [u for u in open(REQLOG, encoding='utf-8').read().split() if re.search(r'/assets/sp/(isl_\d|star|star_off|lock|ic_gear)\.webp$', u)]
                 if path in ('#map', '#island/1', '#math'):
-                    # counted twice: as the browser reports it, and as the server saw it (docs/LESSONS.md 13)
+                    # counted twice: as the browser reports it, and as the server saw it (docs/LESSONS.md 14)
                     check(f'{tag} none of the swapped old pictures is requested (browser) or served (server)', not old and not served, (old, served))
                 check(f'{tag} everything asked for early is used (Chrome warns of no unused preload)', not warn, warn)
                 misl = [u for u in open(REQLOG, encoding='utf-8').read().split() if '/assets/al/map/misl-' in u]
