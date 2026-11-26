@@ -20,6 +20,10 @@ good, warm `--wi-fix` for "look at this", never alarm red), every button 48 px.
   (`prompt=select_account`), so a shared computer never signs in as the last person by itself.
 - Every write asks first, except "unlock". Confirmations name the pupil **with a second clue** (points and last
   activity), because a class can have two children with the same first name.
+- **Names in the class list:** first name and one letter of the surname (`נועה כ.`); for two alike, a digit after the
+  letter (`נועה כ2.`), never a second letter. The server refuses a dot or a second hyphen in the first name, but one
+  hyphen is allowed (בת-אל), so a surname could still be written in (`דנה-כהן כ.`): the teacher's guide asks her to
+  write first names only, and `roster_only` stays on so a child can register only a name from her list.
 - Destructive actions are never next to everyday ones: "remove" and "delete" sit in a "עוד" menu, at least 24 px
   away from "reset" and "unlock".
 - After every action a short status line (`role="status"`) and the row updates in place.
