@@ -27,7 +27,7 @@ the game**. No credits: the logo is the film's closing lettering, rendered local
 
 **A device that has seen it** (`wi_intro=1`): **no splash**, straight to the first screen as today. The class opens it
 every day; a logo on every open costs time and says nothing new. (Option if the owner wants it: the logo for 0.5 s,
-fade only, no tap, no sound. Not recommended.) "צפייה בסרטון שוב" in the settings brings the whole flow back.
+fade only, no tap, no sound. Not recommended.) "צפייה שוב בסרטון" brings the whole flow back. It does not add a row to the settings (at 360 x 740 that pushed the account panel off): the row "איך משחקים?" says "ארבעת השלבים, והסרטון", and the film is the first card of that help screen (the poster, "▶ צפייה שוב בסרטון", "סרטון הפתיחה, 36 שניות, עם קול"). Mock: `docs/mock/rewatch.html`.
 
 **Reduced motion or calm mode:** the logo and button fade in (0.2 s), no scale, no shine, no rise; the cross-fades stay
 but shorter (0.15 s); the film still waits for the tap. **Failure:** if the film has not started 10 s after the tap,
