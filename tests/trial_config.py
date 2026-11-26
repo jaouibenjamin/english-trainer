@@ -15,9 +15,12 @@ project's address answered by the stand-in (tests/sb_standin.py), so nothing eve
         reaches the project, and only the project's address (the policy lets it through);
       - ?new=0: the device leaves the trial and is on the Sheet again;
   - no other config value switches anyone: the line is exactly mode, url and key (no everyone);
-  - review of #117: ?new=1 is taken out of the address at once; a device holding the Sheet's game is asked first ("כן"
-    joins the trial, "לא" changes nothing), never switched silently; the trial sign-in screen offers "מצב ניסיון · חזרה
-    למשחק הרגיל"; a project whose sign-in is not set up yet (404) gets its own calm line, not "no connection"."""
+  - reviews of #117 and #121: ?new=1 is taken out of the address at once; a device not in the trial yet (also a clean
+    one, also in the Beach Run) is asked first (docs/SIGNIN.md section 6: "להמשיך לניסיון" joins, the safe "חזרה למשחק
+    הרגיל" has the focus and changes nothing), never switched silently; a double tap does not reach the game; only what
+    the question made inert is given back; ?new=0 leaves nothing of the trial; a page of the trial brought back by the
+    back button after leaving it opens afresh; the trial sign-in screen shows the tag "מצב ניסיון" and the way back
+    "חזרה למשחק הרגיל"; a project whose sign-in is not set up yet (404) gets its own calm line, not "no connection"."""
 import asyncio, json, os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import play as P
@@ -57,9 +60,9 @@ mode = lambda pg: pg.evaluate("import('./js/api.js').then(m=>m.MODE)")
 
 
 async def join(pg):
-    """?new=1 on a device not in the trial: asked first (review of #121); "כן" joins, and the page opens again"""
+    """?new=1 on a device not in the trial: asked first (review of #121); "להמשיך לניסיון" joins, and the page opens again"""
     await pg.wait_for_selector('#wi-trial-ask', timeout=8000)
-    await pg.click('#wi-trial-ask button:nth-of-type(1)'); await pg.wait_for_selector('.si', timeout=8000); await pg.wait_for_timeout(300)
+    await pg.click('#wi-trial-ask [data-ask="go"]'); await pg.wait_for_selector('.si', timeout=8000); await pg.wait_for_timeout(300)
 
 
 async def main():
@@ -126,18 +129,19 @@ async def main():
             pg = await c.new_page(); await pg.goto(PAGE + '?new=1#map')
             await pg.wait_for_selector('#wi-trial-ask', timeout=8000)
             txt = await pg.inner_text('#wi-trial-ask')
-            check('a device with the Sheet\'s game and ?new=1: not switched, asked once ("מכשיר ניסיון: להמשיך למערכת החדשה? …" כן / לא)',
-                  await mode(pg) == 'sheet' and 'מכשיר ניסיון: להמשיך למערכת החדשה?' in txt and 'נשמרת ולא נמחקת' in txt and await pg.evaluate("localStorage.getItem('wi_new')") is None and not hits and 'new=' not in pg.url, [txt, hits, pg.url])
-            await pg.click('#wi-trial-ask button:nth-of-type(2)'); await pg.wait_for_timeout(300)
-            check('"לא": the question goes, the device stays on the Sheet with its progress, nothing reaches the project',
+            check('a device with the Sheet\'s game and ?new=1: not switched, asked once ("רגע, זה מכשיר ניסיון", the safe "חזרה למשחק הרגיל" first, then "להמשיך לניסיון")',
+                  await mode(pg) == 'sheet' and txt.split('\n')[0] == 'רגע, זה מכשיר ניסיון' and 'וכל מה שעשיתם בו נשמר' in txt and txt.index('חזרה למשחק הרגיל') < txt.index('להמשיך לניסיון') and await pg.evaluate("localStorage.getItem('wi_new')") is None and not hits and 'new=' not in pg.url, [txt, hits, pg.url])
+            await pg.click('#wi-trial-ask [data-ask="stay"]'); await pg.wait_for_timeout(300)
+            check('"חזרה למשחק הרגיל": the question goes, the device stays on the Sheet with its progress, nothing reaches the project',
                   await pg.locator('#wi-trial-ask').count() == 0 and await mode(pg) == 'sheet' and await pg.evaluate("[localStorage.getItem('wi_new'),sessionStorage.getItem('wi_new_ask'),JSON.parse(localStorage.getItem('aam-unit1-v1')).pts]") == [None, None, 40] and not hits)
             await pg.goto(PAGE + '?new=1#map'); await pg.wait_for_selector('#wi-trial-ask', timeout=8000)
-            await pg.click('#wi-trial-ask button:nth-of-type(1)'); await pg.wait_for_selector('.si', timeout=8000)
-            check('"כן": the device joins the trial (the new sign-in), and the Sheet\'s progress stays on the device untouched',
+            await pg.click('#wi-trial-ask [data-ask="go"]'); await pg.wait_for_selector('.si', timeout=8000)
+            check('"להמשיך לניסיון": the device joins the trial (the new sign-in), and the Sheet\'s progress stays on the device untouched',
                   await mode(pg) == 'supabase' and await pg.evaluate("[localStorage.getItem('wi_new'),JSON.parse(localStorage.getItem('aam-unit1-v1')).pts]") == ['1', 40])
             # the way back, on the trial sign-in screen
             link = pg.locator('.si-trial')
-            check('the trial sign-in screen shows "מצב ניסיון · חזרה למשחק הרגיל"', await link.count() == 1 and (await link.inner_text()).strip() == 'מצב ניסיון · חזרה למשחק הרגיל')
+            tag = pg.locator('.si-tag')
+            check('the trial sign-in screen shows the tag "מצב ניסיון" and the way back "חזרה למשחק הרגיל" (a 48 px button)', await link.count() == 1 and (await link.inner_text()).strip() == 'חזרה למשחק הרגיל' and await tag.count() == 1 and (await tag.inner_text()).strip() == 'מצב ניסיון' and (await link.bounding_box())['height'] >= 48)
             await link.click(); await pg.wait_for_selector('.scr'); await pg.wait_for_timeout(500)
             check('tapping it: back on the Sheet\'s game, out of the trial, and the address is clean', await mode(pg) == 'sheet' and await pg.evaluate("localStorage.getItem('wi_new')") is None and 'new=' not in pg.url and await pg.locator('.si').count() == 0, pg.url)
             await c.close()
@@ -149,21 +153,21 @@ async def main():
             await c.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body=keyed))
             pg = await c.new_page(); await pg.goto(PAGE + '?new=1#map'); await pg.wait_for_selector('#wi-trial-ask', timeout=8000); await pg.wait_for_timeout(600)
             foc = await pg.evaluate("[document.activeElement&&document.activeElement.textContent,!!document.activeElement.closest('#wi-trial-ask')]")
-            check('the focus is on "לא", inside the dialog', foc == ['לא', True], foc)
+            check('the focus is on the safe button "חזרה למשחק הרגיל", inside the screen', foc == ['חזרה למשחק הרגיל', True], foc)
             behind = await pg.evaluate("[...document.body.children].filter(c=>c.id!=='wi-trial-ask').every(c=>c.inert)")
             check('everything behind the dialog is inert while it is open', behind)
             await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab')
             foc = await pg.evaluate("!!document.activeElement.closest('#wi-trial-ask')")
             check('Tab does not take the focus out of the dialog', foc)
             hash0 = await pg.evaluate('location.hash')
-            await pg.evaluate("window.__taps=0;document.addEventListener('click',e=>{if(!(e.target.tagName==='BUTTON'&&e.target.textContent==='לא'))window.__taps++})")
-            box = await pg.locator('#wi-trial-ask button:nth-of-type(2)').bounding_box()
+            await pg.evaluate("window.__taps=0;document.addEventListener('click',e=>{if(!(e.target.dataset&&e.target.dataset.ask))window.__taps++})")
+            box = await pg.locator('#wi-trial-ask [data-ask="stay"]').bounding_box()
             x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
             await pg.mouse.click(x, y); await pg.wait_for_timeout(90); await pg.mouse.click(x, y); await pg.wait_for_timeout(700)
             r = await pg.evaluate("[window.__taps,location.hash,!!document.getElementById('wi-trial-ask'),document.getElementById('pre').inert,[...document.body.children].filter(c=>c.id!=='pre').some(c=>c.inert),sessionStorage.getItem('wi_new_ask')]")
-            check('a double tap on "לא": the dialog closes, the second tap does not reach the game (the screen stays), the question is gone',
+            check('a double tap on "חזרה למשחק הרגיל": the screen closes, the second tap does not reach the game (the screen stays), the question is gone',
                   r[0] == 0 and r[1] == hash0 and r[2] is False and r[5] is None, [r, hash0])
-            check('"לא" gives back only what the dialog made inert (a part the page had made inert stays so)', r[3] is True and r[4] is False, r)
+            check('it gives back only what the dialog made inert (a part the page had made inert stays so)', r[3] is True and r[4] is False, r)
             await pg.mouse.click(5, 5); await pg.wait_for_timeout(100)
             check('a tap a moment later reaches the game again', await pg.evaluate('window.__taps') == 1)
             # the Beach Run: asked too (review of #121)
@@ -171,8 +175,8 @@ async def main():
             check('run.html?new=1 on a device not in the trial: asked, not switched, and the address is clean',
                   await mode(pg2) == 'sheet' and await pg2.evaluate("localStorage.getItem('wi_new')") is None and 'new=' not in pg2.url, pg2.url)
             await pg2.screenshot(path=os.path.join(SHOTS, 'run_ask.png')) if SHOTS else None
-            await pg2.click('#wi-trial-ask button:nth-of-type(1)'); await pg2.wait_for_load_state('load'); await pg2.wait_for_timeout(800)
-            check('the Beach Run, "כן": the page opens again in the trial', await mode(pg2) == 'supabase' and await pg2.evaluate("localStorage.getItem('wi_new')") == '1' and await pg2.locator('#wi-trial-ask').count() == 0)
+            await pg2.click('#wi-trial-ask [data-ask="go"]'); await pg2.wait_for_load_state('load'); await pg2.wait_for_timeout(800)
+            check('the Beach Run, "להמשיך לניסיון": the page opens again in the trial', await mode(pg2) == 'supabase' and await pg2.evaluate("localStorage.getItem('wi_new')") == '1' and await pg2.locator('#wi-trial-ask').count() == 0)
             await pg2.close()
             # a page the back button brings back (bfcache) runs no module again: on a switch made since, it opens afresh
             await pg.reload(); await pg.wait_for_selector('.si', timeout=8000); await pg.wait_for_timeout(500)   # a page of the trial (the device joined above)
