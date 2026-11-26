@@ -28,6 +28,7 @@ from playwright.async_api import async_playwright
 PROJECT = 'https://ibmhoqgpdbyfwrsnwqoy.supabase.co'
 PAGE = f'http://127.0.0.1:{P.PORT}/index.html'
 CFG = open(os.path.join(P.ROOT, 'config.js'), encoding='utf-8').read()
+SHOTS = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--shots=')), None)
 TEST_KEY = 'made-up-key-for-the-trial-test-0123456789'   # not shaped like a vendor's key (LESSONS 15): the lead pastes the real one, once
 
 
@@ -53,6 +54,12 @@ async def device(b, cfg, prj, query=''):
 
 
 mode = lambda pg: pg.evaluate("import('./js/api.js').then(m=>m.MODE)")
+
+
+async def join(pg):
+    """?new=1 on a device not in the trial: asked first (review of #121); "כן" joins, and the page opens again"""
+    await pg.wait_for_selector('#wi-trial-ask', timeout=8000)
+    await pg.click('#wi-trial-ask button:nth-of-type(1)'); await pg.wait_for_selector('.si', timeout=8000); await pg.wait_for_timeout(300)
 
 
 async def main():
@@ -83,17 +90,23 @@ async def main():
             # with a key: ?new=1, then the same device without it, then ?new=0
             prj = Project()
             c, pg, hits, errs = await device(b, keyed, prj, '?new=1')
-            check('?new=1: the device is in the trial (the new sign-in screens), and remembers it', await mode(pg) == 'supabase' and await pg.locator('.si').count() == 1 and await pg.evaluate("localStorage.getItem('wi_new')") == '1')
+            check('review of #121: ?new=1 on a clean device (nothing of the Sheet\'s game): asked too, not switched, nothing reaches the project',
+                  await pg.locator('#wi-trial-ask').count() == 1 and await mode(pg) == 'sheet' and await pg.evaluate("localStorage.getItem('wi_new')") is None and not hits, hits)
+            await join(pg)
+            check('?new=1 and "כן": the device is in the trial (the new sign-in screens), and remembers it', await mode(pg) == 'supabase' and await pg.locator('.si').count() == 1 and await pg.evaluate("localStorage.getItem('wi_new')") == '1')
             r = await pg.evaluate("import('./js/state.js').then(m=>m.enter('login',{c:'EN-0000',n:'Testa',code:'4827'}))")
             check('signing in reaches the project (through its own address, allowed by the page\'s policy)', r == {'ok': True} and '/functions/v1/pupil-login' in hits and not [h for h in hits if h.startswith('OTHER')], [r, hits])
             check('no request was refused by the Content-Security-Policy', not errs, errs[:3])
             await pg.close()
             pg = await c.new_page(); await pg.goto(PAGE + '#map'); await pg.wait_for_selector('.scr, .si'); await pg.wait_for_timeout(500)
             check('the same device without ?new=1: still in the trial', await mode(pg) == 'supabase')
+            had = await pg.evaluate("!!localStorage.getItem('wi-new-v1')")   # the trial's record, written by the sign-in
             await pg.close()
             n0 = len(hits)
             pg = await c.new_page(); await pg.goto(PAGE + '?new=0#map'); await pg.wait_for_selector('.scr, .si'); await pg.wait_for_timeout(800)
             check('?new=0: the device leaves the trial, is on the Sheet again, and its session is ended', await mode(pg) == 'sheet' and await pg.evaluate("localStorage.getItem('wi_new')") is None and any(h.startswith('/auth/v1/logout') for h in hits[n0:]), hits[n0:])
+            left = await pg.evaluate("Object.keys(localStorage).filter(k=>k==='wi-new-v1'||k.startsWith('wi-sb-'))")
+            check('review of #121: ?new=0 leaves nothing of the trial on the device (its record wi-new-v1, with a first name and ids, goes too)', had and left == [], [had, left])
             await c.close()
 
             # review of #117: ?new=1 leaves no trace in the address; a device with the Sheet's game is asked, never switched silently
@@ -129,9 +142,52 @@ async def main():
             check('tapping it: back on the Sheet\'s game, out of the trial, and the address is clean', await mode(pg) == 'sheet' and await pg.evaluate("localStorage.getItem('wi_new')") is None and 'new=' not in pg.url and await pg.locator('.si').count() == 0, pg.url)
             await c.close()
 
+            # review of #121: the dialog itself: focus on "לא", a double tap does not reach the game, only what it made inert is given back
+            c = await b.new_context(viewport={'width': 390, 'height': 844})
+            await c.add_init_script("document.addEventListener('DOMContentLoaded',()=>{const x=document.createElement('div');x.id='pre';x.inert=true;document.body.appendChild(x)})")
+            await c.route(PROJECT + '/**', lambda r: r.abort())
+            await c.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body=keyed))
+            pg = await c.new_page(); await pg.goto(PAGE + '?new=1#map'); await pg.wait_for_selector('#wi-trial-ask', timeout=8000); await pg.wait_for_timeout(600)
+            foc = await pg.evaluate("[document.activeElement&&document.activeElement.textContent,!!document.activeElement.closest('#wi-trial-ask')]")
+            check('the focus is on "לא", inside the dialog', foc == ['לא', True], foc)
+            behind = await pg.evaluate("[...document.body.children].filter(c=>c.id!=='wi-trial-ask').every(c=>c.inert)")
+            check('everything behind the dialog is inert while it is open', behind)
+            await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab')
+            foc = await pg.evaluate("!!document.activeElement.closest('#wi-trial-ask')")
+            check('Tab does not take the focus out of the dialog', foc)
+            hash0 = await pg.evaluate('location.hash')
+            await pg.evaluate("window.__taps=0;document.addEventListener('click',e=>{if(!(e.target.tagName==='BUTTON'&&e.target.textContent==='לא'))window.__taps++})")
+            box = await pg.locator('#wi-trial-ask button:nth-of-type(2)').bounding_box()
+            x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+            await pg.mouse.click(x, y); await pg.wait_for_timeout(90); await pg.mouse.click(x, y); await pg.wait_for_timeout(700)
+            r = await pg.evaluate("[window.__taps,location.hash,!!document.getElementById('wi-trial-ask'),document.getElementById('pre').inert,[...document.body.children].filter(c=>c.id!=='pre').some(c=>c.inert),sessionStorage.getItem('wi_new_ask')]")
+            check('a double tap on "לא": the dialog closes, the second tap does not reach the game (the screen stays), the question is gone',
+                  r[0] == 0 and r[1] == hash0 and r[2] is False and r[5] is None, [r, hash0])
+            check('"לא" gives back only what the dialog made inert (a part the page had made inert stays so)', r[3] is True and r[4] is False, r)
+            await pg.mouse.click(5, 5); await pg.wait_for_timeout(100)
+            check('a tap a moment later reaches the game again', await pg.evaluate('window.__taps') == 1)
+            # the Beach Run: asked too (review of #121)
+            pg2 = await c.new_page(); await pg2.goto(PAGE.replace('index.html', 'run.html') + '?new=1'); await pg2.wait_for_selector('#wi-trial-ask', timeout=8000)
+            check('run.html?new=1 on a device not in the trial: asked, not switched, and the address is clean',
+                  await mode(pg2) == 'sheet' and await pg2.evaluate("localStorage.getItem('wi_new')") is None and 'new=' not in pg2.url, pg2.url)
+            await pg2.screenshot(path=os.path.join(SHOTS, 'run_ask.png')) if SHOTS else None
+            await pg2.click('#wi-trial-ask button:nth-of-type(1)'); await pg2.wait_for_load_state('load'); await pg2.wait_for_timeout(800)
+            check('the Beach Run, "כן": the page opens again in the trial', await mode(pg2) == 'supabase' and await pg2.evaluate("localStorage.getItem('wi_new')") == '1' and await pg2.locator('#wi-trial-ask').count() == 0)
+            await pg2.close()
+            # a page the back button brings back (bfcache) runs no module again: on a switch made since, it opens afresh
+            r = await pg.evaluate("import('./js/api.js').then(m=>m.MODE)")
+            await pg.evaluate("window.__stale=1;dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))"); await pg.wait_for_timeout(1500)
+            check('a page brought back after the device joined the trial elsewhere: loaded afresh, in the trial', r == 'sheet' and await pg.evaluate('window.__stale') is None and await mode(pg) == 'supabase')
+            await pg.evaluate("localStorage.removeItem('wi_new');sessionStorage.setItem('wi_new_ask','1');window.__stale=1;dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))"); await pg.wait_for_timeout(1500)
+            check('and after it left the trial elsewhere: loaded afresh, on the Sheet', await pg.evaluate('window.__stale') is None and await mode(pg) == 'sheet')
+            await pg.evaluate("sessionStorage.setItem('wi_new_ask','1');window.__stale=1;dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))"); await pg.wait_for_timeout(800)
+            check('a page brought back with the question waiting: asked there (no reload needed)', await pg.evaluate('window.__stale') == 1 and await pg.locator('#wi-trial-ask').count() == 1)
+            await c.close()
+
             # review of #117: the project's sign-in not set up yet (404): its own calm line, not "no connection"
             prj = Project(); prj.unset = True
             c, pg, hits, errs = await device(b, keyed, prj, '?new=1')
+            await join(pg)
             r = await pg.evaluate("import('./js/state.js').then(m=>m.enter('login',{c:'EN-0000',n:'Testa',code:'4827'}))")
             check('the project answers 404: the sign-in says "not set up yet" (unset), not "no connection"', r == {'ok': False, 'e': 'unset'}, r)
             await pg.locator('[data-si="start"][data-f="in"]').click()
