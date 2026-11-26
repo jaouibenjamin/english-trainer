@@ -39,6 +39,7 @@ class Project:
         self.pupils = {k: dict(v, pics=[3, 17]) for k, v in PUPILS.items()}
         self.otc = {}   # (class code, name key) -> the teacher's one-time code
         self.no_who = False   # the pupil's own row cannot be read (503)
+        self.unset = False    # the project's functions are not deployed yet: they answer 404
         self.next = {}  # 'register' | 'login' | 'recover' -> an answer given once, on the next call (the screens' waits table)
 
     def opened(self, p):
@@ -95,6 +96,8 @@ class Project:
         auth = req.headers.get('authorization', '')
         self.log.append(dict(path=u.path, query=u.query, method=req.method, auth=auth, body=req.post_data or ''))
         ok = lambda j, status=200: r.fulfill(status=status, headers=CORS, json=j)
+        if u.path.startswith('/functions/v1/pupil-') and self.unset:
+            return await r.fulfill(status=404, headers=CORS, json={'code': 'NOT_FOUND', 'message': 'Requested function was not found'})   # not deployed yet
         if u.path.startswith('/functions/v1/pupil-'):
             kind = u.path.rsplit('-', 1)[1]
             return await ok(self.next.pop(kind) if kind in self.next else self.pupil_fn(kind, body or {}))

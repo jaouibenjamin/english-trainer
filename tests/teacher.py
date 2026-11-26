@@ -193,9 +193,10 @@ async def run(b, w, h, tag):
     check(f'[{tag}] back from Google on slow wifi: "signing in…" and no button to tap again until the exchange answers', await pg.is_hidden('#in') and await pg.is_hidden('#out'))
     await pg.wait_for_selector('#out:not([hidden])'); st['slow'] = 0
     await pg.click('#out'); await pg.wait_for_selector('#in:not([hidden])')
-    await pg.goto(PAGE + '?tsb=0'); await pg.wait_for_selector('#in:not([hidden])')
-    await pg.click('#in'); await pg.wait_for_selector('#out:not([hidden])'); await pg.wait_for_timeout(300)
-    check(f'[{tag}] without the switch (?tsb=0) there is no screen after sign-in', await pg.is_hidden('#screen') and await pg.locator('#class tbody tr').count() == 0)
+    n0 = len(log)
+    await pg.goto(PAGE + '?tsb=0'); await pg.wait_for_function("document.querySelector('#msg')?.textContent==='עוד לא פועל'"); await pg.wait_for_timeout(300)
+    check(f'[{tag}] without the switch (?tsb=0): "עוד לא פועל", no sign-in button, no screen, and no request to the project (review of #117)',
+          await pg.is_hidden('#in') and await pg.is_hidden('#out') and await pg.is_hidden('#screen') and not [l for l in log[n0:] if l['path'].startswith('/auth/')], [l['path'] for l in log[n0:]])
     errs = [e for e in errs if 'status of 409' not in e]     # the browser's own line for the stand-in's "already on the list"
     errs = [e for e in errs if 'ERR_NAME_NOT_RESOLVED' not in e]   # that keepalive revoke, to the stand-in's made-up host
     check(f'[{tag}] no error in the console', not errs, errs[:3])

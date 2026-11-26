@@ -9,6 +9,7 @@ const FETCH=window.fetch,P=projectOf(window.BACKEND);
 const $=s=>document.querySelector(s);
 const SAY={
  off:'כניסת המורים עוד לא פועלת: המערכת החדשה עוד לא מחוברת.',
+ notyet:'עוד לא פועל',   // a visitor without the switch (?tsb=1): no sign-in is offered at all (review of #117)
  framed:'פתחו את הדף הזה ישירות, בלשונית משלו.',
  out:'כניסה למורים בלבד, עם חשבון Google. במחשב משותף: היכנסו בחלון גלישה בסתר, ובסוף לחצו "יציאה" וסגרו את החלון (היציאה מכאן לא מוציאה מחשבון Google).',
  going:'מתחברים…',
@@ -179,6 +180,7 @@ const framed=(()=>{try{return window.top!==window.self||!!window.opener}catch(e)
 /* the one address on the sign-in's redirect list is …/teacher.html; Pages also serves …/teacher */
 if(/\/teacher$/.test(location.pathname))location.replace(location.origin+location.pathname+'.html'+location.search);
 else if(!P)show('off');
+else if(!tsb)show('notyet');   // review of #117: the Google sign-in only on a device given the switch (?tsb=1), as the flag was meant
 else if(framed)show('framed');
 else{
  let store=null;try{store=window.sessionStorage}catch(e){}
