@@ -94,9 +94,9 @@ async def main():
             await enter(pg, 'TRIAL-01', 'Testa', '4827')
             await js(pg, "(m.award(15),m.S.st.dog=[2,0],m.saveLocal(),m.S.pts)")
             r = await enter(pg, 'EN-0000', 'Testa', '4827')
-            got = await js(pg, "[m.S.pts,m.S.st,m.S.who.c,m.S.stash||null]")
+            got = await js(pg, "[m.S.pts,m.S.st,m.S.who.c,m.S.stash||null]")   # the Sheet's one slot (stash) is never used in this mode
             check('trial class, then the real class with the same name: only the real record (7), nothing of the trial joined', r == {'ok': True} and got[:3] == [7, {}, REAL], got)
-            check("the trial's unsaved play is kept aside for the trial pupil only", (got[3] or {}).get('who') == {'p': PT, 'c': TRIAL} and (got[3] or {}).get('s', {}).get('st', {}).get('dog') == [2, 0], got[3])
+            check("the trial's unsaved play is kept aside for the trial pupil only", got[3] is None and (await js(pg, "(m.S.aside||[]).map(x=>[x.who,x.s.st.dog])")) == [[{'p': PT, 'c': TRIAL}, [2, 0]]], got[3])
             await c.close()
 
             # 3. pupil A signs out, pupil B signs in
@@ -152,7 +152,7 @@ async def main():
             await js(pg, "m.relogin()")
             prj.dead = False; prj.no_who = True
             r = await enter(pg, 'EN-0000', 'Testa', '4827')
-            got = await js(pg, "[m.S.u,m.S.stash&&m.S.stash.s.pts]")
+            got = await js(pg, "[m.S.u,(m.S.aside||[]).map(x=>x.s.pts)[0]]")
             check("the pupil's own row cannot be read: the sign-in answers net, and the unsaved play is still put aside", r == {'ok': False, 'e': 'net'} and got == [None, local] and local > saved, [r, got, saved, local])
             prj.no_who = False
             await enter(pg, 'EN-0000', 'Testa', '4827'); await pg.wait_for_timeout(3000)
@@ -170,12 +170,36 @@ async def main():
             await js(pg, "m.relogin()")
             prj.dead = False
             await enter(pg, 'EN-0000', 'Probe', '5839')
-            got = await js(pg, "[m.S.u.n,m.S.pts,m.S.st,m.S.stash&&m.S.stash.who]")
-            check("B signs in: nothing of A's in B's game; A's unsaved play is kept aside for A", got == ['Probe', 0, {}, {'p': PA, 'c': REAL}], got)
+            got = await js(pg, "[m.S.u.n,m.S.pts,m.S.st,(m.S.aside||[]).map(x=>x.who)]")
+            check("B signs in: nothing of A's in B's game; A's unsaved play is kept aside for A", got == ['Probe', 0, {}, [{'p': PA, 'c': REAL}]], got)
             await js(pg, "m.logout()"); await pg.wait_for_timeout(300)
             await enter(pg, 'EN-0000', 'Testa', '4827'); await pg.wait_for_timeout(3000)
-            got = await js(pg, "[m.S.pts,m.S.st.owl,m.S.stash||null]")
+            got = await js(pg, "[m.S.pts,m.S.st.owl,m.S.aside||null]")
             check("A signs in again: A's play is joined and saved, and B never had it", got == [local, [1, 0], None] and prj.state(PA)[0].get('pts') == local and prj.state(PB)[0].get('pts') in (None, 0), [got, prj.state(PA), prj.state(PB)])
+            await c.close()
+
+            # 4c2. review of #111: A's play is aside, then B's own session ends with unsaved play: both kept, each for its pupil
+            prj = Project()
+            c, pg, _ = await device(b, prj)
+            async def ended():
+                prj.dead = True
+                await pg.evaluate("(()=>{const s=JSON.parse(localStorage.getItem('wi-sb-session'));s.expires_at=1;localStorage.setItem('wi-sb-session',JSON.stringify(s))})()")
+            await enter(pg, 'EN-0000', 'Testa', '4827'); await js(pg, "(m.award(5),m.push())"); await pg.wait_for_timeout(300)
+            await ended(); a_local = await js(pg, "(m.award(6),m.push(),m.S.pts)"); await pg.wait_for_timeout(300); await js(pg, "m.relogin()")
+            prj.dead = False
+            await enter(pg, 'EN-0000', 'Probe', '5839'); await js(pg, "(m.award(1),m.push())"); await pg.wait_for_timeout(300)
+            await ended(); b_local = await js(pg, "(m.award(4),m.push(),m.S.pts)"); await pg.wait_for_timeout(300); await js(pg, "m.relogin()")
+            prj.dead = False
+            got = await js(pg, "(m.S.aside||[]).map(x=>[x.who.p,x.s.pts])")
+            check('two pupils whose sessions ended, each with unsaved play: one place each, neither overwritten', sorted(got) == sorted([[PA, a_local], [PB, b_local]]), got)
+            await enter(pg, 'EN-0000', 'Testa', '4827'); await pg.wait_for_timeout(3000)
+            check("A signs in: A's own play (not B's) is joined and saved; B's stays aside", await js(pg, "m.S.pts") == a_local and prj.state(PA)[0].get('pts') == a_local and await js(pg, "(m.S.aside||[]).map(x=>x.who.p)") == [PB], [a_local, await js(pg, "[m.S.pts,m.S.aside]")])
+            # at most four places, the oldest dropped first
+            await js(pg, "(m.S.aside=[1,2,3,4].map(i=>({n:'x'+i,s:{pts:i},who:{p:'p'+i,c:'c'},at:i})),m.saveLocal())")
+            await ended(); await js(pg, "(m.award(2),m.push())"); await pg.wait_for_timeout(300); await js(pg, "m.relogin()")
+            got = await js(pg, "(m.S.aside||[]).map(x=>x.who.p)")
+            check('at most four places kept aside, the oldest dropped first', got == ['p2', 'p3', 'p4', PA], got)
+            prj.dead = False
             await c.close()
 
             # 4d. the same pupil id in another class is another record (bound to pupil and class, not the pupil alone)
@@ -184,8 +208,8 @@ async def main():
             await enter(pg, 'EN-0000', 'Testa', '4827')
             await js(pg, f"(m.S.who={{p:{json.dumps(PA)},c:{json.dumps(TRIAL)}}},m.award(4),m.saveLocal())")
             await enter(pg, 'EN-0000', 'Testa', '4827')
-            got = await js(pg, "[m.S.pts,m.S.stash&&m.S.stash.who.c]")
-            check('a record of the same pupil id in another class is not joined', got == [2, TRIAL], got)
+            got = await js(pg, "[m.S.pts,(m.S.aside||[]).map(x=>x.who.c)]")
+            check('a record of the same pupil id in another class is not joined', got == [2, [TRIAL]], got)
             await c.close()
 
             # 4e. two tabs, two pupils (G4 in this mode): the replaced tab shows the dialog and sends nothing more
@@ -200,6 +224,11 @@ async def main():
             await js(pg, "(m.award(3),m.push())"); await pg.wait_for_timeout(500)
             sent = [l['path'] for l in prj.log[n0:]]
             check("the replaced tab sends nothing more (its save would take the device back and end B's session)", not sent, sent)
+            # the adapter's own guard, not only the game's: a save handed straight to it from the replaced tab sends nothing
+            n0 = len(prj.log)
+            r = await js(pg, "m.api('save',{c:'EN-0000',n:'Testa',s:{pts:99}})"); await pg.wait_for_timeout(500)
+            sent = [l['path'] for l in prj.log[n0:]]
+            check("a save handed to the adapter in the replaced tab: refused, no request at all", r == {'ok': False, 'e': 'net'} and not sent, [r, sent])
             r = await js(pg2, "(m.award(2),m.push())"); await pg2.wait_for_timeout(500)
             check("B's tab still saves with B's session", r is True and prj.state(PB)[0].get('pts', 0) > 0, [r, prj.state(PB)])
             await c.close()
