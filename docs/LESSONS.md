@@ -66,6 +66,12 @@ Each entry is a bug class that cost us more than one review round. An engineer r
 - **Rule:** anything kept past the current synchronous step (a request, an answer, a record handed in or out) is copied at the moment it is taken: `JSON.parse(JSON.stringify(x))`, or `structuredClone`. That applies both ways: what you hand back (the game's own object stays the game's) and what you were given (a caller may keep editing it).
 - **How to test it:** take the object the call returned and change it in place right after the call, before any background work runs; then check that what was stored or counted is what was sent or answered, not the edited object.
 
+## 13. A made-up key that looks like a vendor's turns the whole repo red (#82)
+
+- **What happened:** a test stand-in used `sb_publishable_test_0123456789abcdef` as its key. It was invented, but gitleaks read it as a real key. Gitleaks scans the history of every branch, so the `secrets` check went red on every open pull request and on `game`, and fixing the file did not clear it: the string stays in the branch's history.
+- **Rule:** in tests, never write a fake value with a real credential's prefix or shape (`sb_publishable_`, `sb_secret_`, any `eyJ…` token whatever its role, `sk_`/`rk_live_` and `_test_`, `ghp_`/`gho_`/`ghs_`, `github_pat_`, `AKIA…`, `AIza…`, `xoxb-`), also glued after other letters. Write it so it cannot pass for one: `public-key-for-tests-0123456789`, as `tests/api_check.mjs` does. Where a test really needs the real shape (a JWT for the gateway), build it from pieces at run time.
+- **How it is checked:** `tests/secret_guard.py` rule 10 fails a test file with a vendor-shaped value, before it is ever committed; run `python3 tests/secret_guard.py` before pushing.
+
 ## 15. A migration that already ran is never edited (review of #87)
 
 - **What happened:** a fix to `teacher_view` (the class's day from `settings.tz`) was written into `0002_access.sql` in place. `supabase db push` runs each migration file once and records it; a project that had already run `0002` would never run the edited file, and would keep the old view without any error. From gate 8 on, the owner may run the runbook's B1 at any time, so any file on `game` may already be on the project.
