@@ -362,6 +362,23 @@ def test_teacher(db):
                  update private.pupil_secrets set code_hash = null where pupil_id = '{pid('A')}';""")
     eq("teacher_view after a reset and locks: waiting, closed, locked 2 times today (not the other class's 1)",
        db.select(T, 'teacher_view', 'code_status, recovery_status, locked_today', dict(pupil_id=pid('A')))[0], [dict(code_status='waiting', recovery_status='closed', locked_today=2)])
+    # the class's day is private.settings.tz, as for the points and the roll-up, not a zone written into the view. A zone
+    # whose date differs from Jerusalem's right now, a lock a minute before the later of the two midnights (today in one
+    # zone only) and a flag on the edge of the week: the view must follow settings.tz, whichever side that is
+    z = next(z for z in ('Pacific/Kiritimati', 'Pacific/Pago_Pago') if db.one(f"select (now() at time zone '{z}')::date <> (now() at time zone 'Asia/Jerusalem')::date") == 't')
+    db.admin(f"update private.settings set tz = '{z}'")
+    seen = lambda: db.select(T, 'teacher_view', 'locked_today, flags_week', dict(pupil_id=pid('B')))[0][0]
+    before = seen()
+    mid = lambda zone: f"(date_trunc('day', now() at time zone '{zone}') at time zone '{zone}')"
+    today = lambda zone: f"(now() at time zone '{zone}')::date"
+    db.admin(f"""insert into private.auth_lock_events (class_id, name_key, kind, at) values ('{C1}', '{NAMES['B']}', 'code', greatest({mid(z)}, {mid('Asia/Jerusalem')}) - interval '1 minute');
+                 insert into public.flags (pupil_id, kind, day) values ('{pid('B')}', 'unusual', case when {today(z)} < {today('Asia/Jerusalem')} then {today(z)} - 6 else {today(z)} - 7 end)
+                   on conflict (pupil_id, kind, day) do update set n = public.flags.n + 1;""")
+    want = db.admin(f"select ({mid(z)} < {mid('Asia/Jerusalem')})::int, ({today(z)} < {today('Asia/Jerusalem')})::int")[0]
+    after = seen()
+    eq(f"teacher_view's locks today and flags this week follow settings.tz ({z}), not Jerusalem's day",
+       [after['locked_today'] - before['locked_today'], after['flags_week'] - before['flags_week']], [int(want[0]), int(want[1])])
+    db.admin("update private.settings set tz = 'Asia/Jerusalem'")
     eq('teacher_view never carries a hash', db.admin("select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'teacher_view' and (column_name like '%hash%' or column_name like '%salt%')"), [['0']])
     # the teacher's screen (docs/PHASE3.md step 2) reads exactly these three views: who sees what, every reader against
     # every view. A teacher: her class only. A pupil's session, a signed-in user who teaches nothing: no row. anon: refused.
@@ -456,12 +473,46 @@ def test_teacher(db):
     print('-- maintenance (server role only)')
     record(db, 'H', ans(4, minute=0, key='old') + ans(1, 5, key='hard', correct=False, first=False) + ans(1, 6, key='hard', correct=False, first=False) + ans(1, 7, key='hard'))
     before = db.admin(f"select points, answers from public.pupil_totals where pupil_id = '{pid('H')}'")
+    # the day of an answer is the class's day (Asia/Jerusalem), never UTC's: answers on both sides of local midnight,
+    # winter (UTC+2: midnight is 22:00 UTC) and summer (UTC+3: 21:00 UTC), and on both sides of 00:00 UTC (02:00 or
+    # 03:00 local, the same local day). Fixed dates, so the check does not depend on when the suite runs.
+    EDGE = [('d20', '2026-03-10 21:59:59+00', '2026-03-10'), ('d21', '2026-03-10 22:00:01+00', '2026-03-11'),
+            ('d22', '2026-07-10 20:59:59+00', '2026-07-10'), ('d23', '2026-07-10 21:00:01+00', '2026-07-11'),
+            ('d24', '2026-03-10 23:59:59+00', '2026-03-11'), ('d25', '2026-03-11 00:00:01+00', '2026-03-11')]
+    # written straight into the ledger (they are older than any batch may claim), and into the pupil's totals with
+    # them, so totals still equal the ledgers
+    book = lambda n: f"insert into public.pupil_totals (pupil_id, points, answers, first_try) values ('{pid('X')}', {10 * n}, {n}, {n}) on conflict (pupil_id) do update set points = public.pupil_totals.points + {10 * n}, answers = public.pupil_totals.answers + {n}, first_try = public.pupil_totals.first_try + {n};"
+    db.admin(' '.join(f"insert into public.answers (at, pupil_id, item_id, pts, correct, first_try) select '{at}', '{pid('X')}', id, 10, true, true from public.items where game = 'en' and item_key = '{k}';" for k, at, _ in EDGE) + book(len(EDGE)))
     db.admin("update private.settings set raw_days = 0; insert into auth.audit_log_entries (ip_address, created_at) values ('203.0.113.9', now() - interval '40 days'), ('203.0.113.9', now())")
     m, err = db.rpc(SERVER, 'maintenance')
     db.admin('update private.settings set raw_days = 90')
     check('the server role runs maintenance; totals still equal the ledgers', err is None and m.get('ok') is True and m.get('rolled', 0) > 0, err or m)
     eq('old answers are rolled up, not lost: totals unchanged', db.admin(f"select points, answers from public.pupil_totals where pupil_id = '{pid('H')}'"), before)
-    eq('the roll-up holds them per day and item', db.admin(f"select sum(tries), sum(first_try), sum(pts) from public.answer_daily where pupil_id = '{pid('H')}'"), [['7', '5', '50']])
+    # only the answers this case placed 40 hours back: H also has answers from "45 minutes ago" (the late-arrival case
+    # above), which are a past local day when the suite runs in the first 45 minutes after midnight in Israel, and are
+    # then rightly rolled too (lead's report, 25.11 22:20 UTC: 36/34/340)
+    eq('the roll-up holds them per day and item', db.admin(f"select sum(d.tries), sum(d.first_try), sum(d.pts) from public.answer_daily d join public.items i on i.id = d.item_id where d.pupil_id = '{pid('H')}' and i.item_key in ('old0', 'old1', 'old2', 'old3', 'hard')"), [['7', '5', '50']])
+    eq('near midnight, each answer is rolled into its own day in Israel, not the UTC day (22:00 UTC in winter, 21:00 in summer, 00:00 UTC splits nothing)',
+       db.admin(f"select i.item_key, d.day::text from public.answer_daily d join public.items i on i.id = d.item_id where d.pupil_id = '{pid('X')}' and i.item_key in ('d20', 'd21', 'd22', 'd23', 'd24', 'd25') order by 1"),
+       [[k, day] for k, _, day in EDGE])
+    # the class's evening, pinned: local midnight exactly 30 minutes ago (a zone made for it), one answer just before,
+    # one just after. The one before is a finished day and is rolled; the one after stays raw. This is the window the
+    # report hit, made the same every time.
+    import datetime as _dt
+    cut = _dt.datetime.now(_dt.timezone.utc).replace(second=0, microsecond=0) - _dt.timedelta(minutes=30)
+    off = (-(cut.hour * 60 + cut.minute)) % 1440
+    off = off - 1440 if off > 720 else off                          # UTC-12:00 .. UTC+12:00
+    zone = f"<{'+' if off >= 0 else '-'}{abs(off) // 60:02d}{abs(off) % 60:02d}>{'-' if off >= 0 else '+'}{abs(off) // 60:02d}:{abs(off) % 60:02d}"
+    db.admin(f"insert into public.answers (at, pupil_id, item_id, pts, correct, first_try) select now() - interval '31 minutes', '{pid('X')}', id, 10, true, true from public.items where game = 'en' and item_key = 'd26';"
+             f"insert into public.answers (at, pupil_id, item_id, pts, correct, first_try) select now() - interval '29 minutes', '{pid('X')}', id, 10, true, true from public.items where game = 'en' and item_key = 'd27';"
+             + book(2) + f"update private.settings set raw_days = 0, tz = '{zone}'")
+    m2, err2 = db.rpc(SERVER, 'maintenance')
+    yday = (cut + _dt.timedelta(minutes=off) - _dt.timedelta(days=1)).date().isoformat()
+    left = db.admin(f"select i.item_key from public.answers a join public.items i on i.id = a.item_id where a.pupil_id = '{pid('X')}' and i.item_key in ('d26', 'd27') order by 1")
+    rolled = db.admin(f"select i.item_key, d.day::text from public.answer_daily d join public.items i on i.id = d.item_id where d.pupil_id = '{pid('X')}' and i.item_key in ('d26', 'd27') order by 1")
+    db.admin("update private.settings set raw_days = 90, tz = 'Asia/Jerusalem'")
+    eq('local midnight 30 minutes ago: the answer of 31 minutes ago is rolled into yesterday, the one of 29 minutes ago stays raw; totals still equal the ledgers',
+       (err2, m2 and m2.get('totals_wrong'), left, rolled), (None, 0, [['d27']], [['d26', yday]]))
     eq('weak items still count rolled-up answers', db.select(TEACHER1, 'teacher_items', 'tries, wrong', dict(item_key='hard'))[0], [dict(tries=3, wrong=2)])
     eq("the Auth log's addresses older than 30 days are deleted, and the answer says so", (db.one('select count(*) from auth.audit_log_entries'), m.get('audit_purged')), ('1', True))
     db.psql('revoke delete on auth.audit_log_entries from postgres', user='supabase_admin')
@@ -631,7 +682,7 @@ def test_storage(db):
     sv_uid, sv_pid = U(0xD01), U(0xD02)
     db.admin(f"insert into auth.users (id) values ('{sv_uid}'); insert into public.pupils (id, class_id, display_name, auth_user_id) values ('{sv_pid}', '{C2}', 'Saver', '{sv_uid}')")
     S = ('authenticated', sv_uid)
-    day = lambda: db.admin(f"select saves, save_kb from private.pupil_days where pupil_id = '{sv_pid}' and day = (now() at time zone 'Asia/Jerusalem')::date")
+    day = lambda: db.admin(f"select saves, save_kb from private.pupil_days where pupil_id = '{sv_pid}' and day = (now() at time zone (select tz from private.settings))::date")
     print('-- save_progress is rationed (review PB1b)')
     r1, err = db.rpc(S, 'save_progress', dict(p_state={'a': 1}))
     r2, _ = db.rpc(S, 'save_progress', dict(p_state={'a': 1}, p_base=r1['updated_at']))
