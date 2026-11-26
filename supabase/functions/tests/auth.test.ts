@@ -684,6 +684,27 @@ T("lock scope (0008): every 'locked' answer says whom it is for: the name, the d
   clock.ms += 2 * DAY;
 });
 
+T("removed from the class (0009): the sign-in no longer finds the name, the open session is over; undo brings the same code back", async () => {
+  const c = await newClass();
+  const s = await reg(c, "Remy", "4827");
+  const pid = await pupilId(c, "Remy");
+  const t = await teacherOf(c);
+  clock.ms += HOUR;
+  const asTeacher = <X>(f: (tx: typeof sql) => Promise<X>) => sql.begin(async (tx) => {
+    await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: t, role: "authenticated" })}, true)`;
+    await tx`set local role authenticated`;
+    return await f(tx as unknown as typeof sql);
+  });
+  const rm = await asTeacher((tx) => tx`select public.teacher_remove_pupil(${pid}::uuid) as v`);
+  eq(rm[0].v.ok, true, "her teacher removes the pupil");
+  ok(!(await saves(user(s))), "the session that was open cannot save any more");
+  eq(e(await log(c, "Remy", "4827", { ip: freshIp() })), "pin", "the right code no longer signs in: the class has no such name (an unknown name and a wrong code look the same)");
+  const back = await asTeacher((tx) => tx`select public.teacher_restore_pupil(${pid}::uuid) as v`);
+  eq(back[0].v.ok, true, "undo");
+  eq(e(await log(c, "Remy", "4827", { ip: freshIp() })), "ok", "and the same code signs in again: nothing of the pupil's secrets was touched");
+  clock.ms += 2 * DAY;
+});
+
 T("S5: the caller's address comes from the platform's end of X-Forwarded-For; an unreadable one shares no bucket", async () => {
   const rq = (h: Record<string, string>) => new Request("http://x/", { headers: h });
   eq(clientIp(rq({ "x-forwarded-for": "6.6.6.6, 203.0.113.5" }), "xff-last"), "203.0.113.5", "the entry the platform appended, not the caller's");

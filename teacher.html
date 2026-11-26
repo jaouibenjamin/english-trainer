@@ -38,9 +38,12 @@
 <p id="load" role="status"></p>
 <p id="act" role="status"></p>
 <div id="roster"></div>
+<div id="removed"></div>
 </section>
 <dialog id="ask" aria-labelledby="ask-text">
 <p id="ask-text"></p>
+<label id="ask-type-label" for="ask-type" hidden>השם:</label>
+<input id="ask-type" type="text" autocomplete="off" spellcheck="false" maxlength="20" hidden>
 <div class="row"><button id="ask-yes" type="button"></button><button id="ask-no" type="button" class="quiet">ביטול</button></div>
 </dialog>
 <dialog id="code" aria-labelledby="code-name">

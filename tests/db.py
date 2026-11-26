@@ -88,9 +88,9 @@ PUBLIC_TABLES = ['classes', 'roster', 'teachers', 'pupils', 'items', 'levels', '
 VIEWS = ['class_board', 'teacher_view', 'teacher_items', 'backend_health']
 PRIVATE_TABLES = ['class_codes', 'pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'auth_attempts', 'auth_buckets',
                   'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions', 'maintenance_log', 'class_misses',
-                  'teacher_resets']
+                  'teacher_resets', 'limbo', 'removed_pupils']
 PUPIL_KEYED = ['pupil_totals', 'progress', 'answers', 'points', 'flags', 'answer_daily', 'level_best']
-PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days']
+PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days', 'removed_pupils']
 
 
 def test_catalogue(db):
@@ -115,7 +115,8 @@ def test_catalogue(db):
     eq('authenticated: no right on any sequence', db.admin(seq % 'authenticated'), [])
     eq('authenticated: may run exactly the listed functions', [r[0] for r in db.admin(fn % 'authenticated')],
        ['app.class_id', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.reads_class', 'app.reads_pupil', 'app.safe_int', 'app.shadow', 'app.teaches', 'app.teaches_pupil',
-        'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil'])
+        'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil', 'public.teacher_remove_pupil',
+        'public.teacher_removed', 'public.teacher_restore_pupil'])
     eq('row level security is on for every table in public and private',
        db.admin("""select n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
                    where n.nspname in ('public', 'private') and c.relkind = 'r' and not c.relrowsecurity"""), [])
@@ -403,6 +404,7 @@ def test_teacher(db):
     db.admin(f"""insert into private.reset_codes (pupil_id, salt, hash, expires_at) values ('{g}', '\\x01', decode(repeat('ee', 32), 'hex'), now() + interval '1 day');
                  insert into private.pupil_devices (pupil_id, device_hash) values ('{g}', '\\x0102');
                  insert into private.legacy_import values ('{g}', 's', repeat('a', 64));
+                 insert into private.removed_pupils (pupil_id, class_id, removed_at) values ('{g}', '{C1}', now());
                  insert into public.answer_daily (pupil_id, day, item_id, tries) values ('{g}', current_date - 100, 1, 1);
                  insert into public.flags (pupil_id, kind, day) values ('{g}', 'rate', current_date);
                  insert into public.level_best (pupil_id, game, level_key, stars) values ('{g}', 'math', 'bay:1', 1);
@@ -486,6 +488,56 @@ def test_teacher(db):
         denied('a teacher reads nothing of the counter itself', db.as_(*TEACHER1, 'select * from private.teacher_resets'))
     finally:
         db.admin(f"update private.settings set reset_teacher_day = 15; delete from private.teacher_resets; delete from public.pupils where id = '{cap}'")
+
+
+def test_removal(db):
+    """Remove from the class with 14 days to undo it (0009_soft_delete.sql), next to delete for good."""
+    print('\n== removing a pupil from the class: hidden at once, back on undo, deleted for good after 14 days ==')
+    T = TEACHER1
+    r1, r2, r3, ru1, ru2 = U(0xE01), U(0xE02), U(0xE03), U(0xE11), U(0xE12)
+    db.admin(f"""insert into auth.users (id) values ('{ru1}'), ('{ru2}');
+                 insert into public.pupils (id, class_id, display_name, auth_user_id) values ('{r1}', '{C1}', 'Remy', '{ru1}'), ('{r2}', '{C1}', 'Rina', '{ru2}'),
+                   ('{r3}', '{C1}', 'Roni', null);""")
+    R1, A = ('authenticated', ru1), ('authenticated', uid('A'))
+    record_as(db, R1, ans(3, key='sun'))
+    pts = db.one(f"select points from public.pupil_totals where pupil_id = '{r1}'")
+    in_view = lambda who, p: any(r['pupil_id'] == p for r in (db.select(who, 'teacher_view', 'pupil_id')[0] or []))
+    removed = lambda who: db._json(who, "select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.teacher_removed() t")
+    denied("teacher 2 removes a pupil of class 1: refused", db.rpc(TEACHER2, 'teacher_remove_pupil', dict(p_pupil=r1)), 'not your pupil')
+    denied('a pupil removes a classmate: refused', db.rpc(A, 'teacher_remove_pupil', dict(p_pupil=r1)), 'not your pupil')
+    v, err = db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=r1))
+    check('teacher 1 removes her pupil: done, with the day it is deleted for good (14 days)', err is None and v.get('ok') is True and v.get('purge_at'), err or v)
+    check('at once: gone from her screen', not in_view(T, r1))
+    board, _ = db.select(A, 'class_board', 'display_name')
+    check("gone from the class board the classmates see", 'Remy' not in [b['display_name'] for b in board or []], board)
+    eq('the pupil\'s session is over: the auth user is deleted, the pupil row holds none', [db.one(f"select count(*) from auth.users where id = '{ru1}'"), db.one(f"select coalesce(auth_user_id::text, '-') from public.pupils where id = '{r1}'")], ['0', '-'])
+    rows_n('teacher 1 reads nothing of the removed pupil (its hidden class is nobody\'s)', db.select(T, 'pupils', where=dict(id=r1)), 0)
+    rows_n('and nor does anyone else', db.select(TEACHER2, 'pupils', where=dict(id=r1)), 0)
+    lst, err = removed(T)
+    check('her removed list shows the pupil, with the day of the purge', err is None and [x['display_name'] for x in lst] == ['Remy'], err or lst)
+    lst2, _ = removed(TEACHER2)
+    eq("teacher 2's removed list is empty", lst2, [])
+    eq('the records wait for the way back', db.one(f"select points from public.pupil_totals where pupil_id = '{r1}'"), pts)
+    eq('the sign-in cannot find the name in the class any more (no pupil of that name in class 1)', db.one(f"select count(*) from public.pupils where class_id = '{C1}' and name_key = 'remy'"), '0')
+    denied('teacher 2 cannot undo it', db.rpc(TEACHER2, 'teacher_restore_pupil', dict(p_pupil=r1)), 'not your pupil')
+    v, err = db.rpc(T, 'teacher_restore_pupil', dict(p_pupil=r1))
+    check('undo: back in her class, on her screen, with every point', err is None and v.get('ok') is True and in_view(T, r1) and db.one(f"select points from public.pupil_totals where pupil_id = '{r1}'") == pts, err or v)
+    eq('and off the removed list', removed(T)[0], [])
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=r1))
+    db.admin(f"insert into public.pupils (class_id, display_name) values ('{C1}', 'Remy')")      # a new pupil took the name meanwhile
+    v, _ = db.rpc(T, 'teacher_restore_pupil', dict(p_pupil=r1))
+    eq('undo while a new pupil has the name: refused as taken, nothing moves', [v, in_view(T, r1)], [dict(ok=False, e='taken'), False])
+    v, err = db.rpc(T, 'teacher_delete_pupil', dict(p_pupil=r1))
+    check('delete for good works on a removed pupil at once (a parent\'s request does not wait 14 days)', err is None and db.one(f"select count(*) from public.pupils where id = '{r1}'") == '0'
+          and db.one(f"select count(*) from public.answers where pupil_id = '{r1}'") == '0', err)
+    eq('on record with her class, not the hidden one', db.admin(f"select class_id from private.deletions where pupil_id = '{r1}'"), [[C1]])
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=r2)); db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=r3))
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id = '{r2}'")
+    m, _ = db.rpc(SERVER, 'maintenance')
+    eq('the nightly maintenance deletes a pupil removed 15 days ago, for good, and not one removed today',
+       [m.get('removed_purged'), db.one(f"select count(*) from public.pupils where id = '{r2}'"), db.one(f"select count(*) from public.pupils where id = '{r3}'"),
+        db.one(f"select count(*) from private.deletions where pupil_id = '{r2}' and teacher = '{T1}' and class_id = '{C1}'")], [1, '0', '1', '1'])
+    db.admin(f"delete from public.pupils where id in ('{r3}') or (class_id = '{C1}' and display_name = 'Remy'); delete from private.deletions where pupil_id in ('{r1}', '{r2}')")
 
 
 def test_storage(db):
@@ -655,7 +707,7 @@ def main():
     try:
         if '--load' not in args:
             fixture(db)
-            test_catalogue(db); test_anon(db); test_pupil(db); test_points(db); test_teacher(db); test_storage(db)
+            test_catalogue(db); test_anon(db); test_pupil(db); test_points(db); test_teacher(db); test_removal(db); test_storage(db)
         if '--no-load' not in args:
             test_load(db)
     finally:

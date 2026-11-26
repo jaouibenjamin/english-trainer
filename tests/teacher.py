@@ -92,6 +92,26 @@ def standin(log, st):
             return await r.fulfill(status=200, headers=CORS, json=gone)
         if u.path == '/rest/v1/roster':
             return await r.fulfill(status=200, headers=CORS, json=roster)
+        # 0009: out of the class, back, delete for good (the stand-in moves the row as the database would)
+        view = st.setdefault('view', [dict(x) for x in ROWS['teacher_view']]); gone = st.setdefault('gone', [])
+        if u.path == '/rest/v1/teacher_view':
+            return await r.fulfill(status=200, headers=CORS, json=view)
+        if u.path == '/rest/v1/rpc/teacher_removed':
+            return await r.fulfill(status=200, headers=CORS, json=gone)
+        if u.path in ('/rest/v1/rpc/teacher_remove_pupil', '/rest/v1/rpc/teacher_restore_pupil', '/rest/v1/rpc/teacher_delete_pupil'):
+            pid_ = body.get('p_pupil'); fn = u.path.rsplit('/', 1)[1]
+            row = next((x for x in view if x['pupil_id'] == pid_), None); out_ = next((x for x in gone if x['pupil_id'] == pid_), None)
+            if fn == 'teacher_remove_pupil' and row:
+                view.remove(row); gone.append(dict(pupil_id=pid_, class_id=C1, display_name=row['display_name'], removed_at='2026-11-26T08:00:00Z', purge_at='2026-12-10T08:00:00Z', row=row))
+                return await r.fulfill(status=200, headers=CORS, json=dict(ok=True, purge_at='2026-12-10T08:00:00Z'))
+            if fn == 'teacher_restore_pupil' and out_:
+                gone.remove(out_); view.append(out_['row'])
+                return await r.fulfill(status=200, headers=CORS, json=dict(ok=True))
+            if fn == 'teacher_delete_pupil' and (row or out_):
+                if row: view.remove(row)
+                if out_: gone.remove(out_)
+                return await r.fulfill(status=200, headers=CORS, json=True)
+            return await r.fulfill(status=403, headers=CORS, json={'code': '42501', 'message': 'not your pupil'})
         if u.path.startswith('/rest/v1/'):
             return await r.fulfill(status=200, headers=CORS, json=ROWS.get(u.path[9:], []))
         return await r.fulfill(status=404, headers=CORS, body='')
@@ -130,8 +150,8 @@ async def run(b, w, h, tag):
     check(f'[{tag}] the hard words, hardest first', len(hard) == 2 and hard[0].startswith('hobby') and '6 טעויות מתוך 9' in hard[0], hard)
     check(f'[{tag}] the health warning shows', await pg.is_visible('#health'))
     rest = [x for x in log if x['path'].startswith('/rest/v1/')]
-    check(f'[{tag}] every read went with her token and the publishable key, and only to her views and her class list', len(rest) == 5 and all(x['auth'].startswith('Bearer acc-') and x['apikey'] == KEY and x['method'] == 'GET' for x in rest)
-          and sorted(x['path'].split('?')[0] for x in rest) == ['/rest/v1/backend_health', '/rest/v1/classes', '/rest/v1/roster', '/rest/v1/teacher_items', '/rest/v1/teacher_view'], rest)
+    check(f'[{tag}] every read went with her token and the publishable key, and only to her views, her class list and her removed pupils', len(rest) == 6 and all(x['auth'].startswith('Bearer acc-') and x['apikey'] == KEY and x['method'] == 'GET' for x in rest)
+          and sorted(x['path'].split('?')[0] for x in rest) == ['/rest/v1/backend_health', '/rest/v1/classes', '/rest/v1/roster', '/rest/v1/rpc/teacher_removed', '/rest/v1/teacher_items', '/rest/v1/teacher_view'], rest)
     check(f'[{tag}] the class list: her names, the HTML one as text', await pg.eval_on_selector_all('#roster li span', 'e=>e.map(x=>x.textContent)') == sorted(['פלונית', EVIL], key=lambda x: x) or
           set(await pg.eval_on_selector_all('#roster li span', 'e=>e.map(x=>x.textContent)')) == {'פלונית', EVIL}) 
     store = await pg.evaluate('JSON.stringify([Object.keys(sessionStorage),Object.keys(localStorage)])')
@@ -340,6 +360,34 @@ async def actions(pg, tag, log, said, st):
     check(f'[{tag}] and nowhere else either (RegExp statics, heap)', await traces(pg) == [], await traces(pg))
     check(f'[{tag}] the code was never written to the console', not any(OTC in m for m in said), [m for m in said if OTC in m])
     await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
+    await out_of_class(pg, tag, log)
+
+
+async def out_of_class(pg, tag, log):
+    """0009: out of the class (14 days to undo), back, and delete for good after typing the name."""
+    calls = lambda n, fn: [json.loads(x['body']) for x in log[n:] if x['path'] == '/rest/v1/rpc/' + fn and x['method'] == 'POST']
+    n = len(log)
+    await (await row_button(pg, 'פלונית', 'הוצאה מהכיתה')).click()
+    check(f'[{tag}] out of the class is asked first, and says it can be undone for 14 days', '14 יום' in await pg.text_content('#ask-text') and await pg.is_enabled('#ask-yes'))
+    await answer(pg, True); await pg.wait_for_function("document.querySelector('#removed li')")
+    check(f'[{tag}] out: one call for that pupil; off the table, on the removed list with the day it is deleted for good',
+          calls(n, 'teacher_remove_pupil') == [dict(p_pupil=P1)] and await (await row_button(pg, 'פלונית', 'קוד חדש')).count() == 0
+          and 'פלונית' in await pg.text_content('#removed li') and '10.12' in await pg.text_content('#removed li'), await pg.text_content('#removed'))
+    await pg.locator('#removed li', has_text='פלונית').get_by_role('button', name='החזרה לכיתה').click(); await answer(pg, True)
+    await pg.wait_for_function("!document.querySelector('#removed li')")
+    check(f'[{tag}] back: one call, on the table again, the removed list empty', calls(n, 'teacher_restore_pupil') == [dict(p_pupil=P1)] and await (await row_button(pg, 'פלונית', 'קוד חדש')).count() == 1)
+    await (await row_button(pg, 'פלונית', 'הוצאה מהכיתה')).click(); await answer(pg, True); await pg.wait_for_function("document.querySelector('#removed li')")
+    await pg.locator('#removed li', has_text='פלונית').get_by_role('button', name='מחיקה לצמיתות').click()
+    await pg.wait_for_selector('#ask[open]')
+    check(f'[{tag}] delete for good: "yes" waits until the name is typed', await pg.is_visible('#ask-type') and await pg.is_disabled('#ask-yes'))
+    await pg.fill('#ask-type', 'פלוני')
+    check(f'[{tag}] a wrong name keeps it waiting', await pg.is_disabled('#ask-yes'))
+    await pg.fill('#ask-type', ' פלונית ')
+    check(f'[{tag}] the right name (spaces do not matter) lets her confirm', await pg.is_enabled('#ask-yes'))
+    await pg.click('#ask-yes'); await pg.wait_for_function("document.querySelector('#act').textContent.includes('לצמיתות')")
+    check(f'[{tag}] deleted for good: one call, gone from the table and from the removed list', calls(n, 'teacher_delete_pupil') == [dict(p_pupil=P1)]
+          and await (await row_button(pg, 'פלונית', 'קוד חדש')).count() == 0 and await pg.locator('#removed li').count() == 0)
+    check(f'[{tag}] the typed-name field is emptied after', await pg.input_value('#ask-type') == '')
 
 
 async def main():
