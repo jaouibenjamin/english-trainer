@@ -87,9 +87,10 @@ def fixture(db):
 PUBLIC_TABLES = ['classes', 'roster', 'teachers', 'pupils', 'items', 'levels', 'level_best', 'answers', 'points', 'pupil_totals', 'progress', 'flags', 'answer_daily']
 VIEWS = ['class_board', 'teacher_view', 'teacher_items', 'backend_health']
 PRIVATE_TABLES = ['class_codes', 'pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'auth_attempts', 'auth_buckets',
-                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions', 'maintenance_log', 'class_misses']
+                  'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions', 'maintenance_log', 'class_misses',
+                  'teacher_resets', 'limbo', 'removed_pupils']
 PUPIL_KEYED = ['pupil_totals', 'progress', 'answers', 'points', 'flags', 'answer_daily', 'level_best']
-PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days']
+PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days', 'removed_pupils']
 
 
 def test_catalogue(db):
@@ -114,7 +115,8 @@ def test_catalogue(db):
     eq('authenticated: no right on any sequence', db.admin(seq % 'authenticated'), [])
     eq('authenticated: may run exactly the listed functions', [r[0] for r in db.admin(fn % 'authenticated')],
        ['app.class_id', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.reads_class', 'app.reads_pupil', 'app.safe_int', 'app.shadow', 'app.teaches', 'app.teaches_pupil',
-        'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil'])
+        'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil', 'public.teacher_remove_pupil',
+        'public.teacher_removed', 'public.teacher_restore_pupil'])
     eq('row level security is on for every table in public and private',
        db.admin("""select n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
                    where n.nspname in ('public', 'private') and c.relkind = 'r' and not c.relrowsecurity"""), [])
@@ -360,7 +362,40 @@ def test_teacher(db):
                  update private.pupil_secrets set code_hash = null where pupil_id = '{pid('A')}';""")
     eq("teacher_view after a reset and locks: waiting, closed, locked 2 times today (not the other class's 1)",
        db.select(T, 'teacher_view', 'code_status, recovery_status, locked_today', dict(pupil_id=pid('A')))[0], [dict(code_status='waiting', recovery_status='closed', locked_today=2)])
+    # the class's day is private.settings.tz, as for the points and the roll-up, not a zone written into the view. A zone
+    # whose date differs from Jerusalem's right now, a lock a minute before the later of the two midnights (today in one
+    # zone only) and a flag on the edge of the week: the view must follow settings.tz, whichever side that is
+    z = next(z for z in ('Pacific/Kiritimati', 'Pacific/Pago_Pago') if db.one(f"select (now() at time zone '{z}')::date <> (now() at time zone 'Asia/Jerusalem')::date") == 't')
+    db.admin(f"update private.settings set tz = '{z}'")
+    seen = lambda: db.select(T, 'teacher_view', 'locked_today, flags_week', dict(pupil_id=pid('B')))[0][0]
+    before = seen()
+    mid = lambda zone: f"(date_trunc('day', now() at time zone '{zone}') at time zone '{zone}')"
+    today = lambda zone: f"(now() at time zone '{zone}')::date"
+    db.admin(f"""insert into private.auth_lock_events (class_id, name_key, kind, at) values ('{C1}', '{NAMES['B']}', 'code', greatest({mid(z)}, {mid('Asia/Jerusalem')}) - interval '1 minute');
+                 insert into public.flags (pupil_id, kind, day) values ('{pid('B')}', 'unusual', case when {today(z)} < {today('Asia/Jerusalem')} then {today(z)} - 6 else {today(z)} - 7 end)
+                   on conflict (pupil_id, kind, day) do update set n = public.flags.n + 1;""")
+    want = db.admin(f"select ({mid(z)} < {mid('Asia/Jerusalem')})::int, ({today(z)} < {today('Asia/Jerusalem')})::int")[0]
+    after = seen()
+    eq(f"teacher_view's locks today and flags this week follow settings.tz ({z}), not Jerusalem's day",
+       [after['locked_today'] - before['locked_today'], after['flags_week'] - before['flags_week']], [int(want[0]), int(want[1])])
+    db.admin("update private.settings set tz = 'Asia/Jerusalem'")
     eq('teacher_view never carries a hash', db.admin("select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'teacher_view' and (column_name like '%hash%' or column_name like '%salt%')"), [['0']])
+    # the teacher's screen (docs/PHASE3.md step 2) reads exactly these three views: who sees what, every reader against
+    # every view. A teacher: her class only. A pupil's session, a signed-in user who teaches nothing: no row. anon: refused.
+    screen = {'teacher_view': 'class_id', 'teacher_items': 'class_id', 'backend_health': 'warn'}
+    got = {}
+    for who, label in [(TEACHER1, 'teacher 1'), (TEACHER2, 'teacher 2'), (kid('A'), 'a pupil'), (NOBODY, 'a user who teaches nothing')]:
+        for v, col in screen.items():
+            rows, err = db.select(who, v, col)
+            got[(label, v)] = [err is None, sorted({r[col] for r in rows}) if col == 'class_id' else len(rows)]
+    eq("the teacher's screen: teacher 1 reads her class only (pupils, hard words) and one health row",
+       [got[('teacher 1', 'teacher_view')], got[('teacher 1', 'teacher_items')], got[('teacher 1', 'backend_health')]], [[True, [C1]], [True, [C1]], [True, 1]])
+    eq("teacher 2 reads her class only, never class 1's",
+       [got[('teacher 2', 'teacher_view')][1], C1 in got[('teacher 2', 'teacher_items')][1], got[('teacher 2', 'backend_health')]], [[C2], False, [True, 1]])
+    eq("a pupil's session and a user who teaches nothing: no row in any of the three",
+       [got[(w, v)] for w in ('a pupil', 'a user who teaches nothing') for v in screen], [[True, []], [True, []], [True, 0]] * 2)
+    for v in screen:
+        denied(f'anon reads {v}: refused', db.select(ANON, v))
     denied('teacher 1 reads the secrets table: refused like anyone', db.as_(*T, 'select * from private.pupil_secrets'))
     denied('teacher 1 writes points', db.insert(T, 'points', dict(pupil_id=pid('A'), delta=5, reason='fix')))
     denied('teacher 1 edits an answer', db.update(T, 'answers', dict(pts=0)))
@@ -368,6 +403,17 @@ def test_teacher(db):
     rows, err = db.insert(T, 'roster', dict(class_id=C1, name_key='new kid', display_name='New Kid'))
     eq('teacher 1 adds a name to her own class list', (rows and rows[0]['name_key'], err), ('new kid', None))
     rows_n("teacher 1 deletes from class 2's list: nothing happens", db.delete(T, 'roster', dict(class_id=C2)), 0)
+    # step 3 of docs/PHASE3.md: what teacher.html sends, checked here by the database itself
+    denied('teacher 1 adds a name whose key is not the one the database computes: refused', db.insert(T, 'roster', dict(class_id=C1, name_key='Dana Lee', display_name='Dana Lee')), 'violates check constraint')
+    denied('teacher 1 adds a name already on her list: refused (no double)', db.insert(T, 'roster', dict(class_id=C1, name_key='new kid', display_name='New  Kid'.replace('  ', ' '))), 'duplicate key')
+    rows, err = db.select(T, 'classes', 'id')
+    eq("teacher 1 reads the classes: hers only (the page's class list and its unlock button)", ([r['id'] for r in rows or []], err), ([C1], None))
+    rows, err = db.select(T, 'teacher_view', 'pupil_id, class_id')
+    eq('the screen gets each pupil id and class id, of her class only (the actions name them)', (bool(rows) and all(r['pupil_id'] and r['class_id'] == C1 for r in rows), err), (True, None))
+    n_pupils = db.admin(f"select count(*) from public.pupils where class_id = '{C1}'")
+    rows, err = db.delete(T, 'roster', dict(class_id=C1, name_key='new kid'))
+    eq('teacher 1 removes exactly one name from her own list, and gets it back (the page shows what was removed)', ([r['name_key'] for r in rows or []], err), (['new kid'], None))
+    eq('removing a name from the list removes no pupil', db.admin(f"select count(*) from public.pupils where class_id = '{C1}'"), n_pupils)
     denied('teacher 1 deletes a pupil of class 2', db.rpc(T, 'teacher_delete_pupil', dict(p_pupil=pid('X'))), 'not your pupil')
 
     print('-- deleting a pupil removes them from every table')
@@ -375,6 +421,7 @@ def test_teacher(db):
     db.admin(f"""insert into private.reset_codes (pupil_id, salt, hash, expires_at) values ('{g}', '\\x01', decode(repeat('ee', 32), 'hex'), now() + interval '1 day');
                  insert into private.pupil_devices (pupil_id, device_hash) values ('{g}', '\\x0102');
                  insert into private.legacy_import values ('{g}', 's', repeat('a', 64));
+                 insert into private.removed_pupils (pupil_id, class_id, removed_at) values ('{g}', '{C1}', now());
                  insert into public.answer_daily (pupil_id, day, item_id, tries) values ('{g}', current_date - 100, 1, 1);
                  insert into public.flags (pupil_id, kind, day) values ('{g}', 'rate', current_date);
                  insert into public.level_best (pupil_id, game, level_key, stars) values ('{g}', 'math', 'bay:1', 1);
@@ -474,6 +521,160 @@ def test_teacher(db):
     eq('where the platform does not allow that purge, maintenance reports it instead of hiding it', (m2.get('audit_purged'), m2.get('ok')), (False, False))
     rows_n('the server role reads everything (RLS does not apply to it)', db.select(SERVER, 'pupils'), 10)
 
+    print('-- the teacher\'s daily cap of new codes (review of #86, S7)')
+    cap = U(0xCA9)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{cap}', '{C1}', 'Capper'); delete from private.teacher_resets; update private.settings set reset_teacher_day = 1")
+    try:
+        call = f"select private.teacher_reset('{T1}', '{cap}', '01', repeat('ee', 32), 1000, now()) ->> 'e'"
+        out = {}
+        slow = threading.Thread(target=lambda: out.setdefault('a', db.psql(f"begin; select coalesce(({call}), 'ok'); select pg_sleep(0.8); commit;")))
+        slow.start(); time.sleep(0.3)
+        out['b'] = db.psql(f"select coalesce(({call}), 'ok')"); slow.join()
+        eq('two new codes at the same moment against her last one left: the second waits for the first and is refused (her lock)',
+           [out['a'][0][0][0], out['b'][0][0][0], db.one('select count(*) from private.teacher_resets')], ['ok', 'limit', '1'])
+        h, _ = db.select(TEACHER1, 'backend_health', 'resets_day, resets_cap')
+        eq('backend_health shows her own count and cap', h, [dict(resets_day=1, resets_cap=1)])
+        h2, _ = db.select(TEACHER2, 'backend_health', 'resets_day, resets_cap')
+        eq("and not another teacher's: teacher 2 has made none", h2, [dict(resets_day=0, resets_cap=1)])
+        denied('a teacher reads nothing of the counter itself', db.as_(*TEACHER1, 'select * from private.teacher_resets'))
+    finally:
+        db.admin(f"update private.settings set reset_teacher_day = 15; delete from private.teacher_resets; delete from public.pupils where id = '{cap}'")
+
+
+def test_removal(db):
+    """Remove from the class with 14 days to undo it (0009_soft_delete.sql), next to delete for good."""
+    print('\n== removing a pupil from the class: hidden at once, back on undo, deleted for good after 14 days ==')
+    T = TEACHER1
+    r1, r2, r3, ru1, ru2 = U(0xE01), U(0xE02), U(0xE03), U(0xE11), U(0xE12)
+    db.admin(f"""insert into auth.users (id) values ('{ru1}'), ('{ru2}');
+                 insert into public.pupils (id, class_id, display_name, auth_user_id) values ('{r1}', '{C1}', 'Remy', '{ru1}'), ('{r2}', '{C1}', 'Rina', '{ru2}'),
+                   ('{r3}', '{C1}', 'Roni', null);""")
+    R1, A = ('authenticated', ru1), ('authenticated', uid('A'))
+    record_as(db, R1, ans(3, key='sun'))
+    pts = db.one(f"select points from public.pupil_totals where pupil_id = '{r1}'")
+    in_view = lambda who, p: any(r['pupil_id'] == p for r in (db.select(who, 'teacher_view', 'pupil_id')[0] or []))
+    removed = lambda who: db._json(who, "select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.teacher_removed() t")
+    denied("teacher 2 removes a pupil of class 1: refused", db.rpc(TEACHER2, 'teacher_remove_pupil', dict(p_pupil=r1)), 'not your pupil')
+    denied('a pupil removes a classmate: refused', db.rpc(A, 'teacher_remove_pupil', dict(p_pupil=r1)), 'not your pupil')
+    v, err = db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=r1))
+    check('teacher 1 removes her pupil: done, with the day it is deleted for good (14 days)', err is None and v.get('ok') is True and v.get('purge_at'), err or v)
+    check('at once: gone from her screen', not in_view(T, r1))
+    board, _ = db.select(A, 'class_board', 'display_name')
+    check("gone from the class board the classmates see", 'Remy' not in [b['display_name'] for b in board or []], board)
+    eq('the pupil\'s session is over: the auth user is deleted, the pupil row holds none', [db.one(f"select count(*) from auth.users where id = '{ru1}'"), db.one(f"select coalesce(auth_user_id::text, '-') from public.pupils where id = '{r1}'")], ['0', '-'])
+    rows_n('teacher 1 reads nothing of the removed pupil (its hidden class is nobody\'s)', db.select(T, 'pupils', where=dict(id=r1)), 0)
+    rows_n('and nor does anyone else', db.select(TEACHER2, 'pupils', where=dict(id=r1)), 0)
+    lst, err = removed(T)
+    check('her removed list shows the pupil, with the day of the purge', err is None and [x['display_name'] for x in lst] == ['Remy'], err or lst)
+    lst2, _ = removed(TEACHER2)
+    eq("teacher 2's removed list is empty", lst2, [])
+    eq('the records wait for the way back', db.one(f"select points from public.pupil_totals where pupil_id = '{r1}'"), pts)
+    eq('the sign-in cannot find the name in the class any more (no pupil of that name in class 1)', db.one(f"select count(*) from public.pupils where class_id = '{C1}' and name_key = 'remy'"), '0')
+    denied('teacher 2 cannot undo it', db.rpc(TEACHER2, 'teacher_restore_pupil', dict(p_pupil=r1)), 'not your pupil')
+    v, err = db.rpc(T, 'teacher_restore_pupil', dict(p_pupil=r1))
+    check('undo: back in her class, on her screen, with every point', err is None and v.get('ok') is True and in_view(T, r1) and db.one(f"select points from public.pupil_totals where pupil_id = '{r1}'") == pts, err or v)
+    eq('and off the removed list', removed(T)[0], [])
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=r1))
+    db.admin(f"insert into public.pupils (class_id, display_name) values ('{C1}', 'Remy')")      # a new pupil took the name meanwhile
+    v, _ = db.rpc(T, 'teacher_restore_pupil', dict(p_pupil=r1))
+    eq('undo while a new pupil has the name: refused as taken (with the day the removed record goes), nothing moves', [v.get('ok'), v.get('e'), bool(v.get('purge_at')), in_view(T, r1)], [False, 'taken', True, False])
+    v, err = db.rpc(T, 'teacher_delete_pupil', dict(p_pupil=r1))
+    check('delete for good works on a removed pupil at once (a parent\'s request does not wait 14 days)', err is None and db.one(f"select count(*) from public.pupils where id = '{r1}'") == '0'
+          and db.one(f"select count(*) from public.answers where pupil_id = '{r1}'") == '0', err)
+    eq('on record with her class, not the hidden one', db.admin(f"select class_id from private.deletions where pupil_id = '{r1}'"), [[C1]])
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=r2)); db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=r3))
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id = '{r2}'")
+    m, _ = db.rpc(SERVER, 'maintenance')
+    eq('the nightly maintenance deletes a pupil removed 15 days ago, for good, and not one removed today',
+       [m.get('removed_purged'), db.one(f"select count(*) from public.pupils where id = '{r2}'"), db.one(f"select count(*) from public.pupils where id = '{r3}'"),
+        db.one(f"select count(*) from private.deletions where pupil_id = '{r2}' and teacher = '{T1}' and class_id = '{C1}'")], [1, '0', '1', '1'])
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '13 days' where pupil_id = '{r3}'")
+    m, _ = db.rpc(SERVER, 'maintenance')
+    eq('removed 13 days ago: still there (the purge waits the whole 14 days)', [m.get('removed_purged'), db.one(f"select count(*) from public.pupils where id = '{r3}'")], [0, '1'])
+    db.admin(f"delete from public.pupils where id in ('{r3}') or (class_id = '{C1}' and display_name = 'Remy'); delete from private.deletions where pupil_id in ('{r1}', '{r2}')")
+
+    print('-- review of #94: the sign-in, the purge and the undo against each other')
+    teacher_tx = lambda sql: f"begin; select set_config('request.jwt.claims', '{json.dumps(dict(role='authenticated', sub=T1))}', true); set local role authenticated; {sql}"
+    def two(first, second, hold=0.8):
+        """first runs in its own session and holds its locks for `hold` seconds; second starts meanwhile"""
+        out = {}
+        th = threading.Thread(target=lambda: out.setdefault('a', db.psql(first + f" select pg_sleep({hold}); commit;")))
+        th.start(); time.sleep(0.3); out['b'] = db.psql(second); th.join()
+        return out['a'], out['b']
+    k1, ku = U(0xE21), U(0xE22)
+    db.admin(f"insert into auth.users (id) values ('{ku}'); insert into public.pupils (id, class_id, display_name) values ('{k1}', '{C1}', 'Kiki')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k1))
+    eq('B1: the sign-in\'s last step (link the session) for a pupil removed meanwhile: refused, nothing linked',
+       [db.one(f"select coalesce(private.link_auth_user('{k1}', '{ku}')::text, 'null')"), db.one(f"select coalesce(auth_user_id::text, '-') from public.pupils where id = '{k1}'")], ['null', '-'])
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id = '{k1}'")
+    a, b = two(teacher_tx(f"select public.teacher_restore_pupil('{k1}') ->> 'ok';"), "select private.purge_removed(now());")
+    eq('B2: an undo that starts first wins: the purge waits for it, finds the pupil back in the class, deletes nothing',
+       [a[1], b[0][0][0] if b[0] else None, db.one(f"select count(*) from public.pupils where id = '{k1}' and class_id = '{C1}'")], [None, '0', '1'])
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k1))
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id = '{k1}'")
+    a, b = two("begin; select private.purge_removed(now());", teacher_tx(f"select public.teacher_restore_pupil('{k1}')::text; commit;"))
+    eq('B2: a purge that starts first wins: the undo waits, then says the pupil is gone (never "back")',
+       [json.loads(b[0][-1][0]) if b[0] else b, db.one(f"select count(*) from public.pupils where id = '{k1}'")], [dict(ok=False, e='gone'), '0'])
+    k2 = U(0xE23)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{k2}', '{C1}', 'Lulu')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k2))
+    nw = json.dumps(dict(code_salt='01', code_hash='ee' * 32, pic_salt='02', pic_hash='dd' * 32, iter=600000))
+    db.admin(f"insert into public.roster (class_id, name_key, display_name) values ('{C1}', 'lulu', 'Lulu') on conflict do nothing")
+    a, b = two(f"begin; select private.register_pupil('{U(0xE24)}', '{C1}', 'Lulu', '{nw}'::jsonb, '00', now()) ->> 's';",
+               teacher_tx(f"select public.teacher_restore_pupil('{k2}') ->> 'e'; commit;"))
+    eq('S1: an undo while the same name registers: it waits for the name, then says taken (no raw error that would carry the name)',
+       [a[1], b[1], [r for r in a[0] + b[0] if r and r[0] in ('taken', 'ok')]], [None, None, [['ok'], ['taken']]])
+    db.admin(f"insert into private.auth_lock_events (class_id, name_key, kind) values ('{C1}', 'lulu', 'code')")
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id = '{k2}'")
+    db.rpc(SERVER, 'maintenance')
+    eq("S2: purging the removed Lulu keeps the new Lulu's sign-in records (the name is hers now)",
+       [db.one(f"select count(*) from public.pupils where id = '{k2}'"), db.one(f"select count(*) from private.auth_lock_events where class_id = '{C1}' and name_key = 'lulu'")], ['0', '1'])
+    k3 = U(0xE25)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{k3}', '{C1}', 'Momo')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k3))
+    imp = json.loads(db.one(f"""select private.sheet_import('{C1}', '[{{"name": "Momo", "points": 5}}]'::jsonb)::text"""))
+    eq('S3: the Sheet import skips a name the teacher took out of the class, and says so',
+       [imp.get('skipped_removed'), imp.get('new'), db.one(f"select count(*) from public.pupils where class_id = '{C1}' and name_key = 'momo'")], [1, 0, '0'])
+    db.admin(f"update public.classes set max_pupils = (select count(*) from public.pupils where class_id = '{C1}') where id = '{C1}'")
+    v, _ = db.rpc(T, 'teacher_restore_pupil', dict(p_pupil=k3))
+    eq('S5: undo into a full class: refused as full', v, dict(ok=False, e='full'))
+    db.admin(f"update public.classes set max_pupils = 60 where id = '{C1}'")
+    c3, k4 = U(0xC3), U(0xE26)
+    db.admin(f"insert into public.classes (id, name) values ('{c3}', 'gone class'); insert into public.teachers values ('{T1}', '{c3}');"
+             f"insert into public.pupils (id, class_id, display_name) values ('{k4}', '{c3}', 'Nini')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k4))
+    lim = db.one(f"select limbo_id from private.limbo where class_id = '{c3}'")
+    db.admin(f"delete from public.classes where id = '{c3}'")           # the owner deletes a class by hand
+    db.rpc(SERVER, 'maintenance')
+    eq('S4: a class deleted by hand: what it left in its hidden class is deleted by the next purge, and the hidden class dropped',
+       [db.one(f"select count(*) from public.pupils where id = '{k4}'"), db.one(f"select count(*) from public.classes where id = '{lim}'")], ['0', '0'])
+    print('-- review of #94, follow-ups')
+    k5, k6 = U(0xE27), U(0xE28)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{k5}', '{C1}', 'Ofri')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k5))
+    db.admin(f"update public.classes set max_pupils = (select count(*) from public.pupils where class_id = '{C1}') + 1 where id = '{C1}';"
+             f"insert into public.roster (class_id, name_key, display_name) values ('{C1}', 'pazit', 'Pazit') on conflict do nothing")
+    a, b = two(f"begin; select private.register_pupil('{k6}', '{C1}', 'Pazit', '{nw}'::jsonb, '00', now()) ->> 's';",
+               teacher_tx(f"select public.teacher_restore_pupil('{k5}') ->> 'e'; commit;"))
+    eq('the last place: a registration holds the head count, the undo waits for it and is refused as full (never one over)',
+       [[r for r in a[0] + b[0] if r and r[0] in ('ok', 'full')], db.one(f"select count(*) <= max_pupils from public.pupils p join public.classes c on c.id = p.class_id where c.id = '{C1}' group by c.max_pupils")],
+       [[['ok'], ['full']], 't'])
+    db.admin(f"update public.classes set max_pupils = 60 where id = '{C1}'")
+    gone_user = U(0xE29)
+    eq('the link step with a user that no longer exists (a removal and an undo inside one sign-in): no error, nothing linked',
+       db.psql(f"select coalesce(private.link_auth_user('{k6}', '{gone_user}')::text, 'null')"), ([['null']], None))
+    q1, q2 = U(0xE2A), U(0xE2B)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{q1}', '{C1}', 'Rami'), ('{q2}', '{C1}', 'Sagi')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=q1)); db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=q2))
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id in ('{q1}', '{q2}'); update private.settings set purge_per_run = 1")
+    m1, _ = db.rpc(SERVER, 'maintenance')
+    left = db.one(f"select count(*) from public.pupils where id in ('{q1}', '{q2}')")
+    m2, _ = db.rpc(SERVER, 'maintenance')
+    eq('the purge stops at its bound for the night (purge_per_run, here 1) and the next run goes on',
+       [m1.get('removed_purged'), left, m2.get('removed_purged'), db.one(f"select count(*) from public.pupils where id in ('{q1}', '{q2}')")], [1, '1', 1, '0'])
+    db.admin("update private.settings set purge_per_run = 200")
+    db.admin(f"delete from public.pupils where class_id = '{C1}' and display_name in ('Lulu', 'Momo', 'Pazit') or id in ('{k3}', '{k5}'); delete from auth.users where id = '{ku}'; delete from private.deletions")
+
 
 def test_storage(db):
     """The free plan's 500 MB: what one pupil's device can add in a day, and the brake for everybody (PR 12 re-check)."""
@@ -481,7 +682,7 @@ def test_storage(db):
     sv_uid, sv_pid = U(0xD01), U(0xD02)
     db.admin(f"insert into auth.users (id) values ('{sv_uid}'); insert into public.pupils (id, class_id, display_name, auth_user_id) values ('{sv_pid}', '{C2}', 'Saver', '{sv_uid}')")
     S = ('authenticated', sv_uid)
-    day = lambda: db.admin(f"select saves, save_kb from private.pupil_days where pupil_id = '{sv_pid}' and day = (now() at time zone 'Asia/Jerusalem')::date")
+    day = lambda: db.admin(f"select saves, save_kb from private.pupil_days where pupil_id = '{sv_pid}' and day = (now() at time zone (select tz from private.settings))::date")
     print('-- save_progress is rationed (review PB1b)')
     r1, err = db.rpc(S, 'save_progress', dict(p_state={'a': 1}))
     r2, _ = db.rpc(S, 'save_progress', dict(p_state={'a': 1}, p_base=r1['updated_at']))
@@ -642,7 +843,7 @@ def main():
     try:
         if '--load' not in args:
             fixture(db)
-            test_catalogue(db); test_anon(db); test_pupil(db); test_points(db); test_teacher(db); test_storage(db)
+            test_catalogue(db); test_anon(db); test_pupil(db); test_points(db); test_teacher(db); test_removal(db); test_storage(db)
         if '--no-load' not in args:
             test_load(db)
     finally:
