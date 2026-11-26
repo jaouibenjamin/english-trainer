@@ -61,7 +61,7 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 |---|---|---|---|
 | C1 | 💻 Owner | Download the Sheet's pupils tab as CSV (File → Download → CSV) into a folder **outside** the repository. | Delete the file. |
 | C2 | 💻 Owner ⚠ | **Copies the class's names and code hashes into Supabase (the dry run reads them all): needs the owner's explicit yes.** Dry run, with `WI_DATABASE_URL` read as above: `python3 tools/migrate_sheet.py <file>.csv --class <class_id>`. Read the counts; they must match the class list. | Nothing was written. |
-| C3 | 💻 Owner ⚠ | **Copies the class's names and code hashes into Supabase: needs the owner's explicit yes.** The same command with `--apply`. Then `python3 tools/migrate_sheet.py --wrap` (with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in the environment). Then delete the CSV. | Safe to run again: the Sheet's record replaces the copy. |
+| C3 | 💻 Owner ⚠ | **Copies the class's names and code hashes into Supabase: needs the owner's explicit yes.** The same command with `--apply`. Then `python3 tools/migrate_sheet.py --wrap` (with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in the environment). Then delete the CSV. | Safe to run again: the Sheet's record replaces the copy. A pupil the teacher took out of the class on the teacher screen is skipped (counted in `skipped_removed`), never brought back; a pupil she deleted for good is not known any more, so a second run copies that name again: run C3 again only before the teacher starts using the screen's remove and delete. |
 | C4 | 💻 Owner | Copy phase on: `admin-class` with `{"action":"shadow_on"}` (same `curl` as B6). | `{"action":"shadow_off"}`, which ends every copy session at once. |
 
 ## D. The client (engineer and lead)

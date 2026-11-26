@@ -2,7 +2,7 @@
 // Every name, code and address here is made up.
 import { asUser, clock, DAY, deps, e, eq, freshIp, HOUR, log, MIN, newClass, ok, pepper, pupilId, recOtc, recPic, reg, reset, saves, SCHOOL, settings, sql, user } from "./helpers.ts";
 import { kdf, legacySheetHash, stats, tag } from "../_shared/crypto.ts";
-import { adminClass, type Body, login, type Reply, teacherReset, wrapLegacy } from "../_shared/core.ts";
+import { adminClass, type Body, locked, login, type Reply, teacherReset, wrapLegacy } from "../_shared/core.ts";
 import { addressBucket, clientIp, handler } from "../_shared/http.ts";
 import { gotrueSessions } from "../_shared/gotrue.ts";
 import { isName, isWeakCode } from "../_shared/validate.ts";
@@ -740,6 +740,43 @@ T("removed from the class (0009): the sign-in no longer finds the name, the open
   const back = await asTeacher((tx) => tx`select public.teacher_restore_pupil(${pid}::uuid) as v`);
   eq(back[0].v.ok, true, "undo");
   eq(e(await log(c, "Remy", "4827", { ip: freshIp() })), "ok", "and the same code signs in again: nothing of the pupil's secrets was touched");
+  clock.ms += 2 * DAY;
+});
+
+T("review of #94, B1: a removal that lands between the sign-in's check and its session gets no session", async () => {
+  const c = await newClass();
+  await reg(c, "Gili", "4827");
+  const pid = await pupilId(c, "Gili");
+  const t = await teacherOf(c);
+  const asTeacher = (q: string) => sql.begin(async (tx) => {
+    await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: t, role: "authenticated" })}, true)`;
+    await tx`set local role authenticated`;
+    return await tx.unsafe(q);
+  });
+  await asTeacher(`select public.teacher_remove_pupil('${pid}')`);
+  await asTeacher(`select public.teacher_restore_pupil('${pid}')`);   // back, with no auth user: the next sign-in creates one
+  clock.ms += HOUR;
+  const users0 = (await sql`select count(*)::int as n from auth.users`)[0].n;
+  // the code is right and auth_finish has committed; the teacher removes the pupil just before the session is linked
+  const racing = { ...deps, sessions: { ...deps.sessions, create: async () => { await asTeacher(`select public.teacher_remove_pupil('${pid}')`); return await deps.sessions.create(); } } };
+  const r = await login(racing, { class_code: c.code, name: "Gili", code: "4827" }, { ip: freshIp() });
+  eq([e(r), (await sql`select auth_user_id from public.pupils where id = ${pid}`)[0].auth_user_id, (await sql`select count(*)::int as n from auth.users`)[0].n],
+    ["pin", null, users0], "answered like an unknown name; no session linked; the auth user made for it is deleted again");
+  clock.ms += 2 * DAY;
+});
+
+T("review of #93: the device's own daily limit says 'device'; the functions never pass on an unknown scope or help", async () => {
+  const c = await newClass();
+  const mine = await reg(c, "Dalit", "4827");
+  clock.ms += HOUR;
+  for (let i = 0; i < 5; i++) await log(c, "Dalit", "9053", { device_token: tok(mine) });
+  clock.ms += 6 * MIN;
+  for (let i = 0; i < 5; i++) await log(c, "Dalit", "9053", { device_token: tok(mine) });
+  clock.ms += 16 * MIN;                                                  // both waits are over; 10 wrong today on this phone
+  const r = await log(c, "Dalit", "4827", { device_token: tok(mine) }) as Body;
+  eq([r.e, r.by, r.help], ["locked", "device", "teacher"], "her phone's 10 wrong codes of the day: 'device', her unlock ends it");
+  eq(locked({ wait: 5, by: "<b>x</b>", help: "lift-me" }), { ok: false, e: "locked", wait: 5, by: "name", help: "wait" },
+    "an unknown scope reads as 'name' and an unknown help as 'wait': a screen is never told a lift is possible when it is not");
   clock.ms += 2 * DAY;
 });
 

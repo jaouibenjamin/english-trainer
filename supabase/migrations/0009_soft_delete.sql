@@ -12,10 +12,11 @@
 
 alter table private.settings add column removed_days int not null default 14 check (removed_days between 1 and 60);
 
--- the hidden class of each class that removed a pupil
+-- the hidden class of each class that removed a pupil. A class deleted by hand leaves its hidden class behind
+-- (class_id becomes null); the purge then deletes what is left in it and drops it (review of #94, S4)
 create table private.limbo (
-  class_id uuid primary key references public.classes on delete cascade,
-  limbo_id uuid not null unique references public.classes on delete cascade
+  limbo_id uuid primary key references public.classes on delete cascade,
+  class_id uuid unique references public.classes on delete set null
 );
 alter table private.limbo enable row level security;
 
@@ -29,6 +30,14 @@ create table private.removed_pupils (
 alter table private.removed_pupils enable row level security;
 create index removed_pupils_at on private.removed_pupils (removed_at);
 
+create function private.is_limbo(p_class uuid) returns boolean language sql stable security definer set search_path = '' as
+  $$ select exists (select 1 from private.limbo where limbo_id = p_class) $$;
+
+-- Locks, always in this order (review of #94, B1, B2, S1): the class's removal lock ('limbo/' || class), then the
+-- name (private.name_lock, as every sign-in step and register_pupil), then the class's head count (43, as
+-- register_pupil). A sign-in that has the name finishes before a removal starts, and the next step of that sign-in
+-- (linking its session, link_auth_user below) takes the name again, so it sees the removal and refuses.
+
 /* "Remove from class": hers only. Returns {ok, purge_at} or {ok: false, e: 'taken'} when a pupil of the same name is
    already waiting in this class's removed list. */
 create function public.teacher_remove_pupil(p_pupil uuid) returns jsonb
@@ -39,10 +48,13 @@ begin
   select * into p from public.pupils where id = p_pupil;
   if p.id is null or not app.teaches(p.class_id) then raise exception 'not your pupil' using errcode = '42501'; end if;
   perform pg_advisory_xact_lock(hashtextextended('limbo/' || p.class_id::text, 42));
+  perform private.name_lock(p.class_id, p.name_key);
+  select * into p from public.pupils where id = p_pupil for update;      -- as it is now: a sign-in may have linked a session
+  if p.id is null or not app.teaches(p.class_id) then raise exception 'not your pupil' using errcode = '42501'; end if;
   select limbo_id into v_limbo from private.limbo where class_id = p.class_id;
   if v_limbo is null then
     insert into public.classes (name, roster_only, max_pupils) values ('removed', true, 200) returning id into v_limbo;
-    insert into private.limbo (class_id, limbo_id) values (p.class_id, v_limbo);
+    insert into private.limbo (limbo_id, class_id) values (v_limbo, p.class_id);
   end if;
   if exists (select 1 from public.pupils where class_id = v_limbo and name_key = p.name_key) then
     return jsonb_build_object('ok', false, 'e', 'taken');
@@ -53,21 +65,28 @@ begin
   return jsonb_build_object('ok', true, 'purge_at', now() + make_interval(days => s.removed_days));
 end $$;
 
-/* "Undo": back to the class, if the name is still free there and the class is not full. */
+/* "Undo": back to the class, if the name is still free there and the class is not full. Under the same locks as
+   a registration (name, then head count), so the two can never both take the name or the last place. */
 create function public.teacher_restore_pupil(p_pupil uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare r private.removed_pupils; p public.pupils; c public.classes;
+declare r private.removed_pupils; p public.pupils; c public.classes; s private.settings;
 begin
+  select * into s from private.settings;
   select * into r from private.removed_pupils where pupil_id = p_pupil;
   if r.pupil_id is null or not app.teaches(r.class_id) then raise exception 'not your pupil' using errcode = '42501'; end if;
   perform pg_advisory_xact_lock(hashtextextended('limbo/' || r.class_id::text, 42));
-  select * into p from public.pupils where id = r.pupil_id;
-  select * into c from public.classes where id = r.class_id;
+  select * into r from private.removed_pupils where pupil_id = p_pupil;   -- the purge may have run meanwhile
+  select * into p from public.pupils where id = p_pupil for update;
+  if r.pupil_id is null or p.id is null or not private.is_limbo(p.class_id) then return jsonb_build_object('ok', false, 'e', 'gone'); end if;
+  perform private.name_lock(r.class_id, p.name_key);
   if exists (select 1 from public.pupils where class_id = r.class_id and name_key = p.name_key) then
-    return jsonb_build_object('ok', false, 'e', 'taken');
+    return jsonb_build_object('ok', false, 'e', 'taken', 'purge_at', r.removed_at + make_interval(days => s.removed_days));
   end if;
+  perform pg_advisory_xact_lock(hashtextextended(r.class_id::text, 43));
+  select * into c from public.classes where id = r.class_id;
   if (select count(*) from public.pupils where class_id = r.class_id) >= c.max_pupils then return jsonb_build_object('ok', false, 'e', 'full'); end if;
-  update public.pupils set class_id = r.class_id where id = p.id;
+  update public.pupils set class_id = r.class_id where id = p.id and class_id = p.class_id;
+  if not found then return jsonb_build_object('ok', false, 'e', 'gone'); end if;
   delete from private.removed_pupils where pupil_id = p.id;
   return jsonb_build_object('ok', true);
 end $$;
@@ -79,17 +98,20 @@ language sql stable security definer set search_path = '' as $$
   from private.removed_pupils r join public.pupils p on p.id = r.pupil_id cross join private.settings s
   where app.teaches(r.class_id) order by p.display_name $$;
 
-/* the deletion itself, shared by "delete for good" and the purge: the name's sign-in records, then the pupil
-   (cascading to every table keyed by the pupil) and its auth user; a row in private.deletions, never the name */
+/* the deletion itself, shared by "delete for good" and the purge: the pupil (cascading to every table keyed by the
+   pupil) and its auth user, a row in private.deletions (never the name), and the name's sign-in records unless
+   another pupil of the class holds that name now (they are hers: review of #94, S2) */
 create function private.delete_pupil(p_pupil uuid, p_class uuid, p_by uuid) returns void
 language plpgsql security definer set search_path = '' as $$
 declare p public.pupils;
 begin
   select * into p from public.pupils where id = p_pupil;
   if p.id is null then return; end if;
-  delete from private.auth_attempts    where class_id = p_class and name_key = p.name_key;
-  delete from private.auth_buckets     where class_id = p_class and name_key = p.name_key;
-  delete from private.auth_lock_events where class_id = p_class and name_key = p.name_key;
+  if not exists (select 1 from public.pupils where class_id = p_class and name_key = p.name_key and id <> p.id) then
+    delete from private.auth_attempts    where class_id = p_class and name_key = p.name_key;
+    delete from private.auth_buckets     where class_id = p_class and name_key = p.name_key;
+    delete from private.auth_lock_events where class_id = p_class and name_key = p.name_key;
+  end if;
   insert into private.deletions (teacher, class_id, pupil_id, answers, points)
     select p_by, p_class, p.id, t.answers, t.points from public.pupil_totals t where t.pupil_id = p.id;
   delete from public.pupils where id = p.id;
@@ -104,21 +126,50 @@ begin
   select * into p from public.pupils where id = p_pupil;
   v_class := coalesce((select class_id from private.removed_pupils where pupil_id = p_pupil), p.class_id);
   if p.id is null or not app.teaches(v_class) then raise exception 'not your pupil' using errcode = '42501'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('limbo/' || v_class::text, 42));
   perform private.delete_pupil(p.id, v_class, auth.uid());
   return true;
 end $$;
 
-/* the nightly purge: pupils removed more than removed_days ago */
+/* the nightly purge, at most 200 a night (docs/LESSONS.md entry 9): pupils removed more than removed_days ago, each
+   checked again under its class's removal lock (an undo that got there first wins: review of #94, B2); then what a
+   class deleted by hand left in its hidden class, and the empty hidden classes of deleted classes */
 create function private.purge_removed(p_now timestamptz) returns int
 language plpgsql security definer set search_path = '' as $$
-declare r private.removed_pupils; n int := 0;
+declare r private.removed_pupils; v record; n int := 0; v_cut timestamptz;
 begin
-  for r in select * from private.removed_pupils
-            where removed_at < p_now - make_interval(days => (select removed_days from private.settings)) loop
-    perform private.delete_pupil(r.pupil_id, r.class_id, r.removed_by);
+  v_cut := p_now - make_interval(days => (select removed_days from private.settings));
+  for r in select * from private.removed_pupils where removed_at < v_cut order by removed_at limit 200 loop
+    perform pg_advisory_xact_lock(hashtextextended('limbo/' || r.class_id::text, 42));
+    if exists (select 1 from private.removed_pupils x join public.pupils p on p.id = x.pupil_id
+                where x.pupil_id = r.pupil_id and x.removed_at < v_cut and private.is_limbo(p.class_id)) then
+      perform private.delete_pupil(r.pupil_id, r.class_id, r.removed_by);
+      n := n + 1;
+    end if;
+  end loop;
+  for v in select p.id, l.limbo_id from private.limbo l join public.pupils p on p.class_id = l.limbo_id
+            where not exists (select 1 from private.removed_pupils x where x.pupil_id = p.id) limit greatest(0, 200 - n) loop
+    perform private.delete_pupil(v.id, v.limbo_id, null);
     n := n + 1;
   end loop;
+  delete from public.classes c using private.limbo l
+   where c.id = l.limbo_id and l.class_id is null and not exists (select 1 from public.pupils p where p.class_id = l.limbo_id);
   return n;
+end $$;
+
+/* as in 0004, and never for a pupil in a hidden class (review of #94, B1): a sign-in creates the auth user between
+   two steps; when the pupil was removed in between, the link is refused (the function then deletes that user and
+   answers "pin"). The name's lock first, as the removal takes it. */
+create or replace function private.link_auth_user(p_pupil uuid, p_user uuid) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare v uuid; p public.pupils;
+begin
+  select * into p from public.pupils where id = p_pupil;
+  if p.id is null or private.is_limbo(p.class_id) then return null; end if;
+  perform private.name_lock(p.class_id, p.name_key);
+  update public.pupils set auth_user_id = p_user where id = p_pupil and auth_user_id is null and not private.is_limbo(class_id);
+  select auth_user_id into v from public.pupils where id = p_pupil and not private.is_limbo(class_id);
+  return v;
 end $$;
 
 -- as in 0003, with the purge of removed pupils
@@ -179,6 +230,64 @@ begin
   return v_out;
 end $$;
 
+
+-- as in 0005, with a name the teacher took out of the class skipped (counted in skipped_removed)
+create or replace function private.sheet_import(p_class uuid, p_rows jsonb) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare s private.settings; r jsonb; v_id uuid; v_name text; v_pts int; v_state jsonb;
+  n_new int := 0; n_seen int := 0; n_removed int := 0; n_blob int := 0; n_hash int := 0; n_bad int := 0; n_err int := 0; v_med numeric; v_out jsonb;
+  d_new int; d_blob int; d_hash int;
+begin
+  if not exists (select 1 from public.classes where id = p_class) then raise exception 'no such class'; end if;
+  if jsonb_typeof(p_rows) <> 'array' then raise exception 'rows must be an array'; end if;
+  select * into s from private.settings;
+  for r in select * from jsonb_array_elements(p_rows) loop
+    v_name := btrim(regexp_replace(normalize(coalesce(r ->> 'name', ''), NFC), '\s+', ' ', 'g'));
+    if not app.name_ok(v_name) then n_bad := n_bad + 1; continue; end if;
+    -- a pupil the teacher took out of this class is not brought back by a copy (review of #94, S3)
+    if exists (select 1 from private.removed_pupils x join public.pupils p on p.id = x.pupil_id
+                where x.class_id = p_class and p.name_key = app.name_key(v_name)) then n_removed := n_removed + 1; continue; end if;
+    v_state := case when jsonb_typeof(r -> 'state') = 'object' and char_length((r -> 'state')::text) <= 40000 then r -> 'state' else '{}'::jsonb end;
+    v_pts := least(app.safe_int(r -> 'points', 1000000), s.migrated_cap);
+    d_new := 0; d_blob := 0; d_hash := 0;
+    -- one row at a time: a row the database refuses is counted and skipped. Caught here, its error and the
+    -- "Failing row contains (...)" detail never reach the server's log (review of #27, B3-bis)
+    begin
+      select id into v_id from public.pupils where class_id = p_class and name_key = app.name_key(v_name);
+      if v_id is null then
+        d_new := 1;
+        insert into public.pupils (class_id, display_name) values (p_class, v_name) returning id into v_id;
+        if v_pts > 0 then
+          insert into public.points (pupil_id, delta, reason, ref) values (v_id, v_pts, 'migrated', 'sheet');
+          update public.pupil_totals set points = points + v_pts where pupil_id = v_id;
+        end if;
+      end if;
+      insert into public.progress (pupil_id, state, updated_at) values (v_id, v_state, now())
+        on conflict (pupil_id) do update set state = excluded.state, updated_at = excluded.updated_at
+        where public.progress.state is distinct from excluded.state;
+      get diagnostics d_blob = row_count;
+      if coalesce(r ->> 'hash', '') ~ '^[0-9a-f]{64}$' and coalesce(r ->> 'salt', '') <> ''
+         and not exists (select 1 from private.pupil_secrets where pupil_id = v_id and code_hash is not null) then
+        insert into private.legacy_import (pupil_id, salt, hash) values (v_id, r ->> 'salt', r ->> 'hash')
+          on conflict (pupil_id) do update set salt = excluded.salt, hash = excluded.hash;
+        d_hash := 1;
+      end if;
+      n_new := n_new + d_new; n_seen := n_seen + (1 - d_new); n_blob := n_blob + d_blob; n_hash := n_hash + d_hash;
+    exception when others then
+      n_err := n_err + 1;
+    end;
+  end loop;
+  select percentile_cont(0.5) within group (order by t.points) into v_med
+    from public.pupil_totals t join public.pupils p on p.id = t.pupil_id where p.class_id = p_class;
+  select jsonb_build_object('new', n_new, 'existing', n_seen, 'blobs', n_blob, 'hashes_staged', n_hash, 'refused_names', n_bad,
+           'refused_rows', n_err, 'skipped_removed', n_removed, 'median', coalesce(v_med, 0),
+           'look_at', coalesce((select jsonb_agg(p.display_name order by t.points desc) from public.pupil_totals t
+                                join public.pupils p on p.id = t.pupil_id
+                               where p.class_id = p_class and v_med > 0 and t.points > 3 * v_med), '[]'::jsonb))
+    into v_out;
+  -- a dry run is the caller's ROLLBACK (tools/migrate_sheet.py)
+  return v_out;
+end $$;
 
 -- as in 0005, with the two new tables (after the pupils, for the restore's order)
 create or replace function private.backup_tables() returns text[] language sql immutable set search_path = '' as $$

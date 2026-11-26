@@ -526,7 +526,7 @@ def test_removal(db):
     db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=r1))
     db.admin(f"insert into public.pupils (class_id, display_name) values ('{C1}', 'Remy')")      # a new pupil took the name meanwhile
     v, _ = db.rpc(T, 'teacher_restore_pupil', dict(p_pupil=r1))
-    eq('undo while a new pupil has the name: refused as taken, nothing moves', [v, in_view(T, r1)], [dict(ok=False, e='taken'), False])
+    eq('undo while a new pupil has the name: refused as taken (with the day the removed record goes), nothing moves', [v.get('ok'), v.get('e'), bool(v.get('purge_at')), in_view(T, r1)], [False, 'taken', True, False])
     v, err = db.rpc(T, 'teacher_delete_pupil', dict(p_pupil=r1))
     check('delete for good works on a removed pupil at once (a parent\'s request does not wait 14 days)', err is None and db.one(f"select count(*) from public.pupils where id = '{r1}'") == '0'
           and db.one(f"select count(*) from public.answers where pupil_id = '{r1}'") == '0', err)
@@ -537,7 +537,67 @@ def test_removal(db):
     eq('the nightly maintenance deletes a pupil removed 15 days ago, for good, and not one removed today',
        [m.get('removed_purged'), db.one(f"select count(*) from public.pupils where id = '{r2}'"), db.one(f"select count(*) from public.pupils where id = '{r3}'"),
         db.one(f"select count(*) from private.deletions where pupil_id = '{r2}' and teacher = '{T1}' and class_id = '{C1}'")], [1, '0', '1', '1'])
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '13 days' where pupil_id = '{r3}'")
+    m, _ = db.rpc(SERVER, 'maintenance')
+    eq('removed 13 days ago: still there (the purge waits the whole 14 days)', [m.get('removed_purged'), db.one(f"select count(*) from public.pupils where id = '{r3}'")], [0, '1'])
     db.admin(f"delete from public.pupils where id in ('{r3}') or (class_id = '{C1}' and display_name = 'Remy'); delete from private.deletions where pupil_id in ('{r1}', '{r2}')")
+
+    print('-- review of #94: the sign-in, the purge and the undo against each other')
+    teacher_tx = lambda sql: f"begin; select set_config('request.jwt.claims', '{json.dumps(dict(role='authenticated', sub=T1))}', true); set local role authenticated; {sql}"
+    def two(first, second, hold=0.8):
+        """first runs in its own session and holds its locks for `hold` seconds; second starts meanwhile"""
+        out = {}
+        th = threading.Thread(target=lambda: out.setdefault('a', db.psql(first + f" select pg_sleep({hold}); commit;")))
+        th.start(); time.sleep(0.3); out['b'] = db.psql(second); th.join()
+        return out['a'], out['b']
+    k1, ku = U(0xE21), U(0xE22)
+    db.admin(f"insert into auth.users (id) values ('{ku}'); insert into public.pupils (id, class_id, display_name) values ('{k1}', '{C1}', 'Kiki')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k1))
+    eq('B1: the sign-in\'s last step (link the session) for a pupil removed meanwhile: refused, nothing linked',
+       [db.one(f"select coalesce(private.link_auth_user('{k1}', '{ku}')::text, 'null')"), db.one(f"select coalesce(auth_user_id::text, '-') from public.pupils where id = '{k1}'")], ['null', '-'])
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id = '{k1}'")
+    a, b = two(teacher_tx(f"select public.teacher_restore_pupil('{k1}') ->> 'ok';"), "select private.purge_removed(now());")
+    eq('B2: an undo that starts first wins: the purge waits for it, finds the pupil back in the class, deletes nothing',
+       [a[1], b[0][0][0] if b[0] else None, db.one(f"select count(*) from public.pupils where id = '{k1}' and class_id = '{C1}'")], [None, '0', '1'])
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k1))
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id = '{k1}'")
+    a, b = two("begin; select private.purge_removed(now());", teacher_tx(f"select public.teacher_restore_pupil('{k1}')::text; commit;"))
+    eq('B2: a purge that starts first wins: the undo waits, then says the pupil is gone (never "back")',
+       [json.loads(b[0][-1][0]) if b[0] else b, db.one(f"select count(*) from public.pupils where id = '{k1}'")], [dict(ok=False, e='gone'), '0'])
+    k2 = U(0xE23)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{k2}', '{C1}', 'Lulu')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k2))
+    nw = json.dumps(dict(code_salt='01', code_hash='ee' * 32, pic_salt='02', pic_hash='dd' * 32, iter=600000))
+    db.admin(f"insert into public.roster (class_id, name_key, display_name) values ('{C1}', 'lulu', 'Lulu') on conflict do nothing")
+    a, b = two(f"begin; select private.register_pupil('{U(0xE24)}', '{C1}', 'Lulu', '{nw}'::jsonb, '00', now()) ->> 's';",
+               teacher_tx(f"select public.teacher_restore_pupil('{k2}') ->> 'e'; commit;"))
+    eq('S1: an undo while the same name registers: it waits for the name, then says taken (no raw error that would carry the name)',
+       [a[1], b[1], [r for r in a[0] + b[0] if r and r[0] in ('taken', 'ok')]], [None, None, [['ok'], ['taken']]])
+    db.admin(f"insert into private.auth_lock_events (class_id, name_key, kind) values ('{C1}', 'lulu', 'code')")
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id = '{k2}'")
+    db.rpc(SERVER, 'maintenance')
+    eq("S2: purging the removed Lulu keeps the new Lulu's sign-in records (the name is hers now)",
+       [db.one(f"select count(*) from public.pupils where id = '{k2}'"), db.one(f"select count(*) from private.auth_lock_events where class_id = '{C1}' and name_key = 'lulu'")], ['0', '1'])
+    k3 = U(0xE25)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{k3}', '{C1}', 'Momo')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k3))
+    imp = json.loads(db.one(f"""select private.sheet_import('{C1}', '[{{"name": "Momo", "points": 5}}]'::jsonb)::text"""))
+    eq('S3: the Sheet import skips a name the teacher took out of the class, and says so',
+       [imp.get('skipped_removed'), imp.get('new'), db.one(f"select count(*) from public.pupils where class_id = '{C1}' and name_key = 'momo'")], [1, 0, '0'])
+    db.admin(f"update public.classes set max_pupils = (select count(*) from public.pupils where class_id = '{C1}') where id = '{C1}'")
+    v, _ = db.rpc(T, 'teacher_restore_pupil', dict(p_pupil=k3))
+    eq('S5: undo into a full class: refused as full', v, dict(ok=False, e='full'))
+    db.admin(f"update public.classes set max_pupils = 60 where id = '{C1}'")
+    c3, k4 = U(0xC3), U(0xE26)
+    db.admin(f"insert into public.classes (id, name) values ('{c3}', 'gone class'); insert into public.teachers values ('{T1}', '{c3}');"
+             f"insert into public.pupils (id, class_id, display_name) values ('{k4}', '{c3}', 'Nini')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k4))
+    lim = db.one(f"select limbo_id from private.limbo where class_id = '{c3}'")
+    db.admin(f"delete from public.classes where id = '{c3}'")           # the owner deletes a class by hand
+    db.rpc(SERVER, 'maintenance')
+    eq('S4: a class deleted by hand: what it left in its hidden class is deleted by the next purge, and the hidden class dropped',
+       [db.one(f"select count(*) from public.pupils where id = '{k4}'"), db.one(f"select count(*) from public.classes where id = '{lim}'")], ['0', '0'])
+    db.admin(f"delete from public.pupils where class_id = '{C1}' and display_name in ('Lulu', 'Momo') or id = '{k3}'; delete from auth.users where id = '{ku}'; delete from private.deletions")
 
 
 def test_storage(db):

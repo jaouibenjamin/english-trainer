@@ -104,6 +104,8 @@ def standin(log, st):
             if fn == 'teacher_remove_pupil' and row:
                 view.remove(row); gone.append(dict(pupil_id=pid_, class_id=C1, display_name=row['display_name'], removed_at='2026-11-26T08:00:00Z', purge_at='2026-12-10T08:00:00Z', row=row))
                 return await r.fulfill(status=200, headers=CORS, json=dict(ok=True, purge_at='2026-12-10T08:00:00Z'))
+            if fn == 'teacher_restore_pupil' and st.get('restore_reply'):
+                return await r.fulfill(status=200, headers=CORS, json=st.pop('restore_reply'))
             if fn == 'teacher_restore_pupil' and out_:
                 gone.remove(out_); view.append(out_['row'])
                 return await r.fulfill(status=200, headers=CORS, json=dict(ok=True))
@@ -360,10 +362,10 @@ async def actions(pg, tag, log, said, st):
     check(f'[{tag}] and nowhere else either (RegExp statics, heap)', await traces(pg) == [], await traces(pg))
     check(f'[{tag}] the code was never written to the console', not any(OTC in m for m in said), [m for m in said if OTC in m])
     await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
-    await out_of_class(pg, tag, log)
+    await out_of_class(pg, tag, log, said, st)
 
 
-async def out_of_class(pg, tag, log):
+async def out_of_class(pg, tag, log, said, st):
     """0009: out of the class (14 days to undo), back, and delete for good after typing the name."""
     calls = lambda n, fn: [json.loads(x['body']) for x in log[n:] if x['path'] == '/rest/v1/rpc/' + fn and x['method'] == 'POST']
     n = len(log)
@@ -373,18 +375,26 @@ async def out_of_class(pg, tag, log):
     check(f'[{tag}] out: one call for that pupil; off the table, on the removed list with the day it is deleted for good',
           calls(n, 'teacher_remove_pupil') == [dict(p_pupil=P1)] and await (await row_button(pg, 'פלונית', 'קוד חדש')).count() == 0
           and 'פלונית' in await pg.text_content('#removed li') and '10.12' in await pg.text_content('#removed li'), await pg.text_content('#removed'))
+    st['restore_reply'] = dict(ok=False, e='taken', purge_at='2026-12-10T08:00:00Z')
+    await pg.locator('#removed li', has_text='פלונית').get_by_role('button', name='החזרה לכיתה').click(); await answer(pg, True)
+    await pg.wait_for_function("document.querySelector('#act').textContent.includes('תפוס')")
+    check(f'[{tag}] undo refused as taken: says the name is in use, and the day the removed record is deleted', '10.12' in await pg.text_content('#act') and await pg.locator('#removed li').count() == 1, await pg.text_content('#act'))
+    await P.shot(pg, f'teacher-removed-{tag}')
     await pg.locator('#removed li', has_text='פלונית').get_by_role('button', name='החזרה לכיתה').click(); await answer(pg, True)
     await pg.wait_for_function("!document.querySelector('#removed li')")
-    check(f'[{tag}] back: one call, on the table again, the removed list empty', calls(n, 'teacher_restore_pupil') == [dict(p_pupil=P1)] and await (await row_button(pg, 'פלונית', 'קוד חדש')).count() == 1)
+    check(f'[{tag}] back (the second try): on the table again, the removed list empty', calls(n, 'teacher_restore_pupil') == [dict(p_pupil=P1)] * 2 and await (await row_button(pg, 'פלונית', 'קוד חדש')).count() == 1)
     await (await row_button(pg, 'פלונית', 'הוצאה מהכיתה')).click(); await answer(pg, True); await pg.wait_for_function("document.querySelector('#removed li')")
     await pg.locator('#removed li', has_text='פלונית').get_by_role('button', name='מחיקה לצמיתות').click()
     await pg.wait_for_selector('#ask[open]')
     check(f'[{tag}] delete for good: "yes" waits until the name is typed', await pg.is_visible('#ask-type') and await pg.is_disabled('#ask-yes'))
     await pg.fill('#ask-type', 'פלוני')
     check(f'[{tag}] a wrong name keeps it waiting', await pg.is_disabled('#ask-yes'))
+    await P.shot(pg, f'teacher-delete-dialog-{tag}')
     await pg.fill('#ask-type', ' פלונית ')
     check(f'[{tag}] the right name (spaces do not matter) lets her confirm', await pg.is_enabled('#ask-yes'))
     await pg.click('#ask-yes'); await pg.wait_for_function("document.querySelector('#act').textContent.includes('לצמיתות')")
+    # the screen reloads after the answer: wait for that load to be drawn, not for a fixed time (review of #94, S6)
+    await pg.wait_for_function("!document.querySelector('#removed li') && ![...document.querySelectorAll('#class td.name')].some(x=>x.textContent==='פלונית')")
     check(f'[{tag}] deleted for good: one call, gone from the table and from the removed list', calls(n, 'teacher_delete_pupil') == [dict(p_pupil=P1)]
           and await (await row_button(pg, 'פלונית', 'קוד חדש')).count() == 0 and await pg.locator('#removed li').count() == 0)
     check(f'[{tag}] the typed-name field is emptied after', await pg.input_value('#ask-type') == '')

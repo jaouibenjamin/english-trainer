@@ -47,7 +47,7 @@ const fail = (e: string, wait?: number): Reply => (wait === undefined ? { ok: fa
 /** a "locked" answer with whom it is for (name, device, address, class, everyone, system) and who can end it (teacher or
     only waiting: anything unknown reads as "wait", so a screen never promises a lift that cannot happen); 0008_lock_scope.sql */
 const SCOPES = ["name", "device", "address", "class", "everyone", "system"];
-const locked = (b: { wait?: number; by?: unknown; help?: unknown }): Reply =>
+export const locked = (b: { wait?: number; by?: unknown; help?: unknown }): Reply =>
   ({ ok: false, e: "locked", wait: b.wait as number, by: SCOPES.includes(b.by as string) ? b.by as string : "name", help: b.help === "teacher" ? "teacher" : "wait" });
 /** loose shape before the class's own settings are known: a short list of small whole numbers */
 const picsLike = (x: unknown): x is number[] => isPictures(x, Array.isArray(x) ? x.length : 0, 99) && (x as number[]).length <= 4;
@@ -97,21 +97,22 @@ async function newDevice(d: Deps) {
   return { token, hash: await tag(d.pepper, "dev", token) };
 }
 
-/** the session for a pupil; creates and links the auth user when there is none (first sign-in, or after a sign-out everywhere) */
-async function sessionFor(d: Deps, pupil: string, authUser: string | null): Promise<Session> {
-  let user = authUser;
-  if (!user) {
-    const made = await d.sessions.create();
-    user = (await d.sql`select private.link_auth_user(${pupil}::uuid, ${made}::uuid) as v`)[0].v as string;
-    if (user !== made) await d.sessions.remove(made); // a parallel sign-in linked one first
-  }
-  return d.sessions.issue(user);
+/** the session for a pupil; creates and links the auth user when there is none (first sign-in, or after a sign-out
+    everywhere). null when the teacher took the pupil out of the class between the sign-in's steps: link_auth_user
+    (0009) refuses a pupil in a hidden class, and also answers for a user that is already linked, so that case is
+    checked again too (review of #94, B1) */
+async function sessionFor(d: Deps, pupil: string, authUser: string | null): Promise<Session | null> {
+  const made = authUser ? null : await d.sessions.create();
+  const user = (await d.sql`select private.link_auth_user(${pupil}::uuid, ${authUser ?? made}::uuid) as v`)[0].v as string | null;
+  if (made && user !== made) await d.sessions.remove(made); // a parallel sign-in linked one first, or the pupil was removed
+  return user ? d.sessions.issue(user) : null;
 }
 
 async function opened(d: Deps, r: { pupil: string; auth_user: string | null; old_auth_user?: string | null; name: string }, device?: string): Promise<Reply> {
   if (r.old_auth_user) await d.sessions.remove(r.old_auth_user); // already cut off in the database
   const st = (await d.sql`select private.pupil_state(${r.pupil}::uuid) as v`)[0].v;
   const session = await sessionFor(d, r.pupil, r.auth_user);
+  if (!session) return fail("pin");          // taken out of the class meanwhile: as for an unknown name
   return { ok: true, session, s: st.state ?? {}, updated_at: st.updated_at ?? null, name: r.name, ...(device ? { device_token: device } : {}) };
 }
 

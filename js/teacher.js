@@ -145,7 +145,8 @@ const bringBack=(id,name)=>act(`להחזיר את ${name} לכיתה? כל הנ�
  const r=await rpc('teacher_restore_pupil',id);
  if(!r||e!==epoch)return;
  if(r.status===200&&r.j&&r.j.ok===true){say(`${name} חזר/ה לכיתה.`);load()}
- else say(r.j&&r.j.e==='taken'?`בינתיים נרשם/ה לכיתה תלמיד/ה אחר/ת בשם ${name}, ולכן אי אפשר להחזיר.`:r.j&&r.j.e==='full'?'הכיתה מלאה.':fail(r))});
+ else say(r.j&&r.j.e==='taken'?`אי אפשר להחזיר: השם ${name} תפוס עכשיו בכיתה (נרשם/ה תלמיד/ה חדש/ה בשם הזה). הרשומה של מי שהוצא/ה נשארת ברשימת המוצאים עד ${day(r.j.purge_at)}, ואז נמחקת לצמיתות. אפשר גם למחוק אותה עכשיו.`
+  :r.j&&r.j.e==='full'?'אי אפשר להחזיר: הכיתה מלאה.':r.j&&r.j.e==='gone'?`הרשומה של ${name} כבר נמחקה לצמיתות.`:fail(r))});
 const forGood=(id,name)=>act(`למחוק את ${name} לצמיתות? כל מה ששמור עליו/עליה נמחק עכשיו, ואי אפשר לבטל. כדי לאשר, כתבו את השם:`,'מחיקה לצמיתות',async e=>{
  const r=await rpc('teacher_delete_pupil',id);
  if(!r||e!==epoch)return;
