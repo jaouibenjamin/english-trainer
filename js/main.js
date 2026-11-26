@@ -3,7 +3,7 @@ import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
 import {S,SET,saveSet,save,API,ERR,api,cred,auth,takeNewPin,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
 import {initHelp,helpKnown,setHelp,clearNotes} from './help.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
-import {$,view,stage,SP,BG,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
+import {$,view,stage,SP,BG,preload,CORE,standIn,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
 import * as sling from './sling.js';
 import * as listen from './listen.js';
 import * as read from './read.js';
@@ -355,25 +355,20 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(V.name==='map')map();else if(V.name==='math')M.map();else if(V.name==='title')title()},150)});
 
 /* With the design flag, an old-look picture that the new look draws over (the new art is the img's background, the old
-   one is pushed out of its box or the box has no height: css/ds*.css) is not downloaded at all: it gets an empty stand-in
-   of the same size in srcset, which the browser takes instead of src. The CSS selectors that match on src keep working.
-   If the new look's style sheets are not in yet, nothing changes and the old picture loads as before. Never without the flag. */
-/* the old pictures the new look draws over, with their own size: the stand-in keeps that size (an empty SVG of the
-   same width and height), so a box sized from the picture stays as it was. A picture not listed is downloaded as before.
-   tests/weight.py checks the sizes against the files. */
-const NAT={isl_1:[560,388],isl_2:[560,461],isl_3:[560,448],isl_4:[560,394],isl_5:[560,407],isl_6:[560,422],star:[200,183],star_off:[200,183],
- lock:[288,379],ic_gear:[200,199],crab_wave:[326,296],crab_star:[322,342],crab_happy:[340,351]};
-const SVGNS='http://www.w3.org/2000/svg';   // an XML namespace name, never fetched
-const blank=n=>NAT[n]?'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="${SVGNS}" width="${NAT[n][0]}" height="${NAT[n][1]}"/>`)+' 1x':'';
+   one is pushed out of its box or the box has no height: css/ds*.css) is not downloaded at all. js/ui.js spr() writes an
+   empty stand-in of its own size into the tag's srcset (the browser takes it instead of src, and never starts on src:
+   Safari starts at once on an img that has only src), with a marker. Once the picture is on the page, one the new look
+   does NOT draw over (or every one, if the new look's style sheets are not in yet) gets its own picture back (dsSettle).
+   An old picture made some other way is checked when it arrives (dsSkip; Safari may have started on it by then:
+   tests/weight.py fails if that happens on the screens it checks). Never without the flag. */
+const SPRITE=/(^|\/)assets\/sp\/([a-z_0-9]+)\.webp$/;
+const drawnOver=im=>{const cs=getComputedStyle(im);return cs.backgroundImage.includes('url(')&&(cs.objectPosition.startsWith('-9999')||cs.height==='0px')};
+function dsSettle(root){const L=root.matches&&root.matches('img[data-wi-sp]')?[root]:root.querySelectorAll?root.querySelectorAll('img[data-wi-sp]'):[];
+ for(const im of L){if(!drawnOver(im))im.removeAttribute('srcset');im.removeAttribute('data-wi-sp')}}
 function dsSkip(root){if(!root||!root.querySelectorAll)return;const L=root.tagName==='IMG'?[root]:root.querySelectorAll('img[src]:not([srcset])');
- for(const im of L){if(im.hasAttribute('srcset'))continue;const m=/(^|\/)assets\/sp\/([a-z_0-9]+)\.webp$/.exec(im.getAttribute('src')||''),b=m&&blank(m[2]);if(!b)continue;
-  const cs=getComputedStyle(im);if(cs.backgroundImage.includes('url(')&&(cs.objectPosition.startsWith('-9999')||cs.height==='0px'))im.srcset=b}}
-function dsSkipOld(){dsSkip(stage);
- /* the screens are drawn by setting #view's innerHTML: checked right there, before the browser asks for the pictures
-    (it does so a moment later); anything added elsewhere is checked when it arrives */
- const d=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
- Object.defineProperty(view,'innerHTML',{configurable:true,get(){return d.get.call(this)},set(v){d.set.call(this,v);dsSkip(this)}});
- new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)if(n.nodeType===1)dsSkip(n)}).observe(stage,{childList:true,subtree:true})}
+ for(const im of L){if(im.hasAttribute('srcset'))continue;const m=SPRITE.exec(im.getAttribute('src')||''),b=m&&standIn(m[2]);if(b&&drawnOver(im))im.srcset=b}}
+function dsSkipOld(){dsSettle(stage);dsSkip(stage);
+ new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)if(n.nodeType===1){dsSettle(n);dsSkip(n)}}).observe(stage,{childList:true,subtree:true})}
 
 /* ---------- boot ---------- */
 /* the printable worksheet (worksheet.html) is behind a switch a device gets with ?sheet=1 and loses with ?sheet=0 */
