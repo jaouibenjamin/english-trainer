@@ -1,9 +1,10 @@
 # Phase 4 proposal: a fresh start, the whole school by grade and class, and new levels from teachers' material (DRAFT)
 
 Status: a proposal for the lead and the owner, written from the owner's decisions of 2026-11-26 and his additions of
-the same day. Revised after the lead's review of the first version (2909e59), and checked against migrations 0001
-to 0009 as they are on `game`. The owner will check the details with the teacher, so this is direction, not final.
-No code yet. Decisions that are the owner's are marked **[owner]**; each has a recommended answer at the end.
+the same day. Revised after the lead's reviews of 2909e59 and 270e17a, and checked against migrations 0001 to 0009 as
+they are on `game`. The owner will check the details with the teacher, so this is direction, not final.
+No code yet. Decisions that are the owner's are marked **[owner]**; each decision, the owner's (O) or the team's (T),
+has a recommended answer at the end.
 
 The owner's three decisions:
 
@@ -27,11 +28,12 @@ time, each with its own review:
 
 | In version 1 | After version 1 |
 |---|---|
-| The fresh start (A): new sign-in, its own storage on the device, a trial class, switch day | Subject groups and the group board |
-| Grades and school years in the schema; `classes.grade_id`; a subject on items and points | The grade board |
-| The teacher check split into "home-class teacher" (may change) and "reads a subject" (reads only) | Teachers of a whole grade or of a group |
-| One random class code per class, as today | An admin page (version 1 is the owner's command line) |
-| The roll-ups that stop the database from growing with time (B, "Growth") | The upload inbox (C). Until then the teacher gives her material to the owner, and he passes it on by hand |
+| The fresh start (A): new sign-in, the device's storage for the new backend, a trial class, switch day | Subject teachers (of a class, a grade or a group) and the read-only check for them (B, "Two checks") |
+| `PHASE3.md` step 5: the pupil screens with the pictures, now two flows (registration, "I forgot my code"), approved by the owner | The limits per address and class (B, "Sign-in capacity"); one class fits today's limits |
+| `PHASE3.md` step 6: `'supabase'` mode finished (today `js/api.js` line 35 still refuses it without `unfinished: true`): no code kept on the device, board and record from Supabase | Subject groups, the group board and the grade board |
+| Grades and school years in the schema; `classes.grade_id`; limbo classes marked; a subject on items and points | An admin page (version 1 is the owner's command line) |
+| One random class code per class, as today | The upload inbox (C). Until then the teacher gives her material to the owner, and he passes it on by hand |
+| The roll-ups that stop the database from growing with time (B, "Growth") | |
 
 The rest of this document describes the whole design, so that version 1's schema is right for it.
 
@@ -72,10 +74,19 @@ Today the game keeps progress on the device under `aam-unit1-v1` (`js/state.js`,
 class device would `merge()` the old local progress into the "fresh" account. And a way back to the Sheet would find
 that old progress overwritten by the new game's.
 
-So the new backend gets **its own keys on the device** (for example `wi-new-v1-<project ref>`), and it never reads the
-old key. The old key stays as it is, so the way back finds the Sheet-era progress where it was. This is a change in
-the trial switch's client code (the client engineer's), with a test: a device with old progress signs in to the new
-backend and starts at zero, then switches back and finds the old progress unchanged.
+So the new backend gets **its own key on the device** (for example `wi-new-v1`), and it never reads the old key.
+The old key stays as it is, so the way back finds the Sheet-era progress where it was.
+
+The new key is still **one key per device** (as `js/state.js` line 7 is today), and a device is shared: a trial device
+that later signs in to the real class, or a class tablet passed from child to child, would `merge()` the last
+pupil's progress into the next account. So the key is stored with the class id and pupil id it belongs to, and it is
+**cleared whenever the class or the pupil signing in differs** from them, before any `merge()`. This is a change in
+the client (the client engineer's), with tests:
+
+- a device with Sheet-era progress signs in to the new backend and starts at zero, then switches back and finds the
+  old progress unchanged;
+- a device used in the trial class signs in to the real class and starts at zero;
+- pupil A signs out, pupil B signs in on the same device: B gets nothing of A's.
 
 ### The way back, honestly
 
@@ -150,7 +161,7 @@ Sign-ups are off (`docs/BACKEND.md` 4.1, runbook A3: "sign-ups off"), and with G
 teacher is on a named list of test users anyway. So the invite codes of the first version go: **the owner adds a
 teacher and her assignment in one step** from the command line (later the admin page): her auth user, her Google
 address on the test-user list, and her row. He removes her the same way. Nobody becomes a teacher, or an admin,
-through the app. **[owner: Google in Testing mode with a named list, or in Production with only the basic scopes]**
+through the app. Google stays in Testing mode with a named list while it is a few teachers (a team decision, below).
 
 ### Two checks, not one (a blocker of the first version)
 
@@ -169,11 +180,13 @@ So there are two separate checks:
 | Check | Who passes | What it allows |
 |---|---|---|
 | `app.teaches(class)`, unchanged in meaning: reads `teachers`, which stays a **table of home-class teachers** | the teacher of that home class; the owner as admin through his own functions | everything it allows today: the roster, reset, unlock, remove, restore, delete, the class's full view |
-| `app.reads_subject(class, subject)`, new | a teacher assigned to that subject for the class, its grade, or a group with pupils of it | **reads only**, through security-definer functions, filtered by subject: names, points, stars and how often a child played, in her subject. No progress blob, no raw answers, no lock or code details, no roster |
+| `app.reads_subject(pupil, subject)`, new, **per pupil** | a teacher assigned to that subject for the pupil's class, the pupil's grade, or the group the pupil is in for that subject | **reads only**, through security-definer functions, filtered by subject: the pupil's name, points, stars and how often they played, in her subject. No progress blob, no raw answers, no lock or code details, no roster |
 
-`teacher_assignments` (subject teachers of a class, a grade or a group) is a separate table that never feeds
-`app.teaches`. `tests/db.py` proves it: a grade teacher and a group teacher call every write function and policy of
-0002 to 0009 on a pupil of the grade and get `not your pupil` (42501), and read only their subject.
+The check is per pupil, never per class: a group teacher whose group holds one child of 4B sees that child, not
+the rest of 4B. `teacher_assignments` (subject teachers of a class, a grade or a group) is a separate table that never
+feeds `app.teaches`. `tests/db.py` proves it: a grade teacher and a group teacher call every write function and policy of
+0002 to 0009 on a pupil of the grade and get `not your pupil` (42501); a group teacher reads her group's children
+and no other child of their classes; each reads only her subject.
 
 ### Subject groups ("each class is a different colour"), after version 1
 
@@ -197,13 +210,13 @@ in the new class (`unique (class_id, name_key)`, under the name locks of both cl
 the pupil, ends their sessions (as `teacher_reset` does), and writes an audit row. Their record goes with them. A move
 to another grade also clears their groups.
 
-### Schema (append-only migrations; version 1 has the first seven rows)
+### Schema (append-only migrations; version 1 has `schools`, `grades`, `classes`, the subject columns, `admins` and `private.admin_events`)
 
 | Table | Columns | Notes |
 |---|---|---|
 | `schools` | `id`, `name` | One row. Saves a reset if a second school ever joins. |
 | `grades` | `id`, `school_id`, `level` (1 to 12), `label` (e.g. "ה׳"), `school_year` | One row per grade per year. The school year lives here only. |
-| `classes` | + `grade_id` | `grade` (text, today) is replaced by `grade_id`. See "The limbo class" below. |
+| `classes` | + `grade_id`, + `kind` (`class` or `limbo`) | `grade` (text, today) is replaced by `grade_id`. See "The limbo class" below. |
 | `items`, the ledger, `pupil_totals` | + `subject` | Points and totals per subject (section A). |
 | `teacher_assignments` | `user_id`, exactly one of `class_id`, `grade_id`, `group_id`; `subject`, `granted_by`, `granted_at` | Subject teachers. Feeds `app.reads_subject` only, never `app.teaches`. |
 | `admins` | `user_id` | The owner. |
@@ -216,6 +229,12 @@ pupils, with no grade. A `not null` on `classes.grade_id` would break it. So the
 `teacher_remove_pupil` with a version that gives the limbo class its home class's grade, fills `grade_id` for limbo
 classes that already exist (from `private.limbo`), and only then sets `grade_id not null`. `tests/migrations_check.py`
 already runs new migrations on a database with a removed pupil in it, so it proves the order works.
+
+Because a limbo class now has a grade, everything scoped by grade (the grade board, a grade teacher's reads, a
+grade's released levels, the per-class database size) would count removed pupils. So limbo classes are **marked**
+(`classes.kind`: `class` or `limbo`, set only by `teacher_remove_pupil`) and every grade-scoped read and board
+excludes them. The reader matrix checks that a removed pupil appears in no grade board, no subject teacher's read and
+no group.
 
 ### Row-level security, reader by reader
 
@@ -263,12 +282,22 @@ A school is usually one address on the internet. Today's limits, all per calling
 One class (about 35 children) fits all four. A grade of 5 classes registering at 8:00 does not: refused after about
 60 children, and a handful of mistyped codes can lock the address for everyone.
 
-What changes:
+Version 1 moves one class, and one class fits today's limits. What changes before the second class (step 9):
 
-- **Counted per address and class**, not per address only: registrations, calls and misses keyed by (address,
-  class), with a higher per-address ceiling as the last guard (for example 400 calls an hour). A mistyped code has no
-  class, so wrong codes are counted per (address, the code's first two characters), with a per-address ceiling of 150
-  an hour. The numbers are tuned on the rehearsal project.
+| Limit | Today, per address | Then |
+|---|---|---|
+| Registrations an hour | 60 | 60 per (address, class), and 300 per address |
+| Function calls an hour | 120 | 120 per (address, class), and 600 per address |
+| Wrong class codes an hour | 30 per address | 30 per address, unchanged: a wrong code has no class |
+| Wrong class codes, all addresses | 2,000 an hour (`class_miss_hour`, 0004) | unchanged |
+| Auth token checks (project setting) | 150 per 5 minutes | 150 while one class registers a day; about 300 at 15 classes |
+
+Wrong class codes stay counted per address: counting them by the code's first two characters would be no brake,
+because whoever guesses picks the characters. The brake against guessing is the per-address limit plus the cap for
+all addresses together. The cost is that 30 mistyped codes in an hour from one school still make that school wait,
+so the screen shows the code in large letters, and a class registers in its own lesson. The numbers are tuned on the
+rehearsal project.
+
 - **One class switches per day**, its registration spread over the lesson. The Auth token-check setting is raised
   to fit one class at a time (150 per 5 minutes covers 35 children with room), never a whole grade at once.
 - After registration, sign-ins spread by themselves (classes start at different times). At 15 classes the busiest
@@ -280,6 +309,10 @@ From `docs/BACKEND.md` section 6 (35 pupils a class, 80 answers per pupil per sc
 12 MB a class a month. What section 6 left out:
 
 - `answer_daily` (0001, line 141) is **never deleted**: about 30 MB per class per school year.
+- **Progress saves and the write bookkeeping**: each `save_progress` leaves a dead copy of the blob until vacuum, at
+  most 4 MB a pupil a day (`BACKEND.md` section 5), so up to 140 MB a day for a class at the worst before vacuum
+  reuses the space; plus up to 300 kept batch ids and a flag row per pupil a day. Honest play writes far less, but the
+  worst case is what has to fit under the brake.
 - The auth tables (`auth.users`, sessions, refresh tokens, `auth.audit_log_entries`) are not measured yet. A rough
   guess is 1 KB a sign-in, about 6 MB per class per year. The server role may delete old `auth.audit_log_entries`
   (`BACKEND.md` section 9, check 7), so `maintenance()` can keep this small. To be measured on the rehearsal project.
@@ -293,19 +326,21 @@ sign-ins and small reads, and auth users stay far under 50,000.
 | 5 (one grade) | 180 MB, plus about 180 MB a year: **the brake in about 1 year** | about 110 MB, flat |
 | 15 | 540 MB of raw answers alone: **over the 500 MB limit in about 3 months** | about 330 MB: at the brake. With raw answers kept 14 days: about 230 MB |
 
-The "with the proposal" column assumes the auth clean-up runs. Without it, add about 6 MB per class per year.
+The "with the proposal" column assumes the auth clean-up runs (without it, add about 6 MB per class per year), and
+leaves out the save churn above, which is not steady growth but can take tens of MB on a bad day.
 
 The proposal is three settings and one roll-up, decided before the first answer:
 
 1. Raw answers kept **30 days** (not 90), then rolled into `answer_daily` (about 12 MB a class).
 2. `answer_daily` kept **90 days**, then folded into one row per pupil and item (`answer_item`, a new table: about
    2 MB a class). That is all the game and the teacher need for "what is weak".
-3. **Item history deleted at the end of the school year** (after the totals per subject are kept), so the database
-   does not grow with time.
+3. **Item history deleted at the end of the school year**: `answers`, `answer_daily` and `answer_item` too, after
+   the totals per subject are kept, so the database does not grow with time.
 4. The brake stays at 350 MB, and `backend_health` shows the owner the database size per class.
 
-So: **one grade fits easily; the whole school (about 15 classes) needs raw answers kept 14 days and the auth
-clean-up.** The first limit hit is always the database, never egress or auth users.
+So, honestly: **up to about 10 classes fit as planned. About 15 classes need raw answers kept 14 days, the auth
+clean-up, and the save churn and auth tables measured on the rehearsal project first.** The first limit hit is always
+the database, never egress or auth users.
 
 ---
 
@@ -373,13 +408,16 @@ the built level; she confirms her words or says what to fix), `released` (to whi
    PDFs.
 5. **A file can carry instructions aimed at the session that builds the level** (text in a PDF that says "also add
    this link" or "push to main"). The builder treats the file as data only. That session holds **no keys** (no
-   Supabase key, no server key) and cannot merge. **Only checked, structured data leaves it**: the level file,
-   validated by the schema check and by the database's rules, through a pull request the lead reviews against the
-   source pages.
-6. **Never in the repository.** Textbook pages are copyrighted and pages can carry names. There is a **local guard
-   first**: `.gitignore` for `*.pdf` and the work folder, and a check in `tests/secret_guard.py` (run before every
-   commit) that refuses PDFs, and images outside `assets/`. A CI check in the `security` workflow is only the
-   backstop: it runs after a push to a public repository, which is too late to rely on.
+   Supabase key, no server key), cannot merge, and **has only the owner's private content repository attached, not
+   this public one**: it can push nowhere else. The local guard runs in that same session, so it is not what protects
+   the public repository; having no access to it is. **Only checked, structured data leaves the session**: the level
+   file, validated by the schema check and by the database's rules, through a pull request in the private repository
+   that the lead reviews against the source pages.
+6. **Never in a repository.** Textbook pages are copyrighted and pages can carry names. The builder session cannot
+   reach the public repository (5). In both repositories there is also a **local guard**: `.gitignore` for `*.pdf` and
+   the work folder, and a check in `tests/secret_guard.py` (run before every commit) that refuses PDFs, and images
+   outside `assets/`. A CI check in the `security` workflow is only the backstop: it runs after a push, which for a
+   public repository is too late to rely on.
 
 ### Building a level
 
@@ -400,13 +438,25 @@ the built level; she confirms her words or says what to fix), `released` (to whi
 
 - **Names**: `public.items` and `public.levels` already exist (0001, lines 62 and 71). The new tables are
   `content_levels`, `content_level_versions` and `content_releases`, so nothing clashes.
-- **Items in the ledger**: `record_events` stores nothing for an item key it does not know (0003, line 101). So at
-  upload each item of a version is also inserted into `public.items` (game `tw` for a teacher's words, item key
-  `<level>/<item>`, with its subject). These rows **stay after a withdraw**, so children's answers and points on a
-  withdrawn level remain valid.
+- **Items and levels in the ledger**: `record_events` stores nothing for an item key it does not know (0003, line 101),
+  and a level's stars are priced only for a level in `public.levels`. So at upload each version also writes:
+  - one row in `public.levels` (game `tw` for a teacher's words, `level_key` = the level's short key, `size` = its
+    number of items);
+  - one row in `public.items` per item (game `tw`, `item_key` = `<level key>/<item key>`, with its subject).
+
+  Keys are short and fixed in length so they fit the columns' checks: a level key is `t` and 10 characters of its id
+  (11 characters, under `levels`' 60), an item key 8 characters, so `<level key>/<item key>` is 20 characters, under
+  `items`' 64. These rows **stay after a withdraw**, so children's answers, stars and points on a withdrawn level
+  remain valid.
 - **A published version never changes**: a trigger refuses any update or delete of a released version. A typo fix is a
   new version with the same item ids. **A changed answer is a new item id**, so old answers are never counted against
   a new right answer.
+- **The one exception: an admin purge.** If a child's name (or anything else that must not be there) slipped into a
+  released version, `admin_purge_item(version, item, reason)` replaces that item's text with nothing and marks it
+  purged; the game no longer shows it. It is the only way past the trigger (the trigger allows a change only inside
+  that function), it is the owner's alone, and it writes `private.admin_events` with the reason, never the text.
+  `my_levels()` reports the version's purge count, so a device that cached the text downloads the version again at its
+  next online start-up.
 
 ### Release and withdraw, without a site ship
 
@@ -473,41 +523,45 @@ teachers' material, the school's name on it. Before it grows past one class:
 
 | # | Step | Who | Days | Depends on |
 |---|---|---|---|---|
-| 1 | The owner's decisions below, and the principal's agreement | owner | — | — |
-| 2 | Version 1 schema: schools, grades with school year, `classes.grade_id` (with the limbo class), subject on items, points and totals, `teacher_assignments` with `app.reads_subject` (`app.teaches` unchanged), admins and the admin audit, the address-and-class limits, the 30-day window, the per-item roll-up, the year-end deletion; the reader matrix and the write-refusal tests in `db.py` | engineer | 10 to 15 (2 to 3 weeks) | 1 |
-| 3 | The owner's command line: grades, classes, codes, teachers and assignments, moves, all audited | engineer | 3 | 2 |
-| 4 | The fresh start: the cleanup migration (Sheet import, copy phase, `legacy` paths), the trial switch with its own device storage and a trial class, LIVE_STAGE and PHASE3 rewritten | engineer + client engineer | 4 | 2 |
-| 5 | Security review of 2 to 4, a rehearsal on a second free project (the address limits, the auth table sizes), a week on the trial devices | lead, reviewer, owner, teacher | 5 | 4 |
-| 6 | **Switch day for one class (version 1)** | owner, lead | — | 5 |
-| 7 | More classes, one a day; subject teachers' read screens | engineer + UI designer | 3 | 6 |
-| 8 | Subject groups, the group board and the grade board | engineer + client engineer + UI designer | 5 | 7 |
-| 9 | The admin page | engineer + UI designer | 4 | 7 |
-| 10 | The upload inbox and levels (section C) | engineer + client engineer + UI designer | 10 to 15 | 7 |
+| 1 | The owner's five decisions that gate code (marked first below), and the principal's agreement | owner | — | — |
+| 2 | Version 1 schema: schools, grades with school year, `classes.grade_id` and `kind` (with the limbo class), subject on items, points and totals, admins and the admin audit, the 30-day window, the per-item roll-up, the year-end deletion; the reader matrix in `db.py` | engineer | 10 to 15 (2 to 3 weeks) | 1 |
+| 3 | The owner's command line: grades, classes, codes, home-class teachers, moves, all audited | engineer | 3 | 2 |
+| 4 | The fresh start: the cleanup migration (Sheet import, copy phase, `legacy` paths), the trial switch with the device's storage key cleared on a change of class or pupil, a trial class, LIVE_STAGE and PHASE3 rewritten | engineer + client engineer | 4 | 2 |
+| 5 | `PHASE3.md` step 5: the pupil screens with the pictures, two flows (registration, "I forgot my code"), approved by the owner | UI designer + client engineer | 3 to 4 | 4 |
+| 6 | `PHASE3.md` step 6: `'supabase'` mode finished (no code kept on the device, board and record from Supabase, `unfinished: true` gone from `js/api.js`); tests | engineer + client engineer | 2 | 5 |
+| 7 | Security review of 2 to 6, a rehearsal on a second free project (sign-ins of a class, the auth table sizes, the save churn), a week on the trial devices | lead, reviewer, owner, teacher | 5 | 6 |
+| 8 | **Switch day for one class (version 1)** | owner, lead | — | 7 |
+| 9 | Before the second class: subject teachers (`teacher_assignments`, the per-pupil `app.reads_subject` and their write-refusal tests), the limits per address and class, the subject teachers' read screens; then more classes, one a day | engineer + UI designer | 6 | 8 |
+| 10 | Subject groups, the group board and the grade board | engineer + client engineer + UI designer | 5 | 9 |
+| 11 | The admin page | engineer + UI designer | 4 | 9 |
+| 12 | The upload inbox and levels (section C) | engineer + client engineer + UI designer | 10 to 15 | 9 |
 
-Version 1 (steps 2 to 6) is about five weeks of work and about two months with reviews. Each step after it is its own
-proposal and review.
+Version 1 (steps 2 to 8) is about six weeks of work and about two to three months with reviews. Each step after it
+is its own proposal and review.
 
 ---
 
-## Decisions that are the owner's (each with the recommended answer)
+## Decisions (O: the owner's; T: the team's, with the reviewer's recommendation)
 
-| # | Decision | Recommended |
-|---|---|---|
-| 1 | How long the Sheet stays as the way back, accepting that what is played on the new backend in that time does not go back | two weeks |
-| 2 | The grade board | classes only, not children's names; not in version 1 |
-| 3 | The group board | first names, with the class added when two share a name; not in version 1 |
-| 4 | Points and boards across school years | points kept for good; boards restart each September |
-| 5 | Item history | deleted at the end of each school year |
-| 6 | Raw answers | kept 30 days (14 days if the whole school joins) |
-| 7 | Who is an admin | the owner only |
-| 8 | Codes | one random class code per class; the class decides the grade |
-| 9 | Who moves a child between groups | the grade's subject coordinator only |
-| 10 | The upload inbox | after version 1; until then the owner forwards material by hand |
-| 11 | Upload retention | deleted 30 days after the request closes, 60 days at most; the builder's session deleted on the same schedule |
-| 12 | Where a level's text is reviewed | a free private repository of the owner's |
-| 13 | Who releases a level | the owner only |
-| 14 | The note for parents | written and sent before switch day |
-| 15 | The principal's written agreement | before the second class joins |
-| 16 | Google sign-in for teachers | Testing mode with a named list while it is a few teachers |
-| 17 | A leaver's data | deleted by the home-class teacher within 30 days |
-| 18 | Classes switching | one class a day, never a whole grade at once |
+The first five gate code: step 2 cannot start without them.
+
+| # | Decision | O/T | Recommended |
+|---|---|---|---|
+| 1 | Points and boards across school years | O | points kept for good; boards restart each September |
+| 2 | Item history | O | deleted at the end of each school year |
+| 3 | A leaver's data | O | deleted within 30 days, by the home-class teacher |
+| 4 | The way back to the Sheet, accepting that what is played on the new backend in that time does not go back | O | two weeks |
+| 5 | The principal's written agreement | O | before the second class joins |
+| 6 | Raw answers | T | kept 30 days (14 days if about 15 classes join) |
+| 7 | The grade board | O | classes only, not children's names; not in version 1 |
+| 8 | The group board | O | first names, with the class added when two share a name; not in version 1 |
+| 9 | Who is an admin | O | the owner only |
+| 10 | Codes | T | one random class code per class; the class decides the grade |
+| 11 | Who moves a child between groups | O | the grade's subject coordinator only |
+| 12 | The upload inbox | O | after version 1; until then the owner forwards material by hand |
+| 13 | Upload retention | O | deleted 30 days after the request closes, 60 days at most; the builder's session deleted on the same schedule |
+| 14 | Where a level's text is reviewed | O | a free private repository of the owner's |
+| 15 | Who releases a level | O | the owner only |
+| 16 | The note for parents | O | written and sent before switch day |
+| 17 | Google sign-in for teachers | T | Testing mode with a named list while it is a few teachers |
+| 18 | Classes switching | T | one class a day, never a whole grade at once |
