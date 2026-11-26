@@ -265,6 +265,14 @@ for (const down of ['throw', 500]) {
   eq("config guard: only a project, the exact mode and everyone: true switch every device to 'supabase'; anything else stays on the Sheet", got, cases.map(c => c[1]));
   const proto = Object.create({ everyone: true }); Object.assign(proto, P);
   eq('config guard: an inherited everyone: true does not count (own key only)', (await load(proto, sheetOk)).m.MODE, 'sheet');
+  for (const k of ['mode', 'url', 'key']) {   // review of #111: mode, url and key too, as everyone
+    const own = { mode: 'supabase', url: SB, key: KEY, everyone: true }; delete own[k];
+    const x = Object.assign(Object.create({ [k]: { mode: 'supabase', url: SB, key: KEY }[k] }), own);
+    eq(`config guard: an inherited ${k} does not count (own keys only)`, (await load(x, sheetOk)).m.MODE, 'sheet');
+  }
+  let reads = 0;
+  const tricky = { url: SB, key: KEY, everyone: true, get mode() { return ++reads === 1 ? 'supabase' : 'dual'; } };
+  eq('config guard: each key is read once (a getter cannot answer one thing to the check and another later)', [(await load(tricky, sheetOk)).m.MODE, reads], ['supabase', 1]);
 }
 {
   const A = { c: 'EN-0000', n: 'Testa', p: '4827' }, Bp = { c: 'EN-0000', n: 'Probe', p: '5839' };
