@@ -40,10 +40,15 @@ export interface Ctx {
 }
 // deno-lint-ignore no-explicit-any
 export type Body = Record<string, any>;
-export type Reply = { ok: true; [k: string]: unknown } | { ok: false; e: string; wait?: number };
+export type Reply = { ok: true; [k: string]: unknown } | { ok: false; e: string; wait?: number; by?: string; help?: string };
 
 const ZERO = "00000000-0000-0000-0000-000000000000";
 const fail = (e: string, wait?: number): Reply => (wait === undefined ? { ok: false, e } : { ok: false, e, wait });
+/** a "locked" answer with whom it is for (name, device, address, class, everyone, system) and who can end it (teacher or
+    only waiting: anything unknown reads as "wait", so a screen never promises a lift that cannot happen); 0008_lock_scope.sql */
+const SCOPES = ["name", "device", "address", "class", "everyone", "system"];
+export const locked = (b: { wait?: number; by?: unknown; help?: unknown }): Reply =>
+  ({ ok: false, e: "locked", wait: b.wait as number, by: SCOPES.includes(b.by as string) ? b.by as string : "name", help: b.help === "teacher" ? "teacher" : "wait" });
 /** loose shape before the class's own settings are known: a short list of small whole numbers */
 const picsLike = (x: unknown): x is number[] => isPictures(x, Array.isArray(x) ? x.length : 0, 99) && (x as number[]).length <= 4;
 
@@ -92,21 +97,22 @@ async function newDevice(d: Deps) {
   return { token, hash: await tag(d.pepper, "dev", token) };
 }
 
-/** the session for a pupil; creates and links the auth user when there is none (first sign-in, or after a sign-out everywhere) */
-async function sessionFor(d: Deps, pupil: string, authUser: string | null): Promise<Session> {
-  let user = authUser;
-  if (!user) {
-    const made = await d.sessions.create();
-    user = (await d.sql`select private.link_auth_user(${pupil}::uuid, ${made}::uuid) as v`)[0].v as string;
-    if (user !== made) await d.sessions.remove(made); // a parallel sign-in linked one first
-  }
-  return d.sessions.issue(user);
+/** the session for a pupil; creates and links the auth user when there is none (first sign-in, or after a sign-out
+    everywhere). null when the teacher took the pupil out of the class between the sign-in's steps: link_auth_user
+    (0009) refuses a pupil in a hidden class, and also answers for a user that is already linked, so that case is
+    checked again too (review of #94, B1) */
+async function sessionFor(d: Deps, pupil: string, authUser: string | null): Promise<Session | null> {
+  const made = authUser ? null : await d.sessions.create();
+  const user = (await d.sql`select private.link_auth_user(${pupil}::uuid, ${authUser ?? made}::uuid) as v`)[0].v as string | null;
+  if (made && user !== made) await d.sessions.remove(made); // a parallel sign-in linked one first, or the pupil was removed
+  return user ? d.sessions.issue(user) : null;
 }
 
 async function opened(d: Deps, r: { pupil: string; auth_user: string | null; old_auth_user?: string | null; name: string }, device?: string): Promise<Reply> {
   if (r.old_auth_user) await d.sessions.remove(r.old_auth_user); // already cut off in the database
   const st = (await d.sql`select private.pupil_state(${r.pupil}::uuid) as v`)[0].v;
   const session = await sessionFor(d, r.pupil, r.auth_user);
+  if (!session) return fail("pin");          // taken out of the class meanwhile: as for an unknown name
   return { ok: true, session, s: st.state ?? {}, updated_at: st.updated_at ?? null, name: r.name, ...(device ? { device_token: device } : {}) };
 }
 
@@ -114,7 +120,7 @@ export async function register(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (!isClassCode(body.class_code) || !isName(body.name) || !isCode(body.code) || !picsLike(body.pictures)) return fail("input");
   if (isWeakCode(body.code)) return fail("weak");
   const { b, k } = await begin(d, "register", { ...body, device_token: undefined }, ctx);
-  if (b.s === "locked") return fail("locked", b.wait);
+  if (b.s === "locked") return locked(b);
   if (b.s !== "go") return fail("class");
   if (!isPictures(body.pictures, b.pic_count, b.pic_choices)) return fail("input");
   const id = crypto.randomUUID();
@@ -133,7 +139,7 @@ export async function login(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (upgrade && (!isCode(body.new_code) || !picsLike(body.pictures))) return fail("input");
   if (upgrade && isWeakCode(body.new_code)) return fail("weak");
   const { b, k } = await begin(d, "code", body, ctx);
-  if (b.s === "locked") return fail("locked", b.wait);
+  if (b.s === "locked") return locked(b);
   if (b.s !== "go") return fail("class");
   if (upgrade && !isPictures(body.pictures, b.pic_count, b.pic_choices)) return fail("input");
   // one slow hash on every path: against the pupil's salt, or against a throw-away one when there is nothing to compare with
@@ -157,7 +163,7 @@ export async function recover(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (byOtc ? !isOtc(body.otc) : !picsLike(body.pictures)) return fail("input");
   if (isWeakCode(body.new_code)) return fail("weak");
   const { b, k } = await begin(d, byOtc ? "otc" : "picture", body, ctx);
-  if (b.s === "locked") return fail("locked", b.wait);
+  if (b.s === "locked") return locked(b);
   if (b.s !== "go") return fail("class");
   if (!isPictures(body.new_pictures, b.pic_count, b.pic_choices) || (!byOtc && !isPictures(body.pictures, b.pic_count, b.pic_choices))) return fail("input");
   const pupil: string = b.pupil ?? ZERO;
@@ -186,12 +192,14 @@ export async function teacherReset(d: Deps, body: Body, ctx: Ctx): Promise<Reply
   }
   // not her pupil: answered before the slow hash, so a stranger's token cannot make the function work (review N3)
   if (!(await d.sql`select private.teacher_has_pupil(${teacher}::uuid, ${body.pupil_id}::uuid) as v`)[0].v) return fail("forbidden");
+  // her daily cap of new codes (review of #86, S7), before the slow hash too; teacher_reset enforces it under a lock
+  if ((await d.sql`select private.teacher_resets_left(${teacher}::uuid, ${d.now().toISOString()}::timestamptz) as v`)[0].v < 1) return fail("limit");
   const iter = (await d.sql`select kdf_iter from private.settings`)[0].kdf_iter as number;
   const otc = randomDigits(6);
   const salt = randomBytes(16);
   const hash = await kdf(d.pepper, "otc", body.pupil_id, otc, salt, iter);
   const r = (await d.sql`select private.teacher_reset(${teacher}::uuid, ${body.pupil_id}::uuid, ${hex(salt)}, ${hash}, ${iter}::int, ${d.now().toISOString()}::timestamptz) as v`)[0].v;
-  if (!r.ok) return fail("forbidden"); // not her pupil and "no such pupil" look the same
+  if (!r.ok) return fail(r.e === "limit" ? "limit" : "forbidden"); // not her pupil and "no such pupil" look the same
   if (r.old_auth_user) await d.sessions.remove(r.old_auth_user);
   return { ok: true, otc, expires_at: r.expires_at, name: r.name }; // shown to the teacher once; only its hash is stored
 }
