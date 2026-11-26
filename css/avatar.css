@@ -42,6 +42,10 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .wpick__av.is-selected{border-color:var(--wi-gold);box-shadow:0 0 0 3px var(--wi-gold)}
 .wpick__av.is-locked .wpick__art{opacity:.7}   /* dimmed, the whole character in view: a child sees what they are working towards */
 .wpick__art{width:100%;height:100%;object-fit:cover;display:block}
+/* a character still being drawn: a plain tile, not a button, the size of the others */
+.wpick__soon-tile{min-inline-size:0;overflow:hidden;text-align:center;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:2px dashed var(--wi-line);border-radius:var(--wi-r-lg);background:var(--wi-navy-900);color:var(--wi-text-dim)}
+.wpick__soon{font-weight:800;font-size:var(--wi-fs-sm);color:var(--wi-text)}
+.wpick__soon-tile .wpick__lock{position:static;white-space:normal;background:none;box-shadow:none}
 .wpick__lock{position:absolute;inset-block-end:3px;inset-inline:3px;padding:0 2px;border-radius:var(--wi-r-pill);background:var(--wi-navy-900);color:var(--wi-text);font-size:var(--wi-fs-sm);font-weight:700;line-height:1.3;white-space:nowrap;text-align:center;box-shadow:0 0 0 1px var(--wi-line)}   /* "רמה N" in one short line at the bottom: the picture stays in view */
 .wpick__key{position:absolute;inset-block-start:4px;inset-inline-end:4px;width:20px;height:20px;padding:2px;border-radius:50%;background:var(--wi-navy-900);box-shadow:0 0 0 1px var(--wi-line);object-fit:contain}   /* the lock, in the top corner */
 /* ---- the map: a new character opened (shown once) ---- */

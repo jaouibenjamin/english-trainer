@@ -304,3 +304,27 @@ match the portraits; the token reads as "me" at once and stays consistent, so it
 the current island; the hop runs once and not on the next visit; every stone is a button of 48 px or more in level
 order with today's labels; a tap opens the level within 600 ms; two quick taps open it once; reduced motion and calm
 mode: no hop, no walk, no pulse.
+
+## Shipping while phones still hold the previous files (stand-ins and cache mixes)
+
+GitHub Pages lets a browser keep each file for 10 minutes (`max-age=600`), so for up to 10 minutes after a ship a phone
+can run new files next to old ones. `tests/cache_mix.py` proves no screen breaks then: no error and, with the flag on, no
+blank picture. Read new exports through the module object with a guard at the read (see `tests/mixcheck.py`).
+
+**The stand-ins.** With the flag on, `spr()` in `js/ui.js` gives each old sprite the new look draws over a same-size SVG
+`srcset`, so the old picture is never downloaded; `dsSettle` in `js/main.js` gives the picture back where the new look
+does not draw over it. `spr()` writes stand-ins only once `main.js` has said it settles them (`globalThis.__wiSettles`),
+so an older cached `main.js` gets plain pictures, never blank ones.
+
+**The known cost of a mix: wasted bytes, not a bug.** With the flag on and one old file, the old look's sprites can be
+downloaded again for those 10 minutes:
+
+| Mix (flag on) | WebKit (review of #105) | Chrome (measured for this note) |
+|---|---|---|
+| old `ui.js`: map | 9 more old pictures | 9 more, +475 KB |
+| old `ui.js`: island | 1 more | 3 more, +88 KB |
+| old `main.js`: map / island | 9 more / 1 more | none more |
+| collection, mock exam | | none more |
+
+The screens are drawn right in every case; only bytes are wasted, once, and the next load after the cache runs out is
+the normal one. Flag off, each of these mixes downloads exactly what the new files alone do (Chrome, the same screens).
