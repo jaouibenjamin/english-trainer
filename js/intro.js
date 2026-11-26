@@ -47,7 +47,7 @@ export function showIntro(){
  splash.append(logo,play,snd,dots);
  const cap=el('p','wi-intro__cap');cap.hidden=true;
  const skip=el('button','wi-intro__skip','דלגו');skip.type='button';
- const fail=el('p','wi-intro__fail','הסרטון לא נטען. אפשר לראות אותו אחר כך בהגדרות.');fail.hidden=true;
+ const fail=el('p','wi-intro__fail','הסרטון לא נטען. ננסה שוב בפעם הבאה.');   // wi_intro is not stored: it is offered again on the next open (the spec's "in the settings" waits for a settings row: docs/INTRO.md)fail.hidden=true;
  const done=el('button','wi-intro__done','מתחילים');done.type='button';done.hidden=true;
  box.append(v,splash,cap,fail,done,skip);
  /* the rest of the page is inert while the film is open; it is laid out behind the overlay the whole time */

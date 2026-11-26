@@ -141,7 +141,7 @@ async def opening(page, base):
     await pg.goto(base + '?ds=1&intro=1'); await pg.wait_for_selector('#wi-intro'); await pg.wait_for_timeout(900)
     await pg.locator('#wi-intro .wi-intro__play').tap(); await pg.wait_for_selector('#wi-intro .wi-intro__done:not([hidden])', timeout=12000)
     fl = await pg.evaluate("document.querySelector('#wi-intro .wi-intro__fail').hidden?'':document.querySelector('#wi-intro .wi-intro__fail').textContent")
-    check('a film that cannot load: "מתחילים" with "הסרטון לא נטען. אפשר לראות אותו אחר כך בהגדרות."', fl == 'הסרטון לא נטען. אפשר לראות אותו אחר כך בהגדרות.', fl)
+    check('a film that cannot load: "מתחילים" with "הסרטון לא נטען. ננסה שוב בפעם הבאה."', fl == 'הסרטון לא נטען. ננסה שוב בפעם הבאה.', fl)
     await pg.locator('#wi-intro .wi-intro__done').tap(); await pg.wait_for_timeout(700)
     check('and the device does not remember it, so it is offered again', await pg.evaluate("localStorage.getItem('wi_intro')") is None and await pg.locator('#wi-intro').count() == 0)
     await ctx.close()

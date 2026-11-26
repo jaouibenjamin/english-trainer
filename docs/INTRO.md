@@ -31,7 +31,7 @@ fade only, no tap, no sound. Not recommended.) "צפייה בסרטון שוב" 
 
 **Reduced motion or calm mode:** the logo and button fade in (0.2 s), no scale, no shine, no rise; the cross-fades stay
 but shorter (0.15 s); the film still waits for the tap. **Failure:** if the film has not started 10 s after the tap,
-or errors, "מתחילים" appears at once with "הסרטון לא נטען. אפשר לראות אותו אחר כך בהגדרות.", and `wi_intro` is not
+or errors, "מתחילים" appears at once with "הסרטון לא נטען. ננסה שוב בפעם הבאה." (built: the spec said "אפשר לראות אותו אחר כך בהגדרות.", but the settings have no room for a replay row yet: a designer question), and `wi_intro` is not
 stored (it is offered again next time). Never a trap: "דלגו" and Esc work in every state.
 
 Fits 390 x 844, 360 x 740 and 320 x 568 (the logo and both buttons stay inside 320 px with 16 px gutters). Hebrew
