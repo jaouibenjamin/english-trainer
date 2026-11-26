@@ -12,15 +12,15 @@
    the Sheet said ok, the same progress is copied to Supabase in the background. A failure there is never shown to
    the pupil, never slows the game, and is written to a small log on the device (shadowLog()).
    'supabase': the new backend alone (docs/PHASE3.md step 6): sign-in with the code once, then the session only; the
-   record and the board from Supabase. Still refused unless config.js also says unfinished: true, until the pupil
-   sign-in screens (step 5) are in; whichever of the two lands second removes that key.
+   record and the board from Supabase; the pupil signs in on the screens of step 5 (js/signin.js). Like 'dual', only a
+   trial device (?new=1) uses it until config.js says everyone: true (exactly that key, exactly that value).
    A mode that is not spelled exactly, or has no https project address and key, falls back to 'sheet'. */
 const W=typeof window!=='undefined'?window:globalThis;
 const SHEET=(W.API_URL||'').trim();
 const B=W.BACKEND&&typeof W.BACKEND==='object'?W.BACKEND:{};
 const URL_OK=typeof B.url==='string'&&/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(B.url)&&typeof B.key==='string'&&B.key.length>20;
-// 'supabase' alone is not finished (see supa() below): it needs a second, deliberate key, so one mistyped word in
-// config.js cannot switch the live class to it (review of #21, S-b)
+// 'supabase' is switched on as 'dual' is: a project, the exact mode, and a trial device or everyone: true; the key
+// unfinished: true that guarded it while it was not finished went with steps 5 and 6 (review of #21, S-b; of #111)
 /* One test device first, then the class (docs/LIVE_STAGE.md D3, F1). With a project in config.js, the default is a
    trial: only a device that opened the game once with ?dual=1 copies to Supabase; ?dual=0 turns it off again and ends
    that device's session. The class is turned on by one explicit key, everyone: true (exactly that name, exactly the
@@ -35,7 +35,7 @@ if(URL_OK&&!EVERYONE){tryOn=false;
  try{const q=new URLSearchParams(W.location&&W.location.search||'').get(SW);
   if(q==='1')W.localStorage.setItem('wi_'+SW,'1');else if(q==='0'){tryOff=true;W.localStorage.removeItem('wi_'+SW)}
   tryOn=W.localStorage.getItem('wi_'+SW)==='1'}catch(e){}}
-export const MODE=URL_OK&&tryOn&&(B.mode==='dual'||(B.mode==='supabase'&&B.unfinished===true))?B.mode:'sheet';
+export const MODE=URL_OK&&tryOn&&(B.mode==='dual'||B.mode==='supabase')?B.mode:'sheet';
 
 /* exactly what js/state.js did: a failed request (no connection) throws; an answer that is not JSON (an Apps Script
    error page) gives {ok:false,e:'server'} */

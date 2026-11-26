@@ -22,7 +22,7 @@ PUPILS = {('EN-0000', 'testa'): dict(id=PA, cls=REAL, code='4827', name='Testa')
           ('EN-0000', 'probe'): dict(id=PB, cls=REAL, code='5839', name='Probe'),
           ('TRIAL-01', 'testa'): dict(id=PT, cls=TRIAL, code='4827', name='Testa')}
 CORS = {'access-control-allow-origin': '*', 'access-control-allow-headers': 'apikey, authorization, content-type, prefer', 'access-control-allow-methods': 'GET, POST, OPTIONS'}
-NEW_CFG = f"window.API_URL='';window.BACKEND={{mode:'supabase',url:'{SB}',key:'{KEY}',everyone:true,unfinished:true,saveEveryS:0}};"
+NEW_CFG = f"window.API_URL='';window.BACKEND={{mode:'supabase',url:'{SB}',key:'{KEY}',everyone:true,saveEveryS:0}};"
 SHEET_CFG = "window.API_URL='https://script.example/macros/s/TEST/exec';"
 SHEET_ERA = {'u': {'c': 'EN-0000', 'n': 'Testa', 'p': '4827'}, 'pts': 120, 'st': {'cat': [3, 0]}, 'day': '2026-1-1', 'streak': 1}
 

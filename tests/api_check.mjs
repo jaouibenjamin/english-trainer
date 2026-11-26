@@ -236,7 +236,7 @@ for (const down of ['throw', 500]) {
 }
 {
   const st = fresh();
-  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, everyone: true, saveEveryS: 2, unfinished: true }, supabase(st));
+  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, everyone: true, saveEveryS: 2 }, supabase(st));
   await m.api('login', CRED); await idle();
   const r1 = await m.api('save', { ...CRED, s: { pts: 1 } });
   const r2 = await m.api('save', { ...CRED, s: { pts: 2 } });
@@ -250,8 +250,21 @@ for (const down of ['throw', 500]) {
 
 // ---- 2c. the reviews of #21 and #35: shared devices, sign-in once, events even when a save waits, 2 hours of play
 {
-  const { m } = await load({ mode: 'supabase', url: SB, key: KEY, everyone: true }, sheetOk);
-  eq("'supabase' without the second key (unfinished: true) stays on the Sheet (S-b)", m.MODE, 'sheet');
+  /* the config guard of 'supabase' (review of #111, after unfinished: true went): the class is switched by
+     everyone: true only; a project and the exact mode alone give a trial (?new=1 devices); every misspelling, a value
+     that is not exactly true, a nested key or a wrong project address keeps every device on the Sheet */
+  const P = { mode: 'supabase', url: SB, key: KEY };
+  globalThis.location = globalThis.location || { search: '' }; globalThis.location.search = '';
+  const cases = [[{ ...P, everyone: true }, 'supabase'], [P, 'sheet'], [{ ...P, unfinished: true }, 'sheet'],
+    [{ ...P, everyone: 'true' }, 'sheet'], [{ ...P, everyone: 1 }, 'sheet'], [{ ...P, Everyone: true }, 'sheet'], [{ ...P, everyOne: true }, 'sheet'],
+    [{ ...P, trial: { everyone: true } }, 'sheet'], [{ mode: 'Supabase', url: SB, key: KEY, everyone: true }, 'sheet'], [{ mode: 'supabase ', url: SB, key: KEY, everyone: true }, 'sheet'],
+    [{ ...P, url: 'https://evil.example', everyone: true }, 'sheet'], [{ ...P, url: SB + '.evil.example', everyone: true }, 'sheet'], [{ ...P, key: 'short', everyone: true }, 'sheet'],
+    [{ ...P, url: SB.replace('https', 'http'), everyone: true }, 'sheet']];
+  const got = [];
+  for (const [cfg] of cases) got.push((await load(cfg, sheetOk)).m.MODE);
+  eq("config guard: only a project, the exact mode and everyone: true switch every device to 'supabase'; anything else stays on the Sheet", got, cases.map(c => c[1]));
+  const proto = Object.create({ everyone: true }); Object.assign(proto, P);
+  eq('config guard: an inherited everyone: true does not count (own key only)', (await load(proto, sheetOk)).m.MODE, 'sheet');
 }
 {
   const A = { c: 'EN-0000', n: 'Testa', p: '4827' }, Bp = { c: 'EN-0000', n: 'Probe', p: '5839' };
@@ -857,7 +870,7 @@ locks(false);
 }
 {
   // 'supabase' has its own switch, ?new=1 (docs/PHASE4.md A); ?dual=1 does not turn it on, nor ?new=1 'dual'
-  const cfg = { mode: 'supabase', url: SB, key: KEY, unfinished: true };
+  const cfg = { mode: 'supabase', url: SB, key: KEY };
   const at = async (q, cfg2 = cfg, shared) => { globalThis.location.search = q; const x = await load(cfg2, sheetOk, shared); globalThis.location.search = ''; return x; };
   const a = await at(''), b = await at('?dual=1'), c = await at('?new=1'), d = await at('', cfg, c), e = await at('?new=0', cfg, c);
   const f = await at('?new=1', { mode: 'dual', url: SB, key: KEY });
@@ -951,7 +964,7 @@ locks(false);
 
 // ---- 9. 'supabase' mode, finished (docs/PHASE3.md step 6): sign in once, then the session only; record and board from Supabase
 {
-  const BASE = { mode: 'supabase', url: SB, key: KEY, everyone: true, unfinished: true, saveEveryS: 0 };
+  const BASE = { mode: 'supabase', url: SB, key: KEY, everyone: true, saveEveryS: 0 };
   const PUPIL = { id: '11111111-1111-4111-8111-111111111111', class_id: '22222222-2222-4222-8222-222222222222' };
   /* the project as far as the game sees it: the three pupil functions, the token, the pupil's own row, the record,
      the board and the two writes. tok: the access token it hands out; dead: every token is refused from then on */
