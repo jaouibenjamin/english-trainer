@@ -155,6 +155,14 @@ async def sleeping_laptop(b, w, h, tag):
     await pg.clock.run_for(31000); await pg.wait_for_timeout(300)
     check(f'[{tag}] a laptop that woke after 31 minutes: signed out by the 30-second check, nothing of her class on the screen, no tap needed',
           await pg.is_visible('#in') and await pg.locator('#class tbody tr').count() == 0 and any(x['path'] == '/auth/v1/logout?scope=local' for x in log), [x['path'] for x in log[-2:]])
+    # awake the whole time, nobody touching it: 31 minutes of every timer (the idle timer and the 30-second check, 62
+    # times). Nothing the page does by itself may count as her activity (re-review of #82: an interval calling touch()
+    # would keep her signed in forever)
+    n = len(log)
+    await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
+    await pg.clock.run_for(31 * 60000); await pg.wait_for_timeout(300)
+    check(f'[{tag}] 31 minutes awake with nobody at the keyboard: signed out, nothing of her class on the screen',
+          await pg.is_visible('#in') and await pg.locator('#class tbody tr').count() == 0 and any(x['path'] == '/auth/v1/logout?scope=local' for x in log[n:]), [x['path'] for x in log[n:]][-3:])
     await c.close()
 
 
