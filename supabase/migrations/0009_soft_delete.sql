@@ -8,7 +8,7 @@
 -- the pupil, and the pupil's session is ended (its auth user is deleted, as at a reset). The records stay, keyed by the
 -- pupil, for the way back. After removed_days, maintenance() deletes the pupil for good, exactly as
 -- teacher_delete_pupil does, and records it in private.deletions.
--- A new migration, not an edit of 0001 to 0005 (docs/LESSONS.md entry 15).
+-- A new migration, not an edit of 0001 to 0005 (docs/LESSONS.md entry 16).
 
 alter table private.settings add column removed_days int not null default 14 check (removed_days between 1 and 60),
   add column purge_per_run int not null default 200 check (purge_per_run between 1 and 1000);   -- the purge's bound per night (LESSONS 9)
