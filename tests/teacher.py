@@ -251,6 +251,11 @@ async def traces(pg):
     return found
 
 
+async def drawn(pg):
+    """the screen's last load has been drawn (js/teacher.js sets data-busy while one is on its way)"""
+    await pg.wait_for_function("document.querySelector('#screen').dataset.busy !== '1'")
+
+
 def fn_calls(log, n):
     return [dict(x, body=json.loads(x['body'] or 'null')) for x in log[n:] if x['path'] == '/functions/v1/teacher-reset']
 
@@ -313,6 +318,9 @@ async def actions(pg, tag, log, said, st):
     check(f'[{tag}] unlock the class: her class only', [c['body'] for c in fn_calls(log, n)] == [dict(action='unlock_class', class_id=C1)])
 
     n = len(log)
+    # the unlock reloads the screen, which draws the class list (and its field) again: wait for that drawing, or the
+    # name goes into a field that is about to be replaced (review of #94, follow-up 4)
+    await drawn(pg)
     await pg.fill(f'#add-{C1}', '  Dana   Lee ')
     await pg.get_by_role('button', name='הוספה לרשימה').click(); await answer(pg, True)
     await pg.wait_for_function("[...document.querySelectorAll('#roster li span')].some(x=>x.textContent==='Dana Lee')")
@@ -320,6 +328,7 @@ async def actions(pg, tag, log, said, st):
     check(f'[{tag}] add a name: trimmed, spaces squeezed, the key the database computes, her class', len(adds) == 1 and json.loads(adds[0]['body']) == dict(class_id=C1, name_key='dana lee', display_name='Dana Lee')
           and adds[0]['auth'].startswith('Bearer acc-'), adds)
     check(f'[{tag}] the field is emptied after the add', await pg.input_value(f'#add-{C1}') == '')
+    await drawn(pg)
     await pg.fill(f'#add-{C1}', 'dana lee')
     await pg.get_by_role('button', name='הוספה לרשימה').click(); await answer(pg, True)
     await pg.wait_for_function("document.querySelector('#act').textContent.includes('כבר ברשימה')")

@@ -10,7 +10,8 @@
 -- teacher_delete_pupil does, and records it in private.deletions.
 -- A new migration, not an edit of 0001 to 0005 (docs/LESSONS.md entry 15).
 
-alter table private.settings add column removed_days int not null default 14 check (removed_days between 1 and 60);
+alter table private.settings add column removed_days int not null default 14 check (removed_days between 1 and 60),
+  add column purge_per_run int not null default 200 check (purge_per_run between 1 and 1000);   -- the purge's bound per night (LESSONS 9)
 
 -- the hidden class of each class that removed a pupil. A class deleted by hand leaves its hidden class behind
 -- (class_id becomes null); the purge then deletes what is left in it and drops it (review of #94, S4)
@@ -131,15 +132,16 @@ begin
   return true;
 end $$;
 
-/* the nightly purge, at most 200 a night (docs/LESSONS.md entry 9): pupils removed more than removed_days ago, each
+/* the nightly purge, at most purge_per_run (200) a night (docs/LESSONS.md entry 9); the next night goes on: pupils removed more than removed_days ago, each
    checked again under its class's removal lock (an undo that got there first wins: review of #94, B2); then what a
    class deleted by hand left in its hidden class, and the empty hidden classes of deleted classes */
 create function private.purge_removed(p_now timestamptz) returns int
 language plpgsql security definer set search_path = '' as $$
-declare r private.removed_pupils; v record; n int := 0; v_cut timestamptz;
+declare r private.removed_pupils; v record; n int := 0; v_cut timestamptz; v_max int;
 begin
   v_cut := p_now - make_interval(days => (select removed_days from private.settings));
-  for r in select * from private.removed_pupils where removed_at < v_cut order by removed_at limit 200 loop
+  v_max := (select purge_per_run from private.settings);
+  for r in select * from private.removed_pupils where removed_at < v_cut order by removed_at limit v_max loop
     perform pg_advisory_xact_lock(hashtextextended('limbo/' || r.class_id::text, 42));
     if exists (select 1 from private.removed_pupils x join public.pupils p on p.id = x.pupil_id
                 where x.pupil_id = r.pupil_id and x.removed_at < v_cut and private.is_limbo(p.class_id)) then
@@ -148,7 +150,7 @@ begin
     end if;
   end loop;
   for v in select p.id, l.limbo_id from private.limbo l join public.pupils p on p.class_id = l.limbo_id
-            where not exists (select 1 from private.removed_pupils x where x.pupil_id = p.id) limit greatest(0, 200 - n) loop
+            where not exists (select 1 from private.removed_pupils x where x.pupil_id = p.id) limit greatest(0, v_max - n) loop
     perform private.delete_pupil(v.id, v.limbo_id, null);
     n := n + 1;
   end loop;
@@ -167,7 +169,10 @@ begin
   select * into p from public.pupils where id = p_pupil;
   if p.id is null or private.is_limbo(p.class_id) then return null; end if;
   perform private.name_lock(p.class_id, p.name_key);
-  update public.pupils set auth_user_id = p_user where id = p_pupil and auth_user_id is null and not private.is_limbo(class_id);
+  -- only a user that still exists: a removal and an undo inside one sign-in delete the user it was going to link,
+  -- and the sign-in then answers "pin", not a foreign-key error (review of #94, follow-up 3)
+  update public.pupils set auth_user_id = p_user where id = p_pupil and auth_user_id is null and not private.is_limbo(class_id)
+     and exists (select 1 from auth.users u where u.id = p_user);
   select auth_user_id into v from public.pupils where id = p_pupil and not private.is_limbo(class_id);
   return v;
 end $$;

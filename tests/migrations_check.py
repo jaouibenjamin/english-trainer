@@ -44,6 +44,14 @@ insert into public.pupils (id, class_id, display_name, auth_user_id)
   values ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000c1', 'Pupil One', '00000000-0000-4000-8000-0000000000b1');
 insert into private.auth_lock_events (class_id, name_key, kind) values ('00000000-0000-4000-8000-0000000000c1', 'pupil one', 'code');
 insert into public.flags (pupil_id, kind, day) values ('00000000-0000-4000-8000-0000000000d1', 'rate', current_date);
+insert into public.pupils (id, class_id, display_name) values ('00000000-0000-4000-8000-0000000000d2', '00000000-0000-4000-8000-0000000000c1', 'Pupil Two');
+-- once game holds 0009: a pupil taken out of the class too (a hidden class and a removed row), so a later file meets them
+do $$ begin
+  if to_regprocedure('public.teacher_remove_pupil(uuid)') is not null then
+    perform set_config('request.jwt.claims', '{"role": "authenticated", "sub": "00000000-0000-4000-8000-0000000000a1"}', true);
+    execute 'select public.teacher_remove_pupil(''00000000-0000-4000-8000-0000000000d2'')';
+  end if;
+end $$;
 """
 
 

@@ -74,11 +74,12 @@ function renderRemoved(rows){
 let loading=0,auth=null;
 async function load(){
  if(!tsb||!auth||!auth.signedIn())return;
- const my=++loading;$('#screen').hidden=false;$('main').classList.add('wide');$('#load').textContent='טוען…';
+ const my=++loading;$('#screen').dataset.busy='1';$('#screen').hidden=false;$('main').classList.add('wide');$('#load').textContent='טוען…';
  const[v,i,h,c,ro,rm]=await Promise.all([auth.read('/rest/v1/teacher_view?select=pupil_id,class_id,display_name,points,answers,error_pct,stars,locked_today,code_status,recovery_status,flags_week'),
   auth.read('/rest/v1/teacher_items?select=item_key,tries,wrong,error_pct'),auth.read('/rest/v1/backend_health?select=warn,resets_day,resets_cap'),
   auth.read('/rest/v1/classes?select=id,name'),auth.read('/rest/v1/roster?select=class_id,name_key,display_name'),auth.read('/rest/v1/rpc/teacher_removed')]);
  if(my!==loading||!auth.signedIn()||!v||!i||!h||!c||!ro||!rm)return;   // signed out, left or another load since: nothing of it is shown
+ $('#screen').dataset.busy='';                                // drawn (the tests wait for this, not for a time)
  if(v.error||i.error||h.error||c.error||ro.error||rm.error){$('#load').textContent='לא הצלחנו לטעון. נסו שוב.';return}
  render(v.rows,i.rows,h.rows,c.rows,ro.rows,rm.rows)}
 

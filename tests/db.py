@@ -597,7 +597,32 @@ def test_removal(db):
     db.rpc(SERVER, 'maintenance')
     eq('S4: a class deleted by hand: what it left in its hidden class is deleted by the next purge, and the hidden class dropped',
        [db.one(f"select count(*) from public.pupils where id = '{k4}'"), db.one(f"select count(*) from public.classes where id = '{lim}'")], ['0', '0'])
-    db.admin(f"delete from public.pupils where class_id = '{C1}' and display_name in ('Lulu', 'Momo') or id = '{k3}'; delete from auth.users where id = '{ku}'; delete from private.deletions")
+    print('-- review of #94, follow-ups')
+    k5, k6 = U(0xE27), U(0xE28)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{k5}', '{C1}', 'Ofri')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k5))
+    db.admin(f"update public.classes set max_pupils = (select count(*) from public.pupils where class_id = '{C1}') + 1 where id = '{C1}';"
+             f"insert into public.roster (class_id, name_key, display_name) values ('{C1}', 'pazit', 'Pazit') on conflict do nothing")
+    a, b = two(f"begin; select private.register_pupil('{k6}', '{C1}', 'Pazit', '{nw}'::jsonb, '00', now()) ->> 's';",
+               teacher_tx(f"select public.teacher_restore_pupil('{k5}') ->> 'e'; commit;"))
+    eq('the last place: a registration holds the head count, the undo waits for it and is refused as full (never one over)',
+       [[r for r in a[0] + b[0] if r and r[0] in ('ok', 'full')], db.one(f"select count(*) <= max_pupils from public.pupils p join public.classes c on c.id = p.class_id where c.id = '{C1}' group by c.max_pupils")],
+       [[['ok'], ['full']], 't'])
+    db.admin(f"update public.classes set max_pupils = 60 where id = '{C1}'")
+    gone_user = U(0xE29)
+    eq('the link step with a user that no longer exists (a removal and an undo inside one sign-in): no error, nothing linked',
+       db.psql(f"select coalesce(private.link_auth_user('{k6}', '{gone_user}')::text, 'null')"), ([['null']], None))
+    q1, q2 = U(0xE2A), U(0xE2B)
+    db.admin(f"insert into public.pupils (id, class_id, display_name) values ('{q1}', '{C1}', 'Rami'), ('{q2}', '{C1}', 'Sagi')")
+    db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=q1)); db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=q2))
+    db.admin(f"update private.removed_pupils set removed_at = now() - interval '15 days' where pupil_id in ('{q1}', '{q2}'); update private.settings set purge_per_run = 1")
+    m1, _ = db.rpc(SERVER, 'maintenance')
+    left = db.one(f"select count(*) from public.pupils where id in ('{q1}', '{q2}')")
+    m2, _ = db.rpc(SERVER, 'maintenance')
+    eq('the purge stops at its bound for the night (purge_per_run, here 1) and the next run goes on',
+       [m1.get('removed_purged'), left, m2.get('removed_purged'), db.one(f"select count(*) from public.pupils where id in ('{q1}', '{q2}')")], [1, '1', 1, '0'])
+    db.admin("update private.settings set purge_per_run = 200")
+    db.admin(f"delete from public.pupils where class_id = '{C1}' and display_name in ('Lulu', 'Momo', 'Pazit') or id in ('{k3}', '{k5}'); delete from auth.users where id = '{ku}'; delete from private.deletions")
 
 
 def test_storage(db):
