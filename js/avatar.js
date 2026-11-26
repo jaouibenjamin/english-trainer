@@ -81,7 +81,9 @@ function energyOf(id){const r=mine(id),pts=Math.min(EN_MAX,Math.max(r.en,earned(
  const opens=AVATARS.some(a=>a.open===level+1)?'נפתחת דמות חדשה':'עוד רמה בדרך';
  /* the most English can still bring is the English maximum plus the math already done: when that is below the next
     level, only Fraction Bay can take the pupil there, and the note says so */
- const mathOnly=MAX_ENERGY-WORTH.mstar*M_MAX+WORTH.mstar*mathStars()<step(level);
+ // only when math can still earn energy (a cached world_data.js older than the ladder gives it 0) and the pupil still has
+ // math stars to win
+ const mathOnly=WORTH.mstar>0&&mathStars()<M_MAX&&MAX_ENERGY-WORTH.mstar*M_MAX+WORTH.mstar*mathStars()<step(level);
  return{points:pts,level,from:step(level-1),next:step(level),opens,mathOnly}}
 
 /* ---------- today's focus: words the pupil got wrong and does not know yet, on the open island with the most ---------- */

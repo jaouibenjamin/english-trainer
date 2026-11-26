@@ -11,7 +11,7 @@ a newly opened character is announced once on the map; names come only from the 
 the fixed lists, never text) are kept in the wi_world key on the device only, never in the progress record and never
 in a request to the backend (checked against the mock backend in class mode); energy only goes up; today's focus names
 the open island with the most words to fix and takes the pupil there."""
-import asyncio, hashlib, json, os, sys
+import asyncio, hashlib, json, os, re, sys
 from playwright.async_api import async_playwright
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import play as P
@@ -470,6 +470,27 @@ async def energy_migration(b, errs):
     await set_world(pg, {'av': 'fox', 'nm': [0, 0], 'nv': 2, 'en': 300, 'sl': 6}); await goto_hash(pg, 'map', '.map .wd')
     E = await pg.evaluate('window.__world.energy'); note = await pg.evaluate("document.querySelector('.wd__note').textContent")
     check('below it (300, level 6), English can still get there: no such line', E['mathOnly'] is False and 'מפרץ השברים' not in note, (E, note))
+    await c.close()
+    # every math star already won: Fraction Bay has nothing left to give, so no such line
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+    keys = await pg.evaluate("import('./js/mdata.js').then(m=>m.M_ISLANDS.flatMap(i=>i.levels.map(t=>i.id+'-'+t)))")
+    await c.close()
+    c, pg, reqs = await page(b, 390, 844, errs, {'m': {'st': {k: 3 for k in keys}, 'plays': 1}})
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+    await set_world(pg, {'av': 'fox', 'nm': [0, 0], 'nv': 2, 'en': 1640, 'sl': 23}); await goto_hash(pg, 'map', '.map .wd')
+    E = await pg.evaluate('window.__world.energy'); note = await pg.evaluate("document.querySelector('.wd__note').textContent")
+    check('with every math star won (and past the ladder), no Fraction Bay line', E['mathOnly'] is False and 'מפרץ השברים' not in note, (E, note))
+    await c.close()
+    # a phone still holding the last ship's world_data.js (it has no ENERGY or SOON, so math gives nothing there): no
+    # Fraction Bay line. The old file is this one without those two exports.
+    old_wd = re.sub(r'export const (ENERGY|SOON)=(\{.*?\};|\[.*?\];)', '', open(os.path.join(P.ROOT, 'js', 'world_data.js'), encoding='utf-8').read(), flags=re.S)
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.route('**/js/world_data.js', lambda r: r.fulfill(content_type='text/javascript', body=old_wd))
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd')
+    await set_world(pg, {'av': 'fox', 'nm': [0, 0], 'nv': 2, 'en': 980, 'sl': 13}); await goto_hash(pg, 'map', '.map .wd')
+    E = await pg.evaluate('window.__world.energy'); note = await pg.evaluate("document.querySelector('.wd__note').textContent")
+    check('with the last ship\'s world_data.js cached (math gives 0 there), no Fraction Bay line', E['mathOnly'] is False and 'מפרץ השברים' not in note, (E, note))
     await c.close()
 
 
