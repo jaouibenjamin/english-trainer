@@ -1,6 +1,7 @@
 /* Word Islands: router and all non-level screens. */
 import {ISLANDS,LEVEL_INFO,BALLS,MAX_STARS,WORDS,starsFor} from './data.js';
 import {S,SET,saveSet,save,API,ERR,api,cred,auth,takeNewPin,award,logout,relogin,needsRelogin,syncState,push,pull,starsOf,islandStars,totalStars,isOpen,setStars,wordsKnown,unlockTTS,hush,esc,applyCalm} from './state.js';
+import * as ST from './state.js';   // for what may be missing in an older cached copy (docs/LESSONS.md 14)
 import {initHelp,helpKnown,setHelp,clearNotes} from './help.js';
 import {SND,unlock,musicOn,measure} from './audio.js';
 import {$,view,stage,SP,BG,img,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,num,toast,confetti,clearFx,sleep,HINT_NOTE,SLIP_NOTE,hudReset} from './ui.js';
@@ -123,7 +124,10 @@ async function play(id,type){const i=isl(id),lv=i&&i.levels.find(l=>l[0]===type)
  setBg(bg,BGFIT[type]);hudReset();
  const l=await LEVELS[type].start(view,{island:i,type,part:lv[1]},{done:r=>result(i,type,r)});
  if(my!==navId){l.destroy();return}level=l;
- img(BG(i.bg))}   // the result screen sits over the island's own beach: fetched while the level is played, not when it ends
+ /* the result screen sits over the island's own beach: fetched while the level is played, once the level's own voice
+    clips are all in (they come first on a slow line), so it is there when the level ends. ST: a namespace import, so
+    an older cached state.js without clipsQuiet only means the old timing (docs/LESSONS.md 14) */
+ (typeof ST.clipsQuiet==='function'?ST.clipsQuiet():Promise.resolve()).then(()=>{if(my===navId)img(BG(i.bg))})}
 function result(i,type,r){if(level){level.destroy();level=null}clearFx();hush();
  const {gained,opened}=setStars(i.id,type,r.stars),clean=r.first===r.total;
  const k=i.levels.findIndex(l=>l[0]===type),nx=i.levels[k+1],nextIsl=!nx&&ISLANDS.find(o=>o.id===i.id+1&&isOpen(o));

@@ -186,7 +186,12 @@ function cut(ctx,full,c){const sr=full.sampleRate,D=full.duration,a=Math.max(0,(
  if(pk>.01){const g=Math.min(3,.7/pk);for(let i=0;i<n;i++)o[i]*=g}
  return out}
 let active=0;const queue=[];
-function pump(){while(active<3&&queue.length){const job=queue.shift();active++;job().then(()=>{active--;pump()})}}
+function pump(){while(active<3&&queue.length){const job=queue.shift();active++;job().then(()=>{active--;pump();quiet()})}}
+/* clipsQuiet(): resolves once every clip asked for so far has arrived (or failed): nothing waiting, nothing loading.
+   main.js waits for it before fetching anything for later (the result screen's background), so the voice of the
+   level never shares a slow line with it. */
+let calm=[];function quiet(){if(!active&&!queue.length&&calm.length){const w=calm;calm=[];w.forEach(f=>f())}}
+export const clipsQuiet=()=>new Promise(r=>{calm.push(r);quiet()});
 /* fetch + decode + cut, at most three downloads at a time; a clip asked for again moves to the front of the cache */
 function loadClip(c,urgent){let p=BUF.get(c.url);if(p){BUF.delete(c.url);BUF.set(c.url,p);if(urgent&&p.jump)p.jump();return p}
  const ctx=voiceCtx();if(!ctx||!window.fetch)return Promise.resolve(null);
@@ -196,7 +201,7 @@ function loadClip(c,urgent){let p=BUF.get(c.url);if(p){BUF.delete(c.url);BUF.set
     .then(ab=>new Promise((ok,no)=>{const q=ctx.decodeAudioData(ab,ok,no);if(q&&q.catch)q.catch(no)}))
     .then(full=>{const b=cut(ctx,full,c);b.clip=c;res(b)},()=>{if(BUF.get(c.url)===p)BUF.delete(c.url);res(null)})};
   go=run;queue.push(run)});
- p.jump=()=>{const i=queue.indexOf(go);if(i>=0){queue.splice(i,1);active++;go().then(()=>{active--;pump()})}};   // the word needed now does not wait in line
+ p.jump=()=>{const i=queue.indexOf(go);if(i>=0){queue.splice(i,1);active++;go().then(()=>{active--;pump();quiet()})}};   // the word needed now does not wait in line
  BUF.set(c.url,p);for(const k of BUF.keys()){if(BUF.size<=CAP)break;BUF.delete(k)}
  if(urgent)p.jump();else pump();return p}
 /* the "slowly" button: the same recorded clip at SLOW of its pace and at its own pitch (js/stretch.js), made once per clip */
