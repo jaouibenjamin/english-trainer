@@ -5,6 +5,7 @@
     python3 tests/cache_mix.py               # every mix, every screen, the design flag off and on
     python3 tests/cache_mix.py --quick       # one old file at a time, title, map and the collection
     python3 tests/cache_mix.py --prev REF    # another previous ship than PREV_SHIP below
+    python3 tests/cache_mix.py --only "teacher page,worksheet"   # every mix, these screens only
 
 GitHub Pages lets a browser keep each file for 10 minutes (max-age=600), so for a while after a ship a phone can run the
 new page with an old module, or an old page with new ones. A new named export that an old copy does not have, a renamed
@@ -32,6 +33,7 @@ from play import check, fails, new_page
 from playwright.async_api import async_playwright
 
 QUICK = '--quick' in sys.argv
+WANT = tuple(sys.argv[sys.argv.index('--only') + 1].split(',')) if '--only' in sys.argv else ()
 # THE PREVIOUS SHIP: main's commit as the class has it now. Bump it with every ship (CLAUDE.md, "Branches and deploy").
 PREV_SHIP = '13a3496'
 PREV = sys.argv[sys.argv.index('--prev') + 1] if '--prev' in sys.argv else PREV_SHIP
@@ -39,12 +41,12 @@ ROOT = P.ROOT
 SCREENS = [('title', 'index.html#', '.scr.title .btn'), ('map', 'index.html#map', '.map .isl'), ('collection', 'index.html#collection', '.scr.coll'),
            ('sling', 'index.html#play/1/sling', '.lv'), ('listen', 'index.html#play/1/listen', '.lv'), ('read', 'index.html#play/1/read', '.lv'),
            ('bridge', 'index.html#play/1/bridge', '.lv'), ('Fraction Bay', 'index.html#math', '.scr.map .isl'), ('Fraction Bay level', 'index.html#mplay/1/pizza', '.lv'),
-           ('mock exam', 'index.html#mock', '.scr.mockhub'), ('teacher page', 'teacher.html', '#in:not([hidden])'), ('Beach Run', 'run.html', '#menu [data-go=run]'),
+           ('mock exam', 'index.html#mock', '.scr.mockhub'), ('teacher page', 'teacher.html', '#msg:not(:empty)'), ('Beach Run', 'run.html', '#menu [data-go=run]'),
            ('worksheet', 'worksheet.html?i=1', '#sheet .page')]
 # the worksheet is behind a device switch (js/worksheet.js): on for this test, so the sheet itself is drawn
 INIT = {'worksheet': "localStorage.setItem('word-islands-settings-v1', JSON.stringify({sheet: true}))"}
-if QUICK:
-    SCREENS = [s for s in SCREENS if s[0] in ('title', 'map', 'collection')]
+if QUICK or WANT:
+    SCREENS = [s for s in SCREENS if s[0] in (WANT or ('title', 'map', 'collection'))]
 # with the design flag on, a stand-in still on a picture the new look does not draw over is a blank picture
 BLANK = """()=>[...document.querySelectorAll('img[srcset^="data:image/svg"]')].filter(im=>{const cs=getComputedStyle(im);
  return !(cs.backgroundImage.includes('url(')&&(cs.objectPosition.startsWith('-9999')||cs.height==='0px'))}).map(im=>im.getAttribute('src'))"""
