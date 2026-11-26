@@ -25,7 +25,7 @@ from playwright.async_api import async_playwright
 PROJECT = 'https://sgzzsixokgohshdpkvkr.supabase.co'
 PAGE = f'http://127.0.0.1:{P.PORT}/index.html'
 CFG = open(os.path.join(P.ROOT, 'config.js'), encoding='utf-8').read()
-TEST_KEY = 'sb_publishable_TEST_made_up_for_the_trial_test'   # not a real key: the lead pastes the real one, once
+TEST_KEY = 'made-up-key-for-the-trial-test-0123456789'   # not shaped like a vendor's key (LESSONS 15): the lead pastes the real one, once
 
 
 async def device(b, cfg, prj, query=''):
@@ -55,8 +55,8 @@ mode = lambda pg: pg.evaluate("import('./js/api.js').then(m=>m.MODE)")
 async def main():
     line = [ln for ln in CFG.split('\n') if ln.startswith('window.BACKEND')]
     check('config.js names the project for a trial: mode supabase, its address, a key, and no everyone key',
-          len(line) == 1 and re.fullmatch(r"window\.BACKEND = \{mode: 'supabase', url: '" + re.escape(PROJECT) + r"', key: '[A-Za-z0-9_]*'\};", line[0]) is not None, line)
-    keyed = re.sub(r"key: '[A-Za-z0-9_]*'", "key: '" + TEST_KEY + "'", CFG)
+          len(line) == 1 and re.fullmatch(r"window\.BACKEND = \{mode: 'supabase', url: '" + re.escape(PROJECT) + r"', key: '[A-Za-z0-9_-]*'\};", line[0]) is not None, line)
+    keyed = re.sub(r"key: '[A-Za-z0-9_-]*'", "key: '" + TEST_KEY + "'", CFG)
     procs = P.start_servers()
     try:
         async with async_playwright() as pw:
