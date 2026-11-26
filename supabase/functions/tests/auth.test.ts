@@ -659,6 +659,31 @@ T("S7 (review of #86): a teacher's daily cap of new codes, checked before the sl
   clock.ms += 2 * DAY;
 });
 
+T("lock scope (0008): every 'locked' answer says whom it is for: the name, the device, the address, the class", async () => {
+  const c = await newClass();
+  const names = Array.from({ length: 12 }, (_, i) => "Sco" + "abcdefghijkl"[i]);
+  const mine = await reg(c, names[11], "4827");                       // the pupil's own phone, a known device
+  for (const n of names.slice(0, 11)) await reg(c, n, "4827", [3, 11], freshIp());
+  clock.ms += 2 * HOUR;
+  const by = (r: Reply) => (r.ok ? "ok" : `${r.e}/${(r as { by?: string }).by ?? "-"}`);
+  const school = freshIp();
+  for (let i = 0; i < 5; i++) await log(c, names[0], "9053", { ip: school });
+  eq([by(await log(c, names[0], "4827", { ip: school })), by(await log(c, names[1], "4827", { ip: school }))], ["locked/name", "ok"],
+    "5 wrong codes on one name from the school: that name waits, 'name'; a classmate at the same address signs in");
+  for (let i = 0; i < 10; i++) await log(c, names[11], "9053", { device_token: tok(mine) });
+  eq(by(await log(c, names[11], "4827", { device_token: tok(mine) })), "locked/device", "10 wrong on her own known phone: 'device'");
+  const net = freshIp();
+  for (let i = 0; i < 30; i++) await log({ ...c, code: "WRONG" + String(i).padStart(3, "0") }, names[2], "4827", { ip: net });
+  eq(by(await log(c, names[2], "4827", { ip: net })), "locked/address", "30 wrong class codes from one network: everyone there waits, 'address'");
+  clock.ms += 2 * DAY;
+  const spray = freshIp();
+  for (let round = 0; round < 3; round++) for (const n of names.slice(0, 11)) await log(c, n, "9053", { ip: spray });
+  eq(by(await log(c, names[3], "4827", { ip: spray })), "locked/address", "30 wrong codes across the class from one network: 'address'");
+  for (let i = 0; i < 80; i++) await log(c, names[i % 11], "9053", { ip: freshIp() });
+  eq(by(await log(c, names[4], "4827", { ip: freshIp() })), "locked/class", "the class brake (100 from anywhere): 'class'");
+  clock.ms += 2 * DAY;
+});
+
 T("S5: the caller's address comes from the platform's end of X-Forwarded-For; an unreadable one shares no bucket", async () => {
   const rq = (h: Record<string, string>) => new Request("http://x/", { headers: h });
   eq(clientIp(rq({ "x-forwarded-for": "6.6.6.6, 203.0.113.5" }), "xff-last"), "203.0.113.5", "the entry the platform appended, not the caller's");

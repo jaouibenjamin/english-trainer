@@ -40,10 +40,13 @@ export interface Ctx {
 }
 // deno-lint-ignore no-explicit-any
 export type Body = Record<string, any>;
-export type Reply = { ok: true; [k: string]: unknown } | { ok: false; e: string; wait?: number };
+export type Reply = { ok: true; [k: string]: unknown } | { ok: false; e: string; wait?: number; by?: string };
 
 const ZERO = "00000000-0000-0000-0000-000000000000";
 const fail = (e: string, wait?: number): Reply => (wait === undefined ? { ok: false, e } : { ok: false, e, wait });
+/** a "locked" answer with whom it is for (0008_lock_scope.sql): name, device, address, class, everyone or system */
+const SCOPES = ["name", "device", "address", "class", "everyone", "system"];
+const locked = (b: { wait?: number; by?: unknown }): Reply => ({ ok: false, e: "locked", wait: b.wait as number, by: SCOPES.includes(b.by as string) ? b.by as string : "name" });
 /** loose shape before the class's own settings are known: a short list of small whole numbers */
 const picsLike = (x: unknown): x is number[] => isPictures(x, Array.isArray(x) ? x.length : 0, 99) && (x as number[]).length <= 4;
 
@@ -114,7 +117,7 @@ export async function register(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (!isClassCode(body.class_code) || !isName(body.name) || !isCode(body.code) || !picsLike(body.pictures)) return fail("input");
   if (isWeakCode(body.code)) return fail("weak");
   const { b, k } = await begin(d, "register", { ...body, device_token: undefined }, ctx);
-  if (b.s === "locked") return fail("locked", b.wait);
+  if (b.s === "locked") return locked(b);
   if (b.s !== "go") return fail("class");
   if (!isPictures(body.pictures, b.pic_count, b.pic_choices)) return fail("input");
   const id = crypto.randomUUID();
@@ -133,7 +136,7 @@ export async function login(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (upgrade && (!isCode(body.new_code) || !picsLike(body.pictures))) return fail("input");
   if (upgrade && isWeakCode(body.new_code)) return fail("weak");
   const { b, k } = await begin(d, "code", body, ctx);
-  if (b.s === "locked") return fail("locked", b.wait);
+  if (b.s === "locked") return locked(b);
   if (b.s !== "go") return fail("class");
   if (upgrade && !isPictures(body.pictures, b.pic_count, b.pic_choices)) return fail("input");
   // one slow hash on every path: against the pupil's salt, or against a throw-away one when there is nothing to compare with
@@ -157,7 +160,7 @@ export async function recover(d: Deps, body: Body, ctx: Ctx): Promise<Reply> {
   if (byOtc ? !isOtc(body.otc) : !picsLike(body.pictures)) return fail("input");
   if (isWeakCode(body.new_code)) return fail("weak");
   const { b, k } = await begin(d, byOtc ? "otc" : "picture", body, ctx);
-  if (b.s === "locked") return fail("locked", b.wait);
+  if (b.s === "locked") return locked(b);
   if (b.s !== "go") return fail("class");
   if (!isPictures(body.new_pictures, b.pic_count, b.pic_choices) || (!byOtc && !isPictures(body.pictures, b.pic_count, b.pic_choices))) return fail("input");
   const pupil: string = b.pupil ?? ZERO;
