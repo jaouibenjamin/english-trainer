@@ -110,7 +110,7 @@ async function act(question,yes,run,typed){
    signing out, leaving the page or 10 minutes wipe them from the screen. */
 /* six digits, checked without a regular expression: a regexp run on the code leaves it in the page's RegExp statics
    (RegExp.$_, RegExp.lastMatch) until the next match, readable from the console after the dialog is closed
-   (review of #86, B4; docs/LESSONS.md entry 14) */
+   (review of #86, B4; docs/LESSONS.md entry 17) */
 const sixDigits=x=>{if(typeof x!=='string'||x.length!==6)return false;for(let i=0;i<6;i++){const c=x.charCodeAt(i);if(c<48||c>57)return false}return true};
 const CODE_MS=10*60000;
 let shown=0,shownAt=0;

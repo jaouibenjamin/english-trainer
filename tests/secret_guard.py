@@ -17,7 +17,7 @@ in the docs, so the check now looks for key *material* instead:
  10. in the tests only: a made-up key shaped like a vendor's (`sb_publishable_…`, `sk_live_`/`rk_live_…`, `ghp_`/`gho_`/
      `ghs_…`, `github_pat_…`, `AKIA…`, `AIza…`, `xoxb-…`), also glued to a prefix, and any JWT whatever its role. A fake
      key in a test is written so that it cannot be taken for a real one (`public-key-for-tests-0123456789`): the repo's
-     other scanner (gitleaks) cannot tell the difference and turns every branch red (docs/LESSONS.md, entry 13).
+     other scanner (gitleaks) cannot tell the difference and turns every branch red (docs/LESSONS.md, entry 15).
 A file that is not UTF-8 is read as latin-1, never skipped. What it cannot see: a key that was base64-encoded,
 compressed or split into pieces; gitleaks runs next to it.
 `--self-test` proves each rule fires and that the legitimate forms pass."""

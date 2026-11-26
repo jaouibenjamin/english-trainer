@@ -1,7 +1,7 @@
 -- Every "locked" answer of a sign-in, a recovery or a registration says whom it is for and who can end it (the
 -- design review of the pupil sign-in screens, PR #84; the answers are listed in docs/BACKEND.md section 4): the child
 -- sees "only your name, for N minutes" or "everyone at school waits until HH:MM", and the screen offers "ask the
--- teacher" only when she can help. No limit changes. A new migration, not an edit of 0004 (docs/LESSONS.md entry 15):
+-- teacher" only when she can help. No limit changes. A new migration, not an edit of 0004 (docs/LESSONS.md entry 16):
 -- auth_begin as in 0004, with `by` and `help` added to each {s: 'locked'}.
 -- help: 'teacher'  her unlock (a name), her class lift (the class, or the class from one address) or a new code ends it
 --       'wait'     only time ends it: calls, wrong class codes and registrations per address per hour, every class this

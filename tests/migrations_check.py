@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # suite: needs=psql   # picked up by tests/all.py
-"""Migrations already on `game` are append-only (docs/LESSONS.md entry 15, docs/BACKEND.md section 9).
+"""Migrations already on `game` are append-only (docs/LESSONS.md entry 16, docs/BACKEND.md section 9).
 
 `supabase db push` runs each migration file once and never again: a project that ran a file keeps what it made, even
 if the file is edited later. So a file that is on `game` (from where the owner may run runbook B1 at any time) must
