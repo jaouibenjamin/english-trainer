@@ -151,7 +151,7 @@ async def sleeping_laptop(b, w, h, tag):
     await pg.clock.install()
     await pg.goto(PAGE + '?tsb=1'); await pg.wait_for_selector('#in:not([hidden])')
     await pg.click('#in'); await pg.wait_for_selector('#class tbody tr')
-    await pg.clock.set_system_time(await pg.evaluate('Date.now()') + 31 * 60000)
+    await pg.clock.set_system_time((await pg.evaluate('Date.now()') + 31 * 60000) / 1000)   # seconds
     await pg.clock.run_for(31000); await pg.wait_for_timeout(300)
     check(f'[{tag}] a laptop that woke after 31 minutes: signed out by the 30-second check, nothing of her class on the screen, no tap needed',
           await pg.is_visible('#in') and await pg.locator('#class tbody tr').count() == 0 and any(x['path'] == '/auth/v1/logout?scope=local' for x in log), [x['path'] for x in log[-2:]])
