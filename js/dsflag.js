@@ -27,7 +27,15 @@
     error that stops this whole file on very old browsers): only the game page, only if not seen; ?intro=1 shows it again.
     An automated browser (navigator.webdriver, the test suites) does not get it unless ?intro=1 asks for it. */
  var seen=true;try{var iq=new URLSearchParams(location.search).get('intro');if(iq==='1')localStorage.removeItem('wi_intro');seen=localStorage.getItem('wi_intro')==='1'||(navigator.webdriver&&iq!=='1')}catch(e){}
- if(!seen&&/(^|\/)(index\.html)?$/.test(location.pathname)){var l=document.createElement('link');l.rel='stylesheet';l.href='css/ds-intro.css';document.head.appendChild(l);var m=document.createElement('script');m.type='module';m.src='js/intro.js';document.head.appendChild(m)}
+ if(!seen&&/(^|\/)(index\.html)?$/.test(location.pathname)){
+  /* the opening flow's cover (docs/INTRO.md): navy from the first paint, the game laid out but hidden behind it, so the
+     title never flashes before the logo; and the game's sound held (html.wi-intro-open: js/audio.js, js/state.js) until
+     the film closes. js/intro.js takes over the cover once its overlay is in the page. If it never comes (a failed
+     load), after 4 s the cover and the hold go and the game is there as usual. */
+  var H=document.documentElement;H.classList.add('wi-intro-pending','wi-intro-open');
+  var cv=document.createElement('style');cv.id='wi-intro-cover';cv.textContent='html.wi-intro-pending{background:#050E22}html.wi-intro-pending body>*:not(#wi-intro){visibility:hidden}';document.head.appendChild(cv);
+  setTimeout(function(){if(!document.getElementById('wi-intro')&&H.classList.contains('wi-intro-open')){H.classList.remove('wi-intro-pending','wi-intro-open');try{dispatchEvent(new Event('wi-intro-closed'))}catch(e){}}else H.classList.remove('wi-intro-pending')},4000);
+  var l=document.createElement('link');l.rel='stylesheet';l.href='css/ds-intro.css';document.head.appendChild(l);var m=document.createElement('script');m.type='module';m.src='js/intro.js';document.head.appendChild(m)}
  /* The game page only: start at once, side by side, what the first screen will ask for one file after another (the game's
     modules, the new look's Latin font, the screen's background, and on the map, island and picker the new world's code
     and styles). Only names the page goes on to use (tests/weight.py checks every one). Never without the flag. */

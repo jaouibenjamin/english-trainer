@@ -43,7 +43,7 @@ export const PICS=[
  ['scissors','מספריים','041323_04bbaf2a-1abe-45cc-837b-ccffb8d58a23','041520_bac811c6-d9c5-4946-a09f-361bc9daa58d'],
  ['mushroom','פטרייה','041323_04bbaf2a-1abe-45cc-837b-ccffb8d58a23','041820_c0c6aef4-ba22-4f70-9fc5-4b7dfa845a8c']
 ].map(([en,he,img,vox],i)=>({no:i+1,en,he,img:`assets/al/secret/${en}.hf_20261126_${img}.webp`,vox:`assets/al/voice/${en}.hf_20261126_${vox}.mp3`}));
-const LINE={order:'assets/al/voice/line-order.hf_20261126_041501_1b46e76f-b879-483e-bea7-15c82072397a.mp3',say:'assets/al/voice/line-say.hf_20261126_041501_cf51d4e5-62e9-473b-888c-158d1941071c.mp3'};
+const LINE={order:'assets/al/voice/line-order.hf_20261126_041501_1b46e76f-b879-483e-bea7-15c82072397a.mp3'};
 
 /* Every string a child sees: docs/SIGNIN.md section 3, copied exactly. The ones marked NEW are not in the spec yet and
    are on the teacher-review list. */
@@ -56,7 +56,7 @@ const T={
  a2h:'בוחרים קוד סודי',a2t:'4 ספרות שרק אתם יודעים. לא הקוד של הטלפון!',codeL:'הקוד הסודי שלי (4 ספרות)',code2L:'שוב את אותו הקוד',
  show:'הצגה',hide:'הסתרה',eWeak:'קל מדי לנחש. לא 1234 ולא ספרות חוזרות. נסו קוד אחר.',eDiff:'שני הקודים לא זהים. נסו שוב.',
  a3h:'בוחרים שתי תמונות סודיות',a3line:'קודם תמונה אחת, אחר כך עוד אחת',a3hint:'הקישו על תמונה כדי לבחור. הקישו על משבצת כדי להחליף.',
- a4h:'זוכרים בעזרת סיפור',pair:(a,b)=>`${a}, ואחר כך ${b}`,a4say:'אמרו את זה בקול.',a4t:'מצאו סיפור קצר שמחבר אותן. למשל: התפוח עף על עפיפון. אל תספרו אותו לאף אחד.',a4b:'זכרתי',
+ a4h:'זוכרים בעזרת סיפור',pair:(a,b)=>`${a}, ואחר כך ${b}`,a4say:'אמרו את זה בלב.',a4t:'מצאו סיפור קצר שמחבר אותן. למשל: התפוח עף על עפיפון. אל תספרו אותו לאף אחד.',a4b:'זכרתי',
  a5h:'עכשיו מהזיכרון',a5t:'הקישו על שתי התמונות, באותו הסדר.',a5miss:'לא בדיוק. נסו שוב, אתם קרובים.',a5new:'אפשר לבחור תמונות חדשות.',
  regDone:'נרשמתם!',regDoneT:'המכשיר הזה יזכור אתכם. אם תשכחו את הקוד, התמונות יעזרו.',go:'יוצאים לדרך',
  bh:'נכנסים',enter:'כניסה',ePin:'השם או הקוד לא נכונים. נסו שוב.',
@@ -195,7 +195,7 @@ export function mount(root,o){
  function to(scr,keep){if(!keep){st.err='';st.hint=''}focusId='';
   st.scr=scr;if(scr==='a3'||scr==='a5'||scr==='e2')st.order=shuffle();
   if(scr==='a3'&&!st.saidOrder){st.saidOrder=true;say(LINE.order)}
-  if(scr==='a4')say(LINE.say);
+  // A4 says nothing aloud: "אמרו את זה בלב" (a secret is not said aloud in a classroom); the old clip said the opposite
   draw()}
  const fail=(msg,scr)=>{st.busy=false;st.err=msg;if(scr&&scr!==st.scr){to(scr,true)}else draw()};
  const flowDone=()=>{st.busy=false;wipe()};
