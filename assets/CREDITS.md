@@ -860,6 +860,14 @@ so each is marked "not recorded". Pitzi the crab is the game's own character.
 | `assets/icons/icon-512.png` | app icon, 512 px | not recorded |
 | `assets/icons/icon-maskable-512.png` | app icon, 512 px, maskable | not recorded |
 
+## Made here
+
+Rendered by this project's own tools from the fonts below, with no generator and no credits.
+
+| File | What | Made with | sha256 |
+|---|---|---|---|
+| `assets/al/intro/logo.webp` | the platform logo "ניצני אופק" for the opening splash: the welcome film's closing lettering (Rubik Moonrocks, gold gradient and glow), rendered with tools/intro_film.py's title code on transparency, 640 x 201. No generator, no credits | tools/intro_film.py | b0fa09fa6763d9960b090dd3ad48dc664c457a345f08b13d0cca4aaa33dd5e58 |
+
 ## Fonts
 
 All under the SIL Open Font License 1.1 (the licence texts are listed with them). The files are the ones in the

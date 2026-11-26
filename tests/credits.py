@@ -143,6 +143,10 @@ def build():
         add(f'### {title}\n')
         add(table(['File', 'What', 'Job id'], [[f(r['file']), cell(r['what']), NOT_RECORDED] for r in sec(name)]))
 
+    add('## Made here\n')
+    add('Rendered by this project\'s own tools from the fonts below, with no generator and no credits.\n')
+    add(table(['File', 'What', 'Made with', 'sha256'], [[f(r['file']), cell(r['what']), cell(r['source']), r['sha256']] for r in sec('local')]))
+
     add('## Fonts\n')
     add('All under the SIL Open Font License 1.1 (the licence texts are listed with them). The files are the ones in the\n'
         'named npm package, unchanged, which are the files Google Fonts serves.\n')
@@ -175,7 +179,7 @@ def problems():
         bad.append('assets/CREDITS.md must not hold a storage path or a URL')
     for r in tsv('assets/credits_extra.tsv'):
         p = os.path.join(ROOT, r['file'])
-        if r['section'] in ('font', 'code') and (not os.path.isfile(p) or hashlib.sha256(open(p, 'rb').read()).hexdigest() != r['sha256']):
+        if r['section'] in ('font', 'code', 'local') and (not os.path.isfile(p) or hashlib.sha256(open(p, 'rb').read()).hexdigest() != r['sha256']):
             bad.append(f"{r['file']}: missing, or differs from its sha256 in assets/credits_extra.tsv")
     al_raw = open(os.path.join(ROOT, 'assets', 'al', 'sources.tsv'), encoding='utf-8').read().lower()
     if 'cloudfront' in al_raw or 'user_' in al_raw or re.search(r'https?://', al_raw):

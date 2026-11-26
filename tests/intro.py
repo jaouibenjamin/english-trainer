@@ -25,7 +25,7 @@ def check(label, ok, extra=''):
 
 def files_check():
     js = open(os.path.join(ROOT, 'js', 'intro.js'), encoding='utf-8').read()
-    film = re.search(r"FILM='([^']+)'", js).group(1); poster = re.search(r"LOGO='([^']+)'", js).group(1)
+    film = re.search(r"FILM='([^']+)'", js).group(1); logo = re.search(r"LOGO='([^']+)'", js).group(1)
     light = re.search(r"FILM_LIGHT='([^']+)'", js).group(1)
     rows = {}
     for ln in open(os.path.join(ROOT, 'assets', 'al', 'sources.tsv'), encoding='utf-8').read().split('\n')[1:]:
@@ -33,11 +33,14 @@ def files_check():
         if len(c) > 5:
             rows['assets/' + c[1]] = c
     ok = True; info = {}
-    for f in (film, light, poster):
+    lp = os.path.join(ROOT, logo)
+    check('the logo is the local render of the film\'s closing lettering (docs/INTRO.md: no credits, not a Higgsfield file), a WebP under 60 KB',
+          os.path.isfile(lp) and open(lp, 'rb').read(12)[8:12] == b'WEBP' and os.path.getsize(lp) < 60 * 1024 and logo == 'assets/al/intro/logo.webp', logo)
+    for f in (film, light):
         p = os.path.join(ROOT, f)
         if not os.path.isfile(p) or rows.get(f, [None] * 6)[5] != hashlib.sha256(open(p, 'rb').read()).hexdigest():
             ok = False; info[f] = 'missing or not listed with its sha256'
-    check('the film, its light version and the logo exist and are listed in sources.tsv with their sha256', ok, info)
+    check('the film and its light version exist and are listed in sources.tsv with their sha256', ok, info)
     size = os.path.getsize(os.path.join(ROOT, film))
     try:
         pr = json.loads(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_name,channels,sample_rate,width:format=duration', '-of', 'json', os.path.join(ROOT, film)], capture_output=True, text=True).stdout)
