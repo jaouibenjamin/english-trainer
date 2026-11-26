@@ -61,12 +61,12 @@ board; the icons already mean something in the game). The art brief for 20 new p
 
 | | | | | |
 |---|---|---|---|---|
-| תפוח (apple, red, round) | בננה (banana, yellow, crescent) | אבטיח (watermelon slice, green and red, wedge) | גזר (carrot, orange, long) | ענבים (grapes, purple, bunch) |
-| פרח (flower, pink, petals) | מטריה (umbrella, blue, open) | עפיפון (kite, green, diamond) | תוף (drum, red and white, cylinder) | כובע (hat, brown, wide brim) |
-| נעל (shoe, light blue) | פיל (elephant, grey) | ג׳ירפה (giraffe, yellow with brown spots, tall) | בית (house, cream with a red roof) | עיפרון (pencil, yellow, long) |
-| ספר (book, blue-green, closed) | פעמון (bell, gold) | מכונית (car, teal) | מספריים (scissors, silver and orange) | פטרייה (mushroom, red cap, white dots) |
+| תפוח (apple, red, round) | בננה (banana, yellow, crescent) | אבטיח (watermelon slice, green and red, wedge) | קקטוס (cactus in a pot, green, upright) | ענבים (grapes, purple, bunch) |
+| פרח (flower, pink, petals) | מטריה (umbrella, blue, open) | עפיפון (kite, orange, diamond) | תוף (drum, red and white, cylinder) | כובע (hat, brown, wide brim) |
+| נעל (shoe, light blue) | פיל (elephant, grey) | ג׳ירפה (giraffe, yellow with brown spots, tall) | בית (house, cream with a red roof) | עיפרון (pencil, blue, straight) |
+| ספר (book, blue-green, closed) | פעמון (bell, gold) | מכונית (car, yellow, from the side) | מספריים (scissors, silver and orange) | פטרייה (mushroom, red cap, white dots) |
 
-Pairs checked for confusion: apple and mushroom (round vs stalk and cap), banana and pencil (curve vs straight),
+Pairs checked for confusion: apple and mushroom (round vs stalk and cap), banana and pencil (yellow curve vs blue straight), banana and the carrot (dropped: two long yellow-orange shapes at 56 px, replaced by a cactus),
 umbrella and mushroom (blue vs red, handle vs stalk), elephant and giraffe (wide vs tall).
 
 **Cost estimate (cap A, 25 credits):** pictures as 5 sheets of 4, gpt_image_2_5 high, 1.25 each: **6.25**, with a
@@ -112,6 +112,7 @@ The tick box keeps the session for this tab only (it ends when the tab closes). 
 | | Hint (under the slots) | הקישו על תמונה כדי לבחור. הקישו על משבצת כדי להחליף. |
 | | Button (after two) | המשך |
 | A4 4/5 | Heading | זוכרים בעזרת סיפור |
+| | (note) | the pair and the story below are a **sample**; the screen shows the child's own two pictures |
 | | The pair, large | תפוח, ואחר כך עפיפון |
 | | Text (sound) | אמרו את זה בקול. |
 | | Text | מצאו סיפור קצר שמחבר אותן. למשל: התפוח עף על עפיפון. אל תספרו אותו לאף אחד. |
@@ -184,18 +185,26 @@ use that the teacher's list does not already show).
 | | Text | בטלפונים ובמחשבים אחרים תצטרכו להיכנס שוב עם הקוד החדש. |
 | | Button | יוצאים לדרך |
 
-### Waits (from the backend engineer's rules; the server's answer carries the scope and the wait)
+### Waits (the server's answer carries `by`, `help` and the wait; PR #93)
 
-On a school Wi-Fi 25 children share one address, so the screen tells the child **which kind of wait** it is.
+On a school Wi-Fi 25 children share one address, so the screen says **whose** wait it is, and promises the teacher's
+help only when `help` is `teacher`. When the scope is wider than the child (address, class, everyone) the copy says it
+is not their fault. Unknown values read as `wait`. A wait of −1 means "until the teacher": no time is shown. Every
+message ends with what the child can do meanwhile; a pupil already signed in is never stopped (BACKEND D4).
 
-| Scope | When | Text |
+| `by` / `help` | When (backend rules) | Text |
 |---|---|---|
-| Name, this device | 5 wrong codes for this name: 5, then 15, 60, 240 minutes (resets after 24 hours without a mistake). Classmates are not affected; a device where only this child signed in correctly in the last 30 days counts only its own mistakes | השם הזה עוצר לכמה דקות, רק במחשב הזה. אפשר לנסות שוב בעוד {N} דקות. בינתיים אפשר ללחוץ "שכחתי את הקוד" או לבקש מהמורה עזרה. |
-| Everyone at this address | 30 wrong codes in 24 hours across all names from one address (unknown devices wait), or the class brake (100 a day; the teacher is told at 60 and can lift it) | הכניסה מהמחשבים כאן עוצרת עד {HH:MM}, כי היו הרבה ניסיונות שגויים. אפשר לבקש מהמורה לשחרר. מי שכבר מחובר ממשיך לשחק. |
-| Class code, this address | 30 wrong class codes in an hour from one address | עצרנו את הניסיונות עם קוד הכיתה עד {HH:MM}. בדקו את הקוד על הלוח, או בקשו מהמורה. |
-| Pictures | 3 wrong for a name (closed until the teacher), 5 a day from one address, 10 a day in the class | the E2 messages above |
+| name / teacher | 5 wrong codes for this name from here: 5, then 15, 60, 240 minutes; resets after 24 hours without a mistake | רק השם שלכם עוצר לעכשיו, ל-{N} דקות. בינתיים אפשר ללחוץ "שכחתי את הקוד", או לבקש מהמורה לשחרר. |
+| name / teacher, wait −1 | recovery by pictures closed for this name | השם שלכם עוצר בינתיים. בקשו מהמורה לשחרר אותו. |
+| device / teacher | a device where only this child signed in, past its own 10 a day | המכשיר הזה עוצר בשבילכם לעכשיו, עד {HH:MM}. אפשר להיכנס ממכשיר אחר, או לבקש מהמורה לשחרר. |
+| address / teacher | wrong codes or pictures across the class from this network | זה לא בגללכם: הכניסה מהמחשבים כאן עוצרת לכולם עד {HH:MM}. אפשר לבקש מהמורה לשחרר. מי שכבר מחובר ממשיך לשחק. |
+| address / wait | too many calls, class codes or registrations in an hour from this network | זה לא בגללכם: הכניסה מכאן עוצרת לכולם עד {HH:MM}. נסו שוב אז. |
+| class / teacher | the class brake (100 wrong a day) | זה לא בגללכם: הכניסה לכיתה עוצרת עד {HH:MM}. אפשר לבקש מהמורה לשחרר. |
+| everyone / wait | the service is busy | יש עכשיו עומס. נסו שוב ב-{HH:MM}. |
+| system / wait | registration closed for now | אי אפשר להירשם כרגע. נסו שוב מאוחר יותר. מי שכבר רשום יכול להיכנס. |
+| (unknown) | anything else | הכניסה עוצרת לכמה דקות. נסו שוב ב-{HH:MM}. |
 
-A pupil who is already signed in is never stopped by any of these (BACKEND D4).
+The picture counts for a name (3 tries) are the E2 messages above.
 
 ### Shared device and switching
 
