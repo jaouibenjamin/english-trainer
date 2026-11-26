@@ -112,12 +112,13 @@ export function weak(code){const d=[...code].map(Number),step=(d[1]-d[0]+10)%10;
 const normC=x=>String(x||'').trim().toUpperCase(),normN=x=>String(x||'').normalize('NFC').trim().replace(/\s+/g,' ');
 /* the name in a 'first_initial' class is `${first} ${letter}.` (docs/GRADES_V1.md 0011); a 'first' class (the trial)
    takes the first name alone, so the letter goes only when one was typed. The box: one Hebrew letter (a final form is
-   written as its plain one: an initial is never final) or one Latin letter, as a capital; a second character only as
-   the teacher's list has it for two pupils of the same name and letter (a digit, "כ2", or a second letter) */
+   written as its plain one: an initial is never final) or one Latin letter, as a capital; then, only as the teacher's
+   list has it for two pupils of the same name and letter, one digit 2-9 ("כ2"). Never a second letter: one letter of
+   the surname is the owner's rule */
 const FINAL={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
 const LET=ch=>{if(FINAL[ch])return FINAL[ch];if(ch>='א'&&ch<='ת')return ch;const u=ch.toUpperCase();return u.length===1&&u>='A'&&u<='Z'?u:''};
-export function letter(s){const a=[];for(const c of String(s??'').normalize('NFC')){const L=LET(c),d=c>='0'&&c<='9'?c:'';
- if(L||(d&&a.length))a.push(L||d);if(a.length===2)break}return a.join('')}
+export function letter(s){let l='',d='';for(const c of String(s??'').normalize('NFC')){const L=LET(c);
+ if(!l){if(L)l=L}else if(c>='2'&&c<='9'){d=c;break}}return l+d}
 const isHe=c=>c>='א'&&c<='ת';
 /* the letter takes the name's script (a Hebrew name, a Hebrew letter): false when they differ */
 export function sameScript(first,l){const f=[...String(first||'')].find(c=>isHe(c)||LET(c)),k=[...String(l||'')][0];return!f||!k||isHe(f)===isHe(k)}
