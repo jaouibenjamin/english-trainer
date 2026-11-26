@@ -10,6 +10,9 @@ import {$,view,stage,SP,BG,img,preload,CORE,setBg,bgMap,ico,spr,rb,btn,stars,en,
    load this module at all (tests/cache_mix.py). Missing there, they are simply not used. */
 import * as UI from './ui.js';
 const standIn=n=>typeof UI.standIn==='function'?UI.standIn(n):'';
+/* this main.js puts back the pictures js/ui.js spr() gives a stand-in (dsSettle below): ui.js writes stand-ins only after
+   this, so a newer ui.js with an older main.js (a phone's cache after a ship) draws plain pictures */
+globalThis.__wiSettles=true;
 import * as sling from './sling.js';
 import * as listen from './listen.js';
 import * as read from './read.js';
