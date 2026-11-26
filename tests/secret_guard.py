@@ -14,7 +14,8 @@ in the docs, so the check now looks for key *material* instead:
   7. a bare `password = "…"` line, as in a toml `[db]` section;
   8. a libpq connection string (`host=… password=…`, also with spaces around =) with a password that is not a reference;
   9. a `password:` key with a value in YAML or JSON;
- 10. in the tests only: a made-up key shaped like a vendor's (`sb_publishable_…`, `sk_live_…`, `ghp_…`, `AKIA…`). A fake
+ 10. in the tests only: a made-up key shaped like a vendor's (`sb_publishable_…`, `sk_live_`/`rk_live_…`, `ghp_`/`gho_`/
+     `ghs_…`, `github_pat_…`, `AKIA…`, `AIza…`, `xoxb-…`), also glued to a prefix, and any JWT whatever its role. A fake
      key in a test is written so that it cannot be taken for a real one (`public-key-for-tests-0123456789`): the repo's
      other scanner (gitleaks) cannot tell the difference and turns every branch red (docs/LESSONS.md, entry 13).
 A file that is not UTF-8 is read as latin-1, never skipped. What it cannot see: a key that was base64-encoded,
@@ -32,7 +33,9 @@ TOML_PW = re.compile(r'(?im)^[ \t]*["\']?(\w*password|pass|pwd)["\']?[ \t]*=[ \t
 DSN_PW = re.compile(r'(?i)\b(?:host|hostaddr|dbname|user)[ \t]*=[ \t]*\S+[^\n]*?\bpassword[ \t]*=[ \t]*["\']?([^\s"\'$<\[{]{4,})|\bpassword[ \t]*=[ \t]*["\']?([^\s"\'$<\[{]{4,})[^\n]*?\b(?:host|hostaddr|dbname)[ \t]*=[ \t]*\S')
 # YAML or JSON: `password: hunter2`, `"password": "hunter2",` (the whole rest of the line is the value; review N6)
 KV_PW = re.compile(r'(?im)^[ \t{-]*["\']?(\w*password|passwd|pwd)["\']?[ \t]*:[ \t]*["\']?([^\s"\'$<\[{#(),;]{6,})["\']?[ \t]*,?[ \t]*$')
-VENDOR_SHAPED = re.compile(r'\b(?:sb_publishable_[A-Za-z0-9_-]{10,}|sk_(?:live|test)_[A-Za-z0-9]{10,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})')
+# no leading \b: a key glued to a prefix (xsb_publishable_…, TEST_sb_publishable_…) is still a key (review of #88)
+VENDOR_SHAPED = re.compile(r'sb_publishable_[A-Za-z0-9_-]{10,}|[sr]k_(?:live|test)_[A-Za-z0-9]{10,}|gh[opsur]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}'
+                           r'|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|xox[abprs]-[A-Za-z0-9-]{10,}')
 NOT_A_VALUE = {'string', 'str', 'null', 'none', 'true', 'false', 'required', 'optional', 'secret', 'redacted'}
 LOCAL = {'localhost', '127.0.0.1', '::1', 'db', 'host'}
 
@@ -51,6 +54,8 @@ def scan(text, test=False):
     out = []
     if test and VENDOR_SHAPED.search(text):
         out.append("a made-up key shaped like a vendor's (write it so it cannot pass for one)")
+    if test and JWT.search(text):
+        out.append('a JWT in a test, whatever its role (build it from pieces at run time)')
     for m in JWT.finditer(text):
         if jwt_role(m.group(0)) != 'anon':
             out.append('a JWT that is not the anon key')
@@ -97,8 +102,13 @@ def self_test():
             'password: ${{ secrets.DB_PASSWORD }}', '  password: string;', 'interface X {\n  password: string\n}', '"password": "$DB_PASSWORD",']
     # rule 10: in a test, a vendor-shaped fake fails; the same text outside the tests (the publishable key is public by
     # design, in config.js and the docs) passes, and so does a fake written as the tests write it
-    fake = ["KEY = '" + 'sb_' + "publishable_test_0123456789abcdef'", 'sk_' + 'live_0123456789abcd', 'gh' + 'p_' + 'a' * 36, 'AK' + 'IA' + 'ABCDEFGHIJKLMNOP']
+    fake = ["KEY = '" + 'sb_' + "publishable_test_0123456789abcdef'", 'sk_' + 'live_0123456789abcd', 'rk_' + 'live_0123456789abcd', 'gh' + 'p_' + 'a' * 36,
+            'gh' + 'o_' + 'a' * 36, 'gh' + 's_' + 'a' * 36, 'github' + '_pat_' + '11ABCDEFG0' * 3, 'AK' + 'IA' + 'ABCDEFGHIJKLMNOP', 'AI' + 'za' + 'B' * 35,
+            'xo' + 'xb-' + '1234567890-abcdef', tok('anon'),                                          # an anon JWT too, in a test
+            'x' + 'sb_' + 'publishable_test_0123456789abcdef', 'TEST_' + 'sb_' + 'publishable_test_0123456789abcdef']   # glued to a prefix
     ok10 = all(scan(x, test=True) for x in fake) and not any(scan(x) for x in fake[:1]) and not scan("KEY = 'public-key-for-tests-0123456789'", test=True)
+    for x in fake:
+        if not scan(x, test=True): print('self-test: rule 10 misses', x[:12] + '…')
     if not ok10: print('self-test: rule 10 (vendor-shaped fakes in tests) does not hold')
     bad = bad + fake
     ok = ok10 and all(scan(x) or scan(x, test=True) for x in bad) and not any(scan(x) for x in good)
