@@ -103,3 +103,17 @@ The ten provisional animations in #99 and the 19 older generic ones are replaced
   `av/eagle.*` and `avanim/eagle.*`, and the briefs say eagle. It is not regenerated.
 - The kangaroo's ears flop sideways mid-animation in its current clip; that clip is replaced with the new gestures
   anyway.
+
+## The hands test (option 2 on three characters, 2026-11-26)
+
+The owner chose the test. Three waist-up stills (the two kids redone once, closer, so the face stays large) and three
+gestures with hands. Results, frame by frame:
+
+- **boy-cap, crossed arms:** reads at once: arms cross, a funny frown, then a smile and back. The best of the three.
+- **girl-ponytail, fist pump:** the first take showed teeth; the retake keeps the lips closed and reads well.
+- **raccoon, "shh":** a paw to the lips, clear; its last frame drifts from the still, so it would need the
+  forward-and-back or fade treatment.
+- The stills match the approved faces closely, with slight drift (the eyes and hair of the kids are a little
+  different); the owner judges whether that is acceptable.
+
+Spent 14.50 of the 15 allowed (held budget D). The files are not in the repo (preview only).
