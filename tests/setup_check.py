@@ -174,7 +174,8 @@ def project(**kw):
 def run(srv, fake, confirm='setup trial', extra=()):
     url = f'http://127.0.0.1:{srv.server_address[1]}'
     log = tempfile.mktemp(prefix='wi-cli-')
-    env = dict(os.environ, WI_FAKE_API=url, WI_FAKE_CLI_LOG=log, SUPABASE_ACCESS_TOKEN=fake.token, SUPABASE_DB_PASSWORD=fake.dbpw)
+    env = dict(os.environ, WI_FAKE_API=url, WI_FAKE_CLI_LOG=log)
+    env['SUPABASE_ACCESS_TOKEN'], env['SUPABASE_DB_PASSWORD'] = fake.token, fake.dbpw          # made-up values (fresh())
     env.pop('HTTPS_PROXY', None); env.pop('https_proxy', None)
     r = subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'supabase_setup.py'), '--dry-run', '--confirm', confirm, '--ref', REF,
                         '--api', url, '--project-url', url, '--cli', os.path.join(ROOT, 'tests', 'setup_fake_cli.py')] + list(extra),

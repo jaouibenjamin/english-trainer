@@ -222,7 +222,8 @@ class Setup:
     # ---------- 3. the database ----------
     def cli(self, *args, input_=None):
         cmd = [self.a.cli] + list(args)
-        env = dict(os.environ, SUPABASE_ACCESS_TOKEN=self.token, SUPABASE_DB_PASSWORD=self.dbpw)
+        env = dict(os.environ)
+        env['SUPABASE_ACCESS_TOKEN'], env['SUPABASE_DB_PASSWORD'] = self.token, self.dbpw   # the CLI reads both from env
         r = subprocess.run(cmd, cwd=ROOT, env=env, input=input_, capture_output=True, text=True, timeout=1800)
         for line in (r.stdout + r.stderr).splitlines():
             self.say('  | ' + line)
