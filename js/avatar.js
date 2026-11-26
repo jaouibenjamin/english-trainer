@@ -349,13 +349,15 @@ export async function picker(view,go,live=()=>true){
   const later=[];
   for(const a of ALL){const locked=a.open>E.level&&a.id!==me.av,sel=pick===a.id;   // the character a pupil already has stays theirs
    const b=btn('wpick__av'+(locked?' is-locked':'')+(sel?' is-selected':''),null,()=>{
-    if(locked){note.textContent=lockedSay(a,E.level);const i=b.querySelector('.wpick__art--thumb');if(i){i.classList.remove('wpick__art--thumb');i.src=ART['av/'+a.id]}return}   // tapped: its full picture, once
+    if(locked){note.textContent=lockedSay(a,E.level);const i=b.querySelector('.wpick__art--thumb');if(i){i.classList.remove('wpick__art--thumb');i.style.transform='';i.src=ART['av/'+a.id]}return}   // tapped: its full picture, once
     pick=a.id;choose();const s=body.querySelector('.is-selected');if(s){s.focus({preventScroll:true});playAv(s.querySelector('img'),a.id)}});   // its short animation, once (js/avanim.js: nothing before a tap, nothing with reduced motion or calm)
    /* review of #122 (the picker opened 3.7 s slower): a locked tile shows a small thumbnail of the character (tools/
       avthumb.py, a few KB), an open one its full still; and every tile gets its picture only when it comes near the
       screen (below the fold, when scrolled to) */
    b.dataset.id=a.id;const ip=el('img','wpick__art'+(locked?' wpick__art--thumb':''));ip.alt='';ip.decoding='async';ip.draggable=false;
    ip.dataset.src=locked?'assets/al/avthumb/'+a.id+'.webp':ART['av/'+a.id];later.push(ip);b.appendChild(ip);
+   if(locked){ip.style.transform='none';   // the thumbnail is the crop box already (inline too, so an older css/avatar.css in the cache does not zoom it twice)
+    ip.onerror=()=>{ip.onerror=null;ip.style.transform='';ip.classList.remove('wpick__art--thumb');ip.src=ART['av/'+a.id]}}   // no thumbnail (a character added later): its full still
    if(locked){b.setAttribute('aria-label',lockedSay(a,E.level));b.setAttribute('aria-disabled','true');
     const k=el('img','wpick__key');k.src=ART['ui/lock'];k.alt='';k.decoding='async';b.append(k,el('span','wpick__lock','רמה '+a.open))}   // a small lock in the top corner and "רמה N" in one short line at the bottom: the picture stays in view
    else{b.setAttribute('aria-label',a.he);b.setAttribute('aria-pressed',sel?'true':'false')}
