@@ -38,7 +38,7 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 | A5 | 📱 Owner | Authentication → Multi-factor: enrolment off for every factor; manual identity linking off. | set back |
 | A6 | 📱 Owner | Authentication → Sessions: JWT expiry 3600; refresh-token rotation on, reuse interval 10 s. | set back |
 | A7 | 📱 Owner | Authentication → Rate limits: token verifications at least 150 per 5 minutes; sign-ups and emails at the minimum. | set back |
-| A8 | 📱 Owner | Authentication → URL configuration: site URL and redirect list = the game's address only. | set back |
+| A8 | 📱 Owner | Authentication → URL configuration: site URL = the game's address; redirect list = `<game>/teacher.html` and nothing else (`docs/BACKEND.md` section 9 step 9). | set back |
 | A9 | 📱 Owner | Settings → API: exposed schemas `public` only. Database → Extensions: `pg_graphql` off, `pgcrypto` on, `pg_cron` on. Realtime off for every table. | set back |
 | A10 | 💻 Owner | Check the settings: `export SUPABASE_URL=https://<ref>.supabase.co`, the publishable key with `read -rs SUPABASE_ANON_KEY; export SUPABASE_ANON_KEY`, then `python3 tests/live_check.py --stage 1`. **All green before going on.** | fix the red setting and run it again |
 
@@ -46,7 +46,7 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 
 | # | Who | Step | Rollback |
 |---|---|---|---|
-| B1 | 💻 Owner | `supabase link --project-ref <ref>`, then `supabase db push` (migrations `0001` to `0005`). Then run `supabase/seed/catalog.sql` in the SQL editor. The output must say **"maintenance is scheduled: every night at 02:17 UTC"**; if it says "NOT scheduled", stop. | Nothing depends on the project yet. Delete the project and create it again (free), then start at A. |
+| B1 | 💻 Owner | `supabase link --project-ref <ref>`, then `supabase db push` (migrations `0001` to `0009`). Then run `supabase/seed/catalog.sql` in the SQL editor. The output must say **"maintenance is scheduled: every night at 02:17 UTC"**; if it says "NOT scheduled", stop. | Nothing depends on the project yet. Delete the project and create it again (free), then start at A. |
 | B2 | 💻 Owner | The pepper, never shown or pasted: `supabase secrets set PUPIL_PEPPER="$(openssl rand -base64 32)"`. Then `supabase secrets set ALLOWED_ORIGINS=https://jaouibenjamin.github.io`. **Run B2 exactly once.** | Before C3 only: run it again. **If the pepper ever changes after C3, every copied code is broken: stop and tell the lead** (the import never stages a code again). |
 | B3 | 💻 Owner | `supabase functions deploy` (all six: `pupil-login`, `pupil-register`, `pupil-recover`, `teacher-reset`, `admin-class`, `admin-wrap-legacy`). | Deploy the previous version, or delete the function. |
 | B4 | 💻 Owner | Backup keys, `docs/BACKEND.md` section 9 step 14: an RSA 4096 pair with `gpg`; the public key into `private.settings`; the private key on the laptop plus one offline copy. The export token: `openssl rand -hex 32`, its sha256 into `private.settings`, the token itself into the password manager. | Generate them again. |
@@ -61,7 +61,7 @@ The project exists. These are section 9 steps 2 to 11 of `docs/BACKEND.md`.
 |---|---|---|---|
 | C1 | 💻 Owner | Download the Sheet's pupils tab as CSV (File → Download → CSV) into a folder **outside** the repository. | Delete the file. |
 | C2 | 💻 Owner ⚠ | **Copies the class's names and code hashes into Supabase (the dry run reads them all): needs the owner's explicit yes.** Dry run, with `WI_DATABASE_URL` read as above: `python3 tools/migrate_sheet.py <file>.csv --class <class_id>`. Read the counts; they must match the class list. | Nothing was written. |
-| C3 | 💻 Owner ⚠ | **Copies the class's names and code hashes into Supabase: needs the owner's explicit yes.** The same command with `--apply`. Then `python3 tools/migrate_sheet.py --wrap` (with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in the environment). Then delete the CSV. | Safe to run again: the Sheet's record replaces the copy. |
+| C3 | 💻 Owner ⚠ | **Copies the class's names and code hashes into Supabase: needs the owner's explicit yes.** The same command with `--apply`. Then `python3 tools/migrate_sheet.py --wrap` (with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in the environment). Then delete the CSV. | Safe to run again: the Sheet's record replaces the copy. A pupil the teacher took out of the class on the teacher screen is skipped (counted in `skipped_removed`), never brought back; a pupil she deleted for good is not known any more, so a second run copies that name again: run C3 again only before the teacher starts using the screen's remove and delete. |
 | C4 | 💻 Owner | Copy phase on: `admin-class` with `{"action":"shadow_on"}` (same `curl` as B6). | `{"action":"shadow_off"}`, which ends every copy session at once. |
 
 ## D. The client (engineer and lead)

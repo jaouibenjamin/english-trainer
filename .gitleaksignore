@@ -1,0 +1,5 @@
+# One known false positive, approved by the owner on 2026-11-26. Nothing else belongs here without his word.
+# A made-up placeholder value, next to a fake Supabase host, in a unit test (tests/teacher_check.mjs).
+# It was never a real key. Later commits replaced it; tests/secret_guard.py keeps such values out of tests.
+# Format: commit:file:rule:line. This silences exactly this finding in this commit, nothing else.
+958e9d160c8a99bce08cddb16370821b95b6f285:tests/teacher_check.mjs:generic-api-key:18

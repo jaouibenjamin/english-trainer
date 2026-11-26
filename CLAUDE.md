@@ -41,6 +41,7 @@ Read this file, `docs/PLAN.md` and `docs/LESSONS.md` before changing anything.
 
 - Work on `game`. `main` is what Pages serves.
 - Ship: merge `game` into `main`, and keep the real `/exec` URL in `config.js` on `main`. Then wait about a minute for Pages.
+- After each ship, set `PREV_SHIP` in `tests/cache_mix.py` to the new `main` commit: the next ship is checked against what the class then has in its browser cache (old and new files mixed).
 - Commit messages end with the session's attribution lines.
 
 ## Tests (run before every ship)
