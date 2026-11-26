@@ -99,7 +99,7 @@ character's look, colours or outfit.
 | 7 | a zebra | plain black and white stripes, no clothes |
 | 8 | a badger | grey with a black-and-white striped face |
 | 9 | a kangaroo | sandy brown, standing |
-| 10 | a griffin (from old myths, not a film's) | eagle head and wings, lion body, brown and gold, friendly eyes |
+| 10 | an eagle (briefed as a griffin; it came out as an eagle and is called one) | brown and gold feathers, friendly eyes |
 
 Every prompt adds: "an adult animal, not a baby; must not resemble any existing character, mascot or toy". Rejected
 when a result evokes a known character (a lion cub, a white unicorn with a pastel mane, a round teal dragon, a blue
@@ -114,7 +114,7 @@ is not raised. Unlock levels beyond 13 are the engineer's (the ladder in `js/ava
 **Done (batch l3, 2026-11-26):** the ten portraits in `assets/al/av/` (256 px) and their animations in
 `assets/al/avanim/` (192 px, 24 to 29 frames at 83 ms, 89 to 146 KB, ending on the still). Every frame was looked at:
 the zebra, kangaroo and badger first takes opened the mouth with teeth and were retaken (the badger's retake still did
-after 1 s, so only its first second is used, forward and back); the griffin turned to the camera after 1.2 s and the
+after 1 s, so only its first second is used, forward and back); the eagle (briefed as a griffin) turned to the camera after 1.2 s and the
 flamingo opened its beak in the first half second, so those two use a clean stretch played forward and back, and the
 flamingo's still is the matching frame. 44.00 charged of cap C. Not wired: unlock levels beyond 13 are the engineer's.
 
