@@ -11,8 +11,9 @@
    'dual' (Phase 2 of docs/PLAN.md): the Sheet is asked first and its answer is the answer; afterwards, and only when
    the Sheet said ok, the same progress is copied to Supabase in the background. A failure there is never shown to
    the pupil, never slows the game, and is written to a small log on the device (shadowLog()).
-   'supabase': the new backend alone. Not complete: it needs the sign-in screens with the secret pictures, so it is
-   refused unless config.js also says unfinished: true.
+   'supabase': the new backend alone (docs/PHASE3.md step 6): sign-in with the code once, then the session only; the
+   record and the board from Supabase. Still refused unless config.js also says unfinished: true, until the pupil
+   sign-in screens (step 5) are in; whichever of the two lands second removes that key.
    A mode that is not spelled exactly, or has no https project address and key, falls back to 'sheet'. */
 const W=typeof window!=='undefined'?window:globalThis;
 const SHEET=(W.API_URL||'').trim();
@@ -28,10 +29,12 @@ const URL_OK=typeof B.url==='string'&&/^https:\/\/[a-z0-9-]+\.supabase\.co$/.tes
    nothing is read. */
 const EVERYONE=Object.prototype.hasOwnProperty.call(B,'everyone')&&B.everyone===true;
 let tryOn=true,tryOff=false;
+// the device switch: ?dual=1 for 'dual', ?new=1 for 'supabase' (docs/PHASE4.md A, "a plain trial switch")
+const SW=B.mode==='supabase'?'new':'dual';
 if(URL_OK&&!EVERYONE){tryOn=false;
- try{const q=new URLSearchParams(W.location&&W.location.search||'').get('dual');
-  if(q==='1')W.localStorage.setItem('wi_dual','1');else if(q==='0'){tryOff=true;W.localStorage.removeItem('wi_dual')}
-  tryOn=W.localStorage.getItem('wi_dual')==='1'}catch(e){}}
+ try{const q=new URLSearchParams(W.location&&W.location.search||'').get(SW);
+  if(q==='1')W.localStorage.setItem('wi_'+SW,'1');else if(q==='0'){tryOff=true;W.localStorage.removeItem('wi_'+SW)}
+  tryOn=W.localStorage.getItem('wi_'+SW)==='1'}catch(e){}}
 export const MODE=URL_OK&&tryOn&&(B.mode==='dual'||(B.mode==='supabase'&&B.unfinished===true))?B.mode:'sheet';
 
 /* exactly what js/state.js did: a failed request (no connection) throws; an answer that is not JSON (an Apps Script
@@ -98,7 +101,7 @@ function op(){
  const g=gen,sid=sidNow(),own=get(K.owner),live=()=>g===gen&&sidNow()===sid&&get(K.owner)===own;
  let tk=null;                                           // one token per operation, taken once
  let budget=null;                                       // keepalive requests of a hidden page share 64 KiB, the Sheet's save included
- const o={sid,own,live,hidden:false,
+ const o={sid,own,live,hidden:false,ended:false,
   put(k,v){if(!live())return false;set(k,v);return true},
   queue(s,ow){if(!live())return false;queued={s,own};qOverwrite=ow;return true},
   // the queued state only for an op of the pupil it was queued for; another pupil's is dropped (X2)
@@ -107,13 +110,13 @@ function op(){
    keep(j);return true},                                // a new session: the op that made it is done with the old one
   /* the access token (an hour), refreshed when it is about to end */
   async token(){
-   if(!live()||!sid)return null;if(tk)return tk;
-   const s=get(K.ses);if(!s||!s.refresh_token)return null;
+   if(!live())return null;if(!sid){o.ended=true;return null}if(tk)return tk;
+   const s=get(K.ses);if(!s||!s.refresh_token){o.ended=true;return null}
    if(s.access_token&&s.expires_at&&s.expires_at*1000-Date.now()>60000)return tk=s.access_token;
    let r;try{r=await call('/auth/v1/token?grant_type=refresh_token',{refresh_token:s.refresh_token})}catch(e){r=null}
    if(!live())return null;                              // B1: a late refresh never writes over the session that came meanwhile
    if(r&&r.status===200&&r.j&&r.j.access_token){set(K.ses,{...get(K.ses),access_token:r.j.access_token,refresh_token:r.j.refresh_token,expires_at:r.j.expires_at||Math.floor(Date.now()/1000)+(r.j.expires_in||3600)});return tk=r.j.access_token}
-   if(r&&r.status>=400&&r.status<500){set(K.ses,{device_token:s.device_token});return null}   // ended on the server: sign in again; progress stays
+   if(r&&r.status>=400&&r.status<500){set(K.ses,{device_token:s.device_token});o.ended=true;return null}   // ended on the server: sign in again; progress stays
    return tk=s.access_token||null},                      // offline: keep what we have
   /* a call with the session's token; aborted when the session changed before or while it ran */
   async call(path,body){const t=await o.token();if(!live())return{status:0,j:null,aborted:true};if(!t)return{status:401,j:null};
@@ -387,27 +390,64 @@ async function run(a,d,r){
  if(a==='save'){if(!o.live())return;note('sheet',{pts:num(d.s&&d.s.pts)});await flush(false)}}
 
 /* ---------- 'supabase': the new backend alone ----------
-   NOT COMPLETE. It needs screens the game does not have yet (two secret pictures at registration, at the first
-   sign-in of a pupil who came from the Sheet, and in "I forgot my code"), a teacher signed in with Google, and
-   js/state.js no longer keeping the code (cred()). It is here so those can be built against real calls. */
+   The game signs in with the code once (register, login, recover); from then on only the session is used and the
+   code is not kept anywhere (js/state.js keeps {c, n}). The pupil's record and the board are read from Supabase.
+   The answers keep the server's error words (docs/BACKEND.md 4.4) and, for a lock, its wait, scope and help, so the
+   sign-in screens can say what happened; js/state.js enter() is what the screens call (the seam in its PR).
+   'signin': the session is gone (ended on the server, or it cannot be renewed); the pupil signs in again and what
+   this device played waits for them. */
+const BY=['name','device','address','class','everyone','system'];   // whom a lock is for (0008_lock_scope.sql); a wait of -1: until the teacher opens it
+const ERRS=['input','weak','class','pin','taken','roster','full','picture','otc','locked','net','server'];
+const err=j=>{const e=j&&typeof j.e==='string'&&ERRS.includes(j.e)?j.e:'net';
+ return e==='locked'?{ok:false,e,wait:num(j.wait)<0?-1:Math.max(0,Math.floor(num(j.wait))),by:BY.includes(j.by)?j.by:'name',help:j.help==='teacher'?'teacher':'wait'}:{ok:false,e}};
+/* who signed in: the pupil's id and class id, read with the new session (RLS: the pupil's own row only). The device
+   keeps its record for this pupil of this class only (docs/PHASE4.md A); null when it could not be read */
+async function whoIs(o){const r=await o.call('/rest/v1/pupils?select=id,class_id&limit=1');
+ const x=!r.aborted&&r.status===200&&Array.isArray(r.j)&&r.j.length===1?r.j[0]:null;
+ return x&&typeof x.id==='string'&&typeof x.class_id==='string'?{p:x.id,c:x.class_id}:null}
+/* the end of a sign-in: the session is kept (or not, when the device was signed out meanwhile), then who it is */
+async function opened(o,j){
+ if(!(j&&j.ok))return err(j);
+ if(!o.keep(j))return{ok:false,e:'net'};
+ const at=j.updated_at||null,s=j.s&&typeof j.s==='object'&&!Array.isArray(j.s)?j.s:{};
+ const who=await whoIs(op());
+ return{ok:true,s,name:typeof j.name==='string'?j.name:null,who,at}}
+const pics=x=>Array.isArray(x)?x.map(Number):x;
+/* no token: 'signin' when there is no session to use (never signed in, signed out, or ended on the server: op.ended),
+   'net' when another pupil's session took the device meanwhile */
+const gone_=o=>({ok:false,e:o.ended||o.live()?'signin':'net'});
 async function supa(a,d){
  try{
-  if(a==='login'||a==='register'||a==='save'){if(leaving)await leaving;if(!(await sameOwner(d)))return{ok:false,e:'net'}}
-  if(a==='login'){const j=await signIn(op(),d,d.np?{new_code:d.np,pictures:d.pics}:null);return j.ok?{ok:true,s:j.s||{}}:{ok:false,e:j.e||'net',wait:j.wait}}
-  if(a==='register'){const o=op(),r=await fn('pupil-register',{class_code:d.c,name:d.n,code:d.p,pictures:d.pics});if(r.j&&r.j.ok&&o.keep(r.j))return{ok:true,s:{}};return{ok:false,e:(r.j&&r.j.e)||'net'}}
-  if(a==='save'){const o=op();if(!(await o.token()))return{ok:false,e:o.live()?'pin':'net'};   // no session: the game asks to sign in again and keeps the progress
+  if(a==='login'||a==='register'||a==='recover'||a==='save'){if(leaving)await leaving;if(!(await sameOwner(d)))return{ok:false,e:'net'}}
+  if(a==='login'){const o=op();return await turn(async()=>{if(!o.live())return{ok:false,e:'net'};const dev=(get(K.ses)||{}).device_token;
+   const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{})});return opened(o,r.j)})}
+  if(a==='register'){const o=op();return await turn(async()=>{if(!o.live())return{ok:false,e:'net'};
+   const r=await fn('pupil-register',{class_code:d.c,name:d.n,code:d.p,pictures:pics(d.pics)});return opened(o,r.j)})}
+  if(a==='recover'){const o=op();return await turn(async()=>{if(!o.live())return{ok:false,e:'net'};
+   const r=await fn('pupil-recover',{class_code:d.c,name:d.n,new_code:d.np,new_pictures:pics(d.npics),...(d.otc!==undefined?{otc:String(d.otc)}:{pictures:pics(d.pics)})});return opened(o,r.j)})}
+  if(a==='save'){const o=op();if(!(await o.token()))return gone_(o);   // no session: sign in again; the progress stays
    const st=get(K.stale);if(st){o.put(K.stale,null);o.put(K.ses,{...get(K.ses),at:st.at});return{ok:false,e:'stale',s:st.state}}   // a kept save met another device's
    if(!o.queue(d.s,false))return{ok:false,e:'net'};
    const w=await flush(false);
    if(!w||w.ok||w.retry)return{ok:true};                 // written, or kept here and sent within SAVE_EVERY or when the page is hidden
    if(w.aborted)return{ok:false,e:'net'};
    if(w.conflict){o.put(K.stale,null);o.put(K.ses,{...get(K.ses),at:w.at});return{ok:false,e:'stale',s:w.state}}   // another device saved first: join and save again
-   return{ok:false,e:w.status===401?'pin':'net'}}
-  if(a==='board'){const o=op(),r=await o.call('/rest/v1/class_board?select=display_name,points,words,streak&order=points.desc');
-   if(r.aborted)return{ok:false,e:'net'};if(r.status===401)return{ok:false,e:'pin'};
-   if(r.status!==200||!Array.isArray(r.j))return{ok:false,e:'net'};return{ok:true,rows:r.j.map(x=>({n:String(x.display_name),pts:num(x.points),words:num(x.words),streak:num(x.streak)}))}}
-  return{ok:false,e:'teacher'}                           // teacher and reset: after Google sign-in exists
+   return{ok:false,e:w.status===401?'signin':'net'}}
+  /* the pupil's own record, with the session (js/state.js pull()): the game joins it with its own; its time is the
+     base of the next save, so that save is not taken for another device's */
+  if(a==='record'){const o=op();if(!(await o.token()))return gone_(o);
+   const r=await o.call('/rest/v1/progress?select=state,updated_at&limit=1');
+   if(r.aborted)return{ok:false,e:'net'};if(r.status===401)return{ok:false,e:'signin'};
+   if(r.status!==200||!Array.isArray(r.j))return{ok:false,e:'net'};
+   const x=r.j[0]||null,s=x&&x.state&&typeof x.state==='object'&&!Array.isArray(x.state)?x.state:{};
+   if(x&&x.updated_at)o.put(K.ses,{...get(K.ses),at:x.updated_at});
+   return{ok:true,s}}
+  if(a==='board'){const o=op();if(!(await o.token()))return gone_(o);
+   const r=await o.call('/rest/v1/class_board?select=display_name,points,words,streak,me&order=points.desc');
+   if(r.aborted)return{ok:false,e:'net'};if(r.status===401)return{ok:false,e:'signin'};
+   if(r.status!==200||!Array.isArray(r.j))return{ok:false,e:'net'};return{ok:true,rows:r.j.map(x=>({n:String(x.display_name),pts:num(x.points),words:num(x.words),streak:num(x.streak),me:x.me===true}))}}
+  return{ok:false,e:'teacher'}                           // the teacher signs in on teacher.html (Google); the game's teacher screen is the Sheet's
  }catch(e){return{ok:false,e:'net'}}}
-/* ?dual=0 on a device of the trial: the backend is off for it from now on, so what it kept is let go too (review of #73): the
+/* ?dual=0 (or ?new=0) on a device of the trial: the backend is off for it from now on, so what it kept is let go too (review of #73): the
    session is revoked and the session, base, batch, sent record and owner marks leave the device. */
 if(tryOff&&LS&&(sidNow()||get(K.owner)||get(K.base)))op().end(true).catch(()=>{});

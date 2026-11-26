@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+# suite:   # picked up by tests/all.py
+"""'supabase' mode of the game (docs/PHASE3.md step 6) in a real browser, against a stand-in Supabase on the project's
+address (never a real project).
+
+    python3 tests/supabase_mode.py
+
+The adapter's calls are tested without a browser in tests/api_check.mjs (section 9); this suite checks js/state.js on
+the device, the three cases of docs/PHASE4.md A and the rest of step 6:
+  - a device with the Sheet's progress signs in to the new backend and starts from the new record only; the Sheet's
+    record on the device is untouched, and with the Sheet's config the game finds it again;
+  - a device signed in to a trial class signs in to the real class: nothing of the trial comes along;
+  - pupil A signs out, pupil B signs in on the same device: B gets nothing of A's, and A's record left the device;
+  - the same pupil signs in again after the session ended: what the device played meanwhile is kept and saved;
+  - the code goes to pupil-login only, and is in no storage of the device;
+  - a reopened game reads the record with the session (no sign-in), and the board comes from Supabase.
+  - register and recover (by the pictures, or the teacher's one-time code) through enter(), the seam with step 5; a
+    lock's wait, scope and help reach the screen; a recovery signs the pupil's other device out.
+The sign-in screens themselves are step 5's; the stand-in is tests/sb_standin.py, shared with step 5's suite. The Content-Security-
+Policy is bypassed here only, because the stand-in answers on the project's address. Names and codes are made up."""
+import asyncio, json, os, sys, urllib.parse
+from playwright.async_api import async_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import play as P
+from play import check, fails
+
+from sb_standin import SB, KEY, REAL, TRIAL, PA, PB, PT, CODES, PUPILS, NEW_CFG, SHEET_CFG, SHEET_ERA, Project
+PAGE = f'http://127.0.0.1:{P.PORT}/index.html'
+async def device(b, prj, cfg=NEW_CFG, seed=None, ctx=None):
+    """a page of the game; ctx: the same device (browser storage) as an earlier page"""
+    c = ctx or await b.new_context(viewport={'width': 390, 'height': 844}, bypass_csp=True)
+    if not ctx:
+        await c.route(SB + '/**', prj.route)
+        if seed is not None:
+            await c.add_init_script("if(!localStorage.getItem('seeded')){localStorage.setItem('seeded','1');localStorage.setItem('aam-unit1-v1',%s)}" % json.dumps(json.dumps(seed)))
+    await c.unroute('**/config.js')
+    await c.route('**/config.js', lambda r: r.fulfill(content_type='text/javascript', body=cfg))
+    pg = await c.new_page()
+    errs = []
+    pg.on('pageerror', lambda e: errs.append(str(e)))
+    await pg.goto(PAGE + '#map')
+    await pg.wait_for_selector('.scr')
+    return c, pg, errs
+
+
+ST = "(async()=>{const m=await import('./js/state.js');return (%s)})()"
+js = lambda pg, expr: pg.evaluate(ST % expr)
+enter = lambda pg, c, n, code: js(pg, f"m.enter('login',{{c:{json.dumps(c)},n:{json.dumps(n)},code:{json.dumps(code)}}})")
+# every storage of the device except the Sheet's own record, which keeps its era's code for the way back (docs/PHASE4.md A)
+storage = lambda pg: pg.evaluate("JSON.stringify([Object.entries(localStorage).filter(([k])=>k!=='aam-unit1-v1'&&k!=='seeded'),Object.entries(sessionStorage)])")
+
+
+async def no_code(pg, prj, label):
+    st = await storage(pg)
+    check(f'{label}: no code in any storage of the device', not any(x in st for x in CODES), st[:300])
+    leaks = [l['path'] for l in prj.log if any(x in l['body'] + l['query'] for x in CODES) and l['path'] != '/functions/v1/pupil-login']
+    check(f'{label}: the code went to pupil-login only', not leaks, leaks)
+
+
+async def main():
+    procs = P.start_servers()
+    try:
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=P.CHROME, args=['--no-sandbox'])
+
+            # 1. a device with the Sheet's progress
+            prj = Project()
+            c, pg, errs = await device(b, prj, seed=SHEET_ERA)
+            check("the Sheet's progress is not read in 'supabase' mode: nobody is signed in, nothing of it in S", await js(pg, "[m.NEW,m.KEY,m.S.u,m.S.pts]") == [True, 'wi-new-v1', None, 0])
+            r = await enter(pg, 'EN-0000', 'Testa', '4827')
+            check('sign in (the seam): ok', r == {'ok': True}, r)
+            got = await js(pg, "[m.S.u,m.S.pts,m.S.st,m.S.who]")
+            check('it starts from the new record only (zero), signed in as {c, n}, bound to its pupil and class', got == [{'c': 'EN-0000', 'n': 'Testa'}, 0, {}, {'p': PA, 'c': REAL}], got)
+            old = await pg.evaluate("localStorage.getItem('aam-unit1-v1')")
+            check("the Sheet's record on the device is untouched", json.loads(old) == SHEET_ERA, old)
+            await no_code(pg, prj, 'after sign-in')
+            pts = await js(pg, "(m.award(9),m.push(),m.S.pts)")
+            await pg.wait_for_timeout(300)
+            check('a save goes to Supabase with the session', pts > 0 and prj.state(PA)[0].get('pts') == pts, [pts, prj.state(PA)])
+            await pg.close()
+            _, pg, _ = await device(b, prj, cfg=SHEET_CFG, ctx=c)
+            got = await js(pg, "[m.NEW,m.S.u&&m.S.u.n,m.S.pts,m.S.st]")
+            check("the way back: with the Sheet's config the game finds the Sheet-era progress as it was", got == [False, 'Testa', 120, {'cat': [3, 0]}], got)
+            await c.close()
+            check('no page error', not errs, errs[:3])
+
+            # 2. a trial class, then the real class, on one device
+            prj = Project(); prj.progress[PA] = ({'pts': 7}, 'at-0')
+            c, pg, _ = await device(b, prj)
+            await enter(pg, 'TRIAL-01', 'Testa', '4827')
+            await js(pg, "(m.award(15),m.S.st.dog=[2,0],m.saveLocal(),m.S.pts)")
+            r = await enter(pg, 'EN-0000', 'Testa', '4827')
+            got = await js(pg, "[m.S.pts,m.S.st,m.S.who.c,m.S.stash||null]")
+            check('trial class, then the real class with the same name: only the real record (7), nothing of the trial', r == {'ok': True} and got == [7, {}, REAL, None], got)
+            check('the device\'s record now holds nothing of the trial', 'dog' not in (await pg.evaluate("localStorage.getItem('wi-new-v1')")))
+            await c.close()
+
+            # 3. pupil A signs out, pupil B signs in
+            prj = Project()
+            c, pg, _ = await device(b, prj)
+            await enter(pg, 'EN-0000', 'Testa', '4827')
+            await js(pg, "(m.award(10),m.S.st.cat=[2,1],m.push())")
+            await pg.wait_for_timeout(300)
+            out = await js(pg, "m.logout()")
+            check('A signs out: allowed (everything was saved)', out is True, out)
+            await pg.wait_for_timeout(500)
+            check('the session was revoked on the server', any(l['path'] == '/auth/v1/logout' for l in prj.log), [l['path'] for l in prj.log])
+            st = await storage(pg)
+            check("A's record and session left the device", 'Testa' not in st and 'tok-aaaa' not in st, st[:300])
+            await enter(pg, 'EN-0000', 'Probe', '5839')
+            got = await js(pg, "[m.S.u.n,m.S.pts,m.S.st,m.S.who.p]")
+            check("B signs in: B's own record only, nothing of A's", got == ['Probe', 0, {}, PB], got)
+            await no_code(pg, prj, 'two pupils')
+            await c.close()
+
+            # 4. the session ends; the same pupil signs in again
+            prj = Project()
+            c, pg, _ = await device(b, prj)
+            await enter(pg, 'EN-0000', 'Testa', '4827')
+            await js(pg, "(m.award(5),m.push())")
+            await pg.wait_for_timeout(300)
+            saved = prj.state(PA)[0].get('pts')
+            prj.dead = True
+            await pg.evaluate("(()=>{const s=JSON.parse(localStorage.getItem('wi-sb-session'));s.expires_at=1;localStorage.setItem('wi-sb-session',JSON.stringify(s))})()")
+            local = await js(pg, "(m.award(6),m.push(),m.S.pts)")
+            await pg.wait_for_timeout(300)
+            got = await js(pg, "[m.needsRelogin(),m.syncState().err]")
+            check("the session ended on the server: the game asks to sign in again ('signin')", got == [True, 'signin'], got)
+            re = await js(pg, "m.relogin()")
+            check('relogin() gives class and name to fill in, and the reason', re == {'c': 'EN-0000', 'n': 'Testa', 'e': 'signin'}, re)
+            prj.dead = False
+            await enter(pg, 'EN-0000', 'Testa', '4827')
+            await pg.wait_for_timeout(3000)
+            got = await js(pg, "[m.S.pts,m.needsRelogin()]")
+            check('signed in again: what the device played meanwhile (beyond the last save) is kept, and saved', local > saved and got == [local, False] and prj.state(PA)[0].get('pts') == local, [saved, local, got, prj.state(PA)])
+            await no_code(pg, prj, 'after the session ended')
+            await c.close()
+
+            # 5. a reopened game: the record with the session, the board from Supabase
+            prj = Project(); prj.progress[PB] = ({'pts': 30}, 'at-0')
+            c, pg, _ = await device(b, prj)
+            await enter(pg, 'EN-0000', 'Testa', '4827')
+            await pg.close()
+            prj.progress[PA] = ({'pts': 21, 'st': {'cat': [1, 0]}}, 'at-9')   # played on another device meanwhile
+            n0 = len(prj.log)
+            _, pg, _ = await device(b, prj, ctx=c)
+            await pg.wait_for_timeout(1000)
+            paths = [l['path'] for l in prj.log[n0:]]
+            check('reopened: no sign-in, the record is read with the session', '/rest/v1/progress' in paths and '/functions/v1/pupil-login' not in paths, paths)
+            got = await js(pg, "[m.S.pts,m.S.st]")
+            check("and joined with the device's (the other device's play is here)", got == [21, {'cat': [1, 0]}], got)
+            await pg.goto(PAGE + '#board')
+            await pg.wait_for_function("document.querySelector('.scr.board')&&document.querySelector('.scr.board').textContent.includes('Probe')", timeout=8000)
+            txt = await pg.text_content('.scr.board')
+            check('the board comes from Supabase: both pupils of the class', 'Probe' in txt and 'Testa' in txt, txt[:200])
+            await no_code(pg, prj, 'reopened')
+            await c.close()
+            # 6. register and recover through the seam; the server's word, and a lock's wait, scope and help, reach the screen
+            prj = Project()
+            c, pg, _ = await device(b, prj)
+            ent = lambda kind, f: js(pg, f"m.enter({json.dumps(kind)},{json.dumps(f)})")
+            got = [await ent('register', {'c': 'EN-0000', 'n': 'Newbie', 'code': '1234', 'pics': [2, 9]}),
+                   await ent('register', {'c': 'EN-0000', 'n': 'Zed', 'code': '4826', 'pics': [2, 9]}),
+                   await ent('register', {'c': 'EN-0000', 'n': 'Testa', 'code': '4826', 'pics': [2, 9]})]
+            check('register refused: weak code, not on the class list, name taken', got == [{'ok': False, 'e': e} for e in ('weak', 'roster', 'taken')], got)
+            r = await ent('register', {'c': 'EN-0000', 'n': 'Newbie', 'code': '4826', 'pics': [2, 9]})
+            got = await js(pg, "[m.S.u,m.S.pts,!!(m.S.who&&m.S.who.p)]")
+            check('register: in, from zero, bound to the new pupil', r == {'ok': True} and got == [{'c': 'EN-0000', 'n': 'Newbie'}, 0, True], [r, got])
+            reg = [l for l in prj.log if l['path'] == '/functions/v1/pupil-register'][-1]
+            check('register sends class code, name, code and the two pictures in order, and nothing else', json.loads(reg['body']) == {'class_code': 'EN-0000', 'name': 'Newbie', 'code': '4826', 'pictures': [2, 9]}, reg['body'])
+            await js(pg, "m.logout()"); await pg.wait_for_timeout(300)
+            c2, pg2, _ = await device(b, prj)   # Testa's other device, signed in
+            await enter(pg2, 'EN-0000', 'Testa', '4827')
+            r = await ent('recover', {'c': 'EN-0000', 'n': 'Testa', 'newCode': '7395', 'newPics': [1, 2], 'pics': [4, 5]})
+            check('recover with the wrong pictures: "picture"', r == {'ok': False, 'e': 'picture'}, r)
+            r = await ent('recover', {'c': 'EN-0000', 'n': 'Testa', 'newCode': '7395', 'newPics': [1, 2], 'pics': [3, 17]})
+            check('recover with the right pictures: in, with the new code', r == {'ok': True} and await js(pg, "m.S.u.n") == 'Testa', r)
+            await js(pg2, "(m.award(1),m.push())"); await pg2.wait_for_timeout(500)
+            check("the pupil's other device is signed out: its next save asks to sign in again", await js(pg2, "[m.needsRelogin(),m.syncState().err]") == [True, 'signin'])
+            prj.otc[('EN-0000', 'testa')] = '482913'
+            r = await ent('recover', {'c': 'EN-0000', 'n': 'Testa', 'newCode': '8462', 'newPics': [6, 7], 'otc': '482913'})
+            rec = [json.loads(l['body']) for l in prj.log if l['path'] == '/functions/v1/pupil-recover'][-1]
+            check("recover with the teacher's one-time code: in; the old pictures are not sent", r == {'ok': True} and 'pictures' not in rec and rec['otc'] == '482913', [r, rec])
+            prj.lock = {'wait': 900, 'by': 'address', 'help': 'teacher'}
+            r = await enter(pg, 'EN-0000', 'Testa', '8462')
+            check("locked: the screen gets the wait, whom it is for, and who can end it", r == {'ok': False, 'e': 'locked', 'wait': 900, 'by': 'address', 'help': 'teacher'}, r)
+            st = await storage(pg) + await storage(pg2)
+            check('register and recover: no code, old or new, in any storage of either device', not any(x in st for x in ('4826', '7395', '8462', '4827', '482913')), st[:200])
+            await c.close(); await c2.close()
+            await b.close()
+    finally:
+        for p in procs: p.terminate()
+    print(f"\n{'ALL PASSED' if not fails else str(len(fails)) + ' FAILED: ' + '; '.join(fails)}")
+    sys.exit(1 if fails else 0)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

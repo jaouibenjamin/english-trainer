@@ -40,10 +40,20 @@ Status: a proposal for the lead and the owner. Steps 1 and 2 are open pull reque
    - registration with two secret pictures;
    - the first sign-in of a pupil who came from the Sheet: a new code and two pictures;
    - "I forgot my code": the pictures, or the teacher's one-time code.
-4. **`'supabase'` mode finished in `js/api.js` and `js/state.js`:**
-   - the game stops keeping the 4-digit code (`cred()`) and keeps the session only;
-   - the board and the pupil's own record are read from Supabase;
-   - the `unfinished` key goes.
+4. **`'supabase'` mode finished in `js/api.js` and `js/state.js`** (step 6, done; the seam with the screens of step 5 is
+   `enter()` in `js/state.js`, written at the top of both PRs):
+   - the game stops keeping the 4-digit code (`cred()` is `{c, n}`) and keeps the session only; the code goes to
+     `pupil-login`, `pupil-register` or `pupil-recover` once and nowhere else;
+   - the board (`class_board`, with the pupil's own row) and the pupil's own record (`progress`, read with the session
+     when the game opens) come from Supabase;
+   - the device keeps the new backend's record under its own key (`wi-new-v1`), bound to the pupil and class it belongs
+     to (read with the new session), and drops it when another pupil or class signs in (`docs/PHASE4.md` A); the
+     Sheet's record (`aam-unit1-v1`) is never read or written in this mode, so the way back finds it as it was;
+   - a session that ended (expired and not renewable, or signed out everywhere) asks the pupil to sign in again
+     (`signin`); what the device played waits for the same pupil;
+   - the `unfinished` key goes with whichever of steps 5 and 6 lands second, so the class cannot be switched without
+     the sign-in screens.
+   Tests: `tests/api_check.mjs` section 9, `tests/supabase_mode.py`.
 
 ## What must be true before the Sheet is switched off
 
