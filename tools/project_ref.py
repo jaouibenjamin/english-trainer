@@ -19,6 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FILE = os.path.join(ROOT, 'supabase', 'project_ref')
 REF = re.compile(r'[a-z]{20}')
 # a project address: 20 lower-case letters (Supabase refs) then .supabase.co, not a sub-domain of something else
+SKIP = ('vendor/', 'assets/')        # third-party code and binary assets: never a project address of ours
 ADDR = re.compile(r'(?<![A-Za-z0-9.-])([a-z0-9]{20})\.supabase\.co(?!\.?[A-Za-z0-9-])')
 
 
@@ -34,9 +35,10 @@ def tracked():
     out = subprocess.run(['git', '-C', ROOT, 'ls-files', '-z'], capture_output=True, text=True).stdout.split('\0')
     for f in out:
         p = os.path.join(ROOT, f)
-        if f and os.path.isfile(p):
+        if f and not f.startswith(SKIP) and os.path.isfile(p):
             try:
-                yield f, open(p, encoding='utf-8').read()
+                with open(p, encoding='utf-8', newline='') as fh:      # newline='': CRLF stays CRLF when set rewrites it
+                    yield f, fh.read()
             except (UnicodeDecodeError, OSError):
                 continue
 
@@ -52,6 +54,14 @@ def stale(ref, files):
 
 def replace(text, old, new):
     return re.sub(rf'(?<![A-Za-z0-9]){re.escape(old)}(?![A-Za-z0-9])', new, text)
+
+
+def rewrite(path, old, new):
+    """Replaces the ref in one file, keeping its line endings as they are."""
+    with open(path, encoding='utf-8', newline='') as fh:
+        t = fh.read()
+    with open(path, 'w', encoding='utf-8', newline='') as fh:
+        fh.write(replace(t, old, new))
 
 
 def main():
@@ -74,7 +84,7 @@ def main():
         if old and old != new:
             for f, t in tracked():
                 if old in t:
-                    open(os.path.join(ROOT, f), 'w', encoding='utf-8').write(replace(t, old, new))
+                    rewrite(os.path.join(ROOT, f), old, new)
                     changed.append(f)
         open(FILE, 'w', encoding='utf-8').write(new + '\n')
         print('supabase/project_ref: ' + new)
