@@ -389,16 +389,17 @@ T("admin-class: only with the server key; the class code is 8 clear characters, 
   eq([e(await A("test-server-key", { action: "create", name: "no grade" })), e(await A("test-server-key", { action: "create", name: "no grade", grade: " " }))], ["input", "input"], "a class without its grade is refused");
 });
 
-T("names: a first name and ONE surname letter in a new class; a second letter only from the roster; never a full surname", async () => {
-  const c = await newClass({ form: "first_initial", roster: ["נועה כ.", "נועה כה.", "Dan L."] });
+T("names: a first name and ONE surname letter in a new class; a clash takes a digit from the roster; never a second letter or a full surname", async () => {
+  const c = await newClass({ form: "first_initial", roster: ["נועה כ.", "נועה כ2.", "Dan L."] });
   const before = Number((await sql`select count(*) as n from private.auth_attempts`)[0].n);
-  for (const bad of ["נועה", "Noa Cohen", "נועה כהן", "Dan L", "Dan Le."]) {
+  for (const bad of ["נועה", "Noa Cohen", "נועה כהן", "Dan L", "Dan Le.", "Dan L2.", "נועה כה."]) {
     eq(JSON.stringify(await reg(c, bad, "4827")), JSON.stringify({ ok: false, e: "name", form: "first_initial" }), "refused: " + bad);
   }
   eq(Number((await sql`select count(*) as n from private.auth_attempts`)[0].n), before, "a name in the wrong form is answered before any attempt is counted");
   eq(e(await reg({ ...c, code: "NOPE0000" }, "נועה", "4827")), "class", "with a wrong class code the form is not told");
-  eq([e(await reg(c, "נועה כ.", "4827")), e(await reg(c, "נועה כה.", "5839")), e(await reg(c, "dan l.", "5839"))], ["ok", "ok", "ok"],
-     "one letter; two letters because the roster holds them (a clash); letter case does not matter");
+  eq([e(await reg(c, "נועה כ.", "4827")), e(await reg(c, "נועה כ2.", "5839")), e(await reg(c, "dan l.", "5839"))], ["ok", "ok", "ok"],
+     "one letter; a digit because the roster holds that name (a clash); letter case does not matter");
+  eq(e(await reg(c, "נועה ך.", "5839")), "taken", "a final letter is the plain one: the same pupil as נועה כ.");
   eq(e(await log(c, "נועה", "4827", { ip: freshIp() })), "name", "sign-in without the letter: told, not counted as a wrong code");
   eq(e(await log(c, "נועה כ.", "4827", { ip: freshIp() })), "ok", "sign-in with the letter");
   const err = await sql`insert into public.roster values (${c.id}, app.name_key('Avi Levi'), 'Avi Levi')`.then(() => "inserted", (x: Error) => x.message);

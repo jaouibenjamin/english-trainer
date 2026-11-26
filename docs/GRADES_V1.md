@@ -18,10 +18,11 @@ replaced so a new limbo class copies its home class's grade and is `kind = 'limb
 space (a hyphen or an apostrophe allowed, as in `app.name_ok` today), then one letter (Hebrew or Latin) and a dot,
 e.g. `נועה כ.`. `app.name_form_ok(form, name)` is the one rule; `roster`, `register_pupil` and the teacher's roster
 function apply it; nothing anywhere has a column for a full surname, and the second part is refused when it is longer than
-one letter (two only from the roster, below). A two-word first name (בת אל) is written with a hyphen. Uniqueness stays `unique (class_id, name_key)` on the whole `"noa k."`, so two Noas with different letters
-are two pupils. For a remaining clash the teacher's roster may hold a second letter (`נועה כה.`); a pupil can only
-register a name the roster holds (`roster_only`, on by default), so the second letter is the teacher's, never the
-child's. `name_key` and `display_name` keep their meaning; the client composes the name from two fields.
+one letter (a digit after it only from the roster, below). A two-word first name (בת אל) is written with a hyphen. Uniqueness stays `unique (class_id, name_key)` on the whole `"noa k."`, so two Noas with different letters
+are two pupils. For a remaining clash the teacher's roster may hold a digit after the letter (`נועה כ2.`, 2 to 9; never a second
+letter, which would store more of the surname); a pupil can only register a name the roster holds (`roster_only`, on by
+default), so the digit is the teacher's, never the child's. Hebrew final letters count as the plain letter in the key
+(`נועה ך.` is `נועה כ.`). `name_key` and `display_name` keep their meaning; the client composes the name from two fields.
 
 **0012 boards.** `class_board` as today (it shows `display_name`, now "נועה כ."). `grade_board` (new, security
 definer): the pupils of the caller's grade, `display_name` and the class's name ("נועה כ., ה׳2"), points, me; only

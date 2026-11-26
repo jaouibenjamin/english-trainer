@@ -7,7 +7,10 @@ const L = "A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u0130\u0134-\u0137\u0139-\u01
 const M = `${L}\u05F3\u05F4\u2019' .-`;
 export const NAME_RE = new RegExp(`^[${L}](?:[${M}]{0,18}[${L}.]|(?:[${M}]{0,17}[${L}])?[\u05F3\u2019'])$`);
 export const normName = (x: unknown): string => String(x ?? "").normalize("NFC").trim().replace(/\s+/g, " ");
-export const isName = (x: unknown): x is string => typeof x === "string" && x.length <= 60 && NAME_RE.test(normName(x));
+// the one place a digit may be in a name (0010): a clash in a class that takes a surname letter, "נועה כ2." (2 to 9)
+const DIGIT_RE = new RegExp(`^[^ ]+ [${L}][2-9]\\.$`);
+const nameOk = (n: string) => NAME_RE.test(n) || (DIGIT_RE.test(n) && NAME_RE.test(n.replace(/[2-9]\.$/, ".")));
+export const isName = (x: unknown): x is string => typeof x === "string" && x.length <= 60 && nameOk(normName(x));
 export const isCode = (x: unknown): x is string => typeof x === "string" && /^\d{4}$/.test(x);
 export const isOtc = (x: unknown): x is string => typeof x === "string" && /^\d{6}$/.test(x);
 export const normClassCode = (x: unknown): string => String(x ?? "").trim().toUpperCase();

@@ -96,20 +96,36 @@ begin
   return 'ok';
 end $$;
 
--- ---------- names: a first name and one letter of the surname ----------
+-- ---------- names: a first name and ONE letter of the surname ----------
 -- name_ok (0001) stays the rule for the characters and the length. In a 'first_initial' class the name is
 -- "<first> <letter>." : no space inside the first name (a hyphen joins a double one), then exactly one letter and a
--- dot; two letters only for a name the teacher's roster holds (a clash). Nothing stores a full surname.
+-- dot. A clash that remains is told apart by a DIGIT after the letter, "נועה כ2." (2 to 9), and only for a name the
+-- teacher's roster holds; never a second letter, which would store more of the surname (the owner's rule).
+-- The digit form is the one place a digit is allowed in a name: name_chars_ok is name_ok plus that form, and it
+-- replaces name_ok in the two tables' checks.
+create function app.name_chars_ok(p_name text) returns boolean language sql immutable set search_path = '' as $$
+  select app.name_ok(p_name)
+      or (p_name ~ '^[^ ]+ [A-Za-zÀ-ÖØ-öø-žא-ת][2-9]\.$' and app.name_ok(regexp_replace(p_name, '[2-9]\.$', '.'))) $$;
+alter table public.pupils drop constraint pupils_display_name_check, add constraint pupils_display_name_check check (app.name_chars_ok(display_name));
+alter table public.roster drop constraint roster_display_name_check, add constraint roster_display_name_check check (app.name_chars_ok(display_name));
 create function app.name_form_ok(p_form text, p_name text, p_two boolean) returns boolean language sql immutable set search_path = '' as $$
-  select app.name_ok(p_name) and case
-    when p_form = 'first_initial' and p_two then p_name ~ '^[^ ]+ [A-Za-zÀ-ÖØ-öø-žא-ת]{1,2}\.$'
-    when p_form = 'first_initial'            then p_name ~ '^[^ ]+ [A-Za-zÀ-ÖØ-öø-žא-ת]\.$'
-    else true end $$;
+  select case
+    when p_form = 'first_initial' then
+         (app.name_ok(p_name) and p_name ~ '^[^ ]+ [A-Za-zÀ-ÖØ-öø-žא-ת]\.$')
+      or (p_two and app.name_chars_ok(p_name) and p_name ~ '[2-9]\.$')
+    else app.name_ok(p_name) end $$;
+
+-- Hebrew final letters are the plain letter (ך ם ן ף ץ as כ מ נ פ צ, the screen's rule): "נועה ך." and "נועה כ." are one
+-- pupil. name_key is the generated key of pupils and the checked key of roster, so both are recomputed here.
+create or replace function app.name_key(n text) returns text language sql immutable set search_path = '' as
+  $$ select translate(lower(regexp_replace(btrim(n), '\s+', ' ', 'g')), 'ךםןףץ', 'כמנפצ') $$;
+update public.pupils set display_name = display_name;
+update public.roster set name_key = app.name_key(display_name);
 
 create function private.roster_form() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
-  -- a name name_ok refuses is left to the table's own check (its message); this adds the class's form
-  if app.name_ok(new.display_name) and not app.name_form_ok((select name_form from public.classes where id = new.class_id), new.display_name, true) then
+  -- a name the table's own check refuses is left to that check (its message); this adds the class's form
+  if app.name_chars_ok(new.display_name) and not app.name_form_ok((select name_form from public.classes where id = new.class_id), new.display_name, true) then
     raise exception 'the name is not in the form of this class' using errcode = '22023';
   end if;
   return new;
@@ -119,7 +135,7 @@ create trigger roster_form before insert or update on public.roster for each row
 -- a new pupil (registration): one letter, or two when the roster holds exactly that name
 create function private.pupil_form() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
-  if app.name_ok(new.display_name) and not app.name_form_ok((select name_form from public.classes where id = new.class_id), new.display_name,
+  if app.name_chars_ok(new.display_name) and not app.name_form_ok((select name_form from public.classes where id = new.class_id), new.display_name,
                           exists (select 1 from public.roster r where r.class_id = new.class_id and r.name_key = app.name_key(new.display_name))) then   -- name_key is generated: not set yet here
     raise exception 'the name is not in the form of this class' using errcode = '22023';
   end if;
@@ -251,7 +267,9 @@ exception when others then raise notice 'history fold is NOT scheduled: %', sqle
 revoke all on private.schools, private.grades, private.pupil_carry from public, anon, authenticated;
 revoke all on function public.grade_board() from public, anon;
 grant execute on function public.grade_board() to authenticated;
-revoke all on function app.name_form_ok(text, text, boolean) from public, anon, authenticated;
+revoke all on function app.name_form_ok(text, text, boolean), app.name_chars_ok(text) from public, anon, authenticated;
 grant execute on function app.name_form_ok(text, text, boolean) to service_role;
+-- the tables' checks run with the writer's rights: a teacher adding to her roster needs it, as she needs name_ok
+grant execute on function app.name_chars_ok(text) to authenticated, service_role;
 revoke all on all functions in schema private from public, anon, authenticated;
 grant execute on all functions in schema private to service_role;

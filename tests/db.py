@@ -114,7 +114,7 @@ def test_catalogue(db):
        db.admin(rel % "has_table_privilege('authenticated', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE')"), [['public.roster']])
     eq('authenticated: no right on any sequence', db.admin(seq % 'authenticated'), [])
     eq('authenticated: may run exactly the listed functions', [r[0] for r in db.admin(fn % 'authenticated')],
-       ['app.class_id', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.reads_class', 'app.reads_pupil', 'app.safe_int', 'app.shadow', 'app.teaches', 'app.teaches_pupil',
+       ['app.class_id', 'app.name_chars_ok', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.reads_class', 'app.reads_pupil', 'app.safe_int', 'app.shadow', 'app.teaches', 'app.teaches_pupil',
         'public.grade_board', 'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil', 'public.teacher_remove_pupil',
         'public.teacher_removed', 'public.teacher_restore_pupil'])
     eq('row level security is on for every table in public and private',
@@ -855,11 +855,15 @@ def test_grades(db):
     check('class_create refuses a class without its grade', db.psql(f"select private.class_create('x', ' ', '{lk()}')", user='supabase_admin')[1] is not None)
     check('a class name names one class', 'duplicate key' in (db.psql(f"select private.class_create('ה׳1', 'ה׳', '{lk()}')", user='supabase_admin')[1] or ''))
     ins = lambda c, name, n: db.psql(f"insert into public.pupils (class_id, display_name, auth_user_id) values ('{c}', $n${name}$n$, '{u(n)}')", user='supabase_admin')[1]
-    eq('names in a new class: one letter yes; a first name alone, a full surname, two letters not on the roster: no',
-       [ins(a, 'נועה כ.', 1) is None, ins(a, 'Dan', 9) is None, ins(a, 'Dan Levi', 9) is None, ins(a, 'Dan Le.', 9) is None], [True, False, False, False])
-    db.admin(f"insert into public.roster values ('{a}', app.name_key('נועה כה.'), 'נועה כה.')")
-    eq('two letters when the roster holds the name (a clash), and the roster itself never takes a full surname',
-       [ins(a, 'נועה כה.', 2) is None, db.psql(f"insert into public.roster values ('{a}', app.name_key('Avi Levi'), 'Avi Levi')", user='supabase_admin')[1] is not None], [True, True])
+    eq('names in a new class: one letter yes; a first name alone, a full surname, two letters, a digit not on the roster: no',
+       [ins(a, 'נועה כ.', 1) is None, ins(a, 'Dan', 9) is None, ins(a, 'Dan Levi', 9) is None, ins(a, 'Dan Le.', 9) is None, ins(a, 'Dan L2.', 9) is None],
+       [True, False, False, False, False])
+    rin = lambda name: db.psql(f"insert into public.roster values ('{a}', app.name_key($n${name}$n$), $n${name}$n$)", user='supabase_admin')[1]
+    eq('the roster: a digit after the letter for a clash (2 to 9); never two letters, a full surname, 0 or 1, or a digit in a first name',
+       [rin('נועה כ2.') is None, rin('נועה כה.') is None, rin('Avi Levi') is None, rin('Avi L1.') is None, rin('Avi2 L.') is None], [True, False, False, False, False])
+    eq('a clash: the digit form registers because the roster holds it', ins(a, 'נועה כ2.', 2), None)
+    eq('a final letter is the plain letter: "נועה ך." is the pupil "נועה כ." (one pupil, not two)',
+       [db.one("select app.name_key('נועה ך.') = app.name_key('נועה כ.')"), 'duplicate key' in (ins(a, 'נועה ך.', 9) or '')], ['t', True])
     eq('the trial class (first): a first name alone still works', ins(t, 'Test', 3), None)
     ins(b, 'Uri ב.', 4); ins(o, 'Maya מ.', 5)
     # 10 points each, through the ledger, so the totals still equal the ledgers (the load test checks every pupil)
@@ -868,7 +872,7 @@ def test_grades(db):
     board = lambda who: db._json(who, "select coalesce(jsonb_agg(to_jsonb(t) order by t.display_name), '[]') from public.grade_board() t")
     got, err = board(('authenticated', u(1)))
     eq('grade board for a pupil of ה׳1: the pupils of ה׳ with their class, no other grade, no trial, own row marked',
-       err or sorted((r['display_name'], r['class'], r['me']) for r in got), [('Uri ב.', 'ה׳2', False), ('נועה כ.', 'ה׳1', True), ('נועה כה.', 'ה׳1', False)])
+       err or sorted((r['display_name'], r['class'], r['me']) for r in got), [('Uri ב.', 'ה׳2', False), ('נועה כ.', 'ה׳1', True), ('נועה כ2.', 'ה׳1', False)])
     eq('grade board for the trial pupil (no grade): empty', board(('authenticated', u(3)))[0], [])
     eq('grade board for anonymous: refused', 'permission denied' in (board(('anon', None))[1] or ''), True)
     db.admin(f"insert into public.teachers values ('{u(6)}', '{o}')")
@@ -878,7 +882,7 @@ def test_grades(db):
     v, err = db.rpc(('authenticated', u(7)), 'teacher_remove_pupil', dict(p_pupil=p_uri))
     eq('a removed pupil: their hidden class is kind limbo in the same grade, and they leave the grade board',
        [err, db.admin(f"select c.kind, c.grade_id = (select grade_id from public.classes where id = '{b}') from public.pupils p join public.classes c on c.id = p.class_id where p.id = '{p_uri}'"),
-        sorted(r['display_name'] for r in board(('authenticated', u(1)))[0])], [None, [['limbo', 't']], ['נועה כ.', 'נועה כה.']])
+        sorted(r['display_name'] for r in board(('authenticated', u(1)))[0])], [None, [['limbo', 't']], ['נועה כ.', 'נועה כ2.']])
     eq('teacher_add: by user id and class name; again is "already"; an unknown class or user is refused',
        [db.one(f"select private.teacher_add('{u(8)}', 'ה׳1')"), db.one(f"select private.teacher_add('{u(8)}', 'ה׳1')"),
         db.one(f"select private.teacher_add('{u(8)}', 'nope')"),
