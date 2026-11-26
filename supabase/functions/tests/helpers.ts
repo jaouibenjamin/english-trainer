@@ -36,9 +36,11 @@ export const SCHOOL = "203.0.113.7";
 
 export interface Cls { id: string; code: string }
 let classN = 0;
-export async function newClass(opt: { roster?: string[]; max?: number } = {}): Promise<Cls> {
+// name_form: 'first' (a first name alone, the form of every class made before 0010) unless a test asks for
+// 'first_initial' (a first name and one surname letter, docs/GRADES_V1.md)
+export async function newClass(opt: { roster?: string[]; max?: number; form?: "first" | "first_initial" } = {}): Promise<Cls> {
   const code = "TEST" + String(++classN).padStart(4, "0");
-  const id = (await sql`insert into public.classes (name, roster_only, max_pupils) values (${"class " + classN}, ${!!opt.roster}, ${opt.max ?? 60}) returning id`)[0].id;
+  const id = (await sql`insert into public.classes (name, roster_only, max_pupils, name_form) values (${"class " + classN}, ${!!opt.roster}, ${opt.max ?? 60}, ${opt.form ?? "first"}) returning id`)[0].id;
   await sql`insert into private.class_codes values (${id}, decode(${await tag(pepper, "class", code)}, 'hex'))`;
   for (const n of opt.roster ?? []) await sql`insert into public.roster values (${id}, app.name_key(${n}), ${n})`;
   return { id, code };
