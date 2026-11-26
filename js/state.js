@@ -111,6 +111,13 @@ export async function auth(mode,c,n,p){
    The device's record is this pupil's of this class only: another pupil's, or the same name in another class, or a
    record whose pupil is unknown, is dropped before anything is joined (docs/PHASE4.md A). */
 const sameWho=(a,b)=>!!(a&&b&&a.p&&a.c&&a.p===b.p&&a.c===b.c);
+/* 'supabase': unsaved play put aside, one place per pupil of a class (review of #111: one slot let a second pupil's
+   overwrite the first's), at most ASIDE of them, the oldest dropped first; each {n, s, who, at} */
+const ASIDE=4;
+const asideOf=o=>[...(Array.isArray(o.aside)?o.aside:[]),...(o.stash&&o.stash.who?[o.stash]:[])].filter(x=>x&&x.who&&x.s);
+function putAside(list,x){if(!x||!x.who||!hasProgress(x.s))return list;
+ const l=list.filter(y=>!sameWho(y.who,x.who));l.push({n:x.n,s:x.s,who:x.who,at:Date.now()});
+ return l.sort((a,b)=>(a.at||0)-(b.at||0)).slice(-ASIDE)}
 export async function enter(kind,f){
  if(!NEW)return{ok:false,e:'mode'};
  f=f||{};const c=String(f.c||'').trim(),n=String(f.n||'').trim().replace(/\s+/g,' ');
@@ -122,15 +129,18 @@ export async function enter(kind,f){
  /* B1 (review of #111): who could not be read: nothing may be joined or put aside on a guess, so the sign-in does not
     count; the new session is let go and the device keeps everything as it was (the pupil tries again) */
  if(!who){forget(false);return{ok:false,e:'net'}}
- /* what this device played and did not save yet: the signed-in pupil's (o.u), else what was put aside (o.stash) */
- const cur=o.u&&hasProgress(pack())?{n:o.u.n,s:pack(),who:o.who||null}:o.stash||null;
- const mine=cur&&sameWho(cur.who,who)?cur:null;
+ /* what this device played and did not save yet: the signed-in pupil's (o.u), and what was put aside for each pupil */
+ const cur=o.u&&hasProgress(pack())?{n:o.u.n,s:pack(),who:o.who||null}:null;
+ let aside=asideOf(o);
+ const mine=[...(cur&&sameWho(cur.who,who)?[cur]:[]),...aside.filter(x=>sameWho(x.who,who))];
+ aside=aside.filter(x=>!sameWho(x.who,who));
  S=Object.assign(blank(),{parts:o.parts,dir:o.dir,cnt:o.cnt,ct:o.ct,ccnt:o.ccnt,ctypes:o.ctypes},r.s||{},{u:{c,n:r.name||n},who,lastC:c});
  delete S.k;delete S.stash;delete S.sync;fix();dirty=0;fatal=false;pullAt=Date.now();
- if(mine){const before=sig(r.s||{});merge(mine.s);fix();if(sig(S)!==before)touch()}   // this pupil's own: joined
+ if(mine.length){const before=sig(r.s||{});for(const x of mine)merge(x.s);fix();if(sig(S)!==before)touch()}   // this pupil's own: joined
  /* another pupil's or another class's: kept aside for them, never joined into this one (as in Sheet mode); joined
     when that pupil of that class signs in on this device again */
- else if(cur&&cur.who&&hasProgress(cur.s))S.stash=cur;
+ if(cur&&!sameWho(cur.who,who))aside=putAside(aside,cur);
+ if(aside.length)S.aside=aside;
  S.sync={at:Date.now()};saveLocal();onSync();return{ok:true}}
 let newPin='';
 export const takeNewPin=()=>{const p=newPin;newPin='';return p};
@@ -138,14 +148,16 @@ const norm=x=>String(x||'').trim().replace(/\s+/g,' ');
 export const sameKid=(a,b)=>{a=norm(a);b=norm(b);return!!a&&(a===b||a.split(' ')[0]===b.split(' ')[0])};
 const hasProgress=s=>!!s&&((+s.pts||0)>0);
 /* sign in again after a refusal: what this device earned is put aside and joined in when the same pupil signs in */
-export function relogin(){const u=S.u;if(!u)return null;forget(false);S.stash={n:u.n,s:pack(),...(NEW?{who:S.who||null}:{})};clearTimeout(syncT);clearTimeout(retryT);const e=(S.sync&&S.sync.err)||'';S.u=null;dirty=0;fatal=false;delete S.sync;saveLocal();onSync();return{c:u.c,n:u.n,e}}
+export function relogin(){const u=S.u;if(!u)return null;forget(false);if(NEW){S.aside=putAside(asideOf(S),{n:u.n,s:pack(),who:S.who||null});delete S.stash}else S.stash={n:u.n,s:pack()};clearTimeout(syncT);clearTimeout(retryT);const e=(S.sync&&S.sync.err)||'';S.u=null;dirty=0;fatal=false;delete S.sync;saveLocal();onSync();return{c:u.c,n:u.n,e}}
 /* resolves false, and keeps the pupil signed in, while progress is still waiting to be saved (no connection):
    signing out would erase it. A record the server refuses for good (the teacher removed the pupil) does not hold anyone back. */
 export async function logout(){const ok=await push();if(!ok&&!fatal)return false;
  forget(true);   // the backend adapter forgets this pupil's session on the device (and revokes it, when there is one)
  clearTimeout(syncT);clearTimeout(retryT);const c=S.lastC,keep=fatal&&hasProgress(pack())?{n:S.u.n,s:pack()}:S.stash||null;   // a refused record is not thrown away: it waits for its owner to sign in
- if(NEW&&keep&&!keep.who)keep.who=S.who||null;   // 'supabase': kept for this pupil of this class only
- S=Object.assign(blank(),{lastC:c},keep?{stash:keep}:{});dirty=0;fatal=false;saveLocal();onSync();return true}
+ if(NEW){const a=putAside(asideOf(S),fatal&&hasProgress(pack())?{n:S.u.n,s:pack(),who:S.who||null}:null);   // 'supabase': kept for this pupil of this class only
+  S=Object.assign(blank(),{lastC:c},a.length?{aside:a}:{})}
+ else S=Object.assign(blank(),{lastC:c},keep?{stash:keep}:{});
+ dirty=0;fatal=false;saveLocal();onSync();return true}
 
 /* D1 (review of #63): another pupil signed in in another tab of this device, so the backend adapter stopped copying
    this tab. The last save goes to the Sheet first; then a calm message, and the page reloads (to show the device's
