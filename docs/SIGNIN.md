@@ -64,10 +64,10 @@ board; the icons already mean something in the game). The art brief for 20 new p
 | תפוח (apple, red, round) | בננה (banana, yellow, crescent) | אבטיח (watermelon slice, green and red, wedge) | קקטוס (cactus in a pot, green, upright) | ענבים (grapes, purple, bunch) |
 | פרח (flower, pink, petals) | מטריה (umbrella, blue, open) | עפיפון (kite, orange, diamond) | תוף (drum, red and white, cylinder) | כובע (hat, brown, wide brim) |
 | נעל (shoe, light blue) | פיל (elephant, grey) | ג׳ירפה (giraffe, yellow with brown spots, tall) | בית (house, cream with a red roof) | עיפרון (pencil, blue, straight) |
-| ספר (book, blue-green, closed) | פעמון (bell, gold) | מכונית (car, yellow, from the side) | מספריים (scissors, silver and orange) | פטרייה (mushroom, red cap, white dots) |
+| ספר (book, blue-green, closed) | פעמון (bell, gold) | מכונית (car, yellow, from the side) | מספריים (scissors, silver and orange) | פטרייה (mushroom, smooth orange-brown cap, no spots) |
 
 Pairs checked for confusion: apple and mushroom (round vs stalk and cap), banana and pencil (yellow curve vs blue straight), banana and the carrot (dropped: two long yellow-orange shapes at 56 px, replaced by a cactus),
-umbrella and mushroom (blue vs red, handle vs stalk), elephant and giraffe (wide vs tall).
+umbrella and mushroom (blue vs orange-brown, handle vs stalk), elephant and giraffe (wide vs tall).
 
 **Cost estimate (cap A, 25 credits):** pictures as 5 sheets of 4, gpt_image_2_5 high, 1.25 each: **6.25**, with a
 retake of two sheets 8.75. Sound: 22 clips (20 names, "קודם תמונה אחת, אחר כך עוד אחת", "אמרו את זה בקול"),
