@@ -76,6 +76,10 @@ nothing. **Estimate:** 4 images at the medium price (0.5 each in batch h) = **2.
 high price 5.0 to 10.0. Inside 20 either way. Wiring: the client engineer swaps the four `isl_N` overrides for the
 math screens to the new files (or `js/mdata.js` gets its own art keys).
 
+**Done (batch l2, 2026-11-26):** `assets/al/map/misl-1` to `misl-4` and their `-locked` versions (340 px, transparent),
+2.00 charged of cap B. Not wired: the client engineer points the math map at them (today it borrows the English
+islands through `css/ds-game.css`).
+
 ## C. Ten more avatars with their tap animations (cap 45)
 
 Recipe and checks as batches a and i: portrait first (gpt_image_2_5, medium, 1:1, style reference the approved picker
@@ -106,6 +110,13 @@ Not used on purpose: anything in the secret-picture set (elephant, giraffe), any
 **Estimate:** portraits 10 x 0.5 = 5.0; animations 10 x 3.0 = 30.0; together **35.0**, leaving 10 for retakes (three
 animations). If more than three animations fail, the rest get the CSS tilt-and-bounce the owl has, at no cost; the cap
 is not raised. Unlock levels beyond 13 are the engineer's (the ladder in `js/avatar.js`).
+
+**Done (batch l3, 2026-11-26):** the ten portraits in `assets/al/av/` (256 px) and their animations in
+`assets/al/avanim/` (192 px, 24 to 29 frames at 83 ms, 89 to 146 KB, ending on the still). Every frame was looked at:
+the zebra, kangaroo and badger first takes opened the mouth with teeth and were retaken (the badger's retake still did
+after 1 s, so only its first second is used, forward and back); the griffin turned to the camera after 1.2 s and the
+flamingo opened its beak in the first half second, so those two use a clean stretch played forward and back, and the
+flamingo's still is the matching frame. 44.00 charged of cap C. Not wired: unlock levels beyond 13 are the engineer's.
 
 ## Order
 
