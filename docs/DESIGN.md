@@ -45,6 +45,19 @@ Only self-hosted files in `assets/font`, declared in `ds.css` as `WI Hebrew` and
 - English: **Rubik** (`rubik-latin.woff2`, variable weight, SIL OFL 1.1), owner's decision. It replaced Playpen Sans in the new look: the handwriting read childish next to Fredoka, and English is what pupils must read most carefully for spelling. Rubik's a, g, I and l are plain and distinct.
 - The live game (`css/game.css`) still uses Playpen Sans. It changes only when a screen moves to the new system.
 
+- **Within 1 px.** With the flag on, the title's text may sit a fraction of a pixel apart between builds: after the
+  lighter first load (#77) every text box on the title is within 0.05 CSS px of before (the first card's title: top
+  229.85 to 229.81 px, height 26.45 to 26.50 px, at 320x568), which antialiasing shows as changed pixels (about 2% at
+  320x568). No element moves by a whole pixel. It comes from which font files are in when the screen is first laid out;
+  not a layout change.
+
+### Open questions (decide before the flag flips)
+- **English words in levels: Playpen today; Rubik in the new look's chrome.** With the flag on, the listen, read and
+  bridge levels still draw their English in Playpen (DOM), and the sling level's bubbles, Fraction Bay's digits, Beach
+  Run's signs and the progress card name Playpen on canvas. It is the face the children read their words in; changing
+  it in the levels is a design decision for the owner and the designer, not a weight fix. Its weight: `playpen-latin.woff2`
+  is 191 KB, and the static preload in `index.html` (which stays) makes the hub screens pay it first (PR #77, #78).
+
 ## Components (all `wi-` prefixed)
 | Component | Do | Don't |
 |---|---|---|
@@ -236,6 +249,16 @@ One 2 s animated WebP per character (`assets/al/avanim/`, 192 px, under 150 KB, 
 - Wired in `world.html`'s picker (`js/world.js`). For the live game's picker (`js/avatar.js`, behind `?ds=1`): `import {playAv} from './avanim.js'` and call `playAv(img, id)` with the character's `<img>` when it is chosen.
 - Checked by `tests/avanim.py`: every character has one, each is an animated WebP under 150 KB listed with its sha256; nothing is requested before a tap; a tap requests that one file and the portrait comes back; nothing with reduced motion or calm mode; nothing without the flag.
 
+## Welcome film, behind the same flag
+
+Shown once on first open of the game page; poster first, play only on tap, 48 px skip from the first second, captions
+as live text. The platform's new name, **ניצני אופק**, is in its closing title only (the in-game rename is the client
+engineer's, behind the flag). Details and the narration (flagged for the teacher's review) in `docs/INTRO.md`; art in
+batch j of the ledger.
+
+**Before the flag flips** (for the welcome film): the owner listens to the whole film with sound on a phone (Pitzi's
+line and "Yeah, let's go!" clear, the laughter wordless, no crackle) and says yes. Until then the film never reaches
+pupils. The 4K version for sharing is not in the repo.
 
 ## Spec: the character on the map and the island as a path (behind the flag; for the client engineer)
 

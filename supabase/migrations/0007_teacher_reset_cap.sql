@@ -1,6 +1,6 @@
 -- The teacher's daily cap of new one-time codes (review of #86, S7). Each new code costs 600,000 hash rounds on the
 -- server and signs the pupil out everywhere; a class needs a few a week. A new migration, not an edit of 0004: a
--- project that ran 0001 to 0006 gets exactly this (docs/LESSONS.md entry 15).
+-- project that ran 0001 to 0006 gets exactly this (docs/LESSONS.md entry 16).
 
 -- new one-time codes one teacher may make in 24 hours
 alter table private.settings add column reset_teacher_day int not null default 15 check (reset_teacher_day between 1 and 200);
