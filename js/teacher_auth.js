@@ -86,7 +86,16 @@ export function teacherAuth(env){
     keep({...r.j,user:r.j.user||{id:s.user.id,email:s.user.email}});return ses.access})();
    refreshing=p;p.then(()=>{if(refreshing===p)refreshing=null},()=>{if(refreshing===p)refreshing=null})}
   return refreshing}
+ /* a read of the teacher's own views (docs/PHASE3.md step 2), with her token. null when there is no session, or when
+    the session changed while the answer was on its way: a late answer never reaches the screen of whoever comes next.
+    401 (her session ended) and 403 (refused) both sign her out, with a plain message */
+ async function read(path){
+  const g=gen,t=await token();if(!t||g!==gen)return null;
+  let r;try{r=await call(path,undefined,t,'GET')}catch(e){return g===gen?{error:'net'}:null}
+  if(g!==gen)return null;
+  if(r.status===401||r.status===403){await signOut(r.status===401?'expired':'forbidden');return null}
+  return r.status===200&&Array.isArray(r.j)?{rows:r.j}:{error:'server'}}
  /* leaving the page ends the session, every time: also an exchange still on its way (its answer is revoked), also the
     trip to Google (which keeps only the verifier, in sessionStorage), also a page going into the back-forward cache */
  function left(){gen++;if(ses)signOut('left')}
- return{begin,finish,token,signOut,touch,wake,left,user:()=>ses?{...ses.user}:null,signedIn:()=>!!ses}}
+ return{begin,finish,token,read,signOut,touch,wake,left,user:()=>ses?{...ses.user}:null,signedIn:()=>!!ses}}

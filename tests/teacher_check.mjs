@@ -62,8 +62,15 @@ function gotrue(clock) {
         for (const s of sessions.values()) if ('Bearer ' + s.access_token === auth) s.alive = false;
         return out(204, null);
       }
+      if (url.pathname.startsWith('/rest/v1/') && g.status403) return out(403, { message: 'permission denied' });
+      if (url.pathname.startsWith('/rest/v1/')) {
+        const s = [...sessions.values()].find(x => 'Bearer ' + x.access_token === auth && x.alive);
+        if (!s) return out(401, { message: 'JWT expired' });
+        return out(200, (g.rows[url.pathname.slice(9)] || {})[s.user.email] || []);
+      }
       return out(404, null);
     },
+    rows: {},
   };
   return g;
 }
@@ -241,6 +248,32 @@ const stay = (t, ms) => { for (let left = ms; left > 0; left -= 20 * 60000) { t.
   await tick();
   const fresh = [...u.server.sessions.values()].at(-1);
   eq('and the session it brought is revoked at once, with keepalive (re-review of #82)', [fresh.alive, u.server.log.some(l => l.path === '/auth/v1/logout?scope=local' && l.auth === 'Bearer ' + fresh.access_token && l.keepalive)], [false, true]);
+}
+// ---- 12. step 2: her own views, read with her token only, and never after she is gone
+{
+  const t = tab();
+  t.server.rows.teacher_view = { 'teacher.one@example.org': [{ display_name: 'Pupil One', points: 30 }] };
+  await t.signIn();
+  const r = await t.auth.read('/rest/v1/teacher_view?select=display_name,points');
+  eq('read: her rows, with her token', [r, t.server.log.at(-1).auth.startsWith('Bearer acc-'), t.server.log.at(-1).path], [{ rows: [{ display_name: 'Pupil One', points: 30 }] }, true, '/rest/v1/teacher_view?select=display_name,points']);
+  let release; t.server.delay = new Promise(x => { release = x; });
+  const late = t.auth.read('/rest/v1/teacher_view');
+  await tick();
+  t.server.delay = null; await t.auth.signOut('out'); release();
+  eq('a read whose answer comes after sign-out gives nothing to show', await late, null);
+  const u = tab(t);
+  await u.signIn('teacher.two@example.org');
+  for (const s of u.server.sessions.values()) s.alive = false;      // the server ended her session (revoked elsewhere, expired)
+  const r2 = await u.auth.read('/rest/v1/teacher_view');
+  eq('a read refused by the server (401): signed out, nothing to show', [r2, u.auth.signedIn(), u.outs], [null, false, ['expired']]);
+  const w = tab(t);
+  await w.signIn('teacher.three@example.org');
+  w.server.status403 = true;
+  const r3 = await w.auth.read('/rest/v1/teacher_view');
+  w.server.status403 = false;
+  eq('a read refused with 403: signed out too, with its own plain message', [r3, w.auth.signedIn(), w.outs], [null, false, ['forbidden']]);
+  const v = tab(t);
+  eq('no read without a session (no request at all)', [await v.auth.read('/rest/v1/teacher_view'), v.server.log.length], [null, u.server.log.length]);
 }
 // ---- 10b. review of #82: the guard cannot be broken, the clock decides, refreshes are shared
 {
