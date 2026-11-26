@@ -42,6 +42,12 @@ html.ds #stage.wdock #syncbar{bottom:calc(84px + var(--sb,0px))}   /* .wdock: se
 .wpick__av.is-selected{border-color:var(--wi-gold);box-shadow:0 0 0 3px var(--wi-gold)}
 .wpick__av.is-locked .wpick__art{opacity:.7}   /* dimmed, the whole character in view: a child sees what they are working towards */
 .wpick__art{width:100%;height:100%;object-fit:cover;display:block}
+/* the waist-up set (#108) at tile size: the designer's crop box (x 14% to 86%, y 0 to 72%, docs/AVATAR_CHARACTER.md), so the
+   face reads on a 66 px tile (320 wide); the animation plays in the same <img>, so it keeps the same box and nothing jumps */
+.wpick__av .wpick__art{transform:scale(1.389);transform-origin:50% 0}
+/* the round portraits elsewhere (the dock, the "new character" notice, the token, the walker) carry their own border, so
+   they take the same box with object-view-box where the browser has it; elsewhere the whole figure shows, as before */
+.map .wd__pic,.map .wnew__pic,.map .wtok__pic,.w-walker__pic{object-view-box:inset(0% 14% 28% 14%)}
 /* a character still being drawn: a plain tile, not a button, the size of the others */
 .wpick__soon-tile{min-inline-size:0;overflow:hidden;text-align:center;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:2px dashed var(--wi-line);border-radius:var(--wi-r-lg);background:var(--wi-navy-900);color:var(--wi-text-dim)}
 .wpick__soon{font-weight:800;font-size:var(--wi-fs-sm);color:var(--wi-text)}
