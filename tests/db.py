@@ -360,6 +360,23 @@ def test_teacher(db):
                  update private.pupil_secrets set code_hash = null where pupil_id = '{pid('A')}';""")
     eq("teacher_view after a reset and locks: waiting, closed, locked 2 times today (not the other class's 1)",
        db.select(T, 'teacher_view', 'code_status, recovery_status, locked_today', dict(pupil_id=pid('A')))[0], [dict(code_status='waiting', recovery_status='closed', locked_today=2)])
+    # the class's day is private.settings.tz, as for the points and the roll-up, not a zone written into the view. A zone
+    # whose date differs from Jerusalem's right now, a lock a minute before the later of the two midnights (today in one
+    # zone only) and a flag on the edge of the week: the view must follow settings.tz, whichever side that is
+    z = next(z for z in ('Pacific/Kiritimati', 'Pacific/Pago_Pago') if db.one(f"select (now() at time zone '{z}')::date <> (now() at time zone 'Asia/Jerusalem')::date") == 't')
+    db.admin(f"update private.settings set tz = '{z}'")
+    seen = lambda: db.select(T, 'teacher_view', 'locked_today, flags_week', dict(pupil_id=pid('B')))[0][0]
+    before = seen()
+    mid = lambda zone: f"(date_trunc('day', now() at time zone '{zone}') at time zone '{zone}')"
+    today = lambda zone: f"(now() at time zone '{zone}')::date"
+    db.admin(f"""insert into private.auth_lock_events (class_id, name_key, kind, at) values ('{C1}', '{NAMES['B']}', 'code', greatest({mid(z)}, {mid('Asia/Jerusalem')}) - interval '1 minute');
+                 insert into public.flags (pupil_id, kind, day) values ('{pid('B')}', 'unusual', case when {today(z)} < {today('Asia/Jerusalem')} then {today(z)} - 6 else {today(z)} - 7 end)
+                   on conflict (pupil_id, kind, day) do update set n = public.flags.n + 1;""")
+    want = db.admin(f"select ({mid(z)} < {mid('Asia/Jerusalem')})::int, ({today(z)} < {today('Asia/Jerusalem')})::int")[0]
+    after = seen()
+    eq(f"teacher_view's locks today and flags this week follow settings.tz ({z}), not Jerusalem's day",
+       [after['locked_today'] - before['locked_today'], after['flags_week'] - before['flags_week']], [int(want[0]), int(want[1])])
+    db.admin("update private.settings set tz = 'Asia/Jerusalem'")
     eq('teacher_view never carries a hash', db.admin("select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'teacher_view' and (column_name like '%hash%' or column_name like '%salt%')"), [['0']])
     denied('teacher 1 reads the secrets table: refused like anyone', db.as_(*T, 'select * from private.pupil_secrets'))
     denied('teacher 1 writes points', db.insert(T, 'points', dict(pupil_id=pid('A'), delta=5, reason='fix')))
@@ -481,7 +498,7 @@ def test_storage(db):
     sv_uid, sv_pid = U(0xD01), U(0xD02)
     db.admin(f"insert into auth.users (id) values ('{sv_uid}'); insert into public.pupils (id, class_id, display_name, auth_user_id) values ('{sv_pid}', '{C2}', 'Saver', '{sv_uid}')")
     S = ('authenticated', sv_uid)
-    day = lambda: db.admin(f"select saves, save_kb from private.pupil_days where pupil_id = '{sv_pid}' and day = (now() at time zone 'Asia/Jerusalem')::date")
+    day = lambda: db.admin(f"select saves, save_kb from private.pupil_days where pupil_id = '{sv_pid}' and day = (now() at time zone (select tz from private.settings))::date")
     print('-- save_progress is rationed (review PB1b)')
     r1, err = db.rpc(S, 'save_progress', dict(p_state={'a': 1}))
     r2, _ = db.rpc(S, 'save_progress', dict(p_state={'a': 1}, p_base=r1['updated_at']))
