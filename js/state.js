@@ -119,10 +119,18 @@ export async function enter(kind,f){
  let r;try{r=await api(kind,d)}catch(e){r={ok:false,e:'net'}}
  if(!r||!r.ok)return r&&r.e?r:{ok:false,e:'net'};
  const o=S,who=r.who||null;
- const mine=o.u&&sameWho(o.who,who)?{s:pack()}:o.stash&&sameWho(o.stash.who,who)?o.stash:null;
+ /* B1 (review of #111): who could not be read: nothing may be joined or put aside on a guess, so the sign-in does not
+    count; the new session is let go and the device keeps everything as it was (the pupil tries again) */
+ if(!who){forget(false);return{ok:false,e:'net'}}
+ /* what this device played and did not save yet: the signed-in pupil's (o.u), else what was put aside (o.stash) */
+ const cur=o.u&&hasProgress(pack())?{n:o.u.n,s:pack(),who:o.who||null}:o.stash||null;
+ const mine=cur&&sameWho(cur.who,who)?cur:null;
  S=Object.assign(blank(),{parts:o.parts,dir:o.dir,cnt:o.cnt,ct:o.ct,ccnt:o.ccnt,ctypes:o.ctypes},r.s||{},{u:{c,n:r.name||n},who,lastC:c});
  delete S.k;delete S.stash;delete S.sync;fix();dirty=0;fatal=false;pullAt=Date.now();
- if(mine){const before=sig(r.s||{});merge(mine.s);fix();if(sig(S)!==before)touch()}   // what this device played for this pupil and not yet saved
+ if(mine){const before=sig(r.s||{});merge(mine.s);fix();if(sig(S)!==before)touch()}   // this pupil's own: joined
+ /* another pupil's or another class's: kept aside for them, never joined into this one (as in Sheet mode); joined
+    when that pupil of that class signs in on this device again */
+ else if(cur&&cur.who&&hasProgress(cur.s))S.stash=cur;
  S.sync={at:Date.now()};saveLocal();onSync();return{ok:true}}
 let newPin='';
 export const takeNewPin=()=>{const p=newPin;newPin='';return p};

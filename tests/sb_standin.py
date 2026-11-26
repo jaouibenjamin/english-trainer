@@ -38,6 +38,7 @@ class Project:
         self.log, self.tokens, self.progress, self.dead, self.n, self.lock = [], {}, {}, False, 0, None
         self.pupils = {k: dict(v, pics=[3, 17]) for k, v in PUPILS.items()}
         self.otc = {}   # (class code, name key) -> the teacher's one-time code
+        self.no_who = False   # the pupil's own row cannot be read (503)
         self.next = {}  # 'register' | 'login' | 'recover' -> an answer given once, on the next call (the screens' waits table)
 
     def opened(self, p):
@@ -110,7 +111,7 @@ class Project:
         if not p:
             return await ok({'message': 'JWT expired'}, 401)
         if u.path == '/rest/v1/pupils':
-            return await ok([{'id': p['id'], 'class_id': p['cls']}])
+            return await ok(None, 503) if self.no_who else await ok([{'id': p['id'], 'class_id': p['cls']}])
         if u.path == '/rest/v1/progress':
             s, at = self.state(p['id'])
             return await ok([{'state': s, 'updated_at': at}] if at else [])

@@ -47,7 +47,9 @@ Status: a proposal for the lead and the owner. Steps 1 and 2 are open pull reque
    - the board (`class_board`, with the pupil's own row) and the pupil's own record (`progress`, read with the session
      when the game opens) come from Supabase;
    - the device keeps the new backend's record under its own key (`wi-new-v1`), bound to the pupil and class it belongs
-     to (read with the new session), and drops it when another pupil or class signs in (`docs/PHASE4.md` A); the
+     to (read with the new session); when another pupil or class signs in, the last pupil's unsaved play is kept aside
+     for them and never joined into anyone else's (`docs/PHASE4.md` A), and a sign-in whose pupil cannot be read does
+     not count (nothing is joined or dropped on a guess); the
      Sheet's record (`aam-unit1-v1`) is never read or written in this mode, so the way back finds it as it was;
    - a session that ended (expired and not renewable, or signed out everywhere) asks the pupil to sign in again
      (`signin`); what the device played waits for the same pupil;

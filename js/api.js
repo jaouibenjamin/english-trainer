@@ -418,7 +418,11 @@ const pics=x=>Array.isArray(x)?x.map(Number):x;
 const gone_=o=>({ok:false,e:o.ended||o.live()?'signin':'net'});
 async function supa(a,d){
  try{
-  if(a==='login'||a==='register'||a==='recover'||a==='save'){if(leaving)await leaving;if(!(await sameOwner(d)))return{ok:false,e:'net'}}
+  /* G4 (review of #55) in this mode too: a tab whose pupil another tab replaced sends nothing more, or its save would
+     take the device back (sameOwner) and end the other pupil's session; and the tab's pupil is remembered (mine), so
+     the 'storage' listener can tell it was replaced and show the dialog (review of #111) */
+  if(displaced&&a!=='board')return{ok:false,e:'net'};
+  if(a==='login'||a==='register'||a==='recover'||a==='save'){if(leaving)await leaving;const ow=await sameOwner(d);if(!ow)return{ok:false,e:'net'};if(typeof ow==='string')mine=ow}
   if(a==='login'){const o=op();return await turn(async()=>{if(!o.live())return{ok:false,e:'net'};const dev=(get(K.ses)||{}).device_token;
    const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{})});return opened(o,r.j)})}
   if(a==='register'){const o=op();return await turn(async()=>{if(!o.live())return{ok:false,e:'net'};
