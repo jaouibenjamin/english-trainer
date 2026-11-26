@@ -117,3 +117,7 @@ Also ours and to be checked: "דמות חדשה נפתחה!", "דמויות חד
 "אחר כך", "N דמויות חדשות מחכות לכם. רוצים להחליף?", "ועוד N", "רמה N" (the badge on a locked tile),
 "(name): אפשר לפתוח ברמה N (עוד N רמות). מרוויחים אנרגיה כשלומדים, ואף פעם לא מפסידים אותה.",
 "בכל רמה חדשה נפתחת דמות חדשה. עכשיו אתם ברמה N."
+- **The loader** (flag on): navy over the whole board, the new Pitzi, the same words ("רגע, מפליגים…"), and after 5 s
+  of waiting a second line, "עוד רגע…" (its space is kept from the start, so nothing moves). On a slow phone the very
+  first loader, at boot, can show in the old look for a moment, before the new look's style sheet arrives; every later
+  one (a level opening) is in the new look.
