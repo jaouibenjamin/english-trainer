@@ -211,3 +211,39 @@ stay with you.
 What comes after day 0 (not today): the game's trial switch on your phone once the client work ships
 (`docs/LIVE_STAGE.md` D and E), then the backup keys, the full check and the teacher (B4, B5, B7, B8) before the real
 class.
+
+---
+
+## Later: the grades version and more classes (📱, the one button)
+
+**Not before the lead says** "the grades version is on `main`": these steps need migrations 0010 and 0011 and the
+new functions. Each run uses the same button as above (Actions → supabase-setup → Run workflow → branch **`main`**,
+confirm `setup trial`), and you approve each one when GitHub asks. Nothing here is ever typed into a chat. The
+workflow's inputs are **public**: a class name and a grade, never a child's name, never an email address.
+
+**Before** (each time, as steps 2 to 5 above): a new access token (7 days, this project), the database password, both
+as secrets of the `supabase-setup` environment. **After**: revoke the token and delete both secrets (step 9).
+
+**G1. Bring the project up to the grades version** (once, about 5 minutes). Mode `real`, and tick **redeploy**
+(the functions changed too). **Done when** green, the log says `migrations 0001 to 0011 applied` and `… deployed`
+for each of the five functions. The trial class keeps working: first names alone, no grade, on no grade board.
+
+**G2. One class** (once per class, 2 minutes). Mode `add-class`, `class_name` the class (e.g. `ה׳2`; at most 26
+characters; not `Trial`, not `removed`), `grade` its grade (e.g. `ה׳`). The log first says `about to make ה׳2 in
+grade ה׳`, then does it. **Done when** green and the log ends with "changes made" (the same run again says "nothing
+changed"). Its code is in the Vault as `wi_class_code_ה׳2` (never in the log): Supabase → Project Settings → Vault →
+reveal, copy it into the password manager as that class, then **delete that secret**. The code goes to the teacher
+in person, never by message. Lost it? Tell the lead (a class code can be replaced).
+
+**G3. Her teacher** (once per teacher, 3 minutes).
+1. Her account as `docs/LIVE_STAGE.md` B5 says; then Supabase → Authentication → Users → her row → copy the
+   **user id** (a long id with dashes). Her address stays in the dashboard.
+2. Mode `add-teacher`, `teacher_user_id` that id, `class_name` her class (e.g. `ה׳2`). **Done when** green and the
+   log says `the teacher of ה׳2 added` (or `she is already the teacher`).
+
+**G4. With her, once** (30 minutes, as `docs/LIVE_STAGE.md` E8): on `teacher.html` she adds her class list in
+"רשימת הכיתה": first name and the first letter of the surname (`נועה כ.`); for two alike, a digit (`נועה כ2.`);
+first names only, never a surname, not even joined with a hyphen.
+
+If a run stops, the last lines say why and what to do next (`Next: …`). If unsure, send the lead only that line: it
+holds no secret.
