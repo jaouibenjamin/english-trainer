@@ -75,6 +75,10 @@ const KEY_OK=/^(local|h:[0-9a-f]{64})$/;   // the only keys a record may have; a
 const clean=r=>{const o={av:r.av,nm:r.nm,en:r.en};if(r.nm)o.nv=NAME_V;if(r.sl)o.sl=r.sl;if(r.at)o.at=r.at;return o};
 function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=clean(rec);localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
 
+/* the picture of the character this pupil chose on this device (the "who is playing" pill, js/signin.js notMe), or
+   null when none was chosen yet. The choice lives on the device only, as the rest of this record */
+export async function avatarSrc(){const id=await ident();const m=mine(id);return m.av&&ART['av/'+m.av]||null}
+
 /* ---------- energy: only goes up ---------- */
 export const earned=()=>WORTH.star*totalStars()+WORTH.word*wordsKnown()+WORTH.story*Object.values(S.read||{}).filter(v=>v>0).length+WORTH.mstar*mathStars();
 const LAST=LEVELS[LEVELS.length-1];

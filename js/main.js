@@ -57,7 +57,10 @@ function title(){setBg('title','bottom');
  const c=view.querySelector('.tcrab');c.style.left=(m.ox+466*m.s)+'px';c.style.top=(m.oy+1240*m.s)+'px';whoChip()}
 
 /* ---------- map ---------- */
-function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,H=stage.clientHeight,mt=H<700?88:100;
+/* 'supabase' mode, a pupil signed in: the "who is playing" pill has its own row under the header (docs/SIGNIN.md); the
+   subjects button and the islands start this much lower (css/game.css .scr.map.who) */
+const WHO_ROW=52;
+function map(){setBg('map','center');const who=(ST.NEW??false)&&!!S.u,tot=totalStars(),W=stage.clientWidth,H=stage.clientHeight,mt=(H<700?88:100)+(who?WHO_ROW:0);
  /* islands zigzag in two columns, so neighbours in a column are two rows apart; the lowest island and its label end 14px above the bottom */
  /* every level of every island has been played: a banner along the beach. "Finished" is said only at full stars;
     until then it says how many stars are missing, and every island that still has stars to collect is ringed */
@@ -74,12 +77,13 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
  const band=2*rowH-cell,deco=(n,x,r,h)=>band<34?'':`<img class="deco" src="${SP(n)}" alt="" style="left:${x}%;top:${(mt+rowH*r+cell+band/2).toFixed(1)}px;height:${Math.min(h,band-8).toFixed(1)}px">`;
  const yp=p=>((p.y+iw*.36)/H*100).toFixed(2),seq=[...place].sort((a,b)=>a.i.id-b.i.id);
  const path=seq.map((p,k)=>{if(!k)return`M${p.x} ${yp(p)}`;const q=seq[k-1];return`C${q.x} ${((+yp(q)+ +yp(p))/2-2).toFixed(2)} ${p.x} ${((+yp(q)+ +yp(p))/2+2).toFixed(2)} ${p.x} ${yp(p)}`}).join('');
- view.innerHTML=`<section class="scr map" style="--iw:${iw.toFixed(1)}px">
+ view.innerHTML=`<section class="scr map${who?' who':''}" style="--iw:${iw.toFixed(1)}px">
   <header class="maphead${API&&S.u?' cls':''}"><button class="mb" data-a="nav" data-to="settings"><span class="rb t1">${spr('ic_gear','rbi')}</span><small>הגדרות</small></button>
    <div class="sign total"><b>${star()}<span>${num(tot+' / '+MAX_STARS)}</span></b></div>
    <span class="tr">${API&&S.u?`<button class="mb" data-a="nav" data-to="board"><span class="rb t3">${spr('trophy','rbi')}</span><small>טבלה</small></button>`:''}<button class="mb" data-a="nav" data-to="collection"><span class="rb t2">${spr('chest','rbi')}</span><small>האוסף</small></button></span></header>
   ${fin?`<div class="fin label${all?' all':''}" role="status">${spr(all?'crab_star':'crab_wave','fc bob')}<p>${all?`<b>כל הכבוד! סיימתם את כל האיים</b><small>כל ${num(MAX_STARS)} הכוכבים שלכם. אפשר לשחק שוב בכל שלב${API&&S.u?' ולצבור נקודות':''}</small>`
    :`<b>עברתם בכל האיים!</b><small><span class="nb">${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`}</span> <span class="nb">באיים שבמסגרת הצהובה</span></small>`}</p>${all?spr('trophy','ft'):`<span class="fs">${star()}<i>${num(tot+'/'+MAX_STARS)}</i></span>`}</div>`:''}
+  ${who?'<div class="maprow-who"></div>':''}
   <button class="subjpill" data-a="nav" data-to="">${ico('back')}<span>מקצועות</span></button>
   ${deco('boat',24,0,58)}${deco('whale',76,1,46)}
   ${played?'':`<img class="compass" src="${SP('compass')}" alt="" style="top:${Math.min(H-80,m.oy+1215*m.s-36).toFixed(1)}px">`}
@@ -219,7 +223,16 @@ function signin(){const my=navId;import('./signin.js').then(m=>{if(my!==navId||V
 const trialAsk=()=>{try{if(sessionStorage.getItem('wi_new_ask')==='1')import('./trial.js').then(m=>m.ask()).catch(()=>{})}catch(e){}};
 trialAsk();addEventListener('pageshow',e=>{if(e.persisted)trialAsk()});   // also on a page the back button brings back (review of #121). On every device, the class's too: it only reads sessionStorage and does nothing without the question waiting
 /* whose device this is, and "זה לא אני" (one tap, then the game's own sign-out): title and map, 'supabase' mode only */
-function whoChip(){if(!(ST.NEW??false)||!S.u)return;const my=navId;import('./signin.js').then(m=>{if(my===navId&&typeof m.notMe==='function'&&(V.name==='title'||V.name==='map')){const t=view.querySelector('.scr.title .tgo');m.notMe(t||view.querySelector('.scr')||view,{name:S.u.n,inline:!!t,out:()=>A.logout()})}}).catch(()=>{})}
+/* "who is playing" (docs/SIGNIN.md): on the title, a pill at the top of the screen; on the map, in its own row under the
+   header (map() keeps the row free). With the
+   design flag, the character chosen on this device is in it (js/avatar.js avatarSrc, newer than the last ship: read
+   through the namespace with a typeof guard) */
+function whoChip(){if(!(ST.NEW??false)||!S.u)return;const my=navId;
+ const av=dsOn()?import('./avatar.js').then(a=>typeof a.avatarSrc==='function'?a.avatarSrc():null).catch(()=>null):Promise.resolve(null);
+ Promise.all([import('./signin.js'),av]).then(([m,src])=>{if(my!==navId||typeof m.notMe!=='function'||(V.name!=='title'&&V.name!=='map'))return;
+  const sc=view.querySelector('.scr.title');let host=sc&&sc.querySelector('.si-titletop')||view.querySelector('.scr.map .maprow-who');
+  if(sc&&!host){host=document.createElement('div');host.className='si-titletop';sc.prepend(host)}
+  m.notMe(host||view.querySelector('.scr')||view,{name:S.u.n,inline:!!host,av:src||'',out:()=>A.logout()})}).catch(()=>{})}
 function login(){if(ST.NEW??false)return signin();setBg('paper','center');
  /* a device that has never signed in starts on "first time"; afterwards the usual case is coming back */
  const reg=(V.m||(S.lastC?'login':'register'))==='register';
