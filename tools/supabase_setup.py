@@ -416,8 +416,20 @@ class Setup:
         self.change(f'its code put in the Vault as {vault_name}')
 
     # ---------- add-class, add-teacher: the owner's steps for more classes (docs/GRADES_V1.md) ----------
+    def week_guard(self):
+        # the weekly boards (0012) sum this week's points from the ledger; the nightly roll-up merges rows older than
+        # raw_days, and merged rows are left out of the week, so below 7 a week loses points without a word
+        n = self.one('select raw_days as n from private.settings')
+        if n is None:      # fail closed: no settings row (or no value) is not a safe window
+            raise Stop('raw_days could not be read (private.settings has no row; the migrations make it). '
+                       'Next: tell the lead this line; do not add classes or teachers until it is fixed')
+        if n < 7:
+            raise Stop(f'raw_days is {n}, below 7: the weekly boards would miss points of this week. '
+                       'Next: run mode real (it sets raw_days back to 30), then run this again')
+
     def add_class(self, name, grade):
         self.say(f'add a class: {name} in grade {grade}')
+        self.week_guard()
         if name.strip().casefold() == TRIAL.casefold():
             raise Stop(f'"{name}" is the trial class\'s name. Next: give the real class its own name (e.g. ה׳2)')
         if self.one(f"select count(*) as n from public.classes where name = {lit(name)} and kind = 'class'"):
@@ -433,6 +445,7 @@ class Setup:
 
     def add_teacher(self, user_id, class_name):
         self.say(f'add the home teacher of {class_name}')
+        self.week_guard()
         self.say(f'  about to add the user {user_id} as the home teacher of {class_name} (if she is not already)')
         r = self.one(f"select private.teacher_add('{user_id}', {lit(class_name)}) as r")
         if r == 'class':

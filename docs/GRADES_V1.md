@@ -97,10 +97,12 @@ Both boards rank **this week's points**; nothing else about them changes.
   summed since the week began. No new column, no new counter to keep in step: the ledger is already what
   `pupil_totals` adds up. The nightly roll-up only merges `day` and `run` rows older than `raw_days` (30 today), so
   the last 7 days are whole rows; its merged rows (`ref = 'rolled'`) are left out of the week, so a `raw_days` below
-  8 could only make a week smaller, never larger (no table check: the roll-up's own tests set it to 0). Rows of reason
+  7 could only make a week smaller, never larger (no table check: the roll-up's own tests set it to 0). 7 is enough:
+  the week is at most 7 days old (the comment in 0012 says 8; 0012 is not edited). The setup tool keeps it: mode
+  `real` sets `raw_days` to 30, and `add-class` and `add-teacher` stop when it is below 7. Rows of reason
   `migrated` (a one-off import) are left out too; `fix` rows count (a correction is a correction). A point
   belongs to the week it reached the server (`at` is the server's time); a batch a device kept offline counts when it
-  arrives. One index, `points (at, pupil_id)`, keeps the sum cheap (a grade is about 350 pupils).
+  arrives. One index, `points (pupil_id, at)`, keeps the sum cheap (a grade is about 350 pupils).
 - **The week:** from **Sunday 00:00 Asia/Jerusalem** (`private.settings.tz`, as the daily bonus and the teacher's
   day) to the next Sunday 00:00. Summer time changes nothing: the boundary is a local midnight.
 - **The pupil's all-time total** stays where it is: `pupil_totals.points` (the pupil reads their own row only) and
