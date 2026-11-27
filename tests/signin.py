@@ -449,6 +449,13 @@ async def letter_form(b):
     await pg.evaluate('__mount()'); await tap(pg, '[data-si="start"][data-f="in"]'); await typ(pg, 'n', 'דנה'); await typ(pg, 'l', 'כ')
     await pg.evaluate("dispatchEvent(new PageTransitionEvent('pagehide'))"); await tap(pg, '[data-si="start"][data-f="in"]')
     check('after pagehide: no name and no letter left in the fields', await pg.input_value('#si-n') == '' and await pg.input_value('#si-l') == '')
+    # the letter asked for, then the class code changed: the letter is not asked for any more (the other class may be 'first')
+    await pg.evaluate('__mount()'); await tap(pg, '[data-si="start"][data-f="in"]')
+    await typ(pg, 'c', CLASS); await typ(pg, 'n', 'דנה'); await keys(pg, '5831'); await main_btn(pg)
+    asked = await pg.get_attribute('#si-l', 'aria-required')
+    await typ(pg, 'c', 'TRIAL01'); await main_btn(pg)
+    check('the letter asked for by one class, then another class code: no longer asked (no refusal on the screen, the request goes)',
+          asked == 'true' and (await pg.evaluate('__calls'))[-1]['f']['c'] == 'TRIAL01' and 'חסרה האות' not in await err(pg), await err(pg))
     # the trial class (form 'first'): the first name alone, as before
     await pg.evaluate("__form=''; __mount()"); await tap(pg, '[data-si="start"][data-f="in"]')
     await typ(pg, 'c', CLASS); await typ(pg, 'n', 'דנה'); await keys(pg, '5831'); await main_btn(pg)
