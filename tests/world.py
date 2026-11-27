@@ -71,6 +71,15 @@ async def to_path(pg, isl):
     await pg.evaluate(f"location.hash='island/{isl}'"); await pg.wait_for_selector('.w-path .w-st')
 
 
+def thumbs():
+    """every character in js/world_art.js has its thumbnail, made by tools/avthumb.py (credited in assets/credits_extra.tsv)"""
+    art = open(os.path.join(P.ROOT, 'js', 'world_art.js'), encoding='utf-8').read()
+    ids = sorted(set(re.findall(r"'av/([a-z-]+)':", art)))
+    miss = [i for i in ids if not os.path.isfile(os.path.join(P.ROOT, 'assets', 'al', 'avthumb', i + '.webp'))]
+    extra = sorted(set(f[:-5] for f in os.listdir(os.path.join(P.ROOT, 'assets', 'al', 'avthumb'))) - set(ids))
+    check('every character has its 112 px picker thumbnail (assets/al/avthumb), and there is none for a character that is gone', len(ids) == 30 and not miss and not extra, [miss, extra])
+
+
 async def flag_off(b, w, h, errs):
     tag = f'off {w}x{h}'
     c, pg, reqs = await page(b, w, h, errs, SEED)
@@ -101,8 +110,19 @@ async def flag_on(b, w, h, errs):
     check(f'[{tag}] a locked tile shows a lock and "רמה N", says the whole sentence to a screen reader, and is not selectable', lab == [[f'רמה {n}', 'true', True, True] for n in range(2, 24)], lab)
     seen = await pg.evaluate(BADGES)
     check(f'[{tag}] the character on a locked tile is in view (0.7) and its badge is one line inside the tile, nothing cut off', not seen['bad'] and seen['op'] == ['0.7'], seen)
+    # review of #122 (the picker opened 3.7 s slower): a locked tile shows the small thumbnail (tools/avthumb.py), not drawn
+    # a second time through the crop; an open one its full still; every picture arrives (none left without a src)
+    await pg.evaluate("document.querySelector('.wpick').scrollTop=1e5"); await pg.wait_for_timeout(400)
+    await pg.evaluate("Promise.all([...document.querySelectorAll('.wpick__art')].map(i=>i.decode().catch(()=>{})))")
+    th = await pg.evaluate("""[...document.querySelectorAll('.wpick__av')].map(b=>{const i=b.querySelector('.wpick__art');return{id:b.dataset.id,locked:b.classList.contains('is-locked'),
+      src:i.getAttribute('src')||'',w:i.naturalWidth,t:getComputedStyle(i).transform}})""")
+    bad = [x for x in th if not x['w'] or (x['locked'] != ('/avthumb/' in x['src'])) or (x['locked'] and x['t'] != 'none')]
+    check(f'[{tag}] picker: the 22 locked tiles show their thumbnail (unscaled), the open ones their full still, and every picture is drawn', not bad and sum(x['locked'] for x in th) == 22, bad)
+    await pg.evaluate("document.querySelector('.wpick').scrollTop=0")
     await P.shot(pg, f'world-picker-{w}x{h}')
-    await pg.click('.wpick__av[data-id=penguin]', force=True); await pg.wait_for_timeout(100)   # aria-disabled: a tap still reaches it, and it explains
+    await pg.click('.wpick__av[data-id=penguin]', force=True); await pg.wait_for_timeout(300)
+    pi = await pg.evaluate("(()=>{const i=document.querySelector('.wpick__av[data-id=penguin] .wpick__art');return [i.getAttribute('src'),i.style.transform]})()")
+    check(f'[{tag}] a tap on a locked tile shows its full still, in the crop box like the open ones', '/avthumb/' not in pi[0] and pi[1] == '', pi)   # aria-disabled: a tap still reaches it, and it explains
     t = await pg.inner_text('.wpick__note')
     check(f'[{tag}] a tap on a locked character says kindly how to get there (one neutral form, no gender slash), and does not choose it', 'אפשר לפתוח ברמה 9' in t and 'עוד 8 רמות' in t and 'אף פעם לא מפסידים' in t and '/' not in t and await pg.locator('.wpick__av.is-selected').count() == 0, t)
     await pg.click('.wpick__ok', force=True); await pg.wait_for_timeout(100)      # aria-disabled: still pressable, it explains
@@ -1105,6 +1125,7 @@ async def finished(b, errs):
 
 
 async def main():
+    thumbs()
     procs = P.start_servers(mock=True)      # its own servers on free ports (tests/play.py)
     errs = []
     try:
