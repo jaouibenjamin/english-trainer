@@ -46,6 +46,14 @@ ORIGIN = 'https://jaouibenjamin.github.io'
 GAME = ORIGIN + '/english-trainer/'
 TRIAL, TRIAL_PUPILS = 'Trial', ['Test', 'Tester']
 VAULT_NAME = 'wi_trial_class_code'
+OK_NAME = re.compile(r'[^\x00-\x1f\x7f\'"\\]{1,40}')     # a class or grade name: no control characters, no quotes, no backslash
+
+
+def lit(v):
+    """A checked name as an SQL literal (OK_NAME has already refused quotes and backslashes)."""
+    if not OK_NAME.fullmatch(v):
+        raise Stop('a name with characters that are not allowed')
+    return "'" + v + "'"
 # The settings of DAY0.md section 1 that the Management API can set. Every external_*_enabled other than email is
 # switched off too (Google is switched on later, at the teacher's step).
 AUTH = {
@@ -347,6 +355,10 @@ class Setup:
             self.change(f'class {TRIAL} made')                # recorded before the Vault, so a stop after it says so
             self.store_code(code, 'made')
             del code
+            # the trial is as the one made before 0010 (docs/GRADES_V1.md): first names alone (Test, Tester), no grade, so
+            # it is on no grade board
+            if self.one("select count(*) as n from information_schema.columns where table_schema = 'public' and table_name = 'classes' and column_name = 'name_form'"):
+                self.sql(f"update public.classes set name_form = 'first', grade_id = null where id = '{cid}'")
         n = self.one(f"select count(*) as n from public.roster where class_id = '{cid}'")
         if n != len(TRIAL_PUPILS):
             names = ', '.join(f"'{x}'" for x in TRIAL_PUPILS)
@@ -388,17 +400,51 @@ class Setup:
             raise Stop('admin-class answered in an unexpected shape: run again with mode rotate-trial')
         return code, cid
 
-    def store_code(self, code, how):
-        note = 'The trial class code (docs/owner/DAY0.md): copy it into the password manager, then delete this secret'
+    def store_code(self, code, how, vault_name=VAULT_NAME, label=TRIAL):
+        note = 'A class code (docs/owner/DAY0.md): copy it into the password manager, then delete this secret'
+        vn = lit(vault_name)
         try:                                            # named arguments: the hosted functions have more, with defaults
-            if self.one(f"select count(*) as n from vault.secrets where name = '{VAULT_NAME}'"):
-                self.sql(f"select vault.update_secret(id, new_secret => '{code}') from vault.secrets where name = '{VAULT_NAME}'")
+            if self.one(f"select count(*) as n from vault.secrets where name = {vn}"):
+                self.sql(f"select vault.update_secret(id, new_secret => '{code}') from vault.secrets where name = {vn}")
             else:
-                self.sql(f"select vault.create_secret(new_secret => '{code}', new_name => '{VAULT_NAME}', new_description => '{note}')")
+                self.sql(f"select vault.create_secret(new_secret => '{code}', new_name => {vn}, new_description => '{note}')")
         except Stop:
-            raise Stop(f'the {TRIAL} class code was {how} but could not be put in the Vault, so it is lost: '
-                       'run this workflow again with mode rotate-trial for a new one')
-        self.change(f'its code put in the Vault as {VAULT_NAME}')
+            raise Stop(f'the {label} class code was {how} but could not be put in the Vault, so it is lost: '
+                       'run this workflow again with mode rotate-trial for a new one' if label == TRIAL else
+                       f'the {label} class code was {how} but could not be put in the Vault, so it is lost. Next: tell the lead '
+                       '(admin-class rotate gives it a new one)')
+        self.change(f'its code put in the Vault as {vault_name}')
+
+    # ---------- add-class, add-teacher: the owner's steps for more classes (docs/GRADES_V1.md) ----------
+    def add_class(self, name, grade):
+        self.say(f'add a class: {name} in grade {grade}')
+        if name.strip().casefold() == TRIAL.casefold():
+            raise Stop(f'"{name}" is the trial class\'s name. Next: give the real class its own name (e.g. ה׳2)')
+        if self.one(f"select count(*) as n from public.classes where name = {lit(name)} and kind = 'class'"):
+            self.say(f'  {name} already exists: nothing to do (its code was put in the Vault as wi_class_code_{name} when it was made)')
+            return
+        if not self.vault():
+            raise Stop('the Vault is not available, so the new class\'s code could not be kept. Next: tell the lead')
+        self.say(f'  about to make {name} in grade {grade}; its code goes into the Vault as wi_class_code_{name}')
+        code, _ = self.admin_class({'action': 'create', 'name': name, 'grade': grade})
+        self.change(f'class {name} made in grade {grade}')
+        self.store_code(code, 'made', f'wi_class_code_{name}', name)
+        del code
+
+    def add_teacher(self, user_id, class_name):
+        self.say(f'add the home teacher of {class_name}')
+        self.say(f'  about to add the user {user_id} as the home teacher of {class_name} (if she is not already)')
+        r = self.one(f"select private.teacher_add('{user_id}', {lit(class_name)}) as r")
+        if r == 'class':
+            raise Stop(f'there is no class named {class_name}. Next: check the name, or make it first with mode add-class')
+        if r == 'user':
+            raise Stop('there is no user with that id. Next: Supabase → Authentication → Add user (her address), then copy its user id')
+        if r == 'already':
+            self.say(f'  she is already the teacher of {class_name}: nothing to do')
+            return
+        if r != 'ok':
+            raise Stop(f'teacher_add answered {r!r}')
+        self.change(f'the teacher of {class_name} added (by user id)')
 
     # ---------- rotate-trial: a new code for the trial class ----------
     def rotate_trial(self):
@@ -446,6 +492,24 @@ class Setup:
         if not self.a.dry_run and not (self.a.api.startswith('https://') and self.a.project_url == f'https://{self.ref}.supabase.co'):
             raise Stop('a real run talks only to https://api.supabase.com and the project itself')
         self.mask(self.token); self.mask(self.dbpw)
+        if self.a.add_class or self.a.add_teacher:
+            # 26: the Vault name wi_class_code_<name> must stay within 40, checked here, before anything is made
+            if self.a.add_class and not (OK_NAME.fullmatch(self.a.add_class or '') and len(self.a.add_class) <= 26
+                                         and OK_NAME.fullmatch(self.a.grade or '') and len(self.a.grade) <= 20):
+                raise Stop('a class needs a name (1 to 26 characters) and its grade (1 to 20), with no quotes. Next: run again with both')
+            if self.a.add_class and self.a.add_class.strip().casefold() in (TRIAL.casefold(), 'removed'):
+                raise Stop(f'"{self.a.add_class}" is a name the system uses (the trial, or the hidden classes). Next: give the class its own name, e.g. ה׳2')
+            if self.a.add_teacher and not (re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', self.a.add_teacher)
+                                           and OK_NAME.fullmatch(self.a.class_name or '')):
+                raise Stop('add-teacher needs the teacher\'s user id (a uuid from Authentication → Users) and the class name. Next: run again with both')
+            p = self.api('GET', f'/v1/projects/{self.ref}')
+            if p.get('status') != 'ACTIVE_HEALTHY':
+                raise Stop(f'the project is {p.get("status")}, not ACTIVE_HEALTHY. Next: restore it in the Supabase dashboard (free), then run again')
+            if self.a.add_class:
+                self.add_class(self.a.add_class, self.a.grade)
+            else:
+                self.add_teacher(self.a.add_teacher, self.a.class_name)
+            return
         if self.a.rotate_trial:
             p = self.api('GET', f'/v1/projects/{self.ref}')
             if p.get('status') != 'ACTIVE_HEALTHY':
@@ -472,6 +536,10 @@ def main():
     p.add_argument('--redeploy', action='store_true')
     p.add_argument('--dry-run', action='store_true')
     p.add_argument('--rotate-trial', action='store_true', help='only give the trial class a new code, into the Vault')
+    p.add_argument('--add-class', default='', help='only make this class (with --grade), its code into the Vault')
+    p.add_argument('--grade', default='', help='the grade of --add-class, e.g. ה׳')
+    p.add_argument('--add-teacher', default='', help='only add this user id as the home teacher of --class')
+    p.add_argument('--class', dest='class_name', default='', help='the class of --add-teacher')
     a = p.parse_args()
     a.ref = a.ref or project_ref()
     a.project_url = a.project_url or f'https://{a.ref}.supabase.co'
@@ -501,6 +569,9 @@ def main():
     for m in ['A1: 2FA on the Supabase, GitHub and Google accounts; recovery codes on paper',
               'A2: GitHub → Settings → Code security: secret scanning and push protection on'] + s.manual:
         s.say(f'  - {m}')
+    if s.a.add_class and s.changed:
+        s.say(f'  - the class code: Supabase → Project Settings → Vault → wi_class_code_{s.a.add_class}: copy it into the password '
+              'manager, give it to the class\'s teacher in person, then delete that secret')
     if s.a.rotate_trial or any('class Trial' in c for c in s.changed):
         s.say(f'  - the trial class code: Supabase → Project Settings → Vault (or Integrations → Vault) → {VAULT_NAME}: '
               'copy it into the password manager, then delete that secret')
