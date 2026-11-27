@@ -420,7 +420,10 @@ class Setup:
         # the weekly boards (0012) sum this week's points from the ledger; the nightly roll-up merges rows older than
         # raw_days, and merged rows are left out of the week, so below 7 a week loses points without a word
         n = self.one('select raw_days as n from private.settings')
-        if n is not None and n < 7:
+        if n is None:      # fail closed: no settings row (or no value) is not a safe window
+            raise Stop('raw_days could not be read (private.settings has no row; the migrations make it). '
+                       'Next: tell the lead this line; do not add classes or teachers until it is fixed')
+        if n < 7:
             raise Stop(f'raw_days is {n}, below 7: the weekly boards would miss points of this week. '
                        'Next: run mode real (it sets raw_days back to 30), then run this again')
 

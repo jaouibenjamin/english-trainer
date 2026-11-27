@@ -317,6 +317,14 @@ def fresh():
         n_cls0 = db.psql('select count(*) from public.classes', user='supabase_admin')[0]
         r12, _ = run(srv, fake, extra=['--add-class', 'ה׳8', '--grade', 'ה׳'])
         r12b, _ = run(srv, fake, extra=['--add-teacher', tid, '--class', 'ה׳2'])
+        saved = db.psql('select row_to_json(s)::text from private.settings s', user='supabase_admin')[0][0][0]
+        db.psql('delete from private.settings', user='supabase_admin')
+        r12c, _ = run(srv, fake, extra=['--add-class', 'ה׳8', '--grade', 'ה׳'])
+        db.psql(f"insert into private.settings select * from json_populate_record(null::private.settings, $j${saved}$j$::json)", user='supabase_admin')
+        check('no settings row: add-class fails closed, says raw_days could not be read and to tell the lead, nothing changed',
+              r12c.returncode == 1 and 'could not be read' in r12c.stdout and 'tell the lead' in r12c.stdout
+              and db.psql('select count(*) from public.classes', user='supabase_admin')[0] == n_cls0
+              and db.psql('select count(*) from private.settings', user='supabase_admin')[0] == [['1']], r12c.stdout[-300:])
         db.psql('update private.settings set raw_days = 30', user='supabase_admin')
         check('raw_days below 7 (the weekly boards would miss points): add-class and add-teacher stop, say to run mode real, '
               'nothing changed', r12.returncode == 1 and r12b.returncode == 1 and 'raw_days is 0' in r12.stdout and 'mode real' in r12.stdout
