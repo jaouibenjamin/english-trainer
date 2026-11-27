@@ -74,8 +74,11 @@ deleted as `docs/LIVE_STAGE.md` E7 says.
 - A name in the wrong form answers `{ok:false, e:"name", form:"first_initial"}` (new), and only once the class code
   is right (a wrong code answers exactly as today), so the form of a class cannot be probed without its code. The
   trial class (`first`) takes a first name alone, so one screen serves both: it sends the letter when one was typed.
-- `grade_board` is a new read, a function (0010), not a view: `GET /rest/v1/rpc/grade_board?select=display_name,class,points,me`
-  with the pupil's session, same shape as `class_board` plus `class`. It stays a function: it runs as its owner and
+- `grade_board` is a new read, a function (0010), not a view: `GET /rest/v1/rpc/grade_board` with the pupil's session
+  (js/api.js names no columns, so the same read works before and after 0011). From 0011 it answers `display_name`,
+  `class`, `points`, `me` and `rank`: at most 11 rows in place order, the grade's top ten and then the caller's own row
+  only when it is not among them; `rank` is 1 + the number with more points, so ties share it (1,2,2,4) and the screen
+  shows `rank`, never the row's position. The grade's size is not sent. It stays a function: it runs as its owner and
   picks the caller's grade itself, so no table under it is readable by a pupil.
 
 ## Tests (one PR with the code)

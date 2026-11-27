@@ -122,11 +122,15 @@ export function letter(s){let l='',d='';for(const c of String(s??'').normalize('
 const isHe=c=>c>='א'&&c<='ת';
 /* the letter takes the name's script (a Hebrew name, a Hebrew letter): false when they differ */
 export function sameScript(first,l){const f=[...String(first||'')].find(c=>isHe(c)||LET(c)),k=[...String(l||'')][0];return!f||!k||isHe(f)===isHe(k)}
-/* first name and letter as they will be sent: a two-word first name is written with a hyphen (בת-אל); a letter typed
-   into the first name ("נועה כ." with the letter field empty) moves to its field */
-export function whoName(first,let1){let f=normN(first),l=letter(let1);
- if(!l){const w=f.split(' '),t=w.length>1?w[w.length-1]:'',u=t.endsWith('.')?t.slice(0,-1):t;
+/* first name and letter as they will be sent. fi: the server said this class takes first name + letter (e:'name' with
+   form first_initial). Only in that form (fi, or a letter typed): a two-word first name is written with a hyphen
+   (בת-אל), and a dot at its end goes. Only when fi: a letter typed into the first name ("נועה כ." with the letter
+   field empty) moves to its field. Otherwise the first name goes as typed (a 'first' class: the trial's "בת אל" or
+   "דנה ב" is the pupil's name as registered, and changing it would answer "wrong code") */
+export function whoName(first,let1,fi){let f=normN(first),l=letter(let1);
+ if(!l&&fi){const w=f.split(' '),t=w.length>1?w[w.length-1]:'',u=t.endsWith('.')?t.slice(0,-1):t;
   const cs=[...u];if((cs.length===1||(cs.length===2&&cs[1]>='0'&&cs[1]<='9'))&&letter(u).length===u.length){l=letter(u);f=w.slice(0,-1).join(' ')}}
+ if(!l&&!fi)return{f,l,n:f};
  while(f.endsWith('.'))f=f.slice(0,-1).trim();
  let h='';for(const c of f)h+=c===' '?'-':c;
  return{f:h,l,n:l?`${h} ${l}.`:h}}
@@ -185,7 +189,7 @@ export function mount(root,o){
  const bar=(label,act,on=true,extra='')=>`<div class="si-bar">${extra}<button type="button" class="wi-btn wi-btn--block" data-si="${act}" ${on&&!st.busy?'':'disabled'}>${st.busy?T.busy:label}</button></div>`;
  /* the name: two fields side by side (first name; one letter of the surname), and on A1 the name as it will appear */
  /* the whole name is at most 20 characters on the server (app.name_ok), " כ." included: the first name 17 at most */
- const nrow=as=>{const w=whoName(st.n,st.l);
+ const nrow=as=>{const w=whoName(st.n,st.l,st.needL);
   return`<div class="si-nrow"><div class="si-f si-fn"><label for="si-n">${T.firstL}</label><input id="si-n" data-sin="n" value="${esc(st.n)}" autocomplete="off" maxlength="17" aria-describedby="si-n-h"></div><div class="si-f si-lt"><label for="si-l">${T.letterL}</label><input id="si-l" data-sin="l" value="${esc(st.l)}" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="2" aria-label="${T.letterA}" ${st.needL?'aria-required="true"':''} aria-describedby="si-n-h"></div></div><span class="si-hint" id="si-n-h">${sameScript(w.f,w.l)?T.nameH:T.eScript}</span>${as?`<p class="si-as" ${w.f?'':'hidden'}>${T.asIs}<b><bdi>${esc(w.n)}</bdi></b></p>`:''}`};
  const field=(id,label,hint,val,attrs='')=>`<div class="si-f"><label for="si-${id}">${label}</label>${hint?`<span class="si-hint" id="si-${id}-h">${hint}</span>`:''}<input id="si-${id}" data-sin="${id}" value="${esc(val)}" autocomplete="off" ${hint?`aria-describedby="si-${id}-h"`:''} ${attrs}></div>`;
  /* a code never goes into the screen's HTML (a string that may outlive the screen): the fields and boxes are drawn empty
@@ -238,7 +242,7 @@ export function mount(root,o){
  /* the class takes first name + letter and the name sent was not in that form: back to the name, the letter field asked
     for, everything else kept (the server says so only once the class code is right) */
  const nameForm=(r,scr)=>{if(r.form==='first_initial')st.needL=true;return fail(st.needL&&!st.l?T.eLetter:T.eForm,scr,st.needL&&!st.l?'l':'n')};
- const nm=()=>whoName(st.n,st.l).n;
+ const nm=()=>whoName(st.n,st.l,st.needL).n;
  const flowDone=()=>{st.busy=false;wipe()};
  /* the back arrow: the screen before this one in its flow (what was typed is kept) */
  function prev(){const s=st.scr,f=st.flow;
@@ -278,7 +282,7 @@ export function mount(root,o){
   return fail(r.e==='unset'?T.eUnset:T.eNet)}
  /* ---------- what each button does ---------- */
  /* the fields are tidied to what will be sent (the hyphen, a letter moved to its field), so the child sees it */
- const nameOk=()=>{const c=normC(st.c),w=whoName(st.n,st.l);if(!classOk(c)){st.err=T.eClass;focusId='c';return false}
+ const nameOk=()=>{const c=normC(st.c),w=whoName(st.n,st.l,st.needL);if(!classOk(c)){st.err=T.eClass;focusId='c';return false}
   st.n=w.f;st.l=w.l;
   if([...w.f].length<2){st.err=T.eRoster;focusId='n';return false}
   if(st.needL&&!w.l){st.err=T.eLetter;focusId='l';return false}
@@ -320,7 +324,7 @@ export function mount(root,o){
    if(id==='p'&&v.length===4&&root.querySelector('#si-p2')&&!st.p2)root.querySelector('#si-p2').focus();return}
   if(id==='l'){const v=letter(el.value);if(v!==el.value)el.value=v}
   st[id]=el.value;
-  if(id==='n'||id==='l'){const w=whoName(st.n,st.l),as=root.querySelector('.si-as'),h=root.querySelector('#si-n-h');
+  if(id==='n'||id==='l'){const w=whoName(st.n,st.l,st.needL),as=root.querySelector('.si-as'),h=root.querySelector('#si-n-h');
    if(as){as.hidden=!w.f;as.querySelector('bdi').textContent=w.n}if(h)h.textContent=sameScript(w.f,w.l)?T.nameH:T.eScript}};
  const onFocus=e=>{const id=e.target.dataset&&e.target.dataset.sin;if(id)focusId=id};
  const onKey=e=>{if(e.key!=='Enter'||!e.target.dataset||!e.target.dataset.sin)return;e.preventDefault();const b=root.querySelector('.si-bar .wi-btn--block:not([disabled])');if(b)b.click()};
