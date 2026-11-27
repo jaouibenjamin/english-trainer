@@ -37,7 +37,7 @@ from playwright.async_api import async_playwright
 QUICK = '--quick' in sys.argv
 WANT = tuple(sys.argv[sys.argv.index('--only') + 1].split(',')) if '--only' in sys.argv else ()
 # THE PREVIOUS SHIP: main's commit as the class has it now. Bump it with every ship (CLAUDE.md, "Branches and deploy").
-PREV_SHIP = 'f9fdd32'
+PREV_SHIP = '35eeed1'
 PREV = sys.argv[sys.argv.index('--prev') + 1] if '--prev' in sys.argv else PREV_SHIP
 ROOT = P.ROOT
 SCREENS = [('title', 'index.html#', '.scr.title .btn'), ('map', 'index.html#map', '.map .isl'), ('collection', 'index.html#collection', '.scr.coll'),
