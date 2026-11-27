@@ -85,3 +85,6 @@ p.si-hint{padding:0 16px}
 /* the on-screen keypad only on a fine pointer (a laptop): on a phone the system's number keyboard does the job, so two
    keypads never stack and the bar stays above the keyboard (docs/SIGNIN.md "The 4-digit code field") */
 @media not (pointer:fine){.si-pad{display:none}}
+/* the title: the pill at the top of the screen (docs/mock/signin.html "כותרת: מי משחק") */
+.si-titletop{display:flex;justify-content:center;inline-size:100%;padding:0 4px;box-sizing:border-box}
+.si-titletop .si-who--in{margin:0;min-block-size:48px}

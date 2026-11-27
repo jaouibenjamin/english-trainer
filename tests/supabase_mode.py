@@ -286,6 +286,11 @@ async def main():
             hits = [(x, st[max(0, st.find(x) - 60):st.find(x) + 10]) for x in ('4826', '7395', '8462', '4827', '482913') if re.search(r'(?<![0-9a-f-])' + x + r'(?![0-9a-f-])', st)]
             check('register and recover: no code, old or new, in any storage of either device', not hits, hits)
             await c.close(); await c2.close()
+            # the Sheet's class (today's): the map has no pill row and nothing moves
+            prj0 = Project(); c0, pg0, e0 = await device(b, prj0, cfg=SHEET_CFG, seed=SHEET_ERA)
+            await pg0.goto(PAGE + '#map'); await pg0.wait_for_selector('.scr.map', timeout=8000)
+            check("the Sheet's class: no pill row on the map, no 'who' class (the islands where they were)", await pg0.locator('.maprow-who').count() == 0 and await pg0.locator('.scr.map.who').count() == 0 and await pg0.locator('.si-who').count() == 0)
+            await c0.close()
             # 7. the whole flow in the game: the sign-in screens (js/signin.js) on the real page, enter(), the adapter, the stand-in
             prj = Project()
             c, pg, errs = await device(b, prj)
@@ -349,6 +354,28 @@ async def main():
             await pg.wait_for_selector('.si-who', timeout=8000)
             await pg.wait_for_timeout(400); who = await pg.evaluate("[...document.querySelectorAll('.si-who')].map(e=>e.textContent).join('|')")
             check('the game, signed in as "Noa K."; the pill shows the name and "זה לא אני · יציאה"', await js(pg, "m.S.u") == {'c': 'GR-0001', 'n': 'Noa K.'} and 'Noa\u00a0K.' in who and 'זה לא אני · יציאה' in who, [who, await js(pg, 'm.S.u')])
+            # the title: the pill at the top of the screen (docs/mock/signin.html); with the design flag, the character chosen on this device
+            await pg.goto(PAGE + '#title'); await pg.wait_for_selector('.scr.title .si-titletop .si-who', timeout=8000)
+            m = await pg.evaluate("(()=>{const p=document.querySelector('.si-titletop'),s=document.querySelector('.scr.title');return {first:s.firstElementChild===p,top:Math.round(p.getBoundingClientRect().top),av:document.querySelectorAll('.si-av').length,n:document.querySelectorAll('.si-who').length}})()")
+            check('the title: the pill is the first thing on the screen, at the top; one pill; no avatar without the design flag', m['first'] and m['top'] < 40 and m['av'] == 0 and m['n'] == 1, m)
+            await pg.evaluate("""(async()=>{const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('wi|GR-0001|Noa K.'));const k='h:'+[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');localStorage.setItem('wi_world',JSON.stringify({v:1,p:{[k]:{av:'fox',nm:null,en:0}}}))})()""")
+            await pg.goto(PAGE + '?ds=1#title'); await pg.wait_for_selector('.si-titletop .si-av', timeout=8000)
+            src = await pg.get_attribute('.si-titletop .si-av', 'src')
+            check('with the design flag: the character this pupil chose on this device is in the pill', '/av/fox' in src or 'fox' in src.split('/')[-1], src)
+            await pg.goto(PAGE + '?ds=1#map'); await pg.wait_for_selector('.si-who', timeout=8000); await pg.wait_for_timeout(300)
+            check('the map: one pill, with the character', await pg.locator('.si-who').count() == 1 and await pg.locator('.si-who .si-av').count() == 1)
+            # the map: the pill in its own row under the header (docs/SIGNIN.md), at every width, in both looks
+            for ds in ('?ds=1', '?ds=0'):
+                for w, h in ((390, 844), (360, 740), (320, 568)):
+                    await pg.set_viewport_size({'width': w, 'height': h})
+                    await pg.goto(PAGE + ds + '#map'); await pg.wait_for_selector('.maprow-who .si-who', timeout=8000); await pg.wait_for_timeout(300)
+                    m = await pg.evaluate("""(()=>{const r=s=>{const e=document.querySelector(s);return e?e.getBoundingClientRect():null},p=r('.maprow-who .si-who'),hd=r('.maphead'),sj=r('.subjpill'),i6=r('.isl.i6 .pw'),dk=r('.wd'),fn=document.querySelector('.si-who .si-fn'),b=document.querySelector('.si-who .si-nm');
+                      const hit=(a,c)=>!!a&&!!c&&a.left<c.right&&c.left<a.right&&a.top<c.bottom&&c.top<a.bottom;
+                      return {n:document.querySelectorAll('.si-who').length,belowHead:p.top>=hd.bottom-1,aboveSubj:p.bottom<=sj.top+1,isl:hit(p,i6),dock:hit(p,dk),
+                        name:fn.scrollWidth<=fn.clientWidth+1&&fn.clientWidth>0,btn:b.scrollWidth<=b.clientWidth+1&&b.getBoundingClientRect().height>=44,inside:p.left>=0&&p.right<=innerWidth}})()""")
+                    check(f'map {ds} {w}: one pill, in its row under the header and above "מקצועות", over no island and not on the dock; the name whole, the button whole, on screen',
+                          m['n'] == 1 and m['belowHead'] and m['aboveSubj'] and not m['isl'] and not m['dock'] and m['name'] and m['btn'] and m['inside'], m)
+            await pg.set_viewport_size({'width': 390, 'height': 844})
             await no_code(pg, prj, 'first_initial in the game')
             check('first_initial in the game: no page error', not errs, errs[:3])
             await c.close()

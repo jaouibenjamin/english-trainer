@@ -583,3 +583,8 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 @media (min-height:701px) and (max-height:800px){.settings.more.signed .setrow{min-height:46px}}
 @media (max-height:700px){.settings.more.signed .prog .pi,.settings.more.signed .prog p>.st{display:none}.settings.more.signed .ribbon{height:52px;font-size:21px}.settings.more.signed .credit{font-size:12px;line-height:1.2}.settings.more.signed,.settings.more.signed .fill{gap:3px}}
 @media (max-height:700px){.settings.more .prog .pi,.settings.more .prog p>.st{width:22px;height:22px}}
+/* 'supabase' mode: the "who is playing" pill in its own row under the map's header (js/main.js map(), WHO_ROW 52 px);
+   the subjects button moves down by that row (the same in both looks: below the old look's hanging sign too) */
+.scr.map .maprow-who{position:absolute;left:10px;right:10px;top:calc(84px + var(--st));z-index:4;display:flex;justify-content:center;pointer-events:none}
+.scr.map .maprow-who>*{pointer-events:auto;margin:0}
+.scr.map.who .subjpill{top:calc(136px + var(--st))}

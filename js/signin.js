@@ -323,6 +323,8 @@ export function mount(root,o){
    const btn=root.querySelector('.si-bar [data-si]');if(btn&&(st.scr==='a2'||st.scr==='e3'))btn.disabled=!(st.scr==='a2'?st.p.length===4&&st.p2.length===4:st.otc.length===6);
    if(id==='p'&&v.length===4&&root.querySelector('#si-p2')&&!st.p2)root.querySelector('#si-p2').focus();return}
   if(id==='l'){const v=letter(el.value);if(v!==el.value)el.value=v}
+  // another class code: what the server said of the last class (it takes first name + letter) no longer holds
+  if(id==='c'&&normC(el.value)!==normC(st.c))st.needL=false;
   st[id]=el.value;
   if(id==='n'||id==='l'){const w=whoName(st.n,st.l,st.needL),as=root.querySelector('.si-as'),h=root.querySelector('#si-n-h');
    if(as){as.hidden=!w.f;as.querySelector('bdi').textContent=w.n}if(h)h.textContent=sameScript(w.f,w.l)?T.nameH:T.eScript}};
