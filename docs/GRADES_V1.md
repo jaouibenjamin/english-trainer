@@ -89,6 +89,45 @@ board (no other grade, no limbo, no trial), the limits per (address, class), the
 `name_form` in the answers. `migrations_check.py`: 0010+ on a database with rows: a class, pupils, a removed pupil,
 answers. `setup_check.py`: `add-class` and `add-teacher`, no secret in the log.
 
+## Weekly boards (owner's decision, 2026-11-27; migration 0012)
+
+Both boards rank **this week's points**; nothing else about them changes.
+
+- **Where weekly points come from:** the points ledger that exists (`public.points`: `pupil_id`, `delta`, `at`),
+  summed since the week began. No new column, no new counter to keep in step: the ledger is already what
+  `pupil_totals` adds up. The nightly roll-up only merges `day` and `run` rows older than `raw_days` (30 today), so
+  the last 7 days are always whole rows; 0012 adds the check `raw_days >= 8` so that stays true. Rows of reason
+  `migrated` (a one-off import) are left out of the week; `fix` rows count (a correction is a correction). A point
+  belongs to the week it reached the server (`at` is the server's time); a batch a device kept offline counts when it
+  arrives. One index, `points (at, pupil_id)`, keeps the sum cheap (a grade is about 350 pupils).
+- **The week:** from **Sunday 00:00 Asia/Jerusalem** (`private.settings.tz`, as the daily bonus and the teacher's
+  day) to the next Sunday 00:00. Summer time changes nothing: the boundary is a local midnight.
+- **The pupil's all-time total** stays where it is: `pupil_totals.points` (the pupil reads their own row only) and
+  `class_board.points`. The map and the profile keep showing it; only the boards rank by the week.
+- **`grade_board()`** (dropped and made again in 0012): `(display_name, class, week, me, rank)`, at most 11 rows in
+  place order, as 0011: the top 10 of the grade **by `week`**, then the caller's own row when it is not among them.
+  Only pupils with points this week are in the top 10 (on Sunday morning it is empty, not ten names in alphabetical
+  order); the caller's own row always comes, with `week` 0 if so. `rank` = 1 + the number with more points this
+  week. `points` is renamed `week` on purpose: a client still asking for `points` gets an error, never an all-time
+  number on a weekly board.
+- **`class_board`** (the view): gains a last column `week` (this week's points); its other columns, `points`
+  included, stay, so today's client keeps working unchanged until it switches. It still holds the pupil's own class
+  only.
+- **Privacy:** unchanged. The grade board sends the top 10 and the caller's row, no ids, not the grade's size; the
+  class board sends the pupil's own class, as today (above, "Later"). The week adds no new data about a child: it is
+  a sum of rows the pupil can already read for themselves.
+- **The client** (client engineer 1):
+  - grade board: `GET /rest/v1/rpc/grade_board?select=display_name,class,week,me,rank`; show `rank` and `week`;
+    an empty top 10 is "the week has just begun";
+  - class board: `select=display_name,points,week,words,streak,me&order=week.desc,display_name`, rank and the
+    "points to the next place" from `week`; the pupil's own all-time total from `points`;
+  - both say "this week" (from Sunday), and nothing changes on the map or the profile.
+- **Tests (0012, the local stand-in):** the week starts on Sunday 00:00 in `tz` (a point at Saturday 23:59 local is
+  last week's, at Sunday 00:00 this week's, also across a summer-time change); `migrated` rows do not count;
+  rolled-up rows never fall inside the week; the grade board's top 10 by week, ties, the empty Sunday, the own row
+  with `week` 0; `class_board.week` per pupil; an old `select=points` on `grade_board` fails; `raw_days` below 8 is
+  refused.
+
 ## Later (not in v1)
 
 - **The class board sends the whole class** (`class_board`: every classmate's name, points, words, streak) though the
