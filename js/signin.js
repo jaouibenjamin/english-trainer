@@ -175,7 +175,7 @@ export function notMe(host,o){
 
 export function mount(root,o){
  // pics: the pair being chosen (A3); rec: the taps of the recall step (A5); proof: the old pair typed in recovery (E2)
- const st={flow:'',scr:'entry',c:o.lastC||'',n:'',l:'',needL:false,p:'',p2:'',pics:[],rec:[],proof:[],otc:'',err:'',hint:'',busy:false,
+ const st={flow:'',scr:'entry',c:o.lastC||'',n:'',l:'',needL:false,needLc:'',p:'',p2:'',pics:[],rec:[],proof:[],otc:'',err:'',hint:'',busy:false,
   shown:{},order:null,misses:0,closed:false,saidOrder:false,names:false};
  let alive=true,audio=null;
  const css=['css/ds.css','css/signin.css'].filter(h=>!document.querySelector(`link[href="${h}"]`)).map(h=>{const l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l);return l});
@@ -241,7 +241,7 @@ export function mount(root,o){
  const fail=(msg,scr,fid)=>{st.busy=false;st.err=msg;if(scr&&scr!==st.scr){to(scr,true,fid)}else{if(fid)focusId=fid;draw()}};
  /* the class takes first name + letter and the name sent was not in that form: back to the name, the letter field asked
     for, everything else kept (the server says so only once the class code is right) */
- const nameForm=(r,scr)=>{if(r.form==='first_initial')st.needL=true;return fail(st.needL&&!st.l?T.eLetter:T.eForm,scr,st.needL&&!st.l?'l':'n')};
+ const nameForm=(r,scr)=>{if(r.form==='first_initial'){st.needL=true;st.needLc=normC(st.c)}return fail(st.needL&&!st.l?T.eLetter:T.eForm,scr,st.needL&&!st.l?'l':'n')};
  const nm=()=>whoName(st.n,st.l,st.needL).n;
  const flowDone=()=>{st.busy=false;wipe()};
  /* the back arrow: the screen before this one in its flow (what was typed is kept) */
@@ -323,8 +323,9 @@ export function mount(root,o){
    const btn=root.querySelector('.si-bar [data-si]');if(btn&&(st.scr==='a2'||st.scr==='e3'))btn.disabled=!(st.scr==='a2'?st.p.length===4&&st.p2.length===4:st.otc.length===6);
    if(id==='p'&&v.length===4&&root.querySelector('#si-p2')&&!st.p2)root.querySelector('#si-p2').focus();return}
   if(id==='l'){const v=letter(el.value);if(v!==el.value)el.value=v}
-  // another class code: what the server said of the last class (it takes first name + letter) no longer holds
-  if(id==='c'&&normC(el.value)!==normC(st.c))st.needL=false;
+  // the letter is asked for while the class code is the one whose server answer asked for it: another code drops it,
+  // and typing a character and deleting it again brings it back (no request spent on a name without the letter)
+  if(id==='c')st.needL=!!st.needLc&&normC(el.value)===st.needLc;
   st[id]=el.value;
   if(id==='n'||id==='l'){const w=whoName(st.n,st.l,st.needL),as=root.querySelector('.si-as'),h=root.querySelector('#si-n-h');
    if(as){as.hidden=!w.f;as.querySelector('bdi').textContent=w.n}if(h)h.textContent=sameScript(w.f,w.l)?T.nameH:T.eScript}};
@@ -334,7 +335,7 @@ export function mount(root,o){
     again, so Back from the back-forward cache, or the next child at the screen, finds no code typed and no picture
     chosen ("הצגה" has nothing to show) */
  let hidT=0;
- const forget=()=>{clearTimeout(hidT);if(!alive)return;wipe();st.n=st.l='';st.needL=false;st.shown={};st.flow='';st.err='';st.hint='';st.closed=false;st.busy=false;focusId='';
+ const forget=()=>{clearTimeout(hidT);if(!alive)return;wipe();st.n=st.l='';st.needL=false;st.needLc='';st.shown={};st.flow='';st.err='';st.hint='';st.closed=false;st.busy=false;focusId='';
   root.querySelectorAll('input').forEach(i=>{i.value=''});st.scr='entry';draw()};
  const onHide=()=>forget();
  const onVis=()=>{clearTimeout(hidT);if(document.visibilityState==='hidden')hidT=setTimeout(forget,60000)};

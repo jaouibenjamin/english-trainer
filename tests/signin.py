@@ -453,6 +453,11 @@ async def letter_form(b):
     await pg.evaluate('__mount()'); await tap(pg, '[data-si="start"][data-f="in"]')
     await typ(pg, 'c', CLASS); await typ(pg, 'n', 'דנה'); await keys(pg, '5831'); await main_btn(pg)
     asked = await pg.get_attribute('#si-l', 'aria-required')
+    # a character typed in the class code and deleted again: the same class, the letter still asked for, no request spent
+    n0 = len(await pg.evaluate('__calls'))
+    await pg.type('#si-c', 'X'); await pg.press('#si-c', 'Backspace'); await main_btn(pg)
+    check('the class code typed into and back to the same code: the letter still asked for, on the screen, no request',
+          await err(pg) == 'חסרה האות הראשונה של שם המשפחה. אות אחת, למשל כ.' and len(await pg.evaluate('__calls')) == n0, [await err(pg), len(await pg.evaluate('__calls')) - n0])
     await typ(pg, 'c', 'TRIAL01'); await main_btn(pg)
     check('the letter asked for by one class, then another class code: no longer asked (no refusal on the screen, the request goes)',
           asked == 'true' and (await pg.evaluate('__calls'))[-1]['f']['c'] == 'TRIAL01' and 'חסרה האות' not in await err(pg), await err(pg))

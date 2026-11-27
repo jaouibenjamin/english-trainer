@@ -588,3 +588,6 @@ html.calm *,html.calm *::before,html.calm *::after{animation-duration:.01ms!impo
 .scr.map .maprow-who{position:absolute;left:10px;right:10px;top:calc(84px + var(--st));z-index:4;display:flex;justify-content:center;pointer-events:none}
 .scr.map .maprow-who>*{pointer-events:auto;margin:0}
 .scr.map.who .subjpill{top:calc(136px + var(--st))}
+/* the old look: below the hanging "0/66" sign (it reaches about 100 px), 70 px in all (WHO_ROW) */
+html:not(.ds) .scr.map .maprow-who{top:calc(102px + var(--st))}
+html:not(.ds) .scr.map.who .subjpill{top:calc(154px + var(--st))}
