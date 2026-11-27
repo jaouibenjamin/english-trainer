@@ -1,0 +1,21 @@
+/* The class and grade boards (js/boards.js), 'supabase' mode only. docs/SIGNIN.md section 5, mock docs/mock/boards.html */
+.scr.bd{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:0 0 calc(16px + env(safe-area-inset-bottom));box-sizing:border-box}
+.bd-top{display:flex;align-items:center;padding:8px 8px 0;min-block-size:56px}
+.bd-back{min-inline-size:48px;min-block-size:48px;font-size:24px;color:var(--wi-aqua)}
+.bd-h{margin:0;padding:0 16px;font-size:var(--wi-fs-lg);font-weight:800}
+.bd-tabs{display:flex;gap:6px;padding:0 16px}
+.bd-tab{flex:1;min-block-size:48px;border-radius:var(--wi-r-pill);border:1px solid var(--wi-line);background:transparent;color:var(--wi-text);font:700 var(--wi-fs-sm) var(--wi-font-ui);cursor:pointer}
+.bd-tab.on{background:var(--wi-aqua);color:var(--wi-navy-900);border-color:var(--wi-aqua)}
+.bd-tab:focus-visible,.bd-back:focus-visible{outline:3px solid var(--wi-gold);outline-offset:2px}
+.bd-mid{padding:0 16px;overflow-y:auto;min-block-size:0;flex:1}
+.bd-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.bd-list li{display:flex;align-items:center;gap:8px;min-block-size:52px;padding:4px 10px;border-radius:var(--wi-r-md);background:var(--wi-navy-800);border:1px solid var(--wi-navy-700)}
+.bd-list li.me{border:2px solid var(--wi-gold);background:var(--wi-navy-700)}
+.bd-rk{flex:0 0 26px;text-align:center;font:700 var(--wi-fs-md) var(--wi-font-en);color:var(--wi-text-dim)}
+.bd-nmc{flex:1;display:flex;align-items:center;gap:6px;min-inline-size:0}
+.bd-nm{display:flex;min-inline-size:0;font-weight:700;white-space:nowrap}
+.bd-fn{overflow:hidden;text-overflow:ellipsis;min-inline-size:0}.bd-ln{flex:0 0 auto}
+.bd-cl{flex:0 0 auto;padding:1px 8px;border-radius:var(--wi-r-pill);border:1px solid var(--wi-aqua);color:var(--wi-aqua);font-size:var(--wi-fs-xs);font-weight:700}
+.bd-pt{flex:0 0 auto;font:700 var(--wi-fs-md) var(--wi-font-en);color:var(--wi-gold)}
+.bd-sep{border:0;border-block-start:1px solid var(--wi-line);margin:10px 8px}
+.bd-msg{margin:24px 0;text-align:center;color:var(--wi-text-dim)}

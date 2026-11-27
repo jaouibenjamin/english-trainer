@@ -75,7 +75,9 @@ deleted as `docs/LIVE_STAGE.md` E7 says.
   is right (a wrong code answers exactly as today), so the form of a class cannot be probed without its code. The
   trial class (`first`) takes a first name alone, so one screen serves both: it sends the letter when one was typed.
 - `grade_board` is a new read, a function (0010), not a view: `GET /rest/v1/rpc/grade_board?select=display_name,class,points,me`
-  with the pupil's session, same shape as `class_board` plus `class`. It stays a function: it runs as its owner and
+  with the pupil's session, same shape as `class_board` plus `class` and `rank` (0011): at most 11 rows, in place
+  order: the top 10 of the grade, then the caller's own row when it is not among them. `rank` is 1 + the number with
+  more points (ties share it). The server sends nothing else of the grade, not even its size. It stays a function: it runs as its owner and
   picks the caller's grade itself, so no table under it is readable by a pupil.
 
 ## Tests (one PR with the code)
@@ -85,6 +87,13 @@ board (no other grade, no limbo, no trial), the limits per (address, class), the
 (totals unchanged), the reader matrix grown by a second class and a second grade. `functions.py`: the `name` error,
 `name_form` in the answers. `migrations_check.py`: 0010+ on a database with rows: a class, pupils, a removed pupil,
 answers. `setup_check.py`: `add-class` and `add-teacher`, no secret in the log.
+
+## Later (not in v1)
+
+- **The class board sends the whole class** (`class_board`: every classmate's name, points, words, streak) though the
+  screen shows the podium, the top five, the pupil's own place and the row above it. Left as is for v1 (lead, after
+  #134): it is the pupil's own class, names they know, and today's Sheet board shows the whole class too. A server cut
+  would be top 5 + own row + the row above + the class's size, with a client change.
 
 ## The seam for subject groups
 
