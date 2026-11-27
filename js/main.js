@@ -68,7 +68,7 @@ function map(){setBg('map','center');const who=(ST.NEW??false)&&!!S.u,tot=totalS
  const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),iw0=Math.min(W*.37,150,(H-(dsOn()?WORLD_DOCK:0))*.19);   // with the design flag, sized from the height left after the dock
  /* the banner shows when every level was played; with the design flag only if the islands still fit with it and the dock (worldFits) */
  const fin=played&&(!dsOn()||worldFits(iw0,H,mt,84+WORLD_DOCK)),finH=(fin?84:0)+(dsOn()?WORLD_DOCK:0);   // with the design flag, room for the new world's dock (js/avatar.js)
- const iw=worldIw(iw0,H,mt,finH),
+ const iw=who&&!dsOn()?pillIw(iw0,H,mt,finH):worldIw(iw0,H,mt,finH),
   cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
  /* the crab waits on the newest island that is open and still has stars to collect */
  const curI=ISLANDS.filter(i=>isOpen(i)&&islandStars(i)<i.levels.length*3).sort((a,b)=>b.id-a.id)[0]||null;
@@ -113,6 +113,15 @@ function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=worldPr();
  return iw}
 /* do the islands fit at all (even at the smallest size) with this much kept free at the bottom? On a very short phone
    (320x568) the all-played banner and the dock together leave too little: then the banner is left out */
+/* the old look with the "who is playing" row (trial devices only): the row takes 70 px from the islands, and on a short
+   screen a label then reached into the island two rows below it (24 px at 320x568, a tap there opened the other
+   island). The islands shrink until the picture (3/4 of its width, css/game.css .isl .pic) and the tallest label (the
+   bonus island's three lines, about 53 px, less the tag's -4 px margin) fit in the space of two rows. Without the
+   row (the Sheet's class) this is never called: its islands keep their size */
+const OLD_TAG=50;
+function pillIw(iw,H,mt,finH){const room=w=>2*(H-mt-(w*.76+48)-14-finH)/5;
+ while(iw>56&&iw*.75+OLD_TAG>room(iw))iw-=2;
+ return iw}
 function worldFits(iw0,H,mt,finH){const iw=worldIw(iw0,H,mt,finH);return iw*worldPr()+WORLD_TAG<=worldRoom(iw,H,mt,finH)}
 let AV=null;   // js/avatar.js once loaded (flag on only)
 function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{AV=m;if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
