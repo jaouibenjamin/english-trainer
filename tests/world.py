@@ -523,6 +523,11 @@ async def soon_tiles(b, errs):
     their level, no picture (nothing broken), not buttons, named for a screen reader"""
     c, pg, reqs = await page(b, 390, 844, errs)
     await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid')
+    # the pictures load lazily and decode asynchronously: wait (bounded) until every tile's picture has finished, drawn or
+    # broken, so a slow machine (all.py's parallel load) is not read as a missing picture; then count the drawn ones
+    DONE = "[...document.querySelectorAll('.wpick__av')].every(b=>{const i=b.querySelector('img.wpick__art');return i&&i.getAttribute('src')&&i.complete})"
+    try: await pg.wait_for_function(DONE, timeout=20000)
+    except Exception: pass   # the count below says what is missing
     N = await pg.evaluate("[document.querySelectorAll('.wpick__soon-tile').length,[...document.querySelectorAll('.wpick__av')].filter(b=>{const i=b.querySelector('img.wpick__art');return i&&i.complete&&i.naturalWidth>0}).length]")
     check('levels 14 to 23 hold the ten new characters, with their pictures: no "בקרוב" tile, all 30 tiles drawn', N == [0, 30], N)
     await c.close()
