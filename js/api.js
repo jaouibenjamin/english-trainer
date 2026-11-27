@@ -434,7 +434,7 @@ async function supa(a,d){
   /* G4 (review of #55) in this mode too: a tab whose pupil another tab replaced sends nothing more, or its save would
      take the device back (sameOwner) and end the other pupil's session; and the tab's pupil is remembered (mine), so
      the 'storage' listener can tell it was replaced and show the dialog (review of #111) */
-  if(displaced&&a!=='board')return{ok:false,e:'net'};
+  if(displaced&&a!=='board'&&a!=='grade')return{ok:false,e:'net'};
   if(a==='login'||a==='register'||a==='recover'||a==='save'){if(leaving)await leaving;const ow=await sameOwner(d);if(!ow)return{ok:false,e:'net'};if(typeof ow==='string')mine=ow}
   if(a==='login'){const o=op();return await turn(async()=>{if(!o.live())return{ok:false,e:'net'};const dev=(get(K.ses)||{}).device_token;
    const r=await fn('pupil-login',{class_code:d.c,name:d.n,code:d.p,...(dev?{device_token:dev}:{})});return opened(o,r.j,r.status)})}
@@ -463,6 +463,13 @@ async function supa(a,d){
    const r=await o.call('/rest/v1/class_board?select=display_name,points,words,streak,me&order=points.desc');
    if(r.aborted)return{ok:false,e:'net'};if(r.status===401)return{ok:false,e:'signin'};
    if(r.status!==200||!Array.isArray(r.j))return{ok:false,e:'net'};return{ok:true,rows:r.j.map(x=>({n:String(x.display_name),pts:num(x.points),words:num(x.words),streak:num(x.streak),me:x.me===true}))}}
+  /* the grade's board (docs/GRADES_V1.md 0010: grade_board(), a function, so read through /rpc): the pupils of the
+     caller's grade, the name, the class's name, the points and me; [] for a class with no grade (the trial) */
+  if(a==='grade'){const o=op();if(!(await o.token()))return gone_(o);
+   const r=await o.call('/rest/v1/rpc/grade_board?select=display_name,class,points,me');
+   if(r.aborted)return{ok:false,e:'net'};if(r.status===401)return{ok:false,e:'signin'};
+   if(r.status!==200||!Array.isArray(r.j))return{ok:false,e:'net'};
+   return{ok:true,rows:r.j.map(x=>({n:String(x.display_name),cls:String(x.class??''),pts:num(x.points),me:x.me===true}))}}
   return{ok:false,e:'teacher'}                           // the teacher signs in on teacher.html (Google); the game's teacher screen is the Sheet's
  }catch(e){return{ok:false,e:'net'}}}
 /* ?dual=0 (or ?new=0) on a device of the trial: the backend is off for it from now on, so what it kept is let go too (review of #73): the
