@@ -1,0 +1,11 @@
+/* The trial question (js/trial.js; docs/SIGNIN.md section 6, docs/mock/trial.html): a screen of the game, Pitzi waving,
+   the safe answer the big gold button. Loaded with css/ds.css (its wi- classes and tokens) only when the question is
+   asked. No motion. */
+.wt-ask{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:var(--wi-navy-900,#0B1E3F);color:var(--wi-text,#fff)}
+.wt-mid{flex:1;overflow:auto;min-block-size:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;padding:12px 16px}
+.wt-crab{inline-size:120px;block-size:120px;object-fit:contain}
+.wt-h{margin:0;max-inline-size:22em;text-align:center;font-size:22px;line-height:1.2;color:var(--wi-gold,#FFD23F);outline:none}
+.wt-txt{margin:0;max-inline-size:26em;text-align:center;font-size:var(--wi-fs-md,18px)}
+.wt-bar{padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--wi-navy-700,#18376B);display:flex;flex-direction:column;align-items:center;gap:6px}
+.wt-bar .wi-btn--block{max-inline-size:420px}
+@media (max-height:600px){.wt-crab{inline-size:88px;block-size:88px}}

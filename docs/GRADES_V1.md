@@ -74,7 +74,9 @@ deleted as `docs/LIVE_STAGE.md` E7 says.
 - A name in the wrong form answers `{ok:false, e:"name", form:"first_initial"}` (new), and only once the class code
   is right (a wrong code answers exactly as today), so the form of a class cannot be probed without its code. The
   trial class (`first`) takes a first name alone, so one screen serves both: it sends the letter when one was typed.
-- `grade_board` is a new read (`/rest/v1/grade_board`), same shape as `class_board` plus `class`.
+- `grade_board` is a new read, a function (0010), not a view: `GET /rest/v1/rpc/grade_board?select=display_name,class,points,me`
+  with the pupil's session, same shape as `class_board` plus `class`. It stays a function: it runs as its owner and
+  picks the caller's grade itself, so no table under it is readable by a pupil.
 
 ## Tests (one PR with the code)
 

@@ -28,9 +28,17 @@ def server_seen(api):
     return set(((r.get('s') or {}).get('x') or {}).get('seen') or [])
 
 
-async def device(b, api, errs):
+# Each device draws its questions with its own fixed seed (Math.random pinned), so the two papers never share a question
+# by chance: when they did, B's save already held A's and nothing was "lost" for A to bring back (flaky, 1 run in 3 to 5).
+SEED_A, SEED_B = 11, 29
+PIN_RANDOM = ("(()=>{let a=%d>>>0;Math.random=function(){a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);"
+              "t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296}})()")
+
+
+async def device(b, api, errs, seed):
     """a device of the pupil, already signed in (the record on the device names the pupil, as after a sign-in)"""
     c, pg = await new_page(b, 390, 844, api=api, errs=errs)
+    await pg.add_init_script(PIN_RANDOM % seed)
     await pg.add_init_script(f"try{{if(!localStorage.getItem('aam-unit1-v1'))localStorage.setItem('aam-unit1-v1',JSON.stringify({{u:{{c:'{CLASS}',n:'{NAME}',p:'{PIN}'}}}}))}}catch(e){{}}")
     await pg.goto(P.BASE); await pg.wait_for_selector('.title .sb', timeout=20000)
     return c, pg
@@ -70,11 +78,12 @@ async def main():
         check('test setup: the pupil is on the mock backend', r.get('ok') or r.get('e') == 'taken', r)
         async with async_playwright() as pw:
             b = await pw.chromium.launch(executable_path=P.CHROME, args=['--no-sandbox', '--autoplay-policy=no-user-gesture-required'])
-            ca, a = await device(b, api, errs)
-            cb, bb = await device(b, api, errs)   # both devices are open before either quits
+            ca, a = await device(b, api, errs, SEED_A)
+            cb, bb = await device(b, api, errs, SEED_B)   # both devices are open before either quits
             ka = await quit_paper(a)
             check('device A: its quit is saved to the server', await wait_server(api, set(ka)), [ka, sorted(server_seen(api))])
             kb = await quit_paper(bb)
+            check('test setup: the two devices drew different questions (each its own seed)', not set(ka) & set(kb), [ka, kb])
             check('device B: its quit is saved too, and B did not know A\'s questions', await wait_server(api, set(kb)) and not set(ka) <= set(await bb.evaluate("__game.S().x.seen")), [kb, sorted(server_seen(api))])
             lost = set(ka) - server_seen(api)
             check('test setup: B\'s save replaced the record on the server, so A\'s questions are missing there for now', bool(lost), sorted(server_seen(api)))

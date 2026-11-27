@@ -216,7 +216,8 @@ function signin(){const my=navId;import('./signin.js').then(m=>{if(my!==navId||V
  SI=m.mount(view,{enter:(k,f)=>typeof ST.enter==='function'?ST.enter(k,f):Promise.resolve({ok:false,e:'net'}),done:()=>go('title'),sound:()=>SET.sfx&&!SET.calm,lastC:S.lastC||'',trial:ST.TRIAL??false})}).catch(()=>{})}
 /* a ?new=1 link opened on a device that holds the Sheet's game: asked once, never switched silently (js/api.js,
    review of #117); nothing is loaded on any other device */
-try{if(sessionStorage.getItem('wi_new_ask')==='1')import('./trial.js').then(m=>m.ask()).catch(()=>{})}catch(e){}
+const trialAsk=()=>{try{if(sessionStorage.getItem('wi_new_ask')==='1')import('./trial.js').then(m=>m.ask()).catch(()=>{})}catch(e){}};
+trialAsk();addEventListener('pageshow',e=>{if(e.persisted)trialAsk()});   // also on a page the back button brings back (review of #121). On every device, the class's too: it only reads sessionStorage and does nothing without the question waiting
 /* whose device this is, and "זה לא אני" (one tap, then the game's own sign-out): title and map, 'supabase' mode only */
 function whoChip(){if(!(ST.NEW??false)||!S.u)return;const my=navId;import('./signin.js').then(m=>{if(my===navId&&typeof m.notMe==='function'&&(V.name==='title'||V.name==='map')){const t=view.querySelector('.scr.title .tgo');m.notMe(t||view.querySelector('.scr')||view,{name:S.u.n,inline:!!t,out:()=>A.logout()})}}).catch(()=>{})}
 function login(){if(ST.NEW??false)return signin();setBg('paper','center');

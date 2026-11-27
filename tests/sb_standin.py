@@ -3,7 +3,8 @@
 It answers on the project's address, through Playwright's routing (the page's Content-Security-Policy is bypassed in
 those tests only), the way supabase/functions/_shared/core.ts and the database answer the game:
   - pupil-register, pupil-login, pupil-recover: the session, the device token, the record, the name; or the error word
-    (input, weak, class, pin, taken, roster, full, picture, otc) and, when `lock` is set, locked with wait, by and help;
+    (input, weak, class, pin, taken, roster, full, picture, otc, name with form) and, when `lock` is set, locked with
+    wait, by and help; class GR-0001 takes first name + one letter (form 'first_initial', docs/GRADES_V1.md 0011);
   - the token refresh and logout; and with a session: the pupil's own row (pupils), the record (progress), the board
     (class_board, with me), the grade's board (rpc/grade_board: [] unless `boards['grade']` is set), save_progress and
     record_events. `boards['class']` / `boards['grade']`: rows to answer instead (a test's own made-up class or grade).
@@ -29,8 +30,12 @@ SHEET_ERA = {'u': {'c': 'EN-0000', 'n': 'Testa', 'p': '4827'}, 'pts': 120, 'st':
 
 
 WEAK = re.compile(r'^(\d)\1{3}$|^(0123|1234|2345|3456|4567|5678|6789|9876|8765|7654|6543|5432|4321|3210)$')
-CLASSES = {'EN-0000': REAL, 'TRIAL-01': TRIAL}
-ROSTER = {('EN-0000', 'testa'), ('EN-0000', 'probe'), ('EN-0000', 'newbie'), ('TRIAL-01', 'testa')}
+GRADE = '33333333-3333-4333-8333-333333333333'
+CLASSES = {'EN-0000': REAL, 'TRIAL-01': TRIAL, 'GR-0001': GRADE}
+ROSTER = {('EN-0000', 'testa'), ('EN-0000', 'probe'), ('EN-0000', 'newbie'), ('TRIAL-01', 'testa'), ('GR-0001', 'noa k.'), ('GR-0001', 'בת-אל מ.')}
+FORMS = {'GR-0001': 'first_initial'}   # every other class: 'first' (a first name alone, as before)
+# app.name_form_ok (#128, 0010) in short: the first name with no space, one letter, the teacher's digit 2-9 at most, a dot
+FIRST_INITIAL = re.compile(r'^[^ ]+ [A-Za-zא-ת][2-9]?\.$')
 
 
 class Project:
@@ -68,6 +73,8 @@ class Project:
             return {'ok': False, 'e': 'locked', **self.lock}
         if c not in CLASSES:
             return {'ok': False, 'e': 'class'}
+        if FORMS.get(c) == 'first_initial' and not FIRST_INITIAL.match(' '.join(str(b.get('name', '')).split())):
+            return {'ok': False, 'e': 'name', 'form': 'first_initial'}   # only once the class code is right
         p = self.pupils.get((c, n))
         if kind == 'register':
             if p:

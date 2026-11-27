@@ -336,7 +336,7 @@ export async function picker(view,go,live=()=>true){
  if(!live()||!same(id))return;
  if(!id.key)return go('map');   // nothing could be kept on this device: the dock says so
  style();
- const me=mine(id),E=energyOf(id);let pick=me.av,nm=me.nm?[...me.nm]:[0,0];
+ const me=mine(id),E=energyOf(id);let pick=me.av,nm=me.nm?[...me.nm]:[0,0],seen=false,io=null;
  const sec=el('section','scr wpick');view.replaceChildren(sec);document.getElementById('stage').dataset.scr='avatar';
  const head=el('header','wpick__top');
  head.appendChild(btn('wpick__back','חזרה',()=>go('map')));
@@ -346,11 +346,18 @@ export async function picker(view,go,live=()=>true){
   body.appendChild(el('p','wpick__sub','אפשר להחליף אותה מתי שרוצים.'));
   const grid=el('div','wpick__grid');grid.setAttribute('role','group');grid.setAttribute('aria-label','הדמויות');
   const note=el('p','wpick__note','בכל רמה חדשה נפתחת דמות חדשה. עכשיו אתם ברמה '+E.level+'.');note.setAttribute('role','status');
+  const later=[];
   for(const a of ALL){const locked=a.open>E.level&&a.id!==me.av,sel=pick===a.id;   // the character a pupil already has stays theirs
    const b=btn('wpick__av'+(locked?' is-locked':'')+(sel?' is-selected':''),null,()=>{
-    if(locked){note.textContent=lockedSay(a,E.level);return}
+    if(locked){note.textContent=lockedSay(a,E.level);const i=b.querySelector('.wpick__art--thumb');if(i){i.classList.remove('wpick__art--thumb');i.style.transform='';i.src=ART['av/'+a.id]}return}   // tapped: its full picture, once
     pick=a.id;choose();const s=body.querySelector('.is-selected');if(s){s.focus({preventScroll:true});playAv(s.querySelector('img'),a.id)}});   // its short animation, once (js/avanim.js: nothing before a tap, nothing with reduced motion or calm)
-   b.dataset.id=a.id;b.appendChild(pic(a.id,'wpick__art'));
+   /* review of #122 (the picker opened 3.7 s slower): a locked tile shows a small thumbnail of the character (tools/
+      avthumb.py, a few KB), an open one its full still; and every tile gets its picture only when it comes near the
+      screen (below the fold, when scrolled to) */
+   b.dataset.id=a.id;const ip=el('img','wpick__art'+(locked?' wpick__art--thumb':''));ip.alt='';ip.decoding='async';ip.draggable=false;
+   ip.dataset.src=locked?'assets/al/avthumb/'+a.id+'.webp':ART['av/'+a.id];later.push(ip);b.appendChild(ip);
+   if(locked){ip.style.transform='none';   // the thumbnail is the crop box already (inline too, so an older css/avatar.css in the cache does not zoom it twice)
+    ip.onerror=()=>{ip.onerror=null;ip.style.transform='';ip.classList.remove('wpick__art--thumb');ip.src=ART['av/'+a.id]}}   // no thumbnail (a character added later): its full still
    if(locked){b.setAttribute('aria-label',lockedSay(a,E.level));b.setAttribute('aria-disabled','true');
     const k=el('img','wpick__key');k.src=ART['ui/lock'];k.alt='';k.decoding='async';b.append(k,el('span','wpick__lock','רמה '+a.open))}   // a small lock in the top corner and "רמה N" in one short line at the bottom: the picture stays in view
    else{b.setAttribute('aria-label',a.he);b.setAttribute('aria-pressed',sel?'true':'false')}
@@ -360,6 +367,13 @@ export async function picker(view,go,live=()=>true){
    const t=el('div','wpick__soon-tile');t.setAttribute('role','img');t.setAttribute('aria-label','דמות חדשה בקרוב, ברמה '+n);
    t.append(el('span','wpick__soon','בקרוב'),el('span','wpick__lock','רמה '+n));grid.appendChild(t)}
   body.append(grid,note);
+  /* the first time the grid is drawn, a picture is fetched when its tile comes within 200 px of the picker's view; when
+     it is drawn again (each tap redraws it), every picture at once, so the tapped tile's animation is never written over */
+  if(seen||typeof IntersectionObserver!=='function')for(const i of later){if(!i.getAttribute('src'))i.src=i.dataset.src}
+  else{if(io)io.disconnect();
+   io=new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting){const i=e.target;io.unobserve(i);if(!i.getAttribute('src'))i.src=i.dataset.src}},{root:sec,rootMargin:'200px 0px'});
+   for(const i of later)io.observe(i)}
+  seen=true;
   const why=el('p','wpick__why',pick?'':'קודם בוחרים דמות.');
   const nx=btn('wpick__ok','הלאה: בוחרים שם',()=>{if(!pick){why.textContent='קודם בוחרים דמות.';return}name()});
   nx.setAttribute('aria-disabled',pick?'false':'true');body.append(nx,why)}
