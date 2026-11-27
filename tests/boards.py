@@ -25,6 +25,9 @@ CLS = [dict(display_name=n, points=p, words=0, streak=0, me=n == 'Testa') for n,
        (('נועה כ.', 412), ('יואב ו.', 388), ('Testa', 351), ('דנה ש.', 297), ('<b>x</b> ק.', 120))]
 NAMES = ['נועה כ.', 'יואב ו.', 'מאיה ל.', 'Alexandrina-Maximiliana K.', 'עומר ש.', 'תמר ד.', 'אורי ב.', 'שירה מ.', 'איתי ר.', 'ליה ג.', 'רון ח.', 'נגה פ.', 'Testa']
 GRADE = [dict(display_name=n, **{'class': 'ה׳%d' % (i % 3 + 1)}, points=500 - i * 20, me=n == 'Testa') for i, n in enumerate(NAMES)]
+# grade_board from 0011 (#134): at most the top ten and the caller's own row, in place order, each with its rank (ties share it)
+RANKS = [1, 2, 2, 4, 5, 6, 7, 7, 9, 10]
+GRADE11 = [dict(display_name=n, **{'class': 'ה׳1'}, points=400 - k * 10, me=False, rank=RANKS[k]) for k, n in enumerate(NAMES[:10])] + [dict(display_name='Testa', **{'class': 'ה׳2'}, points=120, me=True, rank=37)]
 
 
 async def shot(pg, name):
@@ -80,17 +83,30 @@ async def main():
                     sideways:document.documentElement.scrollWidth>innerWidth,dir:getComputedStyle(document.querySelector('.scr.bd')).direction,small}}""")
                 check(f'{w}: a long Latin name: only the first name cut ({"cut" if m["cut"] else "fits"}), the letter, the class tag and the points whole; RTL, no sideways scroll, targets ≥ 44 px',
                       m['ln'] and m['cl'] and m['pt'] and not m['sideways'] and m['dir'] == 'rtl' and not m['small'] and (m['cut'] or w == 390), m)
+                m = await pg.evaluate("(()=>{const r=document.querySelector('.bd-mine li.me').getBoundingClientRect();return {bottom:Math.round(r.bottom),top:Math.round(r.top),H:innerHeight}})()")
+                check(f'{w}: my own row (rank 13) is on screen without scrolling, under the list', m['top'] >= 0 and m['bottom'] <= m['H'], m)
                 await shot(pg, f'b2-grade-{w}')
                 await pg.click('.bd-tab[data-bt="class"]'); await pg.wait_for_function("document.querySelector('.bd-h').textContent==='הכיתה שלנו'")
                 check(f'{w}: back to the class tab', await pg.locator('.bd-cl').count() == 0)
                 check(f'{w}: no page error', not errs, errs)
                 await c.close()
-            # 3. today's class (the Sheet): the old board, js/boards.js never fetched
-            from sb_standin import SHEET_CFG
-            prj = Project(); c, pg, errs = await device(b, prj, cfg=SHEET_CFG)
+            # 3. grade_board from 0011: the server's rank (ties shared), and my row from the server as the 11th
+            prj = Project(); prj.boards['class'] = CLS; prj.boards['grade'] = GRADE11
+            c, pg, errs = await open_board(b, prj, 360, 740)
+            await pg.click('.bd-tab[data-bt="grade"]'); await pg.wait_for_selector('.bd-cl')
+            r = await rows(pg)
+            check('the 0011 shape: the ranks are the server\'s (1,2,2,4…7,7,9,10), then my row with rank 37 under the line',
+                  [x[0] for x in r] == ['1', '2', '2', '4', '5', '6', '7', '7', '9', '10', '37'] and r[-1][1] == 'Testa' and r[-1][4] and await pg.locator('.bd-mine li.me').count() == 1, r)
+            reads = [l['path'] + '?' + l['query'] for l in prj.log if 'grade_board' in l['path']]
+            check('the grade read names no columns (works before and after 0011)', reads == ['/rest/v1/rpc/grade_board?'], reads)
+            await c.close()
+            # 4. today's class (the Sheet), a pupil signed in: the old board, js/boards.js never fetched
+            from sb_standin import SHEET_CFG, SHEET_ERA
+            prj = Project(); c, pg, errs = await device(b, prj, cfg=SHEET_CFG, seed=SHEET_ERA)
+            check('the Sheet pupil is signed in', await pg.evaluate("(async()=>{const m=await import('./js/state.js');return !!m.S.u&&!m.NEW})()"))
             got = []; pg.on('request', lambda r: got.append(r.url) if 'boards.' in r.url else None)
-            await pg.goto(pg.url.split('#')[0] + '#board'); await pg.wait_for_timeout(800)
-            check("the Sheet's config: no js/boards.js and no css/boards.css fetched, no new board", not got and await pg.locator('.scr.bd').count() == 0, got)
+            await pg.goto(pg.url.split('#')[0] + '#board'); await pg.wait_for_selector('.scr.board', timeout=8000); await pg.wait_for_timeout(500)
+            check("the Sheet's config, signed in: the old board; no js/boards.js and no css/boards.css fetched", not got and await pg.locator('.scr.bd').count() == 0 and await pg.locator('.scr.board').count() == 1, got)
             await c.close()
             await b.close()
     finally:

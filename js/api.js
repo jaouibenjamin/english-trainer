@@ -474,10 +474,11 @@ async function supa(a,d){
   /* the grade's board (docs/GRADES_V1.md 0010: grade_board(), a function, so read through /rpc): the pupils of the
      caller's grade, the name, the class's name, the points and me; [] for a class with no grade (the trial) */
   if(a==='grade'){const o=op();if(!(await o.token()))return gone_(o);
-   const r=await o.call('/rest/v1/rpc/grade_board?select=display_name,class,points,me');
+   // no select: before 0011 the function has no rank column, after it has (a select naming rank would fail before)
+   const r=await o.call('/rest/v1/rpc/grade_board');
    if(r.aborted)return{ok:false,e:'net'};if(r.status===401)return{ok:false,e:'signin'};
    if(r.status!==200||!Array.isArray(r.j))return{ok:false,e:'net'};
-   return{ok:true,rows:r.j.map(x=>({n:String(x.display_name),cls:String(x.class??''),pts:num(x.points),me:x.me===true}))}}
+   return{ok:true,rows:r.j.map(x=>({n:String(x.display_name),cls:String(x.class??''),pts:num(x.points),me:x.me===true,...(Number.isInteger(x.rank)&&x.rank>0?{rank:x.rank}:{})}))}}
   return{ok:false,e:'teacher'}                           // the teacher signs in on teacher.html (Google); the game's teacher screen is the Sheet's
  }catch(e){return{ok:false,e:'net'}}}
 /* ?dual=0 (or ?new=0) on a device of the trial: the backend is off for it from now on, so what it kept is let go too (review of #73): the
