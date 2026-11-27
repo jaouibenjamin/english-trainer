@@ -272,8 +272,10 @@ async def play(b, w, h, tag, qs=''):
                 await shot(pg, f'{tag}_03_gate'); shot_gate = True
                 if qs: await ds_targets(pg, tag, 'the question card and the dash button')
             if st['z'] > -12:
-                lanes = await pg.evaluate('__run.lanes()'); a = await pg.evaluate('__run.answer()')
-                if lanes:
+                # the gate's lanes and its answer in one read: two reads could straddle the gate passing (lanes of this
+                # gate, no answer any more), which a slow machine (all.py's parallel load) once did
+                lanes, a = await pg.evaluate('[__run.lanes(),__run.answer()]')
+                if lanes and a is not None and a in lanes:
                     if not wrong_done:
                         i = next(k for k, t in enumerate(lanes) if t != a and t is not None)
                         wrong_done = True
