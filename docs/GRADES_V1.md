@@ -8,29 +8,39 @@ of the surname. Built on the project that exists (Frankfurt) and on migrations 0
 
 **0010 grades.** `schools (id, name)`; `grades (id, school_id, level 1..12, label "ה׳", school_year)`; `classes`
 gains `grade_id` (nullable), `kind` (`class` | `limbo`, set only by `teacher_remove_pupil`) and `name_form`
-(`first` | `first_initial`, below). A check that a `kind = 'class'` row has a grade is added `NOT VALID`: new and
-changed rows must have one; rows that exist (the trial class) are left as they are. `teacher_remove_pupil` is
-replaced so a new limbo class copies its home class's grade and is `kind = 'limbo'`; every grade-scoped read leaves
-`limbo` out.
+(`first` | `first_initial`, below). There is no table check that a class has a grade (hidden classes and the trial
+have none): a real class gets its grade where real classes are made, `class_create` and `admin-class`, which refuse
+a class without one. `teacher_remove_pupil` is replaced so a new hidden class is inserted as `kind = 'limbo'` (never
+found by its name, so a real class may be called anything but `removed`, which `class_create` and the tool refuse),
+and 0010 marks every existing hidden class `limbo`, also those whose home class was deleted; every grade-scoped read
+leaves `limbo` out.
 
 **0011 names: first name + one letter.** The class says which form it takes (`name_form`; existing classes keep
 `first`, new ones get `first_initial`). In a `first_initial` class a name is `<first> <L>.`: the first name with no
 space (a hyphen or an apostrophe allowed, as in `app.name_ok` today), then one letter (Hebrew or Latin) and a dot,
 e.g. `נועה כ.`. `app.name_form_ok(form, name)` is the one rule; `roster`, `register_pupil` and the teacher's roster
 function apply it; nothing anywhere has a column for a full surname, and the second part is refused when it is longer than
-one letter (two only from the roster, below). A two-word first name (בת אל) is written with a hyphen. Uniqueness stays `unique (class_id, name_key)` on the whole `"noa k."`, so two Noas with different letters
-are two pupils. For a remaining clash the teacher's roster may hold a second letter (`נועה כה.`); a pupil can only
-register a name the roster holds (`roster_only`, on by default), so the second letter is the teacher's, never the
-child's. `name_key` and `display_name` keep their meaning; the client composes the name from two fields.
+one letter (a digit after it only from the roster, below). A two-word first name (בת אל) is written with a hyphen. Uniqueness stays `unique (class_id, name_key)` on the whole `"noa k."`, so two Noas with different letters
+are two pupils. For a remaining clash the teacher's roster may hold a digit after the letter (`נועה כ2.`, 2 to 9; never a second
+letter, which would store more of the surname); a pupil can only register a name the roster holds (`roster_only`, on by
+default), so the digit is the teacher's, never the child's. Hebrew final letters count as the plain letter in the key
+(`נועה ך.` is `נועה כ.`); 0010 re-keys existing rows (pupils, roster, attempts, locks, kept locked) and stops with
+a clear message naming no pupil if two names of one class differ only by a final letter. A name in the wrong form is
+counted like any other call, after the address check, and the answer depends on the shape alone, never on the class
+list. **What the rule cannot stop:** a surname written into the first name (`דנה-כהן כ.`): a dot or a second hyphen in
+the first name is refused, one hyphen is not (בת-אל). The teacher's guide says so; keep `roster_only` on, so only the
+teacher's list is registered. `name_key` and `display_name` keep their meaning; the client composes the name from two fields.
 
 **0012 boards.** `class_board` as today (it shows `display_name`, now "נועה כ."). `grade_board` (new, security
 definer): the pupils of the caller's grade, `display_name` and the class's name ("נועה כ., ה׳2"), points, me; only
 `kind = 'class'` rows of the same grade; a teacher sees her class's grade. No school-wide board.
 
 **0013 limits per address and class.** A grade registers from one school address, so the per-address counters get a
-per-(address, class) twin: registrations 60 an hour per (address, class) and 300 per address; function calls 120 per
-(address, class) and 600 per address. Wrong class codes stay counted per address (30 an hour; a wrong code has no
-class) plus the existing 2,000 for all addresses. All are settings. The Auth token-check setting is the owner's
+per-(address, class) twin. Worst case in one hour, every child registering with two retries, two sign-ins and one "I
+forgot my code" (every call counts): per (address, class), 35 x 3 = 105 registrations (limit 150) and 35 x 6 = 210
+calls (limit 300); per address, 10 classes, 1,050 registrations (limit 1,500) and 2,100 calls (limit 3,000); 43%
+headroom each. Wrong class codes stay counted per address (a wrong code has no class) plus the existing limit for
+all addresses. All are settings. The Auth token-check setting is the owner's
 (150 per 5 minutes; about 300 at 10 classes).
 
 **0014 room for about 10 classes.** `raw_days` is already 30. New settings: `daily_days` (120): `answer_daily` older
@@ -53,7 +63,7 @@ Two new modes of `tools/supabase_setup.py`, run from the protected workflow on `
 
 ## The trial class through the migration
 
-It keeps working unchanged: no grade (the `NOT VALID` check leaves it), `name_form = first` (Test, Tester stay valid),
+It keeps working unchanged: no grade (the setup tool makes it with none; a table check would not allow that), `name_form = first` (Test, Tester stay valid),
 `kind = 'class'`, its code and roster untouched. It is on no grade board. When the real classes are made, it is
 deleted as `docs/LIVE_STAGE.md` E7 says.
 

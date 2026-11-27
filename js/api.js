@@ -35,19 +35,25 @@ let tryOn=true,tryOff=false;
 // the device switch: ?dual=1 for 'dual', ?new=1 for 'supabase' (docs/PHASE4.md A, "a plain trial switch")
 const SW=B.mode==='supabase'?'new':'dual';
 /* Review of #117 (a shared ?new=1 link is the class's main risk): the switch is taken out of the address at once, so a
-   copied link does not carry it; and a device that holds the Sheet's game (a signed-in pupil or progress) is not
-   switched silently: it is asked first (js/trial.js, in the game; sessionStorage wi_new_ask until it answers). */
-const sheetGame=()=>{try{const o=JSON.parse(W.localStorage.getItem('aam-unit1-v1'));return!!(o&&typeof o==='object'&&(o.u||(+o.pts||0)>0))}catch(e){return false}};
+   copied link does not carry it; and no device is switched silently: one that is not in the trial yet is asked first
+   (js/trial.js, in the game and in the Beach Run; sessionStorage wi_new_ask until it answers). Review of #121: every such
+   device, also a clean one or one signed out at 0 points, since the link may not be meant for it. */
 if(URL_OK&&!EVERYONE){tryOn=false;
  try{const sp=new URLSearchParams(W.location&&W.location.search||''),q=sp.get(SW);
-  if(q==='1'){if(SW==='new'&&W.localStorage.getItem('wi_new')!=='1'&&sheetGame())W.sessionStorage.setItem('wi_new_ask','1');else W.localStorage.setItem('wi_'+SW,'1')}
-  else if(q==='0'){tryOff=true;W.localStorage.removeItem('wi_'+SW);try{W.sessionStorage.removeItem('wi_new_ask')}catch(e){}}
+  if(q==='1'){if(SW==='new'&&W.localStorage.getItem('wi_new')!=='1')W.sessionStorage.setItem('wi_new_ask','1');else W.localStorage.setItem('wi_'+SW,'1')}
+  /* review of #121: the way back leaves nothing of the trial: the device's record of it (a first name and ids) goes too */
+  else if(q==='0'){tryOff=true;W.localStorage.removeItem('wi_'+SW);if(SW==='new')W.localStorage.removeItem('wi-new-v1');try{W.sessionStorage.removeItem('wi_new_ask')}catch(e){}}
   if(q!==null&&W.history&&typeof W.history.replaceState==='function'){sp.delete(SW);const r=sp.toString();
    W.history.replaceState(W.history.state,'',W.location.pathname+(r?'?'+r:'')+W.location.hash)}
   tryOn=W.localStorage.getItem('wi_'+SW)==='1'}catch(e){}}
 export const MODE=URL_OK&&tryOn&&(B.mode==='dual'||B.mode==='supabase')?B.mode:'sheet';
 /* this device is on the new backend as a trial (not the class's everyone): the sign-in screen offers the way back */
 export const TRIAL=MODE==='supabase'&&!EVERYONE;
+/* review of #121: a page of the trial brought back by the back button (bfcache) runs no module again: if the device left
+   the trial since (?new=0), it would write the trial's record back; it is loaded afresh instead. Only on a trial device:
+   the class's devices get nothing registered here (js/main.js and js/run.js add one small pageshow listener on every device, for the question; a page of theirs brought back after "כן" elsewhere is the Sheet's game as
+   it was, and the next load is the trial's). */
+if(URL_OK&&!EVERYONE&&tryOn&&typeof W.addEventListener==='function')W.addEventListener('pageshow',e=>{try{if(e&&e.persisted&&W.localStorage.getItem('wi_'+SW)!=='1')W.location.reload()}catch(x){}});
 
 /* exactly what js/state.js did: a failed request (no connection) throws; an answer that is not JSON (an Apps Script
    error page) gives {ok:false,e:'server'} */
@@ -467,4 +473,6 @@ async function supa(a,d){
  }catch(e){return{ok:false,e:'net'}}}
 /* ?dual=0 (or ?new=0) on a device of the trial: the backend is off for it from now on, so what it kept is let go too (review of #73): the
    session is revoked and the session, base, batch, sent record and owner marks leave the device. */
-if(tryOff&&LS&&(sidNow()||get(K.owner)||get(K.base)))op().end(true).catch(()=>{});
+/* review of #121: and then the device token the server handed out goes too, so nothing of the trial stays on the device */
+if(tryOff&&LS){const rid=()=>{try{W.localStorage.removeItem(K.ses)}catch(e){}};
+ if(sidNow()||get(K.owner)||get(K.base))op().end(true).catch(()=>{}).finally(rid);else rid()}

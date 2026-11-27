@@ -291,6 +291,46 @@ def fresh():
         check('the Vault refuses the code: it stops and says the code is lost and to run rotate-trial again', r6.returncode == 1
               and 'could not be put in the Vault' in out6 and 'rotate-trial' in out6 and not leaks(out6, secrets_of(fake)), (leaks(out6, secrets_of(fake)), out6[-900:]))
         fake.vault_broken = False
+        check('the trial class takes first names alone (Test, Tester), as the one made before migration 0010',
+              db.psql("select name_form from public.classes where name = 'Trial'", user='supabase_admin')[0] == [['first']])
+        n0 = len(fake.codes)
+        r7, cli7 = run(srv, fake, extra=['--add-class', 'ה׳2', '--grade', 'ה׳'])
+        out7 = r7.stdout + r7.stderr
+        g = db.psql("select c.name_form, g.label, (select secret from vault.secrets where name = 'wi_class_code_ה׳2') from public.classes c "
+                    "join private.grades g on g.id = c.grade_id where c.name = 'ה׳2'", user='supabase_admin')[0]
+        check('add-class: the class in its grade, with first name + letter, its code in the Vault, nothing else run, no secret in the log',
+              r7.returncode == 0 and g == [['first_initial', 'ה׳', fake.codes[-1]]] and len(fake.codes) == n0 + 1 and not cli7
+              and not leaks(out7, secrets_of(fake)) and 'wi_class_code_ה׳2' in out7, (out7[-600:], g))
+        r8, _ = run(srv, fake, extra=['--add-class', 'ה׳2', '--grade', 'ה׳'])
+        check('add-class again: "already exists", nothing changed', r8.returncode == 0 and 'already exists' in r8.stdout and 'nothing changed' in r8.stdout
+              and len(fake.codes) == n0 + 1)
+        tid = db.psql("insert into auth.users (id) values (gen_random_uuid()) returning id", user='supabase_admin')[0][0][0]
+        r9, _ = run(srv, fake, extra=['--add-teacher', tid, '--class', 'ה׳2'])
+        t = db.psql(f"select c.name from public.teachers t join public.classes c on c.id = t.class_id where t.user_id = '{tid}'", user='supabase_admin')[0]
+        check('add-teacher: by user id, the home teacher of that class', r9.returncode == 0 and t == [['ה׳2']], (r9.stdout[-400:], t))
+        r9b, _ = run(srv, fake, extra=['--add-teacher', tid, '--class', 'ה׳2'])
+        check('add-teacher again: "already", nothing changed', r9b.returncode == 0 and 'already the teacher' in r9b.stdout and 'nothing changed' in r9b.stdout)
+        check('add-class and add-teacher say what they are about to do before doing it',
+              'about to make ה׳2 in grade ה׳' in out7 and 'about to add the user' in r9.stdout)
+        nreq0 = len(fake.requests)
+        r13, _ = run(srv, fake, extra=['--add-class', 'trial', '--grade', 'ה׳'])
+        check('add-class named like the trial: refused, nothing changed', r13.returncode == 1 and tail_ok(r13.stdout + r13.stderr)
+              and db.psql("select count(*) from public.classes where lower(name) = 'trial'", user='supabase_admin')[0] == [['1']], r13.stdout[-300:])
+        n_cls = db.psql('select count(*) from public.classes', user='supabase_admin')[0]
+        r14, _ = run(srv, fake, extra=['--add-class', 'Removed', '--grade', 'ה׳'])
+        r15, _ = run(srv, fake, extra=['--add-class', 'א' * 27, '--grade', 'ה׳'])
+        check('add-class named "removed", or longer than 26 characters (its Vault name would lose the code): refused, '
+              'nothing changed', r14.returncode == 1 and r15.returncode == 1 and '26' in r15.stdout
+              and db.psql('select count(*) from public.classes', user='supabase_admin')[0] == n_cls, (r14.stdout[-200:], r15.stdout[-200:]))
+        r10, _ = run(srv, fake, extra=['--add-teacher', tid, '--class', 'ה׳9'])
+        check('add-teacher for a class that does not exist: stops, says what to do, nothing changed',
+              r10.returncode == 1 and tail_ok(r10.stdout + r10.stderr) and 'add-class' in r10.stdout, r10.stdout[-400:])
+        nreq = len(fake.requests)
+        r11, _ = run(srv, fake, extra=['--add-teacher', 'someone@example.org', '--class', 'ה׳2'])
+        check('add-teacher with anything but a user id (an address): refused before any request', r11.returncode == 1 and len(fake.requests) == nreq
+              and tail_ok(r11.stdout + r11.stderr), r11.stdout[-300:])
+        r12, _ = run(srv, fake, extra=['--add-class', "x'; drop table public.pupils; --", '--grade', 'ה׳'])
+        check('add-class with a quote in the name: refused before any request', r12.returncode == 1 and len(fake.requests) == nreq, r12.stdout[-300:])
         r3, cli3 = run(srv, fake, extra=['--redeploy'])
         check('--redeploy deploys the five functions again, and nothing else', r3.returncode == 0
               and len([c for c in cli3 if c[:2] == ['functions', 'deploy']]) == 5 and not [c for c in cli3 if c[:2] == ['db', 'push']], cli3)
