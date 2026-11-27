@@ -371,15 +371,16 @@ async def main():
             check('the map: one pill, with the character', await pg.locator('.si-who').count() == 1 and await pg.locator('.si-who .si-av').count() == 1)
             # the map: the pill in its own row under the header (docs/SIGNIN.md), at every width, in both looks
             for ds in ('?ds=1', '?ds=0'):
-                for w, h in ((390, 844), (360, 740), (320, 568)):
+                for w, h in ((390, 844), (360, 740), (360, 640), (320, 568)):
                     await pg.set_viewport_size({'width': w, 'height': h})
                     await pg.goto(PAGE + ds + '#map'); await pg.wait_for_selector('.maprow-who .si-who', timeout=8000); await pg.wait_for_timeout(300)
                     m = await pg.evaluate("""(()=>{const r=s=>{const e=document.querySelector(s);return e?e.getBoundingClientRect():null},p=r('.maprow-who .si-who'),hd=r('.maphead'),sg=r('.maphead .sign.total'),sj=r('.subjpill'),i6=r('.isl.i6 .pw'),dk=r('.wd'),fn=document.querySelector('.si-who .si-fn'),b=document.querySelector('.si-who .si-nm');
                       const hit=(a,c)=>!!a&&!!c&&a.left<c.right&&c.left<a.right&&a.top<c.bottom&&c.top<a.bottom;
                       return {n:document.querySelectorAll('.si-who').length,belowHead:p.top>=hd.bottom-1,belowSign:p.top>=sg.bottom,aboveSubj:p.bottom<=sj.top+1,isl:hit(p,i6),dock:hit(p,dk),
+                        ov:[6,5,4,3].map(id=>{const a=document.querySelector('.isl.i'+id+' .tag').getBoundingClientRect(),c=document.querySelector('.isl.i'+(id-2)+' .pw').getBoundingClientRect();return Math.round(a.bottom-c.top)}).filter(x=>x>0),
                         name:fn.scrollWidth<=fn.clientWidth+1&&fn.clientWidth>0,btn:b.scrollWidth<=b.clientWidth+1&&b.getBoundingClientRect().height>=44,inside:p.left>=0&&p.right<=innerWidth}})()""")
-                    check(f'map {ds} {w}: one pill, in its row under the header (below the stars sign) and above "מקצועות", over no island and not on the dock; the name whole, the button whole, on screen',
-                          m['n'] == 1 and m['belowHead'] and m['belowSign'] and m['aboveSubj'] and not m['isl'] and not m['dock'] and m['name'] and m['btn'] and m['inside'], m)
+                    check(f'map {ds} {w}: one pill, in its row under the header (below the stars sign) and above "מקצועות"; no label of an island reaches into the island below it; over no island and not on the dock; the name whole, the button whole, on screen',
+                          m['n'] == 1 and not m['ov'] and m['belowHead'] and m['belowSign'] and m['aboveSubj'] and not m['isl'] and not m['dock'] and m['name'] and m['btn'] and m['inside'], m)
             await pg.set_viewport_size({'width': 390, 'height': 844})
             await no_code(pg, prj, 'first_initial in the game')
             check('first_initial in the game: no page error', not errs, errs[:3])
