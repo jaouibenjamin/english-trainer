@@ -58,9 +58,10 @@ function title(){setBg('title','bottom');
 
 /* ---------- map ---------- */
 /* 'supabase' mode, a pupil signed in: the "who is playing" pill has its own row under the header (docs/SIGNIN.md); the
-   subjects button and the islands start this much lower (css/game.css .scr.map.who) */
-const WHO_ROW=52;
-function map(){setBg('map','center');const who=(ST.NEW??false)&&!!S.u,tot=totalStars(),W=stage.clientWidth,H=stage.clientHeight,mt=(H<700?88:100)+(who?WHO_ROW:0);
+   subjects button and the islands start this much lower (css/game.css .scr.map.who). The old look's header has the
+   hanging stars sign, so its row starts 18 px lower and takes that much more */
+const WHO_ROW=()=>dsOn()?52:70;
+function map(){setBg('map','center');const who=(ST.NEW??false)&&!!S.u,tot=totalStars(),W=stage.clientWidth,H=stage.clientHeight,mt=(H<700?88:100)+(who?WHO_ROW():0);
  /* islands zigzag in two columns, so neighbours in a column are two rows apart; the lowest island and its label end 14px above the bottom */
  /* every level of every island has been played: a banner along the beach. "Finished" is said only at full stars;
     until then it says how many stars are missing, and every island that still has stars to collect is ringed */
