@@ -415,9 +415,11 @@ async function run(a,d,r){
    'signin': the session is gone (ended on the server, or it cannot be renewed); the pupil signs in again and what
    this device played waits for them. */
 const BY=['name','device','address','class','everyone','system'];   // whom a lock is for (0008_lock_scope.sql); a wait of -1: until the teacher opens it
-const ERRS=['input','weak','class','pin','taken','roster','full','picture','otc','locked','net','server'];
+// 'name' (docs/GRADES_V1.md 0011): the name is not in the class's form, with that form ('first' | 'first_initial')
+const ERRS=['input','weak','class','pin','taken','roster','full','picture','otc','locked','name','net','server'],FORMS=['first','first_initial'];
 const err=(j,status)=>{if(status===404)return{ok:false,e:'unset'};   // the project's functions are not there yet (review of #117)
  const e=j&&typeof j.e==='string'&&ERRS.includes(j.e)?j.e:'net';
+ if(e==='name')return{ok:false,e,...(FORMS.includes(j.form)?{form:j.form}:{})};
  return e==='locked'?{ok:false,e,wait:num(j.wait)<0?-1:Math.max(0,Math.floor(num(j.wait))),by:BY.includes(j.by)?j.by:'name',help:j.help==='teacher'?'teacher':'wait'}:{ok:false,e}};
 /* who signed in: the pupil's id and class id, read with the new session (RLS: the pupil's own row only). The device
    keeps its record for this pupil of this class only (docs/PHASE4.md A); null when it could not be read */
