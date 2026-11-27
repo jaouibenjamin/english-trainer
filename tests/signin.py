@@ -453,6 +453,10 @@ async def letter_form(b):
     await pg.evaluate("__form=''; __mount()"); await tap(pg, '[data-si="start"][data-f="in"]')
     await typ(pg, 'c', CLASS); await typ(pg, 'n', 'דנה'); await keys(pg, '5831'); await main_btn(pg)
     check('a class of form "first": the first name alone goes, as before', (await pg.evaluate('__calls'))[-1] == {'kind': 'login', 'f': {'c': CLASS, 'n': 'דנה', 'code': '5831'}})
+    await pg.evaluate('__mount()'); await tap(pg, '[data-si="start"][data-f="in"]')
+    await typ(pg, 'c', CLASS); await typ(pg, 'n', 'דנה ב'); await keys(pg, '1111'); await main_btn(pg)
+    check('a class of form "first": a name with a space and a final letter ("דנה ב") goes as typed, no hyphen, no dot',
+          (await pg.evaluate('__calls'))[-1]['f']['n'] == 'דנה ב' and await pg.input_value('#si-n') == 'דנה ב', (await pg.evaluate('__calls'))[-1])
     check('no page error', not errs, errs)
     await c.close()
 
@@ -505,7 +509,8 @@ async def unit(b):
       n:M.PICS.length,unique:new Set(M.PICS.map(p=>p.en)).size,
       letters:['כ','ך','ם','k','K','.','7','','כה','ß','כ2','2כ','k.','כהן','כ1','k3'].map(M.letter),
       script:[['נועה','כ'],['נועה','K'],['Noa','K'],['Noa','כ'],['','K'],['נועה','']].map(([a,b])=>M.sameScript(a,b)),
-      names:[['נועה','כ'],['בת אל','מ'],[' בת  אל ','ם'],['נועה כ.',''],['Noa k',''],['נועה',''],['בת אל',''],['נועה.','כ'],['דנה','ab'],['נועה כ2',''],['בת אל','']].map(([a,b])=>M.whoName(a,b).n)}}""")
+      names:[['נועה','כ'],['בת אל','מ'],[' בת  אל ','ם'],['נועה כ.','',1],['Noa k','',1],['נועה',''],['בת אל','',1],['נועה.','כ'],['דנה','ab'],['נועה כ2','',1],['בת אל','']].map(([a,b,fi])=>M.whoName(a,b,!!fi).n),
+      first:[['בת אל',''],['דנה ב',''],['נועה כ.',''],['  Noa  ','']].map(([a,b])=>M.whoName(a,b,false).n)}}""")
     check('the screen refuses the codes the server calls weak (runs also across 9-0, repeats, abab, aabb, years, dates, keypad lines)', all(r['weak']) and not any(r['ok']), r)
     check('20 pictures, numbered 1 to 20 in the order of docs/SIGNIN.md (a contract with the server: never reorder)',
           r['n'] == 20 and r['unique'] == 20 and r['pics'] == [[1, 'apple', 'תפוח'], [2, 'banana', 'בננה'], [3, 'watermelon', 'אבטיח'], [20, 'mushroom', 'פטרייה']], r)
@@ -513,7 +518,9 @@ async def unit(b):
           r['letters'] == ['כ', 'כ', 'מ', 'K', 'K', '', '', '', 'כ', '', 'כ2', 'כ', 'K', 'כ', 'כ', 'K3'], r['letters'])
     check('the letter takes the name\'s script', r['script'] == [True, False, True, False, True, True], r['script'])
     check('the name sent: "first letter." with the letter, the first name alone without; a space in the first name is a hyphen; a letter typed into the first name moves to its place',
-          r['names'] == ['נועה כ.', 'בת-אל מ.', 'בת-אל מ.', 'נועה כ.', 'Noa K.', 'נועה', 'בת-אל', 'נועה כ.', 'דנה A.', 'נועה כ2.', 'בת-אל'], r['names'])
+          r['names'] == ['נועה כ.', 'בת-אל מ.', 'בת-אל מ.', 'נועה כ.', 'Noa K.', 'נועה', 'בת-אל', 'נועה כ.', 'דנה A.', 'נועה כ2.', 'בת אל'], r['names'])
+    check('a class of form "first" (no letter typed, the server never asked for one): the first name goes as typed, a space and a final letter kept (the trial\'s names as registered)',
+          r['first'] == ['בת אל', 'דנה ב', 'נועה כ.', 'Noa'], r['first'])
     files = await pg.evaluate("Promise.all(__M.PICS.flatMap(p=>[p.img,p.vox]).map(u=>fetch(u).then(r=>r.ok?0:u)))")
     check('every picture and every name clip is there', not [f for f in files if f], [f for f in files if f])
     await c.close()
