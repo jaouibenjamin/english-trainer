@@ -75,7 +75,9 @@ deleted as `docs/LIVE_STAGE.md` E7 says.
   is right (a wrong code answers exactly as today), so the form of a class cannot be probed without its code. The
   trial class (`first`) takes a first name alone, so one screen serves both: it sends the letter when one was typed.
 - `grade_board` is a new read, a function (0010), not a view: `GET /rest/v1/rpc/grade_board?select=display_name,class,points,me`
-  with the pupil's session, same shape as `class_board` plus `class`. It stays a function: it runs as its owner and
+  with the pupil's session, same shape as `class_board` plus `class` and `rank` (0011): at most 11 rows, in place
+  order: the top 10 of the grade, then the caller's own row when it is not among them. `rank` is 1 + the number with
+  more points (ties share it). The server sends nothing else of the grade, not even its size. It stays a function: it runs as its owner and
   picks the caller's grade itself, so no table under it is readable by a pupil.
 
 ## Tests (one PR with the code)

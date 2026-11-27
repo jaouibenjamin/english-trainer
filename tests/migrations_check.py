@@ -38,6 +38,11 @@ def git(*a):
 ROWS = """
 insert into auth.users (id) values ('00000000-0000-4000-8000-0000000000a1'), ('00000000-0000-4000-8000-0000000000b1');
 insert into public.classes (id, name) values ('00000000-0000-4000-8000-0000000000c1', 'Test class');
+do $$ begin      -- once game holds 0010, classes made by hand need the form of these names (a first name alone)
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'classes' and column_name = 'name_form') then
+    execute 'update public.classes set name_form = ''first''';
+  end if;
+end $$;
 insert into public.teachers (user_id, class_id) values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c1');
 insert into public.roster (class_id, name_key, display_name) values ('00000000-0000-4000-8000-0000000000c1', 'pupil one', 'Pupil One');
 insert into public.pupils (id, class_id, display_name, auth_user_id)
@@ -48,6 +53,11 @@ insert into public.pupils (id, class_id, display_name) values ('00000000-0000-40
 -- once game holds 0009: a pupil taken out of the class too (a hidden class and a removed row), so a later file meets them
 -- and two hidden classes whose home classes were deleted by hand afterwards (their limbo row's class_id is null then)
 insert into public.classes (id, name) values ('00000000-0000-4000-8000-0000000000c2', 'Gone A'), ('00000000-0000-4000-8000-0000000000c3', 'Gone B');
+do $$ begin      -- once game holds 0010, classes made by hand need the form of these names (a first name alone)
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'classes' and column_name = 'name_form') then
+    execute 'update public.classes set name_form = ''first''';
+  end if;
+end $$;
 insert into public.teachers (user_id, class_id) values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c2'),
                                                        ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c3');
 insert into public.pupils (id, class_id, display_name) values ('00000000-0000-4000-8000-0000000000d3', '00000000-0000-4000-8000-0000000000c2', 'Gone Pupil'),
