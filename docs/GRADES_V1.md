@@ -86,6 +86,13 @@ board (no other grade, no limbo, no trial), the limits per (address, class), the
 `name_form` in the answers. `migrations_check.py`: 0010+ on a database with rows: a class, pupils, a removed pupil,
 answers. `setup_check.py`: `add-class` and `add-teacher`, no secret in the log.
 
+## Later (not in v1)
+
+- **The class board sends the whole class** (`class_board`: every classmate's name, points, words, streak) though the
+  screen shows the podium, the top five, the pupil's own place and the row above it. Left as is for v1 (lead, after
+  #134): it is the pupil's own class, names they know, and today's Sheet board shows the whole class too. A server cut
+  would be top 5 + own row + the row above + the class's size, with a client change.
+
 ## The seam for subject groups
 
 Groups would be `subject_groups (grade_id, subject)` and `group_members (pupil_id, subject)`, read through a new
