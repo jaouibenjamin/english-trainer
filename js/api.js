@@ -51,7 +51,7 @@ export const MODE=URL_OK&&tryOn&&(B.mode==='dual'||B.mode==='supabase')?B.mode:'
 export const TRIAL=MODE==='supabase'&&!EVERYONE;
 /* review of #121: a page of the trial brought back by the back button (bfcache) runs no module again: if the device left
    the trial since (?new=0), it would write the trial's record back; it is loaded afresh instead. Only on a trial device:
-   the class's devices get nothing registered (a page of theirs brought back after "כן" elsewhere is the Sheet's game as
+   the class's devices get nothing registered here (js/main.js and js/run.js add one small pageshow listener on every device, for the question; a page of theirs brought back after "כן" elsewhere is the Sheet's game as
    it was, and the next load is the trial's). */
 if(URL_OK&&!EVERYONE&&tryOn&&typeof W.addEventListener==='function')W.addEventListener('pageshow',e=>{try{if(e&&e.persisted&&W.localStorage.getItem('wi_'+SW)!=='1')W.location.reload()}catch(x){}});
 

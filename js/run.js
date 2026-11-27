@@ -12,7 +12,7 @@ import {SND,unlock} from './audio.js';
 const $=s=>document.querySelector(s);
 /* a ?new=1 link on a device not in the trial yet: asked first, as in the game (js/trial.js, review of #121) */
 const trialAsk=()=>{try{if(sessionStorage.getItem('wi_new_ask')==='1')import('./trial.js').then(m=>m.ask()).catch(()=>{})}catch(e){}};
-trialAsk();addEventListener('pageshow',e=>{if(e.persisted)trialAsk()});
+trialAsk();addEventListener('pageshow',e=>{if(e.persisted)trialAsk()});   // on every device, the class's too: it only reads sessionStorage and does nothing without the question waiting
 const cv=$('#gl'),stageEl=$('#rstage'),hud=$('#hud'),pad=$('#pad'),menu=$('#menu'),banner=$('#banner'),flashEl=$('#flash');
 if(SET.calm)document.documentElement.classList.add('calm');
 /* a menu picture that fails to load falls back to its data-fb picture (a listener, not an inline onerror: the page's

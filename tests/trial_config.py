@@ -163,13 +163,20 @@ async def main():
             await pg.evaluate("window.__taps=0;document.addEventListener('click',e=>{if(!(e.target.dataset&&e.target.dataset.ask))window.__taps++})")
             box = await pg.locator('#wi-trial-ask [data-ask="stay"]').bounding_box()
             x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
-            await pg.mouse.click(x, y); await pg.wait_for_timeout(90); await pg.mouse.click(x, y); await pg.wait_for_timeout(700)
+            # taps on the same spot after the first: 90 ms (a quick double tap), 450 and 650 ms (a child's slow one, LESSONS 2); none reaches the game
+            await pg.mouse.click(x, y); t0 = await pg.evaluate('performance.now()')
+            late = []
+            for ms in (90, 450, 650):
+                await pg.evaluate(f"new Promise(r=>setTimeout(r,Math.max(0,{ms}-(performance.now()-{t0}))))"); await pg.mouse.click(x, y)
+                late.append(round(await pg.evaluate(f'performance.now()-{t0}')))
+            check('test setup: the later taps came at about 90, 450 and 650 ms', all(a <= b + 120 for a, b in zip(late, (90, 450, 650))) and late[-1] < 700, late)
+            await pg.wait_for_timeout(300)
             r = await pg.evaluate("[window.__taps,location.hash,!!document.getElementById('wi-trial-ask'),document.getElementById('pre').inert,[...document.body.children].filter(c=>c.id!=='pre').some(c=>c.inert),sessionStorage.getItem('wi_new_ask')]")
-            check('a double tap on "חזרה למשחק הרגיל": the screen closes, the second tap does not reach the game (the screen stays), the question is gone',
+            check('a double tap on "חזרה למשחק הרגיל", quick or slow (90, 450, 650 ms): the screen closes, no later tap reaches the game (the screen stays), the question is gone',
                   r[0] == 0 and r[1] == hash0 and r[2] is False and r[5] is None, [r, hash0])
             check('it gives back only what the dialog made inert (a part the page had made inert stays so)', r[3] is True and r[4] is False, r)
-            await pg.mouse.click(5, 5); await pg.wait_for_timeout(100)
-            check('a tap a moment later reaches the game again', await pg.evaluate('window.__taps') == 1)
+            await pg.evaluate(f"new Promise(r=>setTimeout(r,Math.max(0,900-(performance.now()-{t0}))))"); await pg.mouse.click(5, 5); await pg.wait_for_timeout(100)
+            check('a deliberate tap at 900 ms reaches the game again', await pg.evaluate('window.__taps') == 1)
             # the Beach Run: asked too (review of #121)
             pg2 = await c.new_page(); await pg2.goto(PAGE.replace('index.html', 'run.html') + '?new=1'); await pg2.wait_for_selector('#wi-trial-ask', timeout=8000)
             check('run.html?new=1 on a device not in the trial: asked, not switched, and the address is clean',

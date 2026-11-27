@@ -9,7 +9,7 @@
    While it is open the page behind it takes no tap, key or focus (inert), also what the page adds meanwhile; when it
    closes, only what it made inert is given back, and taps that land on the page in the next moments (a double tap)
    are dropped. The words are the designer's, for the teacher's review. */
-const QUIET=350;   // ms after "חזרה" in which a tap on the page behind is dropped (review of #121: a double tap opened math)
+const QUIET=700;   // ms after "חזרה" in which a tap on the page behind is dropped (reviews of #121 and #129: a child's taps come 200-500 ms apart, LESSONS 2)
 const T={h:'רגע, זה מכשיר ניסיון',t:'כאן בודקים את המערכת החדשה של המשחק. הגעתם לכאן בטעות? אין בעיה: חוזרים למשחק הרגיל, וכל מה שעשיתם בו נשמר.',
  stay:'חזרה למשחק הרגיל',go:'להמשיך לניסיון'};
 const PITZI='assets/al/pitzi/wave.hf_20261124_204450_c2effc24-9597-44ee-9eb7-204c981203c3.webp';
