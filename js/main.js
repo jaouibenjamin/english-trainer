@@ -249,7 +249,7 @@ addEventListener('sync',syncBar);
 function syncLine(){const s=syncState();if(needsRelogin())return'<b class="sbad">לא נשמר בטבלת הכיתה</b>';
  if(!s.at)return'עוד לא נשמר בטבלת הכיתה';const t=new Date(s.at),today=new Date().toDateString()===t.toDateString();
  return`נשמר בטבלת הכיתה ${today?'היום':num(t.getDate()+'/'+(t.getMonth()+1))} ב־${num(String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'))}`}
-function board(){if(!API||!S.u)return go('map');setBg('paper','center');
+function board(){if(!API||!S.u)return go('map');if(ST.NEW??false)return board2();setBg('paper','center');
  if(!V.rows){view.innerHTML=`<section class="scr board">${top('טבלת הכיתה')}<p class="panel label msg">${esc(V.err||'טוענים את הטבלה…')}</p></section>`;
   if(!V.req){V.req=1;const v=V;push().then(()=>api('board',cred())).then(r=>{if(V!==v)return;if(r.ok)V.rows=r.rows;else V.err=ERR[r.e]||ERR.net;board()}).catch(()=>{if(V!==v)return;V.err=ERR.net;board()})}return}
  /* encouraging by design: the podium, the top five and the pupil's own place. Nobody is shown as last. */
@@ -264,6 +264,13 @@ function board(){if(!API||!S.u)return go('map');setBg('paper','center');
   <ol class="lb">${R.slice(0,5).map(row).join('')}${rank>4?`<li class="sep" aria-hidden="true"><i></i><i></i><i></i></li>${row(R[rank],rank)}`:''}</ol>
   </div>
   <div class="guide">${spr('crab_happy','bob')}<p class="label">${R.length<3?'עוד מעט כל הכיתה כאן. כל שלב מוסיף נקודות!':rank===0?'אתם במקום הראשון. כל הכבוד!':'תשובה נכונה, כוכב חדש ויום תרגול: הכול מוסיף נקודות'}</p></div></section>`}
+/* 'supabase' mode: the class and grade boards of docs/SIGNIN.md section 5 (js/boards.js, loaded only then); both
+   reads at once, the grade tab only when the grade's board has rows */
+function board2(){const my=navId,v=V;setBg('paper','center');
+ if(!V.req){V.req=1;push().then(()=>Promise.all([api('board',cred()),api('grade',cred()).catch(()=>null)])).then(([a,g])=>{if(V!==v)return;
+   if(a&&a.ok)V.rows=a.rows;else V.err=ERR[a&&a.e]||ERR.net;V.grade=g&&g.ok?g.rows:[];board2()}).catch(()=>{if(V!==v)return;V.err=ERR.net;board2()})}
+ import('./boards.js').then(m=>{if(my!==navId||V!==v||typeof m.show!=='function')return;
+  m.show(view,{rows:V.rows||null,grade:V.grade||[],tab:V.tab,err:V.err,onTab:t=>{V.tab=t;board2()}})}).catch(()=>{})}
 function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
  if(!API){view.innerHTML=`<section class="scr teacher">${top('מסך המורה',back)}<p class="panel label msg">מסך המורה יהיה זמין אחרי חיבור הכיתה.</p></section>`;return}
  if(!V.data){view.innerHTML=`<section class="scr teacher">${top('מסך המורה',back)}<form class="panel label" id="tf" autocomplete="off">

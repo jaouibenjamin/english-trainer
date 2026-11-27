@@ -6,7 +6,8 @@ those tests only), the way supabase/functions/_shared/core.ts and the database a
     (input, weak, class, pin, taken, roster, full, picture, otc, name with form) and, when `lock` is set, locked with
     wait, by and help; class GR-0001 takes first name + one letter (form 'first_initial', docs/GRADES_V1.md 0011);
   - the token refresh and logout; and with a session: the pupil's own row (pupils), the record (progress), the board
-    (class_board, with me), save_progress and record_events.
+    (class_board, with me), the grade's board (rpc/grade_board: [] unless `boards['grade']` is set), save_progress and
+    record_events. `boards['class']` / `boards['grade']`: rows to answer instead (a test's own made-up class or grade).
 Used by tests/supabase_mode.py (step 6) and the sign-in screens' suite (step 5). Names and codes are made up.
 
     prj = Project(); await context.route(SB + '/**', prj.route)
@@ -45,6 +46,7 @@ class Project:
         self.otc = {}   # (class code, name key) -> the teacher's one-time code
         self.no_who = False   # the pupil's own row cannot be read (503)
         self.unset = False    # the project's functions are not deployed yet: they answer 404
+        self.boards = {}  # 'class' | 'grade' -> the rows the board reads answer (default: class_board from PUPILS, grade [])
         self.next = {}  # 'register' | 'login' | 'recover' -> an answer given once, on the next call (the screens' waits table)
 
     def opened(self, p):
@@ -125,6 +127,10 @@ class Project:
         if u.path == '/rest/v1/progress':
             s, at = self.state(p['id'])
             return await ok([{'state': s, 'updated_at': at}] if at else [])
+        if u.path == '/rest/v1/class_board' and 'class' in self.boards:
+            return await ok(self.boards['class'])
+        if u.path == '/rest/v1/rpc/grade_board':
+            return await ok(self.boards.get('grade', []))
         if u.path == '/rest/v1/class_board':
             rows = [dict(display_name=q['name'], points=int(self.state(q['id'])[0].get('pts', 0)), words=0, streak=0, me=q['id'] == p['id']) for q in PUPILS.values() if q['cls'] == p['cls']]
             return await ok(sorted(rows, key=lambda x: -x['points']))
