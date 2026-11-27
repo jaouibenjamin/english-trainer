@@ -890,7 +890,7 @@ def test_grades(db):
         db.one(f"select private.teacher_add('{u(8)}', 'nope')"),
         db.one("select private.teacher_add('00000000-0000-4000-9000-999999999999', 'ה׳1')")], ['ok', 'already', 'class', 'user'])
     eq('the grade board crosses class lines with these columns only: name (with the letter), class, points, me; no ids',
-       sorted(board(('authenticated', u(1)))[0][0].keys()), ['class', 'display_name', 'me', 'points'])
+       sorted(board(('authenticated', u(1)))[0][0].keys()), ['class', 'display_name', 'me', 'points', 'rank'])
     eq('the new tables are not reachable through the API', [db.as_('authenticated', u(1), f'select count(*) from private.{x}')[1] is not None for x in ('schools', 'grades', 'pupil_carry')], [True] * 3)
     # the carry: old daily rows and a finished school year are folded, totals unchanged
     p_noa = db.one(f"select id from public.pupils where class_id = '{a}' and display_name = 'נועה כ.'")
@@ -919,7 +919,27 @@ def test_grades(db):
     eq('and the next night folds the rest', db.one(f"select count(*) from public.answer_daily where pupil_id = '{p_noa}'"), '0')
     db.admin("update private.settings set fold_per_run = 50000")
     db.admin(f"insert into public.pupils (class_id, display_name) select '{a}', 'Big' || chr(65 + g / 26) || chr(65 + g % 26) || ' B.' from generate_series(0, 329) g")
-    eq('the grade board holds a grade of more than 300 pupils', len(board(('authenticated', u(1)))[0]) > 330, True)
+    # 0011: the server sends the top 10 and the caller's own row, never the whole grade (review of the board)
+    in_order = lambda who: db._json(who, "select coalesce(jsonb_agg(to_jsonb(t) - 'n' order by t.n), '[]') "
+                                         "from public.grade_board() with ordinality t(display_name, class, points, me, rank, n)")
+    db.admin(f"update public.pupil_totals t set points = 1000 - x.n from (select id, row_number() over (order by display_name)::int as n "
+             f"from public.pupils where class_id = '{a}' and display_name like 'Big%') x where x.id = t.pupil_id")
+    noa_pts = int(db.one(f"select points from public.pupil_totals where pupil_id = '{p_noa}'"))
+    got, err = in_order(('authenticated', u(1)))
+    eq('a grade of 330 more pupils, all ahead of Noa: she gets 11 rows, the top 10 (ranks 1 to 10, in order) and her own '
+       'row last with her rank (331); nobody else of the grade', err or [(r['display_name'], r['points'], r['rank'], r['me']) for r in got],
+       [(f'BigA{chr(65 + i)} B.', 999 - i, i + 1, False) for i in range(10)] + [('נועה כ.', noa_pts, 331, True)])
+    got, err = in_order(('authenticated', u(8)))
+    eq('her class teacher: the top 10 only, no own row', err or [(len(got), any(r['me'] for r in got))], [(10, False)])
+    db.admin(f"update public.pupil_totals t set points = 50 from public.pupils p where p.id = t.pupil_id and p.class_id = '{a}' and p.display_name like 'Big%'")
+    got, err = in_order(('authenticated', u(1)))
+    eq('330 pupils tied for first: still 10 of them (all rank 1) and Noa (rank 331): ties never lengthen the answer',
+       err or [len(got), sorted({r['rank'] for r in got[:10]}), got[10]['rank'], got[10]['me']], [11, [1], 331, True])
+    p_big = db.one(f"select id from public.pupils where class_id = '{a}' and display_name = 'BigMR B.'")
+    db.admin(f"update public.pupils set auth_user_id = '{u(9)}' where id = '{p_big}'")
+    got, err = in_order(('authenticated', u(9)))
+    eq('a pupil tied with the top 10 but not picked: their own row still comes, with the shared rank',
+       err or [len(got), got[-1]['display_name'], got[-1]['rank'], got[-1]['me'], sum(r['me'] for r in got)], [11, 'BigMR B.', 1, True, 1])
     db.admin(f"delete from public.pupils where class_id = '{a}' and display_name like 'Big%'")
     check('no class is ever named like the hidden ones', db.psql(f"select private.class_create('Removed', 'ה׳', '{lk()}')", user='supabase_admin')[1] is not None)
     db.admin("insert into public.classes (name, name_form) values ('removed', 'first')")      # one made by hand, as a real class
