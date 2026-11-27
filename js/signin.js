@@ -74,7 +74,7 @@ const T={
  // NEW (not in docs/SIGNIN.md; for the teacher's review)
  eNet:'אין חיבור כרגע. בדקו את האינטרנט ונסו שוב.',
  // review of #117: the project answered 404 (its sign-in is not set up yet), and the way back from a trial device
- eUnset:'המערכת החדשה עוד לא מוכנה. אפשר לחזור למשחק הרגיל ולנסות שוב בהמשך.',trial:'מצב ניסיון · חזרה למשחק הרגיל',eFull:'אי אפשר להירשם לכיתה הזאת כרגע. בקשו מהמורה.',busy:'רגע…',
+ eUnset:'המערכת החדשה עוד לא מוכנה. אפשר לחזור למשחק הרגיל ולנסות שוב בהמשך.',trial:'חזרה למשחק הרגיל',trialTag:'מצב ניסיון',eFull:'אי אפשר להירשם לכיתה הזאת כרגע. בקשו מהמורה.',busy:'רגע…',
  slot:(k,w)=>w?`תמונה ${k===1?'ראשונה':'שנייה'}: ${w}. הקישו כדי להוריד`:`משבצת ${k}, ריקה`,picked:(w,k)=>`${w}, נבחרה ${k===1?'ראשונה':'שנייה'}`,
  dot:k=>`תמונה ${k===1?'ראשונה':'שנייה'} נבחרה. הקישו כדי להוריד`,del:'מחיקה',
  waitTeacher:'הכניסה עוצרת. בקשו מהמורה לשחרר אותה.',sysRec:'אי אפשר לשחזר את הקוד כרגע. נסו שוב מאוחר יותר, או בקשו מהמורה קוד חדש.',
@@ -205,11 +205,11 @@ export function mount(root,o){
  const grid=secret=>`<div class="si-grid">${st.order.map(no=>tile(no,secret)).join('')}</div>`;
  /* ---------- screens ---------- */
  const S={
-  entry:()=>`<div class="si-mid si-center"><h1 class="si-logo" tabindex="-1">${T.title}</h1></div>
+  entry:()=>`<div class="si-mid si-center">${o.trial?`<span class="si-tag">${T.trialTag}</span>`:''}<h1 class="si-logo" tabindex="-1">${T.title}</h1></div>
    <div class="si-bar"><button type="button" class="wi-btn wi-btn--block" data-si="start" data-f="reg">${T.reg}</button>
    <button type="button" class="wi-btn wi-btn--block wi-btn--secondary" data-si="start" data-f="in">${T.have}</button>
    <button type="button" class="wi-btn wi-btn--quiet" data-si="start" data-f="rec">${T.forgot}</button>
-   ${o.trial?`<a class="si-trial" href="?new=0#login">${T.trial}</a>`:''}</div>`,
+   ${o.trial?`<a class="wi-btn wi-btn--quiet si-trial" href="?new=0#login">${T.trial}</a>`:''}</div>`,
   a1:()=>`${top()}${head(T.a1h)}<div class="si-mid">${field('c',T.classL,T.classH,st.c,'dir="ltr" class="si-en" autocapitalize="characters" maxlength="16"')}${nrow(true)}${err()}</div>${bar(T.next,'a1')}`,
   a2:()=>`${top()}${head(T.a2h)}<div class="si-mid"><p class="si-txt">${T.a2t}</p>${code('p',T.codeL,4,st.p)}${code('p2',T.code2L,4,st.p2)}${err()}${keypad()}</div>${bar(T.next,'a2',st.p.length===4&&st.p2.length===4)}`,
   a3:()=>`${top()}${head(T.a3h)}<button type="button" class="wi-btn wi-btn--quiet si-names" data-si="names" aria-pressed="${st.names}">${st.names?T.namesOn:T.namesOff}</button>${slots(st.pics)}<p class="si-hint si-c">${st.hint?esc(st.hint):T.a3hint}</p><div class="si-mid">${grid(false)}</div>${bar(T.next,'a3',st.pics.length===2)}`,
