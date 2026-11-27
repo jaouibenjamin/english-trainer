@@ -114,7 +114,7 @@ def test_catalogue(db):
        db.admin(rel % "has_table_privilege('authenticated', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE')"), [['public.roster']])
     eq('authenticated: no right on any sequence', db.admin(seq % 'authenticated'), [])
     eq('authenticated: may run exactly the listed functions', [r[0] for r in db.admin(fn % 'authenticated')],
-       ['app.class_id', 'app.name_chars_ok', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.reads_class', 'app.reads_pupil', 'app.safe_int', 'app.shadow', 'app.teaches', 'app.teaches_pupil',
+       ['app.class_id', 'app.name_chars_ok', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.reads_class', 'app.reads_pupil', 'app.safe_int', 'app.shadow', 'app.teaches', 'app.teaches_pupil', 'app.week_start',
         'public.grade_board', 'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil', 'public.teacher_remove_pupil',
         'public.teacher_removed', 'public.teacher_restore_pupil'])
     eq('row level security is on for every table in public and private',
@@ -250,7 +250,7 @@ def test_points(db):
     eq('the board shows the whole class and nobody else', (sorted(r['display_name'] for r in rows), err), (sorted(NAMES[k] for k in 'ABCDEFGH'), None))
     eq('the board marks the caller', [r['display_name'] for r in rows if r['me']], [NAMES['A']])
     eq("another class's board is their own only", db.select(kid('X'), 'class_board', 'display_name')[0], [{'display_name': NAMES['X']}])
-    eq('the board has no ids', db.admin("select string_agg(column_name, ',' order by ordinal_position) from information_schema.columns where table_schema = 'public' and table_name = 'class_board'"), [['display_name,points,words,streak,me']])
+    eq('the board has no ids', db.admin("select string_agg(column_name, ',' order by ordinal_position) from information_schema.columns where table_schema = 'public' and table_name = 'class_board'"), [['display_name,points,words,streak,me,week']])
 
     print('-- answers: kept, 0 points, flagged')
     r, _ = record(db, 'C', ans(25, minute=1, step_s=1, key='w'))
@@ -890,7 +890,7 @@ def test_grades(db):
         db.one(f"select private.teacher_add('{u(8)}', 'nope')"),
         db.one("select private.teacher_add('00000000-0000-4000-9000-999999999999', 'ה׳1')")], ['ok', 'already', 'class', 'user'])
     eq('the grade board crosses class lines with these columns only: name (with the letter), class, points, me; no ids',
-       sorted(board(('authenticated', u(1)))[0][0].keys()), ['class', 'display_name', 'me', 'points', 'rank'])
+       sorted(board(('authenticated', u(1)))[0][0].keys()), ['class', 'display_name', 'me', 'rank', 'week'])
     eq('the new tables are not reachable through the API', [db.as_('authenticated', u(1), f'select count(*) from private.{x}')[1] is not None for x in ('schools', 'grades', 'pupil_carry')], [True] * 3)
     # the carry: old daily rows and a finished school year are folded, totals unchanged
     p_noa = db.one(f"select id from public.pupils where class_id = '{a}' and display_name = 'נועה כ.'")
@@ -921,17 +921,19 @@ def test_grades(db):
     db.admin(f"insert into public.pupils (class_id, display_name) select '{a}', 'Big' || chr(65 + g / 26) || chr(65 + g % 26) || ' B.' from generate_series(0, 329) g")
     # 0011: the server sends the top 10 and the caller's own row, never the whole grade (review of the board)
     in_order = lambda who: db._json(who, "select coalesce(jsonb_agg(to_jsonb(t) - 'n' order by t.n), '[]') "
-                                         "from public.grade_board() with ordinality t(display_name, class, points, me, rank, n)")
-    db.admin(f"update public.pupil_totals t set points = 1000 - x.n from (select id, row_number() over (order by display_name)::int as n "
-             f"from public.pupils where class_id = '{a}' and display_name like 'Big%') x where x.id = t.pupil_id")
-    noa_pts = int(db.one(f"select points from public.pupil_totals where pupil_id = '{p_noa}'"))
+                                         "from public.grade_board() with ordinality t(display_name, class, week, me, rank, n)")
+    # 0012: the boards rank this week's points, from the ledger (these pupils are deleted below, with their rows)
+    db.admin(f"insert into public.points (pupil_id, delta, reason) select id, 1000 - row_number() over (order by display_name)::int, 'fix' "
+             f"from public.pupils where class_id = '{a}' and display_name like 'Big%'")
+    noa_pts = int(db.one(f"select app.week_points('{p_noa}', app.week_start(now()))"))
     got, err = in_order(('authenticated', u(1)))
     eq('a grade of 330 more pupils, all ahead of Noa: she gets 11 rows, the top 10 (ranks 1 to 10, in order) and her own '
-       'row last with her rank (331); nobody else of the grade', err or [(r['display_name'], r['points'], r['rank'], r['me']) for r in got],
+       'row last with her rank (331); nobody else of the grade', err or [(r['display_name'], r['week'], r['rank'], r['me']) for r in got],
        [(f'BigA{chr(65 + i)} B.', 999 - i, i + 1, False) for i in range(10)] + [('נועה כ.', noa_pts, 331, True)])
     got, err = in_order(('authenticated', u(8)))
     eq('her class teacher: the top 10 only, no own row', err or [(len(got), any(r['me'] for r in got))], [(10, False)])
-    db.admin(f"update public.pupil_totals t set points = 50 from public.pupils p where p.id = t.pupil_id and p.class_id = '{a}' and p.display_name like 'Big%'")
+    db.admin(f"delete from public.points x using public.pupils p where p.id = x.pupil_id and p.class_id = '{a}' and p.display_name like 'Big%';"
+             f"insert into public.points (pupil_id, delta, reason) select id, 1000, 'fix' from public.pupils where class_id = '{a}' and display_name like 'Big%'")
     got, err = in_order(('authenticated', u(1)))
     eq('330 pupils tied for first: still 10 of them (all rank 1) and Noa (rank 331): ties never lengthen the answer',
        err or [len(got), sorted({r['rank'] for r in got[:10]}), got[10]['rank'], got[10]['me']], [11, [1], 331, True])
@@ -941,6 +943,32 @@ def test_grades(db):
     eq('a pupil tied with the top 10 but not picked: their own row still comes, with the shared rank',
        err or [len(got), got[-1]['display_name'], got[-1]['rank'], got[-1]['me'], sum(r['me'] for r in got)], [11, 'BigMR B.', 1, True, 1])
     db.admin(f"delete from public.pupils where class_id = '{a}' and display_name like 'Big%'")
+    # 0012, the week itself: Sunday 00:00 in Israel, in winter, in summer and in the week summer time ends
+    eq('the week starts on Sunday 00:00 Asia/Jerusalem (winter +02, summer +03, and the Sunday summer time ends)',
+       db.admin("select to_char(app.week_start(t) at time zone 'utc', 'YYYY-MM-DD HH24:MI') from unnest(array["
+                "'2026-11-26 12:00Z', '2026-11-21 21:59Z', '2026-11-21 22:00Z', '2026-04-01 12:00Z', '2026-10-29 12:00Z']::timestamptz[]) t"),
+       [['2026-11-21 22:00'], ['2026-11-14 22:00'], ['2026-11-21 22:00'], ['2026-03-28 21:00'], ['2026-10-24 21:00']])
+    w0 = int(db.one(f"select app.week_points('{p_noa}', app.week_start(now()))"))
+    db.admin(f"insert into public.points (pupil_id, delta, reason, at) values ('{p_noa}', 5, 'fix', app.week_start(now()) - interval '1 minute'), "
+             f"('{p_noa}', 7, 'fix', app.week_start(now())); "
+             f"insert into public.points (pupil_id, delta, reason, ref) values ('{p_noa}', 100, 'migrated', ''), ('{p_noa}', 1000, 'day', 'rolled'); "
+             f"update public.pupil_totals set points = points + 1112 where pupil_id = '{p_noa}'")
+    me_row = lambda who: db.select(who, 'class_board', 'points, week', dict(me=True))[0]
+    eq("a point at Saturday 23:59 is last week's, one at Sunday 00:00 this week's; an import ('migrated') and the roll-up's "
+       "merged rows do not count; the class board shows the week and, unchanged, the all-time total",
+       [int(db.one(f"select app.week_points('{p_noa}', app.week_start(now()))")) - w0,
+        me_row(('authenticated', u(1))) == [dict(points=int(db.one(f"select points from public.pupil_totals where pupil_id = '{p_noa}'")), week=w0 + 7)]],
+       [7, True])
+    db.admin(f"insert into public.pupils (class_id, display_name, auth_user_id) values ('{a}', 'Zero ז.', '{u(9)}')")
+    got, err = in_order(('authenticated', u(9)))
+    eq('a pupil with no points this week: in nobody\'s top 10, their own row last with week 0; nobody else with 0',
+       err or [got[-1]['display_name'], got[-1]['week'], got[-1]['me'], got[-1]['rank'] == len(got), [r['week'] for r in got[:-1] if r['week'] <= 0]],
+       ['Zero ז.', 0, True, True, []])
+    eq('a client still asking the grade board for all-time points gets an error, not a wrong number',
+       'points' in (db._json(('authenticated', u(1)), "select jsonb_agg(points) from public.grade_board()")[1] or ''), True)
+    eq('the helper that sums any pupil\'s week is not callable by a pupil',
+       'permission denied' in (db.as_('authenticated', u(1), f"select app.week_points('{p_noa}', now())")[1] or ''), True)
+    db.admin("delete from public.pupils where display_name = 'Zero ז.'")
     check('no class is ever named like the hidden ones', db.psql(f"select private.class_create('Removed', 'ה׳', '{lk()}')", user='supabase_admin')[1] is not None)
     db.admin("insert into public.classes (name, name_form) values ('removed', 'first')")      # one made by hand, as a real class
     p_noa2 = db.one(f"select id from public.pupils where class_id = '{a}' and display_name = 'נועה כ2.'")
