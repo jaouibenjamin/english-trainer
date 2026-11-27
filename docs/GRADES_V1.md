@@ -96,8 +96,9 @@ Both boards rank **this week's points**; nothing else about them changes.
 - **Where weekly points come from:** the points ledger that exists (`public.points`: `pupil_id`, `delta`, `at`),
   summed since the week began. No new column, no new counter to keep in step: the ledger is already what
   `pupil_totals` adds up. The nightly roll-up only merges `day` and `run` rows older than `raw_days` (30 today), so
-  the last 7 days are always whole rows; 0012 adds the check `raw_days >= 8` so that stays true. Rows of reason
-  `migrated` (a one-off import) are left out of the week; `fix` rows count (a correction is a correction). A point
+  the last 7 days are whole rows; its merged rows (`ref = 'rolled'`) are left out of the week, so a `raw_days` below
+  8 could only make a week smaller, never larger (no table check: the roll-up's own tests set it to 0). Rows of reason
+  `migrated` (a one-off import) are left out too; `fix` rows count (a correction is a correction). A point
   belongs to the week it reached the server (`at` is the server's time); a batch a device kept offline counts when it
   arrives. One index, `points (at, pupil_id)`, keeps the sum cheap (a grade is about 350 pupils).
 - **The week:** from **Sunday 00:00 Asia/Jerusalem** (`private.settings.tz`, as the daily bonus and the teacher's
@@ -124,9 +125,8 @@ Both boards rank **this week's points**; nothing else about them changes.
   - both say "this week" (from Sunday), and nothing changes on the map or the profile.
 - **Tests (0012, the local stand-in):** the week starts on Sunday 00:00 in `tz` (a point at Saturday 23:59 local is
   last week's, at Sunday 00:00 this week's, also across a summer-time change); `migrated` rows do not count;
-  rolled-up rows never fall inside the week; the grade board's top 10 by week, ties, the empty Sunday, the own row
-  with `week` 0; `class_board.week` per pupil; an old `select=points` on `grade_board` fails; `raw_days` below 8 is
-  refused.
+  rolled-up rows do not count; the grade board's top 10 by week, ties, the own row with `week` 0; `class_board.week`
+  per pupil; an old `select=points` on `grade_board` fails; the per-pupil sum is not callable by a pupil.
 
 ## Later (not in v1)
 
