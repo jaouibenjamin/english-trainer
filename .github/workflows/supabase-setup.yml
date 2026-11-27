@@ -18,8 +18,23 @@ on:
         description: 'dry-run tests the setup against a local stand-in (no secrets, nothing sent); real sets up the project (main only); rotate-trial gives the trial class a new code (main only)'
         required: true
         type: choice
-        options: [dry-run, real, rotate-trial]
+        options: [dry-run, real, rotate-trial, add-class, add-teacher]
         default: dry-run
+      class_name:
+        description: 'add-class and add-teacher: the class, e.g. ה׳2 (not secret)'
+        required: false
+        type: string
+        default: ''
+      grade:
+        description: 'add-class: its grade, e.g. ה׳'
+        required: false
+        type: string
+        default: ''
+      teacher_user_id:
+        description: 'add-teacher: her user id from Supabase → Authentication → Users (never her address: inputs are public)'
+        required: false
+        type: string
+        default: ''
       redeploy:
         description: 'Deploy the five functions again even when they are there'
         required: false
@@ -42,7 +57,7 @@ jobs:
       - name: The setup, against a stand-in of the Management API and a local database
         run: python3 tests/setup_check.py
   setup:
-    if: (inputs.mode == 'real' || inputs.mode == 'rotate-trial') && github.actor == 'jaouibenjamin' && github.triggering_actor == 'jaouibenjamin' && github.ref == 'refs/heads/main'
+    if: inputs.mode != 'dry-run' && github.actor == 'jaouibenjamin' && github.triggering_actor == 'jaouibenjamin' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: supabase-setup
@@ -78,9 +93,17 @@ jobs:
           CONFIRM: ${{ inputs.confirm }}
           REDEPLOY: ${{ inputs.redeploy }}
           MODE: ${{ inputs.mode }}
+          CLASS_NAME: ${{ inputs.class_name }}
+          GRADE: ${{ inputs.grade }}
+          TEACHER_ID: ${{ inputs.teacher_user_id }}
         run: |
           set -eu
-          extra=""
-          if [ "$REDEPLOY" = "true" ]; then extra="--redeploy"; fi
-          if [ "$MODE" = "rotate-trial" ]; then extra="--rotate-trial"; fi
-          python3 tools/supabase_setup.py --confirm "$CONFIRM" --cli "$RUNNER_TEMP/sb/package/bin/supabase" $extra
+          args=(--confirm "$CONFIRM" --cli "$RUNNER_TEMP/sb/package/bin/supabase")
+          case "$MODE" in
+            real) if [ "$REDEPLOY" = "true" ]; then args+=(--redeploy); fi ;;
+            rotate-trial) args+=(--rotate-trial) ;;
+            add-class) args+=(--add-class "$CLASS_NAME" --grade "$GRADE") ;;
+            add-teacher) args+=(--add-teacher "$TEACHER_ID" --class "$CLASS_NAME") ;;
+            *) echo "unknown mode"; exit 1 ;;
+          esac
+          python3 tools/supabase_setup.py "${args[@]}"

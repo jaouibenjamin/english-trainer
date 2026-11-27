@@ -11,7 +11,7 @@ a newly opened character is announced once on the map; names come only from the 
 the fixed lists, never text) are kept in the wi_world key on the device only, never in the progress record and never
 in a request to the backend (checked against the mock backend in class mode); energy only goes up; today's focus names
 the open island with the most words to fix and takes the pupil there."""
-import asyncio, hashlib, json, os, re, sys
+import asyncio, subprocess, hashlib, json, os, re, sys
 from playwright.async_api import async_playwright
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import play as P
@@ -19,7 +19,8 @@ from play import check, new_page, fails
 
 CLASS = 'EN-1234'      # the mock backend's own test class
 STARTERS = ['girl-curls', 'boy-cap', 'girl-braids', 'boy-curls', 'girl-glasses', 'boy-blond', 'girl-ponytail', 'boy-scarf']   # the human kids: always open
-LADDER = ['fox', 'cat', 'turtle', 'owl', 'parrot', 'robot-box', 'diver', 'penguin', 'shark', 'octopus', 'robot-bell', 'pilot']   # levels 2 to 13
+LADDER = ['fox', 'cat', 'turtle', 'owl', 'parrot', 'robot-box', 'diver', 'penguin', 'shark', 'octopus', 'robot-bell', 'pilot',   # levels 2 to 13
+          'hedgehog', 'koala', 'raccoon', 'capybara', 'otter', 'flamingo', 'zebra', 'badger', 'kangaroo', 'eagle']   # 14 to 23 (MORE)
 LEVELS = [0, 40, 90, 150, 220, 300, 380, 460, 540, 620, 700, 760, 820, 890, 950, 1020, 1080, 1150, 1220, 1280, 1350, 1410, 1480]   # js/world_data.js ENERGY
 OLD_LEVELS = LEVELS[:13]   # the ladder before Fraction Bay counted (13 levels, then one per 250)
 
@@ -70,6 +71,15 @@ async def to_path(pg, isl):
     await pg.evaluate(f"location.hash='island/{isl}'"); await pg.wait_for_selector('.w-path .w-st')
 
 
+def thumbs():
+    """every character in js/world_art.js has its thumbnail, made by tools/avthumb.py (credited in assets/credits_extra.tsv)"""
+    art = open(os.path.join(P.ROOT, 'js', 'world_art.js'), encoding='utf-8').read()
+    ids = sorted(set(re.findall(r"'av/([a-z-]+)':", art)))
+    miss = [i for i in ids if not os.path.isfile(os.path.join(P.ROOT, 'assets', 'al', 'avthumb', i + '.webp'))]
+    extra = sorted(set(f[:-5] for f in os.listdir(os.path.join(P.ROOT, 'assets', 'al', 'avthumb'))) - set(ids))
+    check('every character has its 112 px picker thumbnail (assets/al/avthumb), and there is none for a character that is gone', len(ids) == 30 and not miss and not extra, [miss, extra])
+
+
 async def flag_off(b, w, h, errs):
     tag = f'off {w}x{h}'
     c, pg, reqs = await page(b, w, h, errs, SEED)
@@ -95,13 +105,24 @@ async def flag_on(b, w, h, errs):
     check(f'[{tag}] the dock is on the screen and no island lies under it', box['inside'] and box['over'] == 0, box)
     await pg.click('.wd__me'); await pg.wait_for_selector('.wpick__grid')
     av = await pg.evaluate("[...document.querySelectorAll('.wpick__av')].map(b=>({id:b.dataset.id,locked:b.classList.contains('is-locked')}))")
-    check(f'[{tag}] picker: the 20 characters, the 8 human kids open at level 1, the other 12 locked', len(av) == 20 and [a['id'] for a in av if not a['locked']] == STARTERS and [a['id'] for a in av if a['locked']] == LADDER, av)
+    check(f'[{tag}] picker: the 30 characters, the 8 human kids open at level 1, the other 22 locked', len(av) == 30 and [a['id'] for a in av if not a['locked']] == STARTERS and [a['id'] for a in av if a['locked']] == LADDER, av)
     lab = await pg.evaluate("[...document.querySelectorAll('.wpick__av.is-locked')].map(b=>[b.querySelector('.wpick__lock').textContent,b.getAttribute('aria-disabled'),/אפשר לפתוח ברמה/.test(b.getAttribute('aria-label')),!!b.querySelector('.wpick__key')])")
-    check(f'[{tag}] a locked tile shows a lock and "רמה N", says the whole sentence to a screen reader, and is not selectable', lab == [[f'רמה {n}', 'true', True, True] for n in range(2, 14)], lab)
+    check(f'[{tag}] a locked tile shows a lock and "רמה N", says the whole sentence to a screen reader, and is not selectable', lab == [[f'רמה {n}', 'true', True, True] for n in range(2, 24)], lab)
     seen = await pg.evaluate(BADGES)
     check(f'[{tag}] the character on a locked tile is in view (0.7) and its badge is one line inside the tile, nothing cut off', not seen['bad'] and seen['op'] == ['0.7'], seen)
+    # review of #122 (the picker opened 3.7 s slower): a locked tile shows the small thumbnail (tools/avthumb.py), not drawn
+    # a second time through the crop; an open one its full still; every picture arrives (none left without a src)
+    await pg.evaluate("document.querySelector('.wpick').scrollTop=1e5"); await pg.wait_for_timeout(400)
+    await pg.evaluate("Promise.all([...document.querySelectorAll('.wpick__art')].map(i=>i.decode().catch(()=>{})))")
+    th = await pg.evaluate("""[...document.querySelectorAll('.wpick__av')].map(b=>{const i=b.querySelector('.wpick__art');return{id:b.dataset.id,locked:b.classList.contains('is-locked'),
+      src:i.getAttribute('src')||'',w:i.naturalWidth,t:getComputedStyle(i).transform}})""")
+    bad = [x for x in th if not x['w'] or (x['locked'] != ('/avthumb/' in x['src'])) or (x['locked'] and x['t'] != 'none')]
+    check(f'[{tag}] picker: the 22 locked tiles show their thumbnail (unscaled), the open ones their full still, and every picture is drawn', not bad and sum(x['locked'] for x in th) == 22, bad)
+    await pg.evaluate("document.querySelector('.wpick').scrollTop=0")
     await P.shot(pg, f'world-picker-{w}x{h}')
-    await pg.click('.wpick__av[data-id=penguin]', force=True); await pg.wait_for_timeout(100)   # aria-disabled: a tap still reaches it, and it explains
+    await pg.click('.wpick__av[data-id=penguin]', force=True); await pg.wait_for_timeout(300)
+    pi = await pg.evaluate("(()=>{const i=document.querySelector('.wpick__av[data-id=penguin] .wpick__art');return [i.getAttribute('src'),i.style.transform]})()")
+    check(f'[{tag}] a tap on a locked tile shows its full still, in the crop box like the open ones', '/avthumb/' not in pi[0] and pi[1] == '', pi)   # aria-disabled: a tap still reaches it, and it explains
     t = await pg.inner_text('.wpick__note')
     check(f'[{tag}] a tap on a locked character says kindly how to get there (one neutral form, no gender slash), and does not choose it', 'אפשר לפתוח ברמה 9' in t and 'עוד 8 רמות' in t and 'אף פעם לא מפסידים' in t and '/' not in t and await pg.locator('.wpick__av.is-selected').count() == 0, t)
     await pg.click('.wpick__ok', force=True); await pg.wait_for_timeout(100)      # aria-disabled: still pressable, it explains
@@ -321,7 +342,7 @@ async def ladder(b, errs):
     c, pg, reqs = await page(b, 390, 844, errs)
     await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
     bad, shown_twice = [], []
-    for L in range(1, 14):
+    for L in range(1, 24):
         await set_world(pg, {'en': LEVELS[L - 1], 'sl': max(1, L - 1)})
         await goto_hash(pg, 'map', '.map .wd')
         W = await pg.evaluate('window.__world')
@@ -341,7 +362,7 @@ async def ladder(b, errs):
         open_ = await pg.evaluate("[...document.querySelectorAll('.wpick__av:not(.is-locked)')].map(b=>b.dataset.id)")
         if open_ != STARTERS + LADDER[:L - 1]: bad.append([L, 'open', open_])
         await pg.evaluate("location.hash='map'"); await pg.wait_for_selector('.map .wd')
-    check('each level from 1 to 13 opens exactly the next character (8 at level 1, all 20 at 13), and the map says it once', not bad, bad)
+    check('each level from 1 to 23 opens exactly the next character (8 at level 1, all 30 at 23), and the map says it once', not bad, bad)
     check('the notice shows only once for each level', not shown_twice, shown_twice)
     # the notice's buttons
     await set_world(pg, {'en': LEVELS[1], 'sl': 1}); await goto_hash(pg, 'map', '.wnew')
@@ -495,15 +516,37 @@ async def energy_migration(b, errs):
 
 
 async def soon_tiles(b, errs):
-    """levels 14 to 23 open nothing until the designer's characters exist: the picker shows them as "בקרוב" tiles with
+    """levels 14 to 23 hold the ten characters of MORE, with their pictures, and no "בקרוב" tile is left. A phone that still
+    holds the last ship's js/world_art.js (no picture for the ten) shows those levels as "בקרוב" tiles instead, never a
+    broken picture; the rest of this checks those tiles as before. Before MORE: levels 14 to 23 open nothing until the
+    designer's characters exist: the picker shows them as "בקרוב" tiles with
     their level, no picture (nothing broken), not buttons, named for a screen reader"""
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid')
+    # the pictures load lazily and decode asynchronously: wait (bounded) until every tile's picture has finished, drawn or
+    # broken, so a slow machine (all.py's parallel load) is not read as a missing picture; then count the drawn ones
+    DONE = "[...document.querySelectorAll('.wpick__av')].every(b=>{const i=b.querySelector('img.wpick__art');return i&&i.getAttribute('src')&&i.complete})"
+    try: await pg.wait_for_function(DONE, timeout=20000)
+    except Exception: pass   # the count below says what is missing
+    N = await pg.evaluate("[document.querySelectorAll('.wpick__soon-tile').length,[...document.querySelectorAll('.wpick__av')].filter(b=>{const i=b.querySelector('img.wpick__art');return i&&i.complete&&i.naturalWidth>0}).length]")
+    check('levels 14 to 23 hold the ten new characters, with their pictures: no "בקרוב" tile, all 30 tiles drawn', N == [0, 30], N)
+    await c.close()
+    # the eagle was called a griffin while it was drawn: a character stored under that name is the eagle, and is kept so
+    c, pg, reqs = await page(b, 390, 844, errs)
+    await pg.add_init_script("localStorage.setItem('wi_world',JSON.stringify({v:1,p:{local:{av:'griffin',nm:[3,4],nv:2,en:1500,sl:23}}}))")
+    await pg.goto(P.BASE + '?ds=1#map'); await pg.wait_for_selector('.map .wd'); await pg.wait_for_timeout(300)
+    W = await pg.evaluate("[window.__world.avatar,document.querySelector('.map .wd__pic').getAttribute('src')]")
+    check('a character stored as "griffin" is the eagle: shown with its picture, not lost', W[0] == 'eagle' and '/av/eagle.' in (W[1] or ''), W)
+    await c.close()
+    old_art = subprocess.run(['git', 'show', 'b1d5fad:js/world_art.js'], cwd=P.ROOT, capture_output=True).stdout   # before the waist-up set
     for w, h in ((390, 844), (320, 568), (1366, 768)):
         c, pg, reqs = await page(b, w, h, errs)
+        await pg.route('**/js/world_art.js', lambda r: r.fulfill(status=200, content_type='text/javascript', body=old_art))
         await pg.goto(P.BASE + '?ds=1#avatar'); await pg.wait_for_selector('.wpick__grid')
         T = await pg.evaluate("""[...document.querySelectorAll('.wpick__soon-tile')].map(t=>{const r=t.getBoundingClientRect();return {tag:t.tagName,img:t.querySelectorAll('img').length,txt:t.textContent,
           label:t.getAttribute('aria-label'),tab:t.tabIndex,w:r.width,h:r.height}})""")
         ok = len(T) == 10 and all(t['tag'] != 'BUTTON' and t['img'] == 0 and t['txt'] == f'בקרוברמה {n}' and t['label'] == f'דמות חדשה בקרוב, ברמה {n}' and t['tab'] < 0 and t['w'] >= 44 for t, n in zip(T, range(14, 24)))
-        check(f'[{w}x{h}] ten "בקרוב" tiles for levels 14 to 23: no picture, not buttons, named', ok, T[:2])
+        check(f'[{w}x{h}] the last ship\'s world_art.js: ten "בקרוב" tiles for levels 14 to 23: no picture, not buttons, named', ok, T[:2])
         G = await pg.evaluate("(()=>{const a=document.querySelector('.wpick__av').getBoundingClientRect(),t=document.querySelector('.wpick__soon-tile').getBoundingClientRect();return {av:[Math.round(a.width),Math.round(a.height)],soon:[Math.round(t.width),Math.round(t.height)],sx:document.documentElement.scrollWidth,W:innerWidth}})()")
         check(f'[{w}x{h}] the "בקרוב" tiles are the size of the character tiles, and nothing scrolls sideways', G['soon'] == G['av'] and G['sx'] <= G['W'], G)
         O = await pg.evaluate("[...new Set([...document.querySelectorAll('.wpick__av')].map(b=>(b.classList.contains('is-locked')?'locked ':'open ')+getComputedStyle(b.querySelector('.wpick__art')).opacity))]")
@@ -1087,6 +1130,7 @@ async def finished(b, errs):
 
 
 async def main():
+    thumbs()
     procs = P.start_servers(mock=True)      # its own servers on free ports (tests/play.py)
     errs = []
     try:

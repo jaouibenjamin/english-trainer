@@ -57,14 +57,18 @@ function title(){setBg('title','bottom');
  const c=view.querySelector('.tcrab');c.style.left=(m.ox+466*m.s)+'px';c.style.top=(m.oy+1240*m.s)+'px';whoChip()}
 
 /* ---------- map ---------- */
-function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,H=stage.clientHeight,mt=H<700?88:100;
+/* 'supabase' mode, a pupil signed in: the "who is playing" pill has its own row under the header (docs/SIGNIN.md); the
+   subjects button and the islands start this much lower (css/game.css .scr.map.who). The old look's header has the
+   hanging stars sign, so its row starts 18 px lower and takes that much more */
+const WHO_ROW=()=>dsOn()?52:70;
+function map(){setBg('map','center');const who=(ST.NEW??false)&&!!S.u,tot=totalStars(),W=stage.clientWidth,H=stage.clientHeight,mt=(H<700?88:100)+(who?WHO_ROW():0);
  /* islands zigzag in two columns, so neighbours in a column are two rows apart; the lowest island and its label end 14px above the bottom */
  /* every level of every island has been played: a banner along the beach. "Finished" is said only at full stars;
     until then it says how many stars are missing, and every island that still has stars to collect is ringed */
  const played=ISLANDS.every(i=>i.levels.every(([t])=>starsOf(i.id,t)>0)),all=tot===MAX_STARS,m=bgMap('center'),iw0=Math.min(W*.37,150,(H-(dsOn()?WORLD_DOCK:0))*.19);   // with the design flag, sized from the height left after the dock
  /* the banner shows when every level was played; with the design flag only if the islands still fit with it and the dock (worldFits) */
  const fin=played&&(!dsOn()||worldFits(iw0,H,mt,84+WORLD_DOCK)),finH=(fin?84:0)+(dsOn()?WORLD_DOCK:0);   // with the design flag, room for the new world's dock (js/avatar.js)
- const iw=worldIw(iw0,H,mt,finH),
+ const iw=who&&!dsOn()?pillIw(iw0,H,mt,finH):worldIw(iw0,H,mt,finH),
   cell=iw*.76+48,rowH=(H-mt-cell-14-finH)/5;
  /* the crab waits on the newest island that is open and still has stars to collect */
  const curI=ISLANDS.filter(i=>isOpen(i)&&islandStars(i)<i.levels.length*3).sort((a,b)=>b.id-a.id)[0]||null;
@@ -74,12 +78,13 @@ function map(){setBg('map','center');const tot=totalStars(),W=stage.clientWidth,
  const band=2*rowH-cell,deco=(n,x,r,h)=>band<34?'':`<img class="deco" src="${SP(n)}" alt="" style="left:${x}%;top:${(mt+rowH*r+cell+band/2).toFixed(1)}px;height:${Math.min(h,band-8).toFixed(1)}px">`;
  const yp=p=>((p.y+iw*.36)/H*100).toFixed(2),seq=[...place].sort((a,b)=>a.i.id-b.i.id);
  const path=seq.map((p,k)=>{if(!k)return`M${p.x} ${yp(p)}`;const q=seq[k-1];return`C${q.x} ${((+yp(q)+ +yp(p))/2-2).toFixed(2)} ${p.x} ${((+yp(q)+ +yp(p))/2+2).toFixed(2)} ${p.x} ${yp(p)}`}).join('');
- view.innerHTML=`<section class="scr map" style="--iw:${iw.toFixed(1)}px">
+ view.innerHTML=`<section class="scr map${who?' who':''}" style="--iw:${iw.toFixed(1)}px">
   <header class="maphead${API&&S.u?' cls':''}"><button class="mb" data-a="nav" data-to="settings"><span class="rb t1">${spr('ic_gear','rbi')}</span><small>הגדרות</small></button>
    <div class="sign total"><b>${star()}<span>${num(tot+' / '+MAX_STARS)}</span></b></div>
    <span class="tr">${API&&S.u?`<button class="mb" data-a="nav" data-to="board"><span class="rb t3">${spr('trophy','rbi')}</span><small>טבלה</small></button>`:''}<button class="mb" data-a="nav" data-to="collection"><span class="rb t2">${spr('chest','rbi')}</span><small>האוסף</small></button></span></header>
   ${fin?`<div class="fin label${all?' all':''}" role="status">${spr(all?'crab_star':'crab_wave','fc bob')}<p>${all?`<b>כל הכבוד! סיימתם את כל האיים</b><small>כל ${num(MAX_STARS)} הכוכבים שלכם. אפשר לשחק שוב בכל שלב${API&&S.u?' ולצבור נקודות':''}</small>`
    :`<b>עברתם בכל האיים!</b><small><span class="nb">${MAX_STARS-tot===1?'חסר לכם עוד כוכב אחד':`חסרים לכם עוד ${num(MAX_STARS-tot)} כוכבים`}</span> <span class="nb">באיים שבמסגרת הצהובה</span></small>`}</p>${all?spr('trophy','ft'):`<span class="fs">${star()}<i>${num(tot+'/'+MAX_STARS)}</i></span>`}</div>`:''}
+  ${who?'<div class="maprow-who"></div>':''}
   <button class="subjpill" data-a="nav" data-to="">${ico('back')}<span>מקצועות</span></button>
   ${deco('boat',24,0,58)}${deco('whale',76,1,46)}
   ${played?'':`<img class="compass" src="${SP('compass')}" alt="" style="top:${Math.min(H-80,m.oy+1215*m.s-36).toFixed(1)}px">`}
@@ -108,6 +113,15 @@ function worldIw(iw,H,mt,finH){if(!dsOn())return iw;const pr=worldPr();
  return iw}
 /* do the islands fit at all (even at the smallest size) with this much kept free at the bottom? On a very short phone
    (320x568) the all-played banner and the dock together leave too little: then the banner is left out */
+/* the old look with the "who is playing" row (trial devices only): the row takes 70 px from the islands, and on a short
+   screen a label then reached into the island two rows below it (24 px at 320x568, a tap there opened the other
+   island). The islands shrink until the picture (3/4 of its width, css/game.css .isl .pic) and the tallest label (the
+   bonus island's three lines, about 53 px, less the tag's -4 px margin) fit in the space of two rows. Without the
+   row (the Sheet's class) this is never called: its islands keep their size */
+const OLD_TAG=50;
+function pillIw(iw,H,mt,finH){const room=w=>2*(H-mt-(w*.76+48)-14-finH)/5;
+ while(iw>56&&iw*.75+OLD_TAG>room(iw))iw-=2;
+ return iw}
 function worldFits(iw0,H,mt,finH){const iw=worldIw(iw0,H,mt,finH);return iw*worldPr()+WORLD_TAG<=worldRoom(iw,H,mt,finH)}
 let AV=null;   // js/avatar.js once loaded (flag on only)
 function worldMap(){if(!dsOn())return;const my=navId;import('./avatar.js').then(m=>{AV=m;if(my===navId&&V.name==='map')return m.decorateMap(view,go,()=>my===navId&&V.name==='map')}).catch(()=>{})}
@@ -213,9 +227,22 @@ function help(){setBg('paper','center');
    NEW and enter are newer than the last ship: read through the namespace, with a fallback (tests/cache_mix.py). */
 let SI=null;
 function signin(){const my=navId;import('./signin.js').then(m=>{if(my!==navId||V.name!=='login'||SI)return;
- SI=m.mount(view,{enter:(k,f)=>typeof ST.enter==='function'?ST.enter(k,f):Promise.resolve({ok:false,e:'net'}),done:()=>go('title'),sound:()=>SET.sfx&&!SET.calm,lastC:S.lastC||''})}).catch(()=>{})}
+ SI=m.mount(view,{enter:(k,f)=>typeof ST.enter==='function'?ST.enter(k,f):Promise.resolve({ok:false,e:'net'}),done:()=>go('title'),sound:()=>SET.sfx&&!SET.calm,lastC:S.lastC||'',trial:ST.TRIAL??false})}).catch(()=>{})}
+/* a ?new=1 link opened on a device that holds the Sheet's game: asked once, never switched silently (js/api.js,
+   review of #117); nothing is loaded on any other device */
+const trialAsk=()=>{try{if(sessionStorage.getItem('wi_new_ask')==='1')import('./trial.js').then(m=>m.ask()).catch(()=>{})}catch(e){}};
+trialAsk();addEventListener('pageshow',e=>{if(e.persisted)trialAsk()});   // also on a page the back button brings back (review of #121). On every device, the class's too: it only reads sessionStorage and does nothing without the question waiting
 /* whose device this is, and "זה לא אני" (one tap, then the game's own sign-out): title and map, 'supabase' mode only */
-function whoChip(){if(!(ST.NEW??false)||!S.u)return;const my=navId;import('./signin.js').then(m=>{if(my===navId&&typeof m.notMe==='function'&&(V.name==='title'||V.name==='map')){const t=view.querySelector('.scr.title .tgo');m.notMe(t||view.querySelector('.scr')||view,{name:S.u.n,inline:!!t,out:()=>A.logout()})}}).catch(()=>{})}
+/* "who is playing" (docs/SIGNIN.md): on the title, a pill at the top of the screen; on the map, in its own row under the
+   header (map() keeps the row free). With the
+   design flag, the character chosen on this device is in it (js/avatar.js avatarSrc, newer than the last ship: read
+   through the namespace with a typeof guard) */
+function whoChip(){if(!(ST.NEW??false)||!S.u)return;const my=navId;
+ const av=dsOn()?import('./avatar.js').then(a=>typeof a.avatarSrc==='function'?a.avatarSrc():null).catch(()=>null):Promise.resolve(null);
+ Promise.all([import('./signin.js'),av]).then(([m,src])=>{if(my!==navId||typeof m.notMe!=='function'||(V.name!=='title'&&V.name!=='map'))return;
+  const sc=view.querySelector('.scr.title');let host=sc&&sc.querySelector('.si-titletop')||view.querySelector('.scr.map .maprow-who');
+  if(sc&&!host){host=document.createElement('div');host.className='si-titletop';sc.prepend(host)}
+  m.notMe(host||view.querySelector('.scr')||view,{name:S.u.n,inline:!!host,av:src||'',out:()=>A.logout()})}).catch(()=>{})}
 function login(){if(ST.NEW??false)return signin();setBg('paper','center');
  /* a device that has never signed in starts on "first time"; afterwards the usual case is coming back */
  const reg=(V.m||(S.lastC?'login':'register'))==='register';
@@ -245,7 +272,7 @@ addEventListener('sync',syncBar);
 function syncLine(){const s=syncState();if(needsRelogin())return'<b class="sbad">לא נשמר בטבלת הכיתה</b>';
  if(!s.at)return'עוד לא נשמר בטבלת הכיתה';const t=new Date(s.at),today=new Date().toDateString()===t.toDateString();
  return`נשמר בטבלת הכיתה ${today?'היום':num(t.getDate()+'/'+(t.getMonth()+1))} ב־${num(String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'))}`}
-function board(){if(!API||!S.u)return go('map');setBg('paper','center');
+function board(){if(!API||!S.u)return go('map');if(ST.NEW??false)return board2();setBg('paper','center');
  if(!V.rows){view.innerHTML=`<section class="scr board">${top('טבלת הכיתה')}<p class="panel label msg">${esc(V.err||'טוענים את הטבלה…')}</p></section>`;
   if(!V.req){V.req=1;const v=V;push().then(()=>api('board',cred())).then(r=>{if(V!==v)return;if(r.ok)V.rows=r.rows;else V.err=ERR[r.e]||ERR.net;board()}).catch(()=>{if(V!==v)return;V.err=ERR.net;board()})}return}
  /* encouraging by design: the podium, the top five and the pupil's own place. Nobody is shown as last. */
@@ -260,6 +287,13 @@ function board(){if(!API||!S.u)return go('map');setBg('paper','center');
   <ol class="lb">${R.slice(0,5).map(row).join('')}${rank>4?`<li class="sep" aria-hidden="true"><i></i><i></i><i></i></li>${row(R[rank],rank)}`:''}</ol>
   </div>
   <div class="guide">${spr('crab_happy','bob')}<p class="label">${R.length<3?'עוד מעט כל הכיתה כאן. כל שלב מוסיף נקודות!':rank===0?'אתם במקום הראשון. כל הכבוד!':'תשובה נכונה, כוכב חדש ויום תרגול: הכול מוסיף נקודות'}</p></div></section>`}
+/* 'supabase' mode: the class and grade boards of docs/SIGNIN.md section 5 (js/boards.js, loaded only then); both
+   reads at once, the grade tab only when the grade's board has rows */
+function board2(){const my=navId,v=V;setBg('paper','center');
+ if(!V.req){V.req=1;push().then(()=>Promise.all([api('board',cred()),api('grade',cred()).catch(()=>null)])).then(([a,g])=>{if(V!==v)return;
+   if(a&&a.ok)V.rows=a.rows;else V.err=ERR[a&&a.e]||ERR.net;V.grade=g&&g.ok?g.rows:[];board2()}).catch(()=>{if(V!==v)return;V.err=ERR.net;board2()})}
+ import('./boards.js').then(m=>{if(my!==navId||V!==v||typeof m.show!=='function')return;
+  m.show(view,{rows:V.rows||null,grade:V.grade||[],tab:V.tab,err:V.err,onTab:t=>{V.tab=t;board2()}})}).catch(()=>{})}
 function teacher(){setBg('paper','center');const back=API&&!S.u?'login':'map';
  if(!API){view.innerHTML=`<section class="scr teacher">${top('מסך המורה',back)}<p class="panel label msg">מסך המורה יהיה זמין אחרי חיבור הכיתה.</p></section>`;return}
  if(!V.data){view.innerHTML=`<section class="scr teacher">${top('מסך המורה',back)}<form class="panel label" id="tf" autocomplete="off">

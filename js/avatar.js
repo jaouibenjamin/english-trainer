@@ -27,6 +27,12 @@ import * as WD from './world_data.js';   // ENERGY and SOON are newer than the l
                                         // still holding the old world_data.js keeps the old ladder (tests/cache_mix.py)
 const ENERGY=WD.ENERGY??{worth:{star:10,word:5,story:5,mstar:0},levels:[0,40,90,150,220,300,380,460,540,620,700,760,820],after:250};
 const SOON=WD.SOON??[];
+/* every character the picker can show: the first twenty, and the ten of levels 14 to 23 (MORE, newer than the last
+   ship, so read through the namespace), each only where its picture is known (an older js/world_art.js has none for
+   the ten: they stay "soon" there) */
+const ALL=[...AVATARS,...(WD.MORE??[])].filter(a=>!!ART['av/'+a.id]);
+/* the eagle was called a griffin while it was being drawn; a character stored under that name is the eagle */
+const avId=v=>v==='griffin'?'eagle':v;
 import {M_ISLANDS,M_MAX} from './mdata.js';
 import {playAv,canMove} from './avanim.js';
 
@@ -59,7 +65,7 @@ async function ident(){const u=pupil();if(!u)return{key:'local',u:null};
 const same=id=>{const u=pupil();return id.u?!!u&&u.c===id.u.c&&u.n===id.u.n:!u};
 function readAll(){try{const o=JSON.parse(localStorage.getItem(KEY)||'null');return o&&typeof o==='object'&&o.v===1&&o.p&&typeof o.p==='object'&&!Array.isArray(o.p)?o:{v:1,p:{}}}catch(e){return{v:1,p:{}}}}
 function mine(id){const r=id.key&&Object.prototype.hasOwnProperty.call(readAll().p,id.key)?readAll().p[id.key]:null;const m=r&&typeof r==='object'?r:{};
- return{av:AVATARS.some(a=>a.id===m.av)?m.av:null,
+ return{av:ALL.some(a=>a.id===avId(m.av))?avId(m.av):null,
   nm:m.nv===NAME_V&&Array.isArray(m.nm)&&Number.isInteger(m.nm[0])&&Number.isInteger(m.nm[1])&&NAME_A[m.nm[0]]&&NAME_B[m.nm[1]]?[m.nm[0],m.nm[1]]:null,
   en:typeof m.en==='number'&&Number.isFinite(m.en)&&m.en>0?Math.min(EN_MAX,Math.floor(m.en)):0,
   sl:Number.isInteger(m.sl)&&m.sl>0&&m.sl<1000?m.sl:0,
@@ -68,6 +74,10 @@ const KEY_OK=/^(local|h:[0-9a-f]{64})$/;   // the only keys a record may have; a
 /* only the known fields, and a name always with the lists' version */
 const clean=r=>{const o={av:r.av,nm:r.nm,en:r.en};if(r.nm)o.nv=NAME_V;if(r.sl)o.sl=r.sl;if(r.at)o.at=r.at;return o};
 function keep(id,rec){if(!id.key||!same(id))return false;try{const all=readAll(),p={};for(const k of Object.keys(all.p))if(KEY_OK.test(k))p[k]=all.p[k];p[id.key]=clean(rec);localStorage.setItem(KEY,JSON.stringify({v:1,p}));return true}catch(e){return false}}
+
+/* the picture of the character this pupil chose on this device (the "who is playing" pill, js/signin.js notMe), or
+   null when none was chosen yet. The choice lives on the device only, as the rest of this record */
+export async function avatarSrc(){const id=await ident();const m=mine(id);return m.av&&ART['av/'+m.av]||null}
 
 /* ---------- energy: only goes up ---------- */
 export const earned=()=>WORTH.star*totalStars()+WORTH.word*wordsKnown()+WORTH.story*Object.values(S.read||{}).filter(v=>v>0).length+WORTH.mstar*mathStars();
@@ -78,7 +88,7 @@ const levelOf=pts=>pts>=LAST?LEVELS.length+Math.floor((pts-LAST)/ENERGY.after):L
 function energyOf(id){const r=mine(id),pts=Math.min(EN_MAX,Math.max(r.en,earned()));
  if(pts!==r.en)keep(id,{...r,en:pts});
  const level=levelOf(pts);
- const opens=AVATARS.some(a=>a.open===level+1)?'נפתחת דמות חדשה':'עוד רמה בדרך';
+ const opens=ALL.some(a=>a.open===level+1)?'נפתחת דמות חדשה':'עוד רמה בדרך';
  /* the most English can still bring is the English maximum plus the math already done: when that is below the next
     level, only Fraction Bay can take the pupil there, and the note says so */
  // only when math can still earn energy (a cached world_data.js older than the ladder gives it 0) and the pupil still has
@@ -143,7 +153,7 @@ export async function decorateMap(view,go,live=()=>true){
  let fresh=[];
  if(id.key){const r=mine(id);
   if(!r.sl)keep(id,{...r,sl:E.level});
-  else if(E.level>r.sl){fresh=AVATARS.filter(a=>a.open>r.sl&&a.open<=E.level);keep(id,{...r,sl:E.level})}}
+  else if(E.level>r.sl){fresh=ALL.filter(a=>a.open>r.sl&&a.open<=E.level);keep(id,{...r,sl:E.level})}}
  if(fresh.length){const a=fresh[fresh.length-1],box=el('div','wnew');box.setAttribute('role','dialog');box.setAttribute('aria-labelledby','wnew-h');
   const h=el('h2','wnew__h',fresh.length>1?'דמויות חדשות נפתחו!':'דמות חדשה נפתחה!');h.id='wnew-h';
   const ok=btn('wnew__ok','לבחירת דמות',()=>go('avatar'));
@@ -330,7 +340,7 @@ export async function picker(view,go,live=()=>true){
  if(!live()||!same(id))return;
  if(!id.key)return go('map');   // nothing could be kept on this device: the dock says so
  style();
- const me=mine(id),E=energyOf(id);let pick=me.av,nm=me.nm?[...me.nm]:[0,0];
+ const me=mine(id),E=energyOf(id);let pick=me.av,nm=me.nm?[...me.nm]:[0,0],seen=false,io=null;
  const sec=el('section','scr wpick');view.replaceChildren(sec);document.getElementById('stage').dataset.scr='avatar';
  const head=el('header','wpick__top');
  head.appendChild(btn('wpick__back','חזרה',()=>go('map')));
@@ -340,20 +350,34 @@ export async function picker(view,go,live=()=>true){
   body.appendChild(el('p','wpick__sub','אפשר להחליף אותה מתי שרוצים.'));
   const grid=el('div','wpick__grid');grid.setAttribute('role','group');grid.setAttribute('aria-label','הדמויות');
   const note=el('p','wpick__note','בכל רמה חדשה נפתחת דמות חדשה. עכשיו אתם ברמה '+E.level+'.');note.setAttribute('role','status');
-  for(const a of AVATARS){const locked=a.open>E.level&&a.id!==me.av,sel=pick===a.id;   // the character a pupil already has stays theirs
+  const later=[];
+  for(const a of ALL){const locked=a.open>E.level&&a.id!==me.av,sel=pick===a.id;   // the character a pupil already has stays theirs
    const b=btn('wpick__av'+(locked?' is-locked':'')+(sel?' is-selected':''),null,()=>{
-    if(locked){note.textContent=lockedSay(a,E.level);return}
+    if(locked){note.textContent=lockedSay(a,E.level);const i=b.querySelector('.wpick__art--thumb');if(i){i.classList.remove('wpick__art--thumb');i.style.transform='';i.src=ART['av/'+a.id]}return}   // tapped: its full picture, once
     pick=a.id;choose();const s=body.querySelector('.is-selected');if(s){s.focus({preventScroll:true});playAv(s.querySelector('img'),a.id)}});   // its short animation, once (js/avanim.js: nothing before a tap, nothing with reduced motion or calm)
-   b.dataset.id=a.id;b.appendChild(pic(a.id,'wpick__art'));
+   /* review of #122 (the picker opened 3.7 s slower): a locked tile shows a small thumbnail of the character (tools/
+      avthumb.py, a few KB), an open one its full still; and every tile gets its picture only when it comes near the
+      screen (below the fold, when scrolled to) */
+   b.dataset.id=a.id;const ip=el('img','wpick__art'+(locked?' wpick__art--thumb':''));ip.alt='';ip.decoding='async';ip.draggable=false;
+   ip.dataset.src=locked?'assets/al/avthumb/'+a.id+'.webp':ART['av/'+a.id];later.push(ip);b.appendChild(ip);
+   if(locked){ip.style.transform='none';   // the thumbnail is the crop box already (inline too, so an older css/avatar.css in the cache does not zoom it twice)
+    ip.onerror=()=>{ip.onerror=null;ip.style.transform='';ip.classList.remove('wpick__art--thumb');ip.src=ART['av/'+a.id]}}   // no thumbnail (a character added later): its full still
    if(locked){b.setAttribute('aria-label',lockedSay(a,E.level));b.setAttribute('aria-disabled','true');
     const k=el('img','wpick__key');k.src=ART['ui/lock'];k.alt='';k.decoding='async';b.append(k,el('span','wpick__lock','רמה '+a.open))}   // a small lock in the top corner and "רמה N" in one short line at the bottom: the picture stays in view
    else{b.setAttribute('aria-label',a.he);b.setAttribute('aria-pressed',sel?'true':'false')}
    grid.appendChild(b)}
   /* the characters still being drawn: a plain tile, "בקרוב" and its level; no picture (nothing broken), opens nothing */
-  for(const n of SOON){if(AVATARS.some(a=>a.open===n))continue;
+  for(const n of SOON){if(ALL.some(a=>a.open===n))continue;
    const t=el('div','wpick__soon-tile');t.setAttribute('role','img');t.setAttribute('aria-label','דמות חדשה בקרוב, ברמה '+n);
    t.append(el('span','wpick__soon','בקרוב'),el('span','wpick__lock','רמה '+n));grid.appendChild(t)}
   body.append(grid,note);
+  /* the first time the grid is drawn, a picture is fetched when its tile comes within 200 px of the picker's view; when
+     it is drawn again (each tap redraws it), every picture at once, so the tapped tile's animation is never written over */
+  if(seen||typeof IntersectionObserver!=='function')for(const i of later){if(!i.getAttribute('src'))i.src=i.dataset.src}
+  else{if(io)io.disconnect();
+   io=new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting){const i=e.target;io.unobserve(i);if(!i.getAttribute('src'))i.src=i.dataset.src}},{root:sec,rootMargin:'200px 0px'});
+   for(const i of later)io.observe(i)}
+  seen=true;
   const why=el('p','wpick__why',pick?'':'קודם בוחרים דמות.');
   const nx=btn('wpick__ok','הלאה: בוחרים שם',()=>{if(!pick){why.textContent='קודם בוחרים דמות.';return}name()});
   nx.setAttribute('aria-disabled',pick?'false':'true');body.append(nx,why)}

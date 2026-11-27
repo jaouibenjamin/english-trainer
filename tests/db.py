@@ -11,7 +11,7 @@ a pupil or a teacher only through five API-shaped calls (select, rpc, insert, up
 can run against a real project's REST API later (docs/BACKEND.md section 11 lists what this stand-in cannot prove).
 Set-up and the "what is really in the table" checks use SQL as the owner. All names and codes are made up.
 Exit code 0 only when every check passed."""
-import json, os, sys, threading, time, uuid
+import secrets, json, os, sys, threading, time, uuid
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db'))
 import pg
 
@@ -66,7 +66,7 @@ def record(db, k, events, batch=None):
 
 
 def fixture(db):
-    sql = [f"insert into public.classes (id, name, grade) values ('{C1}', 'test class 1', '5'), ('{C2}', 'test class 2', '5');"]
+    sql = [f"insert into public.classes (id, name, grade, name_form) values ('{C1}', 'test class 1', '5', 'first'), ('{C2}', 'test class 2', '5', 'first');"]
     users = [T1, T2, STRAY] + [a for a, _ in KIDS.values()]
     sql.append("insert into auth.users (id, email) values " + ', '.join(f"('{u}', '{u}@test.invalid')" for u in users) + ';')
     sql.append(f"insert into public.teachers values ('{T1}', '{C1}'), ('{T2}', '{C2}');")
@@ -88,9 +88,9 @@ PUBLIC_TABLES = ['classes', 'roster', 'teachers', 'pupils', 'items', 'levels', '
 VIEWS = ['class_board', 'teacher_view', 'teacher_items', 'backend_health']
 PRIVATE_TABLES = ['class_codes', 'pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'auth_attempts', 'auth_buckets',
                   'auth_lock_events', 'ip_salts', 'answer_batches', 'pupil_days', 'settings', 'deletions', 'maintenance_log', 'class_misses',
-                  'teacher_resets', 'limbo', 'removed_pupils']
+                  'teacher_resets', 'limbo', 'removed_pupils', 'schools', 'grades', 'pupil_carry']
 PUPIL_KEYED = ['pupil_totals', 'progress', 'answers', 'points', 'flags', 'answer_daily', 'level_best']
-PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days', 'removed_pupils']
+PUPIL_KEYED_PRIVATE = ['pupil_secrets', 'reset_codes', 'pupil_devices', 'legacy_import', 'answer_batches', 'pupil_days', 'removed_pupils', 'pupil_carry']
 
 
 def test_catalogue(db):
@@ -114,8 +114,8 @@ def test_catalogue(db):
        db.admin(rel % "has_table_privilege('authenticated', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE')"), [['public.roster']])
     eq('authenticated: no right on any sequence', db.admin(seq % 'authenticated'), [])
     eq('authenticated: may run exactly the listed functions', [r[0] for r in db.admin(fn % 'authenticated')],
-       ['app.class_id', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.reads_class', 'app.reads_pupil', 'app.safe_int', 'app.shadow', 'app.teaches', 'app.teaches_pupil',
-        'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil', 'public.teacher_remove_pupil',
+       ['app.class_id', 'app.name_chars_ok', 'app.name_key', 'app.name_ok', 'app.obj', 'app.pupil_id', 'app.reads_class', 'app.reads_pupil', 'app.safe_int', 'app.shadow', 'app.teaches', 'app.teaches_pupil',
+        'public.grade_board', 'public.ping', 'public.record_events', 'public.save_progress', 'public.teacher_delete_pupil', 'public.teacher_remove_pupil',
         'public.teacher_removed', 'public.teacher_restore_pupil'])
     eq('row level security is on for every table in public and private',
        db.admin("""select n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -422,6 +422,7 @@ def test_teacher(db):
                  insert into private.pupil_devices (pupil_id, device_hash) values ('{g}', '\\x0102');
                  insert into private.legacy_import values ('{g}', 's', repeat('a', 64));
                  insert into private.removed_pupils (pupil_id, class_id, removed_at) values ('{g}', '{C1}', now());
+                 insert into private.pupil_carry (pupil_id, pts, tries) values ('{g}', 1, 1);
                  insert into public.answer_daily (pupil_id, day, item_id, tries) values ('{g}', current_date - 100, 1, 1);
                  insert into public.flags (pupil_id, kind, day) values ('{g}', 'rate', current_date);
                  insert into public.level_best (pupil_id, game, level_key, stars) values ('{g}', 'math', 'bay:1', 1);
@@ -640,7 +641,7 @@ def test_removal(db):
     eq('S5: undo into a full class: refused as full', v, dict(ok=False, e='full'))
     db.admin(f"update public.classes set max_pupils = 60 where id = '{C1}'")
     c3, k4 = U(0xC3), U(0xE26)
-    db.admin(f"insert into public.classes (id, name) values ('{c3}', 'gone class'); insert into public.teachers values ('{T1}', '{c3}');"
+    db.admin(f"insert into public.classes (id, name, name_form) values ('{c3}', 'gone class', 'first'); insert into public.teachers values ('{T1}', '{c3}');"
              f"insert into public.pupils (id, class_id, display_name) values ('{k4}', '{c3}', 'Nini')")
     db.rpc(T, 'teacher_remove_pupil', dict(p_pupil=k4))
     lim = db.one(f"select limbo_id from private.limbo where class_id = '{c3}'")
@@ -773,10 +774,12 @@ def test_load(db):
     N, ROUNDS, PER = 35, 3, 10
     cls = U(0xC9)
     kids = [(U(0x1A000 + i), U(0x1B000 + i)) for i in range(N)]
-    db.admin(f"insert into public.classes (id, name) values ('{cls}', 'load class');"
+    HEB = 'אבגדהוזחטיכלמנסעפצקרשת'   # no final letters: a final letter has the key of its plain form (0010)
+    assert N <= 22 * 22
+    db.admin(f"insert into public.classes (id, name, name_form) values ('{cls}', 'load class', 'first');"
              + "insert into auth.users (id) values " + ', '.join(f"('{a}')" for a, _ in kids) + ';'
              + 'insert into public.pupils (id, class_id, display_name, auth_user_id) values '
-             + ', '.join(f"('{p}', '{cls}', 'load {chr(0x5d0 + i % 27)}{chr(0x5d0 + i // 27)}', '{a}')" for i, (a, p) in enumerate(kids)) + ';'
+             + ', '.join(f"('{p}', '{cls}', 'load {HEB[i % 22]}{HEB[i // 22]}', '{a}')" for i, (a, p) in enumerate(kids)) + ';'
              + "insert into public.items (game, item_key) values " + ', '.join(f"('load', 'i{j}')" for j in range(60)) + ';')
     base = int(time.time() * 1000) - 30 * 60000
     errors, seen = [], {}
@@ -837,13 +840,122 @@ def test_load(db):
     eq('pupil_totals equals the ledgers after the load', db.admin('select * from private.totals_check()'), [])
 
 
+def test_grades(db):
+    """docs/GRADES_V1.md: grades, the grade board, a first name and one surname letter, the carry, teacher_add."""
+    print('-- grades (0010)')
+    u = lambda n: f'00000000-0000-4000-9000-{n:012d}'
+    db.admin("insert into auth.users (id) select ('00000000-0000-4000-9000-' || lpad(g::text, 12, '0'))::uuid from generate_series(1, 9) g")
+    lk = lambda: secrets.token_hex(32)
+    a = db.one(f"select private.class_create('ה׳1', 'ה׳', '{lk()}')")
+    b = db.one(f"select private.class_create('ה׳2', 'ה׳', '{lk()}')")
+    o = db.one(f"select private.class_create('ו׳1', 'ו׳', '{lk()}')")
+    t = db.one("insert into public.classes (name, name_form) values ('Trial grades', 'first') returning id")   # as the trial: made before 0010
+    eq('class_create: two classes of one grade share it; another grade is another; every new class takes a surname letter',
+       db.admin(f"select (select grade_id from public.classes where id = '{a}') = (select grade_id from public.classes where id = '{b}'), "
+                f"(select grade_id from public.classes where id = '{a}') <> (select grade_id from public.classes where id = '{o}'), "
+                f"(select count(*) from public.classes where id in ('{a}', '{b}', '{o}') and name_form = 'first_initial' and kind = 'class')"), [['t', 't', '3']])
+    check('class_create refuses a class without its grade', db.psql(f"select private.class_create('x', ' ', '{lk()}')", user='supabase_admin')[1] is not None)
+    check('a class name names one class', 'duplicate key' in (db.psql(f"select private.class_create('ה׳1', 'ה׳', '{lk()}')", user='supabase_admin')[1] or ''))
+    ins = lambda c, name, n: db.psql(f"insert into public.pupils (class_id, display_name, auth_user_id) values ('{c}', $n${name}$n$, '{u(n)}')", user='supabase_admin')[1]
+    eq('names in a new class: one letter yes; a first name alone, a full surname, two letters, a digit not on the roster: no',
+       [ins(a, 'נועה כ.', 1) is None, ins(a, 'Dan', 9) is None, ins(a, 'Dan Levi', 9) is None, ins(a, 'Dan Le.', 9) is None, ins(a, 'Dan L2.', 9) is None],
+       [True, False, False, False, False])
+    rin = lambda name: db.psql(f"insert into public.roster values ('{a}', app.name_key($n${name}$n$), $n${name}$n$)", user='supabase_admin')[1]
+    eq('the roster: a digit after the letter for a clash (2 to 9); never two letters, a full surname, 0 or 1, or a digit in a first name',
+       [rin('נועה כ2.') is None, rin('נועה כה.') is None, rin('Avi Levi') is None, rin('Avi L1.') is None, rin('Avi2 L.') is None], [True, False, False, False, False])
+    eq('a clash: the digit form registers because the roster holds it', ins(a, 'נועה כ2.', 2), None)
+    eq('a final letter is the plain letter: "נועה ך." is the pupil "נועה כ." (one pupil, not two)',
+       [db.one("select app.name_key('נועה ך.') = app.name_key('נועה כ.')"), 'duplicate key' in (ins(a, 'נועה ך.', 9) or '')], ['t', True])
+    eq('the trial class (first): a first name alone still works', ins(t, 'Test', 3), None)
+    ins(b, 'Uri ב.', 4); ins(o, 'Maya מ.', 5)
+    # 10 points each, through the ledger, so the totals still equal the ledgers (the load test checks every pupil)
+    db.admin(f"""insert into public.points (pupil_id, delta, reason) select id, 10, 'fix' from public.pupils where class_id in ('{a}', '{b}', '{o}', '{t}');
+                 update public.pupil_totals set points = points + 10 where pupil_id in (select id from public.pupils where class_id in ('{a}', '{b}', '{o}', '{t}'))""")
+    board = lambda who: db._json(who, "select coalesce(jsonb_agg(to_jsonb(t) order by t.display_name), '[]') from public.grade_board() t")
+    got, err = board(('authenticated', u(1)))
+    eq('grade board for a pupil of ה׳1: the pupils of ה׳ with their class, no other grade, no trial, own row marked',
+       err or sorted((r['display_name'], r['class'], r['me']) for r in got), [('Uri ב.', 'ה׳2', False), ('נועה כ.', 'ה׳1', True), ('נועה כ2.', 'ה׳1', False)])
+    eq('grade board for the trial pupil (no grade): empty', board(('authenticated', u(3)))[0], [])
+    eq('grade board for anonymous: refused', 'permission denied' in (board(('anon', None))[1] or ''), True)
+    db.admin(f"insert into public.teachers values ('{u(6)}', '{o}')")
+    eq('grade board for the teacher of ו׳1: her grade only', [r['display_name'] for r in board(('authenticated', u(6)))[0]], ['Maya מ.'])
+    db.admin(f"insert into public.teachers values ('{u(7)}', '{b}')")
+    p_uri = db.one(f"select id from public.pupils where class_id = '{b}'")
+    v, err = db.rpc(('authenticated', u(7)), 'teacher_remove_pupil', dict(p_pupil=p_uri))
+    eq('a removed pupil: their hidden class is kind limbo in the same grade, and they leave the grade board',
+       [err, db.admin(f"select c.kind, c.grade_id = (select grade_id from public.classes where id = '{b}') from public.pupils p join public.classes c on c.id = p.class_id where p.id = '{p_uri}'"),
+        sorted(r['display_name'] for r in board(('authenticated', u(1)))[0])], [None, [['limbo', 't']], ['נועה כ.', 'נועה כ2.']])
+    eq('teacher_add: by user id and class name; again is "already"; an unknown class or user is refused',
+       [db.one(f"select private.teacher_add('{u(8)}', 'ה׳1')"), db.one(f"select private.teacher_add('{u(8)}', 'ה׳1')"),
+        db.one(f"select private.teacher_add('{u(8)}', 'nope')"),
+        db.one("select private.teacher_add('00000000-0000-4000-9000-999999999999', 'ה׳1')")], ['ok', 'already', 'class', 'user'])
+    eq('the grade board crosses class lines with these columns only: name (with the letter), class, points, me; no ids',
+       sorted(board(('authenticated', u(1)))[0][0].keys()), ['class', 'display_name', 'me', 'points', 'rank'])
+    eq('the new tables are not reachable through the API', [db.as_('authenticated', u(1), f'select count(*) from private.{x}')[1] is not None for x in ('schools', 'grades', 'pupil_carry')], [True] * 3)
+    # the carry: old daily rows and a finished school year are folded, totals unchanged
+    p_noa = db.one(f"select id from public.pupils where class_id = '{a}' and display_name = 'נועה כ.'")
+    db.admin(f"""insert into public.items (game, item_key) values ('carry', 'one') on conflict do nothing;
+                 insert into public.answer_daily (pupil_id, day, item_id, tries, correct, pts) select '{p_noa}', current_date - 200, id, 3, 2, 20 from public.items where game = 'carry';
+                 insert into public.answers (pupil_id, item_id, correct, first_try, pts, at) select '{p_noa}', id, true, true, 10, private.year_start(now())::timestamptz - interval '2 days' from public.items where game = 'carry';
+                 update public.pupil_totals set points = points + 30, answers = answers + 4 where pupil_id = '{p_noa}';""")
+    before = db.admin(f"select * from private.totals_check() where pupil_id = '{p_noa}'")
+    res = db.one("select private.fold_history(now())")
+    eq('fold_history: the old daily row and last school year\'s answer are folded into the carry and deleted; totals still add up',
+       [before, db.admin(f"select pts, tries from private.pupil_carry where pupil_id = '{p_noa}'"),
+        db.one(f"select count(*) from public.answer_daily where pupil_id = '{p_noa}'"), db.one(f"select count(*) from public.answers where pupil_id = '{p_noa}'"),
+        db.admin(f"select * from private.totals_check() where pupil_id = '{p_noa}'")], [[], [['30', '4']], '0', '0', []])
+    eq('limits with headroom for a grade at one address (ip_hour 3000, register_ip_hour 1500; per class 300 and 150)',
+       db.admin('select ip_hour, register_ip_hour, ip_class_hour, register_ip_class_hour from private.settings'), [['3000', '1500', '300', '150']])
+    eq('year_end must be a day every year has: 02-30 and 02-29 are refused, 06-30 is taken',
+       [db.psql(f"update private.settings set year_end = '{d}'", user='supabase_admin')[1] is None for d in ('02-30', '02-29', '06-30', '08-31')], [False, False, True, True])
+    db.admin(f"""insert into public.answer_daily (pupil_id, day, item_id, tries, pts) select '{p_noa}', current_date - 300 - g, i.id, 1, 1
+                  from generate_series(1, 3) g, public.items i where i.game = 'carry';
+                  update public.pupil_totals set points = points + 3, answers = answers + 3 where pupil_id = '{p_noa}';
+                  update private.settings set fold_per_run = 2;""")
+    db.one("select private.fold_history(now())")
+    eq('the fold is bounded per run (fold_per_run): 2 of 3 old rows tonight, the last one the next night; totals right throughout',
+       [db.one(f"select count(*) from public.answer_daily where pupil_id = '{p_noa}'"), db.admin(f"select * from private.totals_check() where pupil_id = '{p_noa}'")], ['1', []])
+    db.one("select private.fold_history(now())")
+    eq('and the next night folds the rest', db.one(f"select count(*) from public.answer_daily where pupil_id = '{p_noa}'"), '0')
+    db.admin("update private.settings set fold_per_run = 50000")
+    db.admin(f"insert into public.pupils (class_id, display_name) select '{a}', 'Big' || chr(65 + g / 26) || chr(65 + g % 26) || ' B.' from generate_series(0, 329) g")
+    # 0011: the server sends the top 10 and the caller's own row, never the whole grade (review of the board)
+    in_order = lambda who: db._json(who, "select coalesce(jsonb_agg(to_jsonb(t) - 'n' order by t.n), '[]') "
+                                         "from public.grade_board() with ordinality t(display_name, class, points, me, rank, n)")
+    db.admin(f"update public.pupil_totals t set points = 1000 - x.n from (select id, row_number() over (order by display_name)::int as n "
+             f"from public.pupils where class_id = '{a}' and display_name like 'Big%') x where x.id = t.pupil_id")
+    noa_pts = int(db.one(f"select points from public.pupil_totals where pupil_id = '{p_noa}'"))
+    got, err = in_order(('authenticated', u(1)))
+    eq('a grade of 330 more pupils, all ahead of Noa: she gets 11 rows, the top 10 (ranks 1 to 10, in order) and her own '
+       'row last with her rank (331); nobody else of the grade', err or [(r['display_name'], r['points'], r['rank'], r['me']) for r in got],
+       [(f'BigA{chr(65 + i)} B.', 999 - i, i + 1, False) for i in range(10)] + [('נועה כ.', noa_pts, 331, True)])
+    got, err = in_order(('authenticated', u(8)))
+    eq('her class teacher: the top 10 only, no own row', err or [(len(got), any(r['me'] for r in got))], [(10, False)])
+    db.admin(f"update public.pupil_totals t set points = 50 from public.pupils p where p.id = t.pupil_id and p.class_id = '{a}' and p.display_name like 'Big%'")
+    got, err = in_order(('authenticated', u(1)))
+    eq('330 pupils tied for first: still 10 of them (all rank 1) and Noa (rank 331): ties never lengthen the answer',
+       err or [len(got), sorted({r['rank'] for r in got[:10]}), got[10]['rank'], got[10]['me']], [11, [1], 331, True])
+    p_big = db.one(f"select id from public.pupils where class_id = '{a}' and display_name = 'BigMR B.'")
+    db.admin(f"update public.pupils set auth_user_id = '{u(9)}' where id = '{p_big}'")
+    got, err = in_order(('authenticated', u(9)))
+    eq('a pupil tied with the top 10 but not picked: their own row still comes, with the shared rank',
+       err or [len(got), got[-1]['display_name'], got[-1]['rank'], got[-1]['me'], sum(r['me'] for r in got)], [11, 'BigMR B.', 1, True, 1])
+    db.admin(f"delete from public.pupils where class_id = '{a}' and display_name like 'Big%'")
+    check('no class is ever named like the hidden ones', db.psql(f"select private.class_create('Removed', 'ה׳', '{lk()}')", user='supabase_admin')[1] is not None)
+    db.admin("insert into public.classes (name, name_form) values ('removed', 'first')")      # one made by hand, as a real class
+    p_noa2 = db.one(f"select id from public.pupils where class_id = '{a}' and display_name = 'נועה כ2.'")
+    db.admin(f"insert into public.teachers values ('{u(9)}', '{a}') on conflict do nothing")
+    v, err = db.rpc(('authenticated', u(9)), 'teacher_remove_pupil', dict(p_pupil=p_noa2))
+    eq('a real class named "removed" does not stop a removal: the hidden class is made as limbo', [err, (v or {}).get('ok')], [None, True])
+
+
 def main():
     args = sys.argv[1:]
     db = pg.start()
     try:
         if '--load' not in args:
             fixture(db)
-            test_catalogue(db); test_anon(db); test_pupil(db); test_points(db); test_teacher(db); test_removal(db); test_storage(db)
+            test_catalogue(db); test_anon(db); test_pupil(db); test_points(db); test_teacher(db); test_removal(db); test_storage(db); test_grades(db)
         if '--no-load' not in args:
             test_load(db)
     finally:

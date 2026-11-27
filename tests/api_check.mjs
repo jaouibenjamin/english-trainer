@@ -880,10 +880,15 @@ locks(false);
   // 'supabase' has its own switch, ?new=1 (docs/PHASE4.md A); ?dual=1 does not turn it on, nor ?new=1 'dual'
   const cfg = { mode: 'supabase', url: SB, key: KEY };
   const at = async (q, cfg2 = cfg, shared) => { globalThis.location.search = q; const x = await load(cfg2, sheetOk, shared); globalThis.location.search = ''; return x; };
-  const a = await at(''), b = await at('?dual=1'), c = await at('?new=1'), d = await at('', cfg, c), e = await at('?new=0', cfg, c);
+  // review of #121: ?new=1 on a device not in the trial only asks (js/trial.js; its "כן" stores wi_new): never a silent switch,
+  // also where the question cannot be stored (no sessionStorage here)
+  const a = await at(''), b = await at('?dual=1'), c = await at('?new=1'), asked = c.store.has('wi_new');
+  c.store.set('wi_new', '1');                                     // "כן"
+  const d = await at('', cfg, c), g = await at('?new=1', cfg, c), e = await at('?new=0', cfg, c);
   const f = await at('?new=1', { mode: 'dual', url: SB, key: KEY });
-  eq("'supabase' trial: only ?new=1 turns a device on, it is remembered, ?new=0 turns it off; ?new=1 is not the switch of 'dual'",
-    [a.m.MODE, b.m.MODE, c.m.MODE, d.m.MODE, e.m.MODE, c.store.has('wi_new'), f.m.MODE], ['sheet', 'sheet', 'supabase', 'supabase', 'sheet', false, 'sheet']);
+  eq("'supabase' trial: ?new=1 does not switch a device by itself; once it joined (\"כן\") it is remembered, ?new=1 again keeps it, ?new=0 turns it off; ?new=1 is not the switch of 'dual'",
+    [a.m.MODE, b.m.MODE, c.m.MODE, asked, d.m.MODE, g.m.MODE, e.m.MODE, c.store.has('wi_new'), f.m.MODE], ['sheet', 'sheet', 'sheet', false, 'supabase', 'supabase', 'sheet', false, 'sheet']);
+  eq('a class device (not in the trial) with ?new=1: nothing registered on the page', c.listeners.length, 0);
 }
 {
   // K2b (review of #73): with a project in config.js the default is a trial; only everyone: true (that exact key, that

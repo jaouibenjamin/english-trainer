@@ -63,7 +63,9 @@ p.si-hint{padding:0 16px}
 .si-who{position:absolute;inset-block-end:calc(env(safe-area-inset-bottom) + 10px);inset-inline-end:10px;inline-size:max-content;max-inline-size:calc(50% - 4px);z-index:30;
  display:flex;align-items:center;gap:4px;padding:0 4px 0 12px;border-radius:999px;background:var(--wi-navy-800);border:1px solid var(--wi-line);color:var(--wi-text);font:600 var(--wi-fs-sm) var(--wi-font-ui)}
 .si-who--in{position:static;margin:8px auto 0;max-inline-size:100%}
-.si-hi{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-inline-size:0}
+.si-hi{display:flex;white-space:nowrap;min-inline-size:0;font-weight:700}
+.si-fn{overflow:hidden;text-overflow:ellipsis;min-inline-size:0}.si-ln{flex:0 0 auto}
+.si-sep{color:var(--wi-text-dim)}.si-av{flex:0 0 36px;inline-size:36px;block-size:36px;border-radius:50%;object-fit:cover;background:var(--wi-navy-700)}
 .si-nm{min-block-size:44px;white-space:nowrap;padding-inline:10px;font-size:var(--wi-fs-sm)}
 .si-ov{position:fixed;inset:0;z-index:70;background:rgba(5,14,34,.72);display:grid;place-items:center;padding:16px}
 .si-card{max-inline-size:340px;inline-size:100%;padding:16px}
@@ -71,3 +73,18 @@ p.si-hint{padding:0 16px}
 .si-row{display:flex;gap:8px;margin-top:12px}.si-row .wi-btn{flex:1;min-block-size:48px}
 .si-names{align-self:center;margin:2px auto 0;min-block-size:44px;font-size:var(--wi-fs-sm)}
 .si-names[aria-pressed="true"]{color:var(--wi-gold)}
+
+/* a trial device (?new=1): the way back to the class's game, small but always there (review of #117) */
+/* a trial device (docs/SIGNIN.md section 6): a small tag above the title; the way back a quiet 48 px button in the bar */
+.si-tag{align-self:center;display:inline-flex;align-items:center;padding:4px 12px;border-radius:var(--wi-r-pill,999px);border:1px dashed var(--wi-aqua,#2EE6C5);color:var(--wi-aqua,#2EE6C5);font-size:var(--wi-fs-xs,13px);font-weight:700}
+.si-bar .si-trial{min-block-size:48px}
+/* the name: first name + one letter of the surname, side by side ("נועה כ.", docs/GRADES_V1.md 0011) */
+.si-nrow{display:flex;gap:8px;align-items:flex-end}.si-nrow .si-fn{flex:1;min-inline-size:0}.si-nrow .si-lt{flex:0 0 88px}
+.si-nrow label{font-size:var(--wi-fs-sm)}.si-lt>input{text-align:center;padding-inline:0}
+.si-as{margin:2px 0 0;color:var(--wi-text-dim);font-size:var(--wi-fs-sm)}.si-as b{color:var(--wi-text)}.si-as[hidden]{display:none}
+/* the on-screen keypad only on a fine pointer (a laptop): on a phone the system's number keyboard does the job, so two
+   keypads never stack and the bar stays above the keyboard (docs/SIGNIN.md "The 4-digit code field") */
+@media not (pointer:fine){.si-pad{display:none}}
+/* the title: the pill at the top of the screen (docs/mock/signin.html "כותרת: מי משחק") */
+.si-titletop{display:flex;justify-content:center;inline-size:100%;padding:0 4px;box-sizing:border-box}
+.si-titletop .si-who--in{margin:0;min-block-size:48px}

@@ -68,7 +68,7 @@ try:
 
     # ---------------------------------------------------------------- migrate_sheet
     print('-- tools/migrate_sheet.py')
-    cls = db.one("insert into public.classes (name) values ('ops class') returning id")
+    cls = db.one("insert into public.classes (name, name_form) values ('ops class', 'first') returning id")   # first names alone, as the Sheet's
     codes = {'Testa': '8353', 'Probe': '9053', 'Sample Two': '6149', 'Dummy': '7159', 'x': '4827', 'Fixty': '5839'}
     with open(os.path.join(HERE, 'fixtures/sheet_sample.csv')) as f:
         text = f.read()
