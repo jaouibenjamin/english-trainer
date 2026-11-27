@@ -73,4 +73,6 @@ p.si-hint{padding:0 16px}
 .si-names[aria-pressed="true"]{color:var(--wi-gold)}
 
 /* a trial device (?new=1): the way back to the class's game, small but always there (review of #117) */
-.si-trial{display:block;margin-top:var(--wi-s2,8px);min-height:44px;line-height:44px;text-align:center;color:var(--wi-text-dim,#c8d3ea);font-size:var(--wi-fs-sm,14px);text-decoration:underline}
+/* a trial device (docs/SIGNIN.md section 6): a small tag above the title; the way back a quiet 48 px button in the bar */
+.si-tag{align-self:center;display:inline-flex;align-items:center;padding:4px 12px;border-radius:var(--wi-r-pill,999px);border:1px dashed var(--wi-aqua,#2EE6C5);color:var(--wi-aqua,#2EE6C5);font-size:var(--wi-fs-xs,13px);font-weight:700}
+.si-bar .si-trial{min-block-size:48px}
